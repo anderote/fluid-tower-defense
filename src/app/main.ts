@@ -1,4 +1,5 @@
 import { connectGPU } from '../runtime/gpu.ts';
+import { verifyABI } from '../runtime/abi-check.ts';
 const root = document.querySelector<HTMLDivElement>('#app')!;
 root.innerHTML = '<h1>Pressure Front</h1><p id="status">Checking WebGPU…</p><canvas width="800" height="500"></canvas>';
 try {
@@ -13,4 +14,5 @@ try {
  await result.mapAsync(GPUMapMode.READ);const value=new Uint32Array(result.getMappedRange())[0];result.unmap();
  document.querySelector('#status')!.textContent=`${adapter} · compute result ${value} · ${value===42?'GPU foundation passed':'GPU test failed'}`;
  buffer.destroy();result.destroy();
+ const abi=await verifyABI(device);document.querySelector('#status')!.textContent += ` · particle ABI ${abi?'passed':'FAILED'}`;
 } catch(error){ document.querySelector('#status')!.textContent=String(error); }
