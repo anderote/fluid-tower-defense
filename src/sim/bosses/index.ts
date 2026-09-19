@@ -145,7 +145,7 @@ fn pushParticles(@builtin(global_invocation_id) gid: vec3<u32>) {
 fn resolveBoss() {
   var boss = bossState;
   let phase = u32(clamp(boss.mode.x, 0.0, 5.0) + 0.5);
-  if (boss.mode.z > 0.5 && boss.mode.w < 0.5) {
+  if (params.clock.w > 0.5 && boss.mode.z > 0.5 && boss.mode.w < 0.5) {
     if (boss.body.z <= 0.0 || phase == PHASE_DEAD) {
       boss.body.z = 0.0;
       boss.motion = vec4<f32>(boss.motion.xy, vec2<f32>(0.0));
