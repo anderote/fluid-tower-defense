@@ -12,11 +12,11 @@ export const CONTENT_VERSION = 'pressure-front-1';
 const SAVE_KEY = 'pressure-front.run.v1';
 const MAX_TOWERS = 64;
 const WAVES: readonly Wave[] = [
-  {spawns:[{kind:'shambler',count:150,seed:101}],payment:90,bonus:false},
-  {spawns:[{kind:'runner',count:90,seed:201},{kind:'shambler',count:210,seed:202}],payment:120,bonus:true},
-  {spawns:[{kind:'brute',count:42,seed:301},{kind:'shambler',count:458,seed:302}],payment:165,bonus:false},
-  {spawns:[{kind:'runner',count:370,seed:401},{kind:'brute',count:75,seed:402},{kind:'shambler',count:355,seed:403}],payment:220,bonus:true},
-  {spawns:[{kind:'shambler',count:430,seed:501},{kind:'runner',count:220,seed:502},{kind:'brute',count:150,seed:503}],payment:300,bonus:false},
+  {spawns:[{kind:'shambler',count:900,seed:101}],payment:180,bonus:false},
+  {spawns:[{kind:'runner',count:850,seed:201},{kind:'shambler',count:1_650,seed:202}],payment:300,bonus:true},
+  {spawns:[{kind:'brute',count:240,seed:301},{kind:'shambler',count:3_760,seed:302}],payment:480,bonus:false},
+  {spawns:[{kind:'runner',count:3_300,seed:401},{kind:'brute',count:650,seed:402},{kind:'shambler',count:4_050,seed:403}],payment:750,bonus:true},
+  {spawns:[{kind:'shambler',count:7_000,seed:501},{kind:'runner',count:3_500,seed:502},{kind:'brute',count:1_100,seed:503}],payment:1_150,bonus:false},
 ];
 const BONUSES: readonly BonusChoice[] = [
   {id:'hydraulic-advantage',name:'Hydraulic Advantage',description:'Repulsors push harder but pulse a little slower.'},

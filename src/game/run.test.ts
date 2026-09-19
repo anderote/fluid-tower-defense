@@ -36,7 +36,7 @@ test('counter rollback is ignored and settling keeps combat running while enemie
 test('salvage can be selected at both authored milestones and remains saveable',()=>{
   const run=createRun();
   const finish=(tick:number)=>{
-    assert.equal(run.startWave().ok,true); run.takeSpawns(1000);
+    assert.equal(run.startWave().ok,true); run.takeSpawns(65_536);
     run.applySettlement({epoch:1,tick,kills:0,crushKills:0,leaks:0,earned:0,live:0,invalid:0,maxPacking:0});
     assert.equal(run.finishSettling().ok,true);
   };

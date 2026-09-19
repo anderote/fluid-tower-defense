@@ -2,8 +2,8 @@ import {P, PARTICLE_FLOATS, type EnemyDef, type EnemyKind, type SpawnBatch, type
 
 export const TOWERS: Record<TowerKind, TowerDef> = {
   repulsor: {id:'repulsor', name:'Repulsor', description:'Pulses enemies toward the choke walls.', cost:90, range:15, cooldown:1.05, damage:2, force:30, radius:3.4, color:'#50d5ff', branches:['Ram','Wave']},
-  mortar: {id:'mortar', name:'Mortar', description:'Lobs a concussive shell into dense crowds.', cost:120, range:27, cooldown:2.25, damage:22, force:18, radius:4.8, color:'#ff9b55', branches:['Siege','Cluster']},
-  autocannon: {id:'autocannon', name:'Autocannon', description:'Rapidly picks off runners and stragglers.', cost:105, range:19, cooldown:.22, damage:5, force:4, radius:.8, color:'#ffe46b', branches:['Piercer','Suppressor']},
+  mortar: {id:'mortar', name:'Mortar', description:'Lobs a concussive shell into dense crowds.', cost:120, range:38, cooldown:2.25, damage:22, force:18, radius:4.8, color:'#ff9b55', branches:['Siege','Cluster']},
+  autocannon: {id:'autocannon', name:'Autocannon', description:'Rapidly picks off runners and stragglers.', cost:105, range:28, cooldown:.22, damage:5, force:4, radius:.8, color:'#ffe46b', branches:['Piercer','Suppressor']},
   cryo: {id:'cryo', name:'Cryo Emitter', description:'Slows a cone of incoming enemies.', cost:110, range:13, cooldown:.7, damage:1, force:0, radius:4.1, color:'#a995ff', branches:['Deep Freeze','Cold Front']},
 };
 
