@@ -56,7 +56,7 @@ fn safeDir(delta:vec2f)->vec2f { return delta/max(length(delta),0.0001); }
  let i=gid.x;if(i>=u32(params.clock.z)){return;}var p=particles[i];if(p.state.w<0.5||p.body.z<=0){return;}
  for(var t=0u;t<u32(params.clock.w);t++){
   let s=states[t];if(s.shot.x<.5){continue;}let def=towers[t];let kind=u32(def.position.w);
-  if(kind==2u){let rail=def.flags.w>.5;let forward=vec2f(cos(s.shot.w),sin(s.shot.w));if(rail){let offset=p.pos.xy-def.position.xy;let along=dot(offset,forward);let across=abs(offset.x*forward.y-offset.y*forward.x);if(along>=0.&&along<=def.position.z&&across<=1.05){let fall=max(.35,1.-along/max(def.position.z,.001));p.body.z-=def.weapon.y*fall;p.pos.zw+=forward*def.weapon.z*fall/max(.1,p.body.y);}}else if(s.shot.y>=0&&u32(s.shot.y)==i&&s.shot.z==p.status.w){p.body.z-=def.weapon.y;p.pos.zw+=forward*def.weapon.z/max(.1,p.body.y);if(def.flags.y==1){p.status.x=max(p.status.x,.25);}}continue;}
+  if(kind==2u){let rail=def.flags.w>.5;let forward=vec2f(cos(s.shot.w),sin(s.shot.w));if(rail){let offset=p.pos.xy-def.position.xy;let along=dot(offset,forward);let across=abs(offset.x*forward.y-offset.y*forward.x);if(along>=0.&&along<=def.position.z&&across<=1.05){let fall=max(.35,1.-along/max(def.position.z,.001));let kick=forward*def.weapon.z*fall/max(.1,p.body.y);p.body.z-=def.weapon.y*fall;p.pos.z=p.pos.z+kick.x;p.pos.w=p.pos.w+kick.y;}}else if(s.shot.y>=0&&u32(s.shot.y)==i&&s.shot.z==p.status.w){let kick=forward*def.weapon.z/max(.1,p.body.y);p.body.z-=def.weapon.y;p.pos.z=p.pos.z+kick.x;p.pos.w=p.pos.w+kick.y;if(def.flags.y==1){p.status.x=max(p.status.x,.25);}}continue;}
   var origin=def.position.xy;var rad=def.position.z;
   if(kind==1u){origin=s.timing.zw;rad=def.weapon.w;}
   let delta=p.pos.xy-origin;let dist=length(delta);if(dist>rad){continue;}
@@ -65,7 +65,7 @@ fn safeDir(delta:vec2f)->vec2f { return delta/max(length(delta),0.0001); }
   if(kind!=1u&&dot(safeDir(delta),forward)<coneCos){continue;}
   let falloff=max(.12,1.0-dist/max(rad,.001));
   p.body.z-=def.weapon.y*falloff;
-  if(kind==3u){p.status.x=max(p.status.x,2.2);p.status.y=max(p.status.y,1.6);p.pos.zw+=forward*def.weapon.z*falloff/max(.1,p.body.y);}else{
+  if(kind==3u){let kick=forward*def.weapon.z*falloff/max(.1,p.body.y);p.status.x=max(p.status.x,2.2);p.status.y=max(p.status.y,1.6);p.pos.z=p.pos.z+kick.x;p.pos.w=p.pos.w+kick.y;}else{
    let direction=select(forward,safeDir(delta),kind==1u);p.pos.z+=direction.x*def.weapon.z*falloff/max(.1,p.body.y);p.pos.w+=direction.y*def.weapon.z*falloff/max(.1,p.body.y);
   }
  }
