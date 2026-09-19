@@ -10,6 +10,8 @@ export const TOWERS: Record<TowerKind, TowerDef> = {
   railgun: {id:'railgun', name:'Railgun', description:'Penetrates and hurls targets along a long firing lane.', cost:180, range:48, cooldown:.78, damage:38, force:26, radius:1.1, color:'#73f5d2', branches:['Slug','Accelerator']},
 };
 
+const infrastructureResearch=(prefix:string,name:string,description:string,cost:number):readonly CommandUpgrade[]=>Array.from({length:20},(_,index)=>({id:`${prefix}-${index+1}`,name:`${name} ${index+1}`,description,cost:Math.round(cost+(index*42)+(Math.sqrt(index)*28))}));
+
 export const COMMAND_UPGRADES: readonly CommandUpgrade[] = [
   {id:'targeting-grid',name:'Targeting Grid',description:'+18% range to every tower.',cost:260},
   {id:'ammunition-forge',name:'Ammunition Forge',description:'+25% damage to every tower.',cost:300},
@@ -20,12 +22,14 @@ export const COMMAND_UPGRADES: readonly CommandUpgrade[] = [
   {id:'repulsor-impact-3',name:'Impact Coils III',description:'Repulsors deal +4 pulse damage.',cost:200},
   {id:'repulsor-impact-4',name:'Impact Coils IV',description:'Repulsors deal +5 pulse damage.',cost:270},
   {id:'repulsor-impact-5',name:'Impact Coils V',description:'Repulsors deal +6 pulse damage and +8% force.',cost:350},
-  {id:'barbed-wire-1',name:'Barbed Wire I',description:'+35% wire damage, resistance, and lifespan.',cost:100},
-  {id:'barbed-wire-2',name:'Barbed Wire II',description:'+30% wire damage, resistance, and lifespan.',cost:170},
-  {id:'barbed-wire-3',name:'Barbed Wire III',description:'+50% wire damage, resistance, and lifespan.',cost:260},
+  ...infrastructureResearch('wall-engineering','WALL ENGINEERING','Raises Metal Wall pressure capacity and lifespan.',90),
+  ...infrastructureResearch('barbed-wire','BARBED WIRE','Raises wire damage, slow duration, resistance, and lifespan.',80),
 ];
 
-export const barbedWireStats=(upgrades:readonly string[])=>{let damage=.45,slow=.65,durability=140,resistance=1.75;for(const [id,multiplier] of [['barbed-wire-1',1.35],['barbed-wire-2',1.3],['barbed-wire-3',1.5]] as const)if(upgrades.includes(id)){damage*=multiplier;slow*=multiplier;durability*=multiplier;resistance*=multiplier;}return {damage,slow,durability,resistance};};
+const researchLevel=(upgrades:readonly string[],prefix:string)=>upgrades.filter(id=>new RegExp(`^${prefix}-\\d+$`).test(id)).length;
+const researchMultiplier=(level:number)=>1+.58*Math.log1p(Math.max(0,Math.min(20,level)));
+export const barbedWireStats=(upgrades:readonly string[])=>{const multiplier=researchMultiplier(researchLevel(upgrades,'barbed-wire'));return {damage:.45*multiplier,slow:.65*multiplier,durability:140*multiplier,resistance:1.75*multiplier};};
+export const metalWallStats=(upgrades:readonly string[])=>{const multiplier=researchMultiplier(researchLevel(upgrades,'wall-engineering'));return {durability:240*multiplier,resistance:34*multiplier};};
 
 /** Packs authored towers into the four supported GPU weapon behaviours. */
 export const towerBehavior=(kind:TowerKind):number=>({repulsor:0,mortar:1,autocannon:2,cryo:3,tesla:3,rocket:1,railgun:2}[kind]);
@@ -103,7 +107,7 @@ export function compileTower(tower: Tower, bonuses: readonly string[] = [], comm
 function random(seed:number):()=>number { let state=(seed >>> 0) || 1; return ()=>{ state=(Math.imul(state,1664525)+1013904223)>>>0; return state / 0x1_0000_0000; }; }
 
 /** Encodes only the populated prefix. Callers must use `particles.length / PARTICLE_FLOATS`. */
-export function createParticles(batches: readonly SpawnBatch[], map: WorldMap, capacity: number): Float32Array {
+export function createParticles(batches: readonly SpawnBatch[], map: WorldMap, capacity: number, spawnSlot=0): Float32Array {
   validateContent();
   const requested = batches.reduce((sum,batch)=>sum+Math.max(0,Math.floor(batch.count)),0);
   const limit = Math.max(0,Math.min(Math.floor(capacity), requested));
@@ -117,17 +121,14 @@ export function createParticles(batches: readonly SpawnBatch[], map: WorldMap, c
   const actual = Math.min(limit,latticeCapacity);
   if (limit > actual) console.warn(`Particle spawn region holds ${actual} non-overlapping particles; ${limit - actual} remain pending`);
   const output = new Float32Array(actual * PARTICLE_FLOATS);
-  // Each streamed batch begins as a compact, centered plug instead of accumulating from top-left.
-  const columns=Math.min(maxColumns,Math.max(1,Math.ceil(Math.sqrt(actual*map.spawn.width/map.spawn.height))));
-  const rows=Math.ceil(actual/columns);
-  const startX=map.spawn.x+(map.spawn.width-columns*spacing)*.5;
-  const startY=map.spawn.y+(map.spawn.height-rows*spacing)*.5;
+  // Streamed batches rotate through an inlet lattice rather than restacking on a single cell.
+  const columns=maxColumns;
   let cursor=0, slot=0;
   for (const batch of batches) {
     const count=Math.max(0,Math.floor(batch.count)), enemy=ENEMIES[batch.kind], jitter=random(batch.seed);
     for (let i=0;i<count && slot<actual;i++,slot++) {
-      const col=slot%columns,row=Math.floor(slot/columns);
-      const baseX=startX+(col+.5)*spacing, baseY=startY+(row+.5)*spacing;
+      const cell=(spawnSlot+slot)%latticeCapacity,col=cell%columns,row=Math.floor(cell/columns);
+      const baseX=map.spawn.x+(col+.5)*spacing, baseY=map.spawn.y+(row+.5)*spacing;
       // A tiny deterministic jitter is safely smaller than the lattice clearance.
       const offset=(jitter()-.5)*.008;
       output[cursor+P.x]=baseX+offset; output[cursor+P.y]=baseY+(jitter()-.5)*.008;

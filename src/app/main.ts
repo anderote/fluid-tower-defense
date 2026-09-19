@@ -38,8 +38,8 @@ try {
  gpu.shared.shotState=combat.shotState;
  const renderer=await createRenderer(gpu.device,gpu.context,gpu.format,gpu.shared,ui.canvas);
  const clock=new FixedClock(), metrics=new FrameMetrics();
- let map=DEFAULT_MAP, navigation=buildNavigation(map);
- let epoch=run.epoch,count=0, requestedPopulation=Math.min(50000,Math.max(1,Number(params.get('population'))||10000)), stepRequested=false;
+ let map=DEFAULT_MAP, navigation=buildNavigation(map), spawnBaseline=DEFAULT_MAP.spawn;
+ let epoch=run.epoch,count=0,spawnSlot=0, requestedPopulation=Math.min(50000,Math.max(1,Number(params.get('population'))||10000)), stepRequested=false;
  let wallTool=false;
  let builtWalls:Rect[]=[];
  let wireTool=false;
@@ -51,8 +51,9 @@ try {
  const diagnosticText=diagnostics.querySelector('pre')!;
  const errors:string[]=[];
  let previousPaused=false;
+ const resizeSpawn=()=>{const scale=Math.sqrt(state.difficulty);const width=Math.min(70,spawnBaseline.width*scale),height=Math.min(96,spawnBaseline.height*scale);map={...map,spawn:{x:spawnBaseline.x,y:Math.max(2,Math.min(map.height-height-2,spawnBaseline.y+spawnBaseline.height/2-height/2)),width,height}};};
  const editor=createLevelEditor(root.querySelector<HTMLElement>('.view-actions')!,map,newMap=>{
-   map=newMap;navigation=buildNavigation(map);run.setMap(map);state.mode='game';resetWorld();previousPaused=false;
+   map=newMap;spawnBaseline=newMap.spawn;resizeSpawn();navigation=buildNavigation(map);run.setMap(map);state.mode='game';resetWorld();previousPaused=false;
    state.message='Custom level ready. Build your defense, then start a wave.';
  },active=>{if(active){previousPaused=state.paused;state.paused=true;state.selectedKind=null;stepRequested=false;state.message='Paint walls on the arena. Right-drag erases. Apply & Play starts a fresh defense.';}else{state.paused=previousPaused;}});
 
@@ -70,11 +71,11 @@ try {
    if(resetRun)run.reset();epoch=run.epoch;
    physics.reset();combat.reset();boss.reset(false);clock.reset();metrics.reset();lastTickSample=0;waveStartTick=0;simulatedTime=0;
    gpu.device.queue.writeBuffer(gpu.shared.counters,0,new Uint32Array(16));
-   commands=[];visuals=[];count=0;state.kills=state.crushKills=0;state.selectedKind=null;state.selected=null;state.paused=false;
+   commands=[];visuals=[];count=0;spawnSlot=0;state.kills=state.crushKills=0;state.selectedKind=null;state.selected=null;state.paused=false;
    latest={epoch,tick:0,kills:0,crushKills:0,leaks:0,earned:0,live:0,invalid:0,maxPacking:0};
    if(state.mode==='lab'){
      const batches=requestedPopulation<=10000?[{count:Math.floor(requestedPopulation*.8),kind:'shambler' as const,seed:1},{count:Math.floor(requestedPopulation*.15),kind:'runner' as const,seed:2},{count:requestedPopulation-Math.floor(requestedPopulation*.8)-Math.floor(requestedPopulation*.15),kind:'brute' as const,seed:3}]:[{count:requestedPopulation,kind:'shambler' as const,seed:1}];
-     const data=createParticles(batches,map,gpu.shared.capacity);count=data.length/PARTICLE_FLOATS;gpu.device.queue.writeBuffer(gpu.shared.particles,0,data.buffer);
+     const data=createParticles(batches,map,gpu.shared.capacity,spawnSlot);count=data.length/PARTICLE_FLOATS;spawnSlot+=count;gpu.device.queue.writeBuffer(gpu.shared.particles,0,data.buffer);
      state.message=count<requestedPopulation?`Spawn area fits ${count.toLocaleString()} of ${requestedPopulation.toLocaleString()} requested.`:'Click the crowd to detonate. Push it against a wall to crush it.';
    }else state.message='Build near the choke. Select a tower, then click a clear location.';
    state.population=count;previous=performance.now();
@@ -96,12 +97,12 @@ try {
      case 'wire-tool':wireTool=!wireTool;wallTool=false;state.selectedKind=null;state.message=wireTool?'Barbed wire: restrains the swarm until high pressure forces a breach.':'Barbed wire tool cancelled.';break;
      case 'start-wave':{
        const result=run.startWave();actionResult(result,'Wave incoming. Hold the choke.');if(!result.ok)break;
-       count=0;state.population=0;physics.reset();combat.reset();boss.reset(run.isBossWave);waveStartTick=clock.tick+1;state.paused=false;state.selectedKind=null;break;
+       count=0;spawnSlot=0;state.population=0;physics.reset();combat.reset();boss.reset(run.isBossWave);waveStartTick=clock.tick+1;state.paused=false;state.selectedKind=null;break;
      }
      case 'upgrade':if(run.model.selected!==null)actionResult(run.upgrade(run.model.selected,action.branch),'Tower upgraded.');break;
      case 'buy-command':actionResult(run.buyCommandUpgrade(action.id),'Command upgrade installed.');break;
      case 'sell':if(run.model.selected!==null)actionResult(run.sell(run.model.selected),'Tower sold.');break;
-     case 'difficulty':state.difficulty=run.setSpawnMultiplier(action.value);state.message=`Zombie production set to ${state.difficulty}×.`;break;
+     case 'difficulty':state.difficulty=run.setSpawnMultiplier(action.value);resizeSpawn();state.message=`Zombie production set to ${state.difficulty}×. Inlet expanded to protect spawn density.`;break;
      case 'bonus':actionResult(run.chooseBonus(action.id),'Bonus installed for this run.');break;
      case 'save':try{run.save();state.message='Saved between waves on this browser.';}catch(error){state.message=String(error);}break;
      case 'load':{const result=run.load();if(result.ok){state.mode='game';resetWorld(false);}actionResult(result,'Saved defense restored.');break;}
@@ -132,7 +133,7 @@ try {
    }else state.message=`World position ${point.x.toFixed(1)}, ${point.y.toFixed(1)} · peak packing ${latest.maxPacking.toFixed(2)}`;
  });
  const panKeys=new Set<string>();
- window.addEventListener('keydown',event=>{if((event.target as HTMLElement).matches('input,textarea,select'))return;const key=event.key.toLowerCase();if(['w','a','s','d'].includes(key)){event.preventDefault();panKeys.add(key);return;}if(event.code==='Space'){event.preventDefault();handleAction(state.mode==='game'&&run.model.phase==='preparation'?{type:'start-wave'}:{type:'pause'});}if(event.key==='Escape'){state.selectedKind=null;run.model.selected=null;}if(key==='h')handleAction({type:'heatmap',value:!state.heatmap});if(key==='+'||key==='=')renderer.zoomAt(1.13,ui.canvas.getBoundingClientRect().x+ui.canvas.clientWidth/2,ui.canvas.getBoundingClientRect().y+ui.canvas.clientHeight/2);if(key==='-')renderer.zoomAt(1/1.13,ui.canvas.getBoundingClientRect().x+ui.canvas.clientWidth/2,ui.canvas.getBoundingClientRect().y+ui.canvas.clientHeight/2);});
+ window.addEventListener('keydown',event=>{if((event.target as HTMLElement).matches('input,textarea,select'))return;const key=event.key.toLowerCase();if(['w','a','s','d'].includes(key)){event.preventDefault();panKeys.add(key);return;}const towerIndex=Number(key)-1;if(Number.isInteger(towerIndex)&&towerIndex>=0&&towerIndex<Object.keys(TOWERS).length){event.preventDefault();handleAction({type:'select-tower',kind:Object.keys(TOWERS)[towerIndex] as keyof typeof TOWERS});return;}if(key==='q'){event.preventDefault();handleAction({type:'wall-tool'});return;}if(key==='e'){event.preventDefault();handleAction({type:'wire-tool'});return;}if(event.code==='Space'){event.preventDefault();handleAction(state.mode==='game'&&run.model.phase==='preparation'?{type:'start-wave'}:{type:'pause'});}if(event.key==='Escape'){state.selectedKind=null;run.model.selected=null;}if(key==='h')handleAction({type:'heatmap',value:!state.heatmap});if(key==='+'||key==='=')renderer.zoomAt(1.13,ui.canvas.getBoundingClientRect().x+ui.canvas.clientWidth/2,ui.canvas.getBoundingClientRect().y+ui.canvas.clientHeight/2);if(key==='-')renderer.zoomAt(1/1.13,ui.canvas.getBoundingClientRect().x+ui.canvas.clientWidth/2,ui.canvas.getBoundingClientRect().y+ui.canvas.clientHeight/2);});
  window.addEventListener('keyup',event=>panKeys.delete(event.key.toLowerCase()));
  function updateUI(now:number){
    const report=metrics.report();state.fps=report.fps;state.frameMs=report.medianMs;
@@ -147,7 +148,7 @@ try {
    if(state.mode==='game')run.accrueVeterancy(clock.step);
    if(state.mode==='game'&&run.model.phase==='combat'){
      const batches=run.takeSpawns(gpu.shared.capacity-count,clock.step);
-     if(batches.length){const data=createParticles(batches,map,gpu.shared.capacity-count);const added=data.length/PARTICLE_FLOATS;gpu.device.queue.writeBuffer(gpu.shared.particles,count*PARTICLE_FLOATS*4,data.buffer);count+=added;state.population+=added;}
+     if(batches.length){const data=createParticles(batches,map,gpu.shared.capacity-count,spawnSlot);const added=data.length/PARTICLE_FLOATS;spawnSlot+=added;gpu.device.queue.writeBuffer(gpu.shared.particles,count*PARTICLE_FLOATS*4,data.buffer);count+=added;state.population+=added;}
    }
    const wireStats=barbedWireStats(run.model.commandUpgrades);
    const effects=[...commands,...builtWires.map(wire=>({x:wire.x+wire.width/2,y:wire.y+wire.height/2,kind:'slow' as const,radius:3.2,strength:0,damage:wireStats.damage*clock.step,direction:{x:0,y:0},cone:0,duration:wireStats.slow,source:0}))].slice(0,64);commands=[];

@@ -150,8 +150,8 @@ export class RunController {
     if (!upgrade) return {ok:false,reason:'Unknown command upgrade.'};
     const impactMatch=/^repulsor-impact-(\d+)$/.exec(id);
     if(impactMatch){const level=Number(impactMatch[1]);if(level>1&&!this.model.commandUpgrades.includes(`repulsor-impact-${level-1}`))return {ok:false,reason:'Research earlier Impact Coil levels first.'};}
-    const wireMatch=/^barbed-wire-(\d+)$/.exec(id);
-    if(wireMatch){const level=Number(wireMatch[1]);if(level>1&&!this.model.commandUpgrades.includes(`barbed-wire-${level-1}`))return {ok:false,reason:'Research earlier Barbed Wire levels first.'};}
+    const infrastructureMatch=/^(barbed-wire|wall-engineering)-(\d+)$/.exec(id);
+    if(infrastructureMatch){const [,prefix,rank]=infrastructureMatch,level=Number(rank);if(level>1&&!this.model.commandUpgrades.includes(`${prefix}-${level-1}`))return {ok:false,reason:`Research ${prefix==='barbed-wire'?'earlier Barbed Wire':'earlier Wall Engineering'} levels first.`};}
     if (this.model.commandUpgrades.includes(id)) return {ok:false,reason:'That command upgrade is already installed.'};
     if (this.model.metal<upgrade.cost) return {ok:false,reason:'Insufficient Metal.'};
     this.model.metal-=upgrade.cost;this.model.commandUpgrades.push(id);
