@@ -10,7 +10,7 @@ import { createRenderer } from '../render/index.ts';
 import {createBoss} from '../sim/bosses/index.ts';
 import { createPhysics } from '../sim/physics/index.ts';
 import { createCombat, type CombatFrame } from '../sim/combat/index.ts';
-import { createParticles, DEFAULT_MAP, compileTower, TOWERS } from '../content/index.ts';
+import { barbedWireStats, createParticles, DEFAULT_MAP, compileTower, TOWERS } from '../content/index.ts';
 import { buildNavigation, canPlace } from '../navigation/index.ts';
 import { createRun } from '../game/index.ts';
 import { DEFAULT_TUNING, PARTICLE_FLOATS, type UIState, type GameAction, type Effect, type Vec2, type Rect, type Settlement } from '../contracts/index.ts';
@@ -24,7 +24,6 @@ const run=createRun();
 const state:UIState={mode:params.get('mode')==='lab'?'lab':'game',phase:'preparation',paused:false,fps:0,frameMs:0,population:10000,capacity:65536,kills:0,crushKills:0,metal:650,baseHealth:100,wave:0,waveCount:5,difficulty:1,selected:null,selectedKind:null,heatmap:false,tool:'blast',message:'Connecting to local GPU…',adapter:'WebGPU',bonusChoices:[],commandUpgrades:[]};
 let handleAction:(action:GameAction)=>void=()=>{};
 const ui=createUI(root,action=>handleAction(action));
-const wallButton=document.createElement('button');wallButton.textContent='METAL WALL · 60';wallButton.title='Build a 4 × 4 wall during preparation';root.querySelector('.view-actions')!.append(wallButton);
 try {
  const gpu=await connectGPU(ui.canvas);
  let failed=false;
@@ -43,6 +42,8 @@ try {
  let epoch=run.epoch,count=0, requestedPopulation=Math.min(50000,Math.max(1,Number(params.get('population'))||10000)), stepRequested=false;
  let wallTool=false;
  let builtWalls:Rect[]=[];
+ let wireTool=false;
+ let builtWires:(Rect & {health:number;maxHealth:number})[]=[];
  let commands:Effect[]=[], visuals:Effect[]=[], pointer:Vec2|undefined, lastTickSample=0, waveStartTick=0;
  let latest:Settlement={epoch,tick:0,kills:0,crushKills:0,leaks:0,earned:0,live:0,invalid:0,maxPacking:0};
  let lastUI=0, previous=performance.now(), simulatedTime=0;
@@ -91,7 +92,8 @@ try {
      case 'population':if(state.mode==='lab'){requestedPopulation=action.value;resetWorld();}break;
      case 'tool':state.tool=action.tool;state.selectedKind=null;break;
      case 'select-tower':state.selectedKind=state.selectedKind===action.kind?null:action.kind;state.message=state.selectedKind?`${TOWERS[state.selectedKind].name}: click a clear build location.`:'Click a tower to inspect it.';break;
-     case 'wall-tool':wallTool=!wallTool;state.selectedKind=null;state.message=wallTool?'Wall tool: click to place a 4 × 4 Metal wall. Routes and the boss lane stay protected.':'Wall tool cancelled.';break;
+     case 'wall-tool':wallTool=!wallTool;wireTool=false;state.selectedKind=null;state.message=wallTool?'Wall tool: click to place a 4 × 4 Metal wall. Routes and the boss lane stay protected.':'Wall tool cancelled.';break;
+     case 'wire-tool':wireTool=!wireTool;wallTool=false;state.selectedKind=null;state.message=wireTool?'Barbed wire: place a pass-through field that slows and cuts the swarm.':'Barbed wire tool cancelled.';break;
      case 'start-wave':{
        const result=run.startWave();actionResult(result,'Wave incoming. Hold the choke.');if(!result.ok)break;
        count=0;state.population=0;physics.reset();combat.reset();boss.reset(run.isBossWave);waveStartTick=clock.tick+1;state.paused=false;state.selectedKind=null;break;
@@ -106,19 +108,21 @@ try {
    }
    updateUI(performance.now());
  };
- wallButton.onclick=()=>handleAction({type:'wall-tool'});
  const wallAt=(point:Vec2):Rect=>({x:Math.floor(point.x/4)*4,y:Math.floor(point.y/4)*4,width:4,height:4});
  const placeWall=(wall:Rect)=>{if(builtWalls.some(existing=>existing.x===wall.x&&existing.y===wall.y))return;const candidate={...map,obstacles:[...map.obstacles,wall]};const issue=validateEditorMap(candidate);if(issue){state.message=issue;return;}const result=run.spendMetal(60);if(!result.ok){state.message=result.reason??'Could not build wall.';return;}builtWalls.push(wall);map=candidate;navigation=buildNavigation(map);run.setMap(map);state.message='Metal wall installed. Right-drag removes for 30 Metal.';};
  const removeWall=(point:Vec2)=>{const index=builtWalls.findIndex(w=>point.x>=w.x&&point.x<w.x+w.width&&point.y>=w.y&&point.y<w.y+w.height);if(index<0)return;const [wall]=builtWalls.splice(index,1);map={...map,obstacles:map.obstacles.filter(existing=>existing!==wall)};navigation=buildNavigation(map);run.setMap(map);run.refundMetal(30);state.message='Metal wall recovered for 30 Metal.';};
- ui.canvas.addEventListener('pointermove',event=>{pointer=renderer.screenToWorld(event.clientX,event.clientY);if(editor.active&&event.buttons)editor.paint(pointer,event.buttons&2?true:undefined);if(wallTool&&(event.buttons&2))removeWall(pointer);if(wallTool&&(event.buttons&1)){const wall=wallAt(pointer);if(!builtWalls.some(w=>w.x===wall.x&&w.y===wall.y))placeWall(wall);}});
+ const placeWire=(wire:Rect)=>{if(builtWires.some(existing=>existing.x===wire.x&&existing.y===wire.y))return;const result=run.spendMetal(45);if(!result.ok){state.message=result.reason??'Could not place wire.';return;}const stats=barbedWireStats(run.model.commandUpgrades),placed={...wire,health:stats.durability,maxHealth:stats.durability};builtWires.push(placed);state.message='Barbed wire installed. Zombies pass through while it cuts and slows them.';};
+ const removeWire=(point:Vec2)=>{const index=builtWires.findIndex(w=>point.x>=w.x&&point.x<w.x+w.width&&point.y>=w.y&&point.y<w.y+w.height);if(index<0)return;builtWires.splice(index,1);run.refundMetal(22);state.message='Barbed wire recovered for 22 Metal.';};
+ ui.canvas.addEventListener('pointermove',event=>{pointer=renderer.screenToWorld(event.clientX,event.clientY);if(editor.active&&event.buttons)editor.paint(pointer,event.buttons&2?true:undefined);if((wallTool||wireTool)&&(event.buttons&2))(wallTool?removeWall:removeWire)(pointer);if(wallTool&&(event.buttons&1)){const wall=wallAt(pointer);if(!builtWalls.some(w=>w.x===wall.x&&w.y===wall.y))placeWall(wall);}if(wireTool&&(event.buttons&1)){const wire=wallAt(pointer);if(!builtWires.some(w=>w.x===wire.x&&w.y===wire.y))placeWire(wire);}});
  ui.canvas.addEventListener('wheel',event=>{if(editor.active)return;event.preventDefault();renderer.zoomAt(event.deltaY<0?1.13:1/1.13,event.clientX,event.clientY);},{passive:false});
- ui.canvas.addEventListener('contextmenu',event=>{if(editor.active||wallTool)event.preventDefault();});
+ ui.canvas.addEventListener('contextmenu',event=>{if(editor.active||wallTool||wireTool)event.preventDefault();});
  ui.canvas.addEventListener('pointerleave',()=>{pointer=undefined;});
  ui.canvas.addEventListener('pointerdown',event=>{
    if(failed)return;const point=renderer.screenToWorld(event.clientX,event.clientY);
    if(editor.active){editor.paint(point,event.button===2?true:undefined);return;}
    if(state.mode==='game'){
      if(wallTool){if(event.button===2)removeWall(point);else placeWall(wallAt(point));return;}
+     if(wireTool){if(event.button===2)removeWire(point);else placeWire(wallAt(point));return;}
      if(state.selectedKind){const result=run.place(state.selectedKind,point);actionResult(result,result.tower?`${TOWERS[result.tower.kind].name} deployed.`:'Tower deployed.');}
      else{run.model.selected=run.model.towers.find(t=>Math.hypot(t.x-point.x,t.y-point.y)<3.5)?.id??null;}
    }else if(state.tool!=='inspect'){
@@ -145,7 +149,9 @@ try {
      const batches=run.takeSpawns(gpu.shared.capacity-count,clock.step);
      if(batches.length){const data=createParticles(batches,map,gpu.shared.capacity-count);const added=data.length/PARTICLE_FLOATS;gpu.device.queue.writeBuffer(gpu.shared.particles,count*PARTICLE_FLOATS*4,data.buffer);count+=added;state.population+=added;}
    }
-   const effects=commands;commands=[];
+   const wireStats=barbedWireStats(run.model.commandUpgrades);
+   const effects=[...commands,...builtWires.map(wire=>({x:wire.x+wire.width/2,y:wire.y+wire.height/2,kind:'slow' as const,radius:3.2,strength:0,damage:wireStats.damage*clock.step,direction:{x:0,y:0},cone:0,duration:wireStats.slow,source:0}))].slice(0,64);commands=[];
+   if(state.mode==='game'&&run.model.phase==='combat'&&builtWires.length){const contact=Math.min(1,latest.live/30),erosion=clock.step*wireStats.damage*contact*(1+Math.max(0,latest.maxPacking-1)*.4);const spent=builtWires.filter(wire=>(wire.health-=erosion)<=0);if(spent.length){builtWires=builtWires.filter(wire=>wire.health>0);state.message=`${spent.length} barbed wire section${spent.length===1?'':'s'} wore out after cutting through the swarm.`;}}
    const frame:CombatFrame={dt:clock.step,tick:clock.tick,count,map,effects,tuning:DEFAULT_TUNING,navigation,lab:state.mode==='lab',towers:state.mode==='game'?run.model.towers.map(tower=>({tower,definition:compileTower(tower,run.model.bonuses,run.model.commandUpgrades)})):[]};
    const encoder=gpu.device.createCommandEncoder({label:`Simulation tick ${clock.tick}`});
    const bossFrame={dt:clock.step,tick:clock.tick,count,map:{...map,spawn:{x:50,y:35,width:32,height:30}},active:state.mode==='game'&&run.isBossWave};
@@ -166,7 +172,7 @@ try {
      const encoder=gpu.device.createCommandEncoder({label:'Present'});
      const ghost=state.mode==='game'&&state.selectedKind&&pointer?{...pointer,kind:state.selectedKind,range:compileTower({id:0,kind:state.selectedKind,x:pointer.x,y:pointer.y,level:0,branch:-1,angle:0,cooldown:0,spent:0},run.model.bonuses,run.model.commandUpgrades).range,valid:canPlace(map,run.model.towers,pointer,1.25)&&run.model.phase!=='won'&&run.model.phase!=='lost'}:undefined;
      const wallGhost=state.mode==='game'&&wallTool&&pointer?{...wallAt(pointer),valid:!validateEditorMap({...map,obstacles:[...map.obstacles,wallAt(pointer)]})}:undefined;
-     renderer.encode(encoder,{count:editor.active?0:count,time:simulatedTime,map:editor.active?editor.map:map,towers:!editor.active&&state.mode==='game'?run.model.towers:[],effects:editor.active?[]:visuals,heatmap:state.heatmap,selection:run.model.selected,ghost:editor.active?undefined:ghost,wallGhost,boss:!editor.active&&latest.boss?.active?latest.boss:undefined});
+     renderer.encode(encoder,{count:editor.active?0:count,time:simulatedTime,map:editor.active?editor.map:map,towers:!editor.active&&state.mode==='game'?run.model.towers:[],effects:editor.active?[]:visuals,wires:editor.active?[]:builtWires,heatmap:state.heatmap,selection:run.model.selected,ghost:editor.active?undefined:ghost,wallGhost,boss:!editor.active&&latest.boss?.active?latest.boss:undefined});
      gpu.device.queue.submit([encoder.finish()]);
      if(now-lastUI>100)updateUI(now);
      requestAnimationFrame(frame);

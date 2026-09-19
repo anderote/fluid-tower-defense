@@ -73,7 +73,7 @@ fn safeDir(delta:vec2f)->vec2f { return delta/max(length(delta),0.0001); }
   let f=effects[e];let delta=p.pos.xy-f.position.xy;let dist=length(delta);if(dist>f.position.z){continue;}
   if(f.extra.x==1.0&&f.direction.z>0&&dot(safeDir(delta),f.direction.xy)<cos(f.direction.z*.5)){continue;}
   p.body.z-=f.position.w*max(0.0,1.0-dist/max(.001,f.position.z));
-  if(f.extra.x==2.0){p.status.x=max(p.status.x,2.2);p.status.y=max(p.status.y,1.6);}
+  if(f.extra.x==2.0){p.status.x=max(p.status.x,max(.1,f.extra.w));p.status.y=max(p.status.y,1.6);}
  }
  particles[i]=p;
 }
