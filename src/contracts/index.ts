@@ -7,7 +7,7 @@ export type EffectKind = 'blast' | 'push' | 'slow' | 'shot';
 export interface Effect extends Vec2 { kind: EffectKind; radius: number; strength: number; damage: number; direction: Vec2; cone: number; duration: number; source: number }
 export interface TowerDef { id: TowerKind; name: string; description: string; cost: number; range: number; cooldown: number; damage: number; force: number; radius: number; color: string; branches: readonly [string, string] }
 export interface EnemyDef { id: EnemyKind; index: number; name: string; radius: number; mass: number; health: number; speed: number; crushTolerance: number; bounty: number; leak: number; color: string }
-export interface Tower extends Vec2 { id: number; kind: TowerKind; level: number; branch: number; angle: number; cooldown: number; spent: number; veterancy?:number; veterancyXp?:number }
+export interface Tower extends Vec2 { id: number; kind: TowerKind; level: number; branch: number; angle: number; cooldown: number; spent: number; kills?:number; veterancy?:number; veterancyXp?:number }
 export interface NavigationField { width: number; height: number; cellSize: number; vectors: Float32Array; distances: Float32Array; version: number }
 export interface Tuning { pressure: number; viscosity: number; drive: number; crushThreshold: number; crushDamage: number }
 export const DEFAULT_TUNING: Tuning = { pressure: 36, viscosity: 2, drive: 5, crushThreshold: 1.8, crushDamage: 18 };

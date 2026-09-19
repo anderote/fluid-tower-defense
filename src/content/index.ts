@@ -15,6 +15,11 @@ export const COMMAND_UPGRADES: readonly CommandUpgrade[] = [
   {id:'ammunition-forge',name:'Ammunition Forge',description:'+25% damage to every tower.',cost:300},
   {id:'bulkhead-plating',name:'Bulkhead Plating',description:'+5 base integrity immediately.',cost:220},
   {id:'salvage-magnets',name:'Salvage Magnets',description:'+25% Metal recovered from kills.',cost:280},
+  {id:'repulsor-impact-1',name:'Impact Coils I',description:'Repulsors deal +3 pulse damage.',cost:90},
+  {id:'repulsor-impact-2',name:'Impact Coils II',description:'Repulsors deal +3 pulse damage.',cost:140},
+  {id:'repulsor-impact-3',name:'Impact Coils III',description:'Repulsors deal +4 pulse damage.',cost:200},
+  {id:'repulsor-impact-4',name:'Impact Coils IV',description:'Repulsors deal +5 pulse damage.',cost:270},
+  {id:'repulsor-impact-5',name:'Impact Coils V',description:'Repulsors deal +6 pulse damage and +8% force.',cost:350},
 ];
 
 /** Packs authored towers into the four supported GPU weapon behaviours. */
@@ -82,6 +87,11 @@ export function compileTower(tower: Tower, bonuses: readonly string[] = [], comm
   }
   if (commandUpgrades.includes('targeting-grid')) range *= 1.18;
   if (commandUpgrades.includes('ammunition-forge')) damage *= 1.25;
+  if (tower.kind==='repulsor') {
+    const impactDamage=[3,3,4,5,6];
+    for (let i=0;i<impactDamage.length;i++) if(commandUpgrades.includes(`repulsor-impact-${i+1}`)) damage+=impactDamage[i];
+    if(commandUpgrades.includes('repulsor-impact-5')) force*=1.08;
+  }
   return {...base,range,cooldown,damage,force,radius};
 }
 

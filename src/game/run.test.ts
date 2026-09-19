@@ -38,7 +38,7 @@ test('counter rollback is ignored and settling keeps combat running while enemie
   assert.equal(run.model.metal,662);
   assert.equal(run.finishSettling().ok,false); assert.equal(run.model.phase,'combat');
 });
-test('salvage can be selected at both authored milestones and remains saveable',()=>{
+test('clearing a wave returns directly to preparation without a run-bonus gate',()=>{
   const run=createRun();
   const finish=(tick:number)=>{
     assert.equal(run.startWave().ok,true); run.takeSpawns(65_536);
@@ -46,11 +46,10 @@ test('salvage can be selected at both authored milestones and remains saveable',
     assert.equal(run.finishSettling().ok,true);
   };
   finish(1); finish(2);
-  assert.deepEqual(run.model.bonusChoices.map(choice=>choice.id),['salvage-contract']);
-  assert.equal(run.chooseBonus('salvage-contract').ok,true);
-  finish(3); finish(4);
-  assert.deepEqual(run.model.bonusChoices.map(choice=>choice.id),['salvage-contract']);
-  assert.equal(run.chooseBonus('salvage-contract').ok,true);
-  assert.deepEqual(run.model.bonuses,[]);
+  assert.deepEqual(run.model.bonusChoices,[]);
+  assert.equal(run.startWave().ok,true);
+  run.takeSpawns(65_536);
+  run.applySettlement({epoch:1,tick:3,kills:0,crushKills:0,leaks:0,earned:0,live:0,invalid:0,maxPacking:0});
+  assert.equal(run.finishSettling().ok,true);
   const restored=createRun(); assert.equal(restored.load(run.save()).ok,true);
 });

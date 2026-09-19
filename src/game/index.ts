@@ -69,7 +69,7 @@ export class RunController {
     const def=TOWERS[kind];
     if (this.model.metal<def.cost) return {ok:false,reason:'Insufficient Metal.'};
     if (!canPlace(this.map,this.model.towers,position,1.25)) return {ok:false,reason:'That position is blocked or too close to another tower.'};
-    const tower:Tower={id:this.nextTowerId++,kind,x:position.x,y:position.y,level:0,branch:-1,angle:0,cooldown:0,spent:def.cost,veterancy:0,veterancyXp:0};
+    const tower:Tower={id:this.nextTowerId++,kind,x:position.x,y:position.y,level:0,branch:-1,angle:0,cooldown:0,spent:def.cost,kills:0,veterancy:0,veterancyXp:0};
     this.model.metal-=def.cost; this.model.towers.push(tower); this.model.selected=tower.id;
     return {ok:true,tower};
   }
@@ -95,7 +95,6 @@ export class RunController {
   }
   startWave():ActionResult {
     if (this.model.phase!=='preparation') return {ok:false,reason:'The current wave is not ready to start.'};
-    if (this.model.bonusChoices.length) return {ok:false,reason:'Choose a run bonus first.'};
     if (this.model.wave>=WAVES.length) return {ok:false,reason:'All waves are complete.'};
     const wave=WAVES[this.model.wave++]; this.model.pending=wave.spawns.map(batch=>({...batch})); this.model.phase='combat'; this.live=0;this.spawnElapsed=0;this.spawnCredit=0;
     return {ok:true};
@@ -116,9 +115,16 @@ export class RunController {
     if (!this.validSettlement(settlement) || settlement.epoch<this.runEpoch || (settlement.epoch===this.runEpoch && settlement.tick<=this.applied.tick)) return;
     if (settlement.epoch>this.runEpoch) { this.runEpoch=settlement.epoch; this.applied=emptyApplied(); }
     if (settlement.kills<this.applied.kills || settlement.crushKills<this.applied.crushKills || settlement.leaks<this.applied.leaks || settlement.earned<this.applied.earned) return;
-    const leaks=settlement.leaks-this.applied.leaks, earned=settlement.earned-this.applied.earned;
+    const kills=settlement.kills-this.applied.kills, leaks=settlement.leaks-this.applied.leaks, earned=settlement.earned-this.applied.earned;
     this.applied={kills:settlement.kills,crushKills:settlement.crushKills,leaks:settlement.leaks,earned:settlement.earned,tick:settlement.tick};
     this.model.metal+=Math.floor(earned*(this.model.commandUpgrades.includes('salvage-magnets')?1.25:1)); this.model.baseHealth=Math.max(0,this.model.baseHealth-leaks); this.live=settlement.live;
+    // GPU settlement reports aggregate deaths. Credit them across active defenses by their
+    // authored damage throughput so the selected-tower telemetry stays useful at swarm scale.
+    if(kills>0 && this.model.towers.length){
+      const weighted=this.model.towers.map(tower=>Math.max(.1,TOWERS[tower.kind].damage/TOWERS[tower.kind].cooldown));
+      const total=weighted.reduce((sum,value)=>sum+value,0);let assigned=0;
+      this.model.towers.forEach((tower,index)=>{const credit=index===this.model.towers.length-1?kills-assigned:Math.floor(kills*weighted[index]/total);tower.kills=(tower.kills??0)+credit;assigned+=credit;});
+    }
     if (this.model.baseHealth===0) this.model.phase='lost';
   }
   finishSettling():ActionResult {
@@ -126,7 +132,7 @@ export class RunController {
     if (this.model.pending.length || this.live>0) return {ok:false,reason:'Waiting for live enemies or queued spawns.'};
     const completed=WAVES[this.model.wave-1]; this.model.metal+=completed.payment;
     if (this.model.wave===this.model.waveCount) { this.model.phase='won'; return {ok:true}; }
-    this.model.phase='preparation'; this.model.bonusChoices=completed.bonus ? this.eligibleBonuses() : [];
+    this.model.phase='preparation'; this.model.bonusChoices=[];
     return {ok:true};
   }
   chooseBonus(id:string):ActionResult {
@@ -140,6 +146,8 @@ export class RunController {
     if (this.model.phase!=='preparation') return {ok:false,reason:'Command upgrades are only available between waves.'};
     const upgrade=COMMAND_UPGRADES.find(candidate=>candidate.id===id);
     if (!upgrade) return {ok:false,reason:'Unknown command upgrade.'};
+    const impactMatch=/^repulsor-impact-(\d+)$/.exec(id);
+    if(impactMatch){const level=Number(impactMatch[1]);if(level>1&&!this.model.commandUpgrades.includes(`repulsor-impact-${level-1}`))return {ok:false,reason:'Research earlier Impact Coil levels first.'};}
     if (this.model.commandUpgrades.includes(id)) return {ok:false,reason:'That command upgrade is already installed.'};
     if (this.model.metal<upgrade.cost) return {ok:false,reason:'Insufficient Metal.'};
     this.model.metal-=upgrade.cost;this.model.commandUpgrades.push(id);
@@ -175,12 +183,6 @@ export class RunController {
   }
   private validSettlement(value:Settlement):boolean {
     return isFiniteInteger(value.epoch) && value.epoch>=0 && isFiniteInteger(value.tick) && value.tick>=0 && isFiniteInteger(value.kills) && value.kills>=0 && isFiniteInteger(value.crushKills) && value.crushKills>=0 && isFiniteInteger(value.leaks) && value.leaks>=0 && isFiniteInteger(value.earned) && value.earned>=0 && isFiniteInteger(value.live) && value.live>=0 && isFiniteInteger(value.invalid) && value.invalid>=0 && isNonNegative(value.maxPacking);
-  }
-  private eligibleBonuses():BonusChoice[] {
-    const owns=(kind:TowerKind)=>this.model.towers.some(tower=>tower.kind===kind);
-    const useful=BONUSES.filter(bonus=>!this.model.bonuses.includes(bonus.id) && ((bonus.id==='hydraulic-advantage' && owns('repulsor')) || (bonus.id==='cold-field' && owns('cryo'))));
-    const salvage=BONUSES.find(bonus=>bonus.id==='salvage-contract')!;
-    return [...useful.slice(0,1),salvage].map(bonus=>({...bonus}));
   }
   private validSave(value:unknown):value is SavedRun {
     if (!value || typeof value!=='object') return false;
