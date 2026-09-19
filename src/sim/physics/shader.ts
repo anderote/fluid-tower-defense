@@ -58,8 +58,14 @@ const MAX_DISPLACEMENT: f32 = 0.24;
 
 fn finite1(v: f32) -> bool { return v == v && abs(v) < 1e20; }
 fn finite2(v: vec2<f32>) -> bool { return finite1(v.x) && finite1(v.y); }
-fn safeRadius(v: f32) -> f32 { return clamp(abs(v), 0.05, 0.45); }
-fn safeMass(v: f32) -> f32 { return clamp(abs(v), 0.1, 100.0); }
+fn safeRadius(v: f32) -> f32 {
+  if (!finite1(v)) { return 0.25; }
+  return clamp(abs(v), 0.05, 0.45);
+}
+fn safeMass(v: f32) -> f32 {
+  if (!finite1(v)) { return 1.0; }
+  return clamp(abs(v), 0.1, 100.0);
+}
 fn occupiedArea(radius: f32) -> f32 { return PI * radius * radius; }
 
 fn kernel(distance: f32) -> f32 {
@@ -80,7 +86,8 @@ fn cellIndex(cell: vec2<i32>) -> u32 {
 }
 
 fn bodySpeed(kindValue: f32) -> f32 {
-  let kind = u32(max(0.0, kindValue) + 0.5);
+  var kind = 0u;
+  if (finite1(kindValue)) { kind = u32(clamp(kindValue, 0.0, 2.0) + 0.5); }
   if (kind == 1u) { return 5.2; }
   if (kind == 2u) { return 2.1; }
   return 3.1;
@@ -316,7 +323,7 @@ fn resolveObstacle(start: vec2<f32>, finish: vec2<f32>, velocity: vec2<f32>, rad
     var depth = sides.x;
     if (sides.y < depth) { depth = sides.y; normal = vec2<f32>(1.0, 0.0); }
     if (sides.z < depth) { depth = sides.z; normal = vec2<f32>(0.0, -1.0); }
-    if (sides.w < depth) { normal = vec2<f32>(0.0, 1.0); }
+    if (sides.w < depth) { depth = sides.w; normal = vec2<f32>(0.0, 1.0); }
     resultPosition = start + normal * (depth + 0.001);
     let inward = dot(resultVelocity, normal);
     if (inward < 0.0) { resultVelocity -= normal * inward; }
@@ -360,6 +367,11 @@ fn integrateParticles(@builtin(global_invocation_id) gid: vec3<u32>) {
     velocity = vec2<f32>(0.0);
     invalid = true;
   }
+  if (!finite1(particle.body.x) || !finite1(particle.body.y)) { invalid = true; }
+  var previousSlow = particle.status.x;
+  if (!finite1(previousSlow)) { previousSlow = 0.0; invalid = true; }
+  var previousExposure = particle.status.z;
+  if (!finite1(previousExposure)) { previousExposure = 0.0; invalid = true; }
 
   velocity += motion[index].xy * params.dt + motion[index].zw;
   let speed = length(velocity);
@@ -389,12 +401,11 @@ fn integrateParticles(@builtin(global_invocation_id) gid: vec3<u32>) {
   position = clamped;
 
   particles[index].pos = vec4<f32>(position, velocity);
-  particles[index].status.x = slowDuration(position, particle.status.x);
+  particles[index].status.x = slowDuration(position, previousSlow);
   let excess = max(0.0, particle.state.x - max(0.0, params.crushThreshold));
-  particles[index].status.z = max(0.0, particle.status.z) + params.dt * max(0.0, params.crushDamage) * excess * excess;
+  particles[index].status.z = max(0.0, previousExposure) + params.dt * max(0.0, params.crushDamage) * excess * excess;
 
-  if (invalid) { atomicAdd(&counters[5], 1u); }
+  if (invalid && params.substepIndex == 0u) { atomicAdd(&counters[5], 1u); }
   if (params.substepIndex + 1u == params.substepCount) { atomicAdd(&counters[4], 1u); }
 }
 `;
-
