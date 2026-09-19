@@ -22,13 +22,13 @@ export const DEFAULT_MAP: WorldMap = {
 
 export function validateContent(): void {
   const finite = (value:number, label:string) => { if (!Number.isFinite(value)) throw new Error(`${label} must be finite`); };
-  for (const tower of Object.values(TOWERS)) {
-    if (tower.id !== (tower.id as TowerKind) || tower.cost <= 0 || tower.range <= 0 || tower.cooldown <= 0 || tower.radius < 0 || tower.branches.length !== 2 || tower.branches[0] === tower.branches[1]) throw new Error(`Invalid tower ${tower.id}`);
+  for (const [key,tower] of Object.entries(TOWERS) as [TowerKind,TowerDef][]) {
+    if (tower.id !== key || tower.cost <= 0 || tower.range <= 0 || tower.cooldown <= 0 || tower.damage < 0 || tower.force < 0 || tower.radius < 0 || tower.branches.length !== 2 || tower.branches[0] === tower.branches[1]) throw new Error(`Invalid tower ${tower.id}`);
     [tower.cost,tower.range,tower.cooldown,tower.damage,tower.force,tower.radius].forEach((value,index)=>finite(value,`${tower.id}[${index}]`));
   }
   const seen = new Set<number>();
-  for (const enemy of Object.values(ENEMIES)) {
-    if (seen.has(enemy.index) || enemy.radius <= 0 || enemy.mass <= 0 || enemy.health <= 0 || enemy.speed <= 0 || enemy.bounty < 0 || enemy.leak <= 0) throw new Error(`Invalid enemy ${enemy.id}`);
+  for (const [key,enemy] of Object.entries(ENEMIES) as [EnemyKind,EnemyDef][]) {
+    if (enemy.id !== key || seen.has(enemy.index) || enemy.radius <= 0 || enemy.mass <= 0 || enemy.health <= 0 || enemy.speed <= 0 || enemy.bounty < 0 || enemy.leak <= 0) throw new Error(`Invalid enemy ${enemy.id}`);
     seen.add(enemy.index); [enemy.radius,enemy.mass,enemy.health,enemy.speed,enemy.crushTolerance,enemy.bounty,enemy.leak].forEach((value,index)=>finite(value,`${enemy.id}[${index}]`));
   }
 }
@@ -39,8 +39,18 @@ export function compileTower(tower: Tower, bonuses: readonly string[] = []): Tow
   let range=base.range, cooldown=base.cooldown, damage=base.damage, force=base.force, radius=base.radius;
   const level=Math.max(0,tower.level);
   range += level * 1.25; damage *= 1 + level * .12;
-  if (tower.branch === 0) { force *= 1.35; radius *= .82; }
-  if (tower.branch === 1) { cooldown *= .78; radius *= 1.25; }
+  if (tower.branch === 0) {
+    if (tower.kind==='repulsor') { force *= 1.55; radius *= .8; range += 2; }
+    if (tower.kind==='mortar') { damage *= 1.6; radius *= .78; cooldown *= 1.12; }
+    if (tower.kind==='autocannon') { damage *= 1.5; range *= 1.25; }
+    if (tower.kind==='cryo') { range *= 1.3; radius *= 1.2; cooldown *= .85; }
+  }
+  if (tower.branch === 1) {
+    if (tower.kind==='repulsor') { cooldown *= .7; radius *= 1.5; }
+    if (tower.kind==='mortar') { cooldown *= .68; radius *= 1.45; damage *= .78; }
+    if (tower.kind==='autocannon') { cooldown *= .65; radius *= 2; force += 3; }
+    if (tower.kind==='cryo') { range *= 1.5; radius *= 1.5; cooldown *= .85; }
+  }
   for (const bonus of bonuses) {
     if (bonus === 'hydraulic-advantage' && tower.kind === 'repulsor') { force *= 1.3; cooldown *= 1.12; }
     if (bonus === 'cold-fracture' && tower.kind === 'cryo') radius *= 1.2;
