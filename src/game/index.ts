@@ -1,12 +1,12 @@
 import {DEFAULT_MAP, TOWERS} from '../content/index.ts';
 import {canPlace} from '../navigation/index.ts';
-import type {BonusChoice, RunModel, Settlement, SpawnBatch, Tower, TowerKind, Vec2} from '../contracts/index.ts';
+import type {BonusChoice, RunModel, Settlement, SpawnBatch, Tower, TowerKind, Vec2, WorldMap} from '../contracts/index.ts';
 
 export type ActionResult = {ok:true} | {ok:false; reason:string};
 export type PlaceResult = ActionResult & {tower?:Tower};
 type Wave = {spawns:readonly SpawnBatch[]; payment:number; bonus:boolean};
 type Applied = Pick<Settlement,'kills'|'crushKills'|'leaks'|'earned'> & {tick:number};
-type SavedRun = {version:1; contentVersion:string; model:RunModel; epoch:number; applied:Applied};
+type SavedRun = {version:1; contentVersion:string; mapId?:string; model:RunModel; epoch:number; applied:Applied};
 
 export const CONTENT_VERSION = 'pressure-front-1';
 const SAVE_KEY = 'pressure-front.run.v1';
@@ -35,11 +35,11 @@ const spentAtLevel = (kind:TowerKind, level:number):number => {
   return spent;
 };
 
-function validTower(tower:unknown, prior:readonly Tower[]): tower is Tower {
+function validTower(map:WorldMap, tower:unknown, prior:readonly Tower[]): tower is Tower {
   if (!tower || typeof tower !== 'object') return false;
   const value=tower as Tower;
   if (!isFiniteInteger(value.id) || value.id<=0 || !isTowerKind(value.kind) || !isNonNegative(value.x) || !isNonNegative(value.y) || !isFiniteInteger(value.level) || value.level<0 || value.level>3 || !isFiniteInteger(value.branch) || ![-1,0,1].includes(value.branch) || (value.level===0 && value.branch!==-1) || (value.level>0 && value.branch===-1) || !isNonNegative(value.angle) || !isNonNegative(value.cooldown) || !isFiniteInteger(value.spent) || value.spent!==spentAtLevel(value.kind,value.level) || prior.some(other=>other.id===value.id)) return false;
-  return canPlace(DEFAULT_MAP,prior,value,1.25);
+  return canPlace(map,prior,value,1.25);
 }
 function validApplied(value:unknown): value is Applied {
   if (!value || typeof value !== 'object') return false;
@@ -53,6 +53,9 @@ export class RunController {
   private runEpoch=1;
   private applied=emptyApplied();
   private live=0;
+  private map:WorldMap;
+
+  constructor(initialMap:WorldMap=DEFAULT_MAP) { this.map=initialMap; }
 
   get epoch():number { return this.runEpoch; }
   get isBossWave():boolean { return this.model.wave===this.model.waveCount; }
@@ -63,7 +66,7 @@ export class RunController {
     if (this.model.towers.length>=MAX_TOWERS) return {ok:false,reason:'The tower limit has been reached.'};
     const def=TOWERS[kind];
     if (this.model.scrap<def.cost) return {ok:false,reason:'Insufficient scrap.'};
-    if (!canPlace(DEFAULT_MAP,this.model.towers,position,1.25)) return {ok:false,reason:'That position is blocked or too close to another tower.'};
+    if (!canPlace(this.map,this.model.towers,position,1.25)) return {ok:false,reason:'That position is blocked or too close to another tower.'};
     const tower:Tower={id:this.nextTowerId++,kind,x:position.x,y:position.y,level:0,branch:-1,angle:0,cooldown:0,spent:def.cost};
     this.model.scrap-=def.cost; this.model.towers.push(tower); this.model.selected=tower.id;
     return {ok:true,tower};
@@ -130,9 +133,10 @@ export class RunController {
     return {ok:true};
   }
   reset():void { Object.assign(this.model,fresh()); this.nextTowerId=1; this.runEpoch++; this.applied=emptyApplied(); this.live=0; }
+  setMap(map:WorldMap):void { this.map=map; }
   save():string {
     if (this.model.phase!=='preparation') throw new Error('Runs can only be saved between waves.');
-    const text=JSON.stringify({version:1,contentVersion:CONTENT_VERSION,model:copy(this.model),epoch:this.runEpoch,applied:this.applied} satisfies SavedRun);
+    const text=JSON.stringify({version:1,contentVersion:CONTENT_VERSION,mapId:this.map.id,model:copy(this.model),epoch:this.runEpoch,applied:this.applied} satisfies SavedRun);
     try { if (typeof window!=='undefined') window.localStorage.setItem(SAVE_KEY,text); }
     catch (error) { throw new Error(`Could not save run: ${error instanceof Error ? error.message : String(error)}`); }
     return text;
@@ -161,11 +165,11 @@ export class RunController {
   private validSave(value:unknown):value is SavedRun {
     if (!value || typeof value!=='object') return false;
     const saved=value as SavedRun, model=saved.model;
-    if (saved.version!==1 || saved.contentVersion!==CONTENT_VERSION || !isFiniteInteger(saved.epoch) || saved.epoch<0 || !validApplied(saved.applied) || !model || typeof model!=='object' || model.phase!=='preparation' || !isFiniteInteger(model.scrap) || model.scrap<0 || !isFiniteInteger(model.baseHealth) || model.baseHealth<0 || model.baseHealth>20 || !isFiniteInteger(model.wave) || model.wave<0 || model.wave>=WAVES.length || model.waveCount!==WAVES.length || !Array.isArray(model.towers) || model.towers.length>MAX_TOWERS || !Array.isArray(model.pending) || model.pending.length!==0 || !Array.isArray(model.bonuses) || !Array.isArray(model.bonusChoices) || model.bonusChoices.some(choice=>!BONUSES.some(known=>known.id===choice.id))) return false;
+    if (saved.version!==1 || saved.contentVersion!==CONTENT_VERSION || (saved.mapId!==this.map.id && !(saved.mapId===undefined && this.map.id===DEFAULT_MAP.id)) || !isFiniteInteger(saved.epoch) || saved.epoch<0 || !validApplied(saved.applied) || !model || typeof model!=='object' || model.phase!=='preparation' || !isFiniteInteger(model.scrap) || model.scrap<0 || !isFiniteInteger(model.baseHealth) || model.baseHealth<0 || model.baseHealth>20 || !isFiniteInteger(model.wave) || model.wave<0 || model.wave>=WAVES.length || model.waveCount!==WAVES.length || !Array.isArray(model.towers) || model.towers.length>MAX_TOWERS || !Array.isArray(model.pending) || model.pending.length!==0 || !Array.isArray(model.bonuses) || !Array.isArray(model.bonusChoices) || model.bonusChoices.some(choice=>!BONUSES.some(known=>known.id===choice.id))) return false;
     const towers:Tower[]=[];
-    for (const tower of model.towers) { if (!validTower(tower,towers)) return false; towers.push(tower); }
+    for (const tower of model.towers) { if (!validTower(this.map,tower,towers)) return false; towers.push(tower); }
     if (model.selected!==null && (!isFiniteInteger(model.selected) || !towers.some(tower=>tower.id===model.selected))) return false;
     return model.bonuses.every((bonus,index)=>typeof bonus==='string' && BONUSES.some(known=>known.id===bonus) && model.bonuses.indexOf(bonus)===index);
   }
 }
-export const createRun=():RunController=>new RunController();
+export const createRun=(initialMap:WorldMap=DEFAULT_MAP):RunController=>new RunController(initialMap);
