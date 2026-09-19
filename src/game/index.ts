@@ -4,7 +4,7 @@ import type {BonusChoice, RunModel, Settlement, SpawnBatch, Tower, TowerKind, Ve
 
 export type ActionResult = {ok:true} | {ok:false; reason:string};
 export type PlaceResult = ActionResult & {tower?:Tower};
-type Wave = {spawns:readonly SpawnBatch[]; payment:number; bonus:boolean};
+type Wave = {spawns:readonly SpawnBatch[]; payment:number; bonus:boolean; peakRate:number; rampSeconds:number};
 type Applied = Pick<Settlement,'kills'|'crushKills'|'leaks'|'earned'> & {tick:number};
 type SavedRun = {version:1; contentVersion:string; mapId?:string; model:RunModel; epoch:number; applied:Applied};
 
@@ -12,11 +12,11 @@ export const CONTENT_VERSION = 'pressure-front-2';
 const SAVE_KEY = 'pressure-front.run.v1';
 const MAX_TOWERS = 64;
 const WAVES: readonly Wave[] = [
-  {spawns:[{kind:'shambler',count:900,seed:101}],payment:180,bonus:false},
-  {spawns:[{kind:'runner',count:850,seed:201},{kind:'shambler',count:1_650,seed:202}],payment:300,bonus:true},
-  {spawns:[{kind:'brute',count:240,seed:301},{kind:'shambler',count:3_760,seed:302}],payment:480,bonus:false},
-  {spawns:[{kind:'runner',count:3_300,seed:401},{kind:'brute',count:650,seed:402},{kind:'shambler',count:4_050,seed:403}],payment:750,bonus:true},
-  {spawns:[{kind:'shambler',count:7_000,seed:501},{kind:'runner',count:3_500,seed:502},{kind:'brute',count:1_100,seed:503}],payment:1_150,bonus:false},
+  {spawns:[{kind:'shambler',count:900,seed:101}],payment:180,bonus:false,peakRate:115,rampSeconds:5},
+  {spawns:[{kind:'runner',count:850,seed:201},{kind:'shambler',count:1_650,seed:202}],payment:300,bonus:true,peakRate:190,rampSeconds:7},
+  {spawns:[{kind:'brute',count:240,seed:301},{kind:'shambler',count:3_760,seed:302}],payment:480,bonus:false,peakRate:270,rampSeconds:8},
+  {spawns:[{kind:'runner',count:3_300,seed:401},{kind:'brute',count:650,seed:402},{kind:'shambler',count:4_050,seed:403}],payment:750,bonus:true,peakRate:420,rampSeconds:10},
+  {spawns:[{kind:'shambler',count:7_000,seed:501},{kind:'runner',count:3_500,seed:502},{kind:'brute',count:1_100,seed:503}],payment:1_150,bonus:false,peakRate:560,rampSeconds:12},
 ];
 const BONUSES: readonly BonusChoice[] = [
   {id:'hydraulic-advantage',name:'Hydraulic Advantage',description:'Repulsors push harder but pulse a little slower.'},
@@ -53,6 +53,8 @@ export class RunController {
   private runEpoch=1;
   private applied=emptyApplied();
   private live=0;
+  private spawnElapsed=0;
+  private spawnCredit=0;
   private map:WorldMap;
 
   constructor(initialMap:WorldMap=DEFAULT_MAP) { this.map=initialMap; }
@@ -95,17 +97,19 @@ export class RunController {
     if (this.model.phase!=='preparation') return {ok:false,reason:'The current wave is not ready to start.'};
     if (this.model.bonusChoices.length) return {ok:false,reason:'Choose a run bonus first.'};
     if (this.model.wave>=WAVES.length) return {ok:false,reason:'All waves are complete.'};
-    const wave=WAVES[this.model.wave++]; this.model.pending=wave.spawns.map(batch=>({...batch})); this.model.phase='combat'; this.live=0;
+    const wave=WAVES[this.model.wave++]; this.model.pending=wave.spawns.map(batch=>({...batch})); this.model.phase='combat'; this.live=0;this.spawnElapsed=0;this.spawnCredit=0;
     return {ok:true};
   }
-  takeSpawns(capacity:number):SpawnBatch[] {
+  takeSpawns(capacity:number, seconds=0):SpawnBatch[] {
     if (this.model.phase!=='combat' || !isFiniteInteger(capacity) || capacity<=0) return [];
-    let available=capacity; const accepted:SpawnBatch[]=[];
+    const wave=WAVES[this.model.wave-1];this.spawnElapsed+=Math.max(0,seconds);const ramp=Math.min(1,this.spawnElapsed/wave.rampSeconds);this.spawnCredit+=wave.peakRate*(.2+.8*ramp)*Math.max(0,seconds);
+    let available=seconds===0?capacity:Math.min(capacity,Math.floor(this.spawnCredit)); const accepted:SpawnBatch[]=[];
     while (available>0 && this.model.pending.length) {
       const batch=this.model.pending[0], count=Math.min(batch.count,available);
       accepted.push({...batch,count}); available-=count; this.live+=count;
       if (count===batch.count) this.model.pending.shift(); else { batch.count-=count; batch.seed=(batch.seed+count)>>>0; }
     }
+    this.spawnCredit-=accepted.reduce((sum,batch)=>sum+batch.count,0);
     return accepted;
   }
   applySettlement(settlement:Settlement):void {

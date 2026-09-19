@@ -3,7 +3,7 @@ import { verifyABI } from '../runtime/abi-check.ts';
 import { FixedClock } from '../runtime/clock.ts';
 import { FrameMetrics } from '../runtime/metrics.ts';
 import { SettlementReader } from '../runtime/readback.ts';
-import { createLevelEditor } from '../editor/index.ts';
+import { createLevelEditor, validateEditorMap } from '../editor/index.ts';
 import '../editor/style.css';
 import { createUI } from '../ui/index.ts';
 import { createRenderer } from '../render/index.ts';
@@ -24,6 +24,7 @@ const run=createRun();
 const state:UIState={mode:params.get('mode')==='lab'?'lab':'game',phase:'preparation',paused:false,fps:0,frameMs:0,population:10000,capacity:65536,kills:0,crushKills:0,metal:650,baseHealth:100,wave:0,waveCount:5,selected:null,selectedKind:null,heatmap:false,tool:'blast',message:'Connecting to local GPU…',adapter:'WebGPU',bonusChoices:[],commandUpgrades:[]};
 let handleAction:(action:GameAction)=>void=()=>{};
 const ui=createUI(root,action=>handleAction(action));
+const wallButton=document.createElement('button');wallButton.textContent='METAL WALL · 60';wallButton.title='Build a 4 × 4 wall during preparation';root.querySelector('.view-actions')!.append(wallButton);
 try {
  const gpu=await connectGPU(ui.canvas);
  let failed=false;
@@ -40,6 +41,7 @@ try {
  const clock=new FixedClock(), metrics=new FrameMetrics();
  let map=DEFAULT_MAP, navigation=buildNavigation(map);
  let epoch=run.epoch,count=0, requestedPopulation=Math.min(50000,Math.max(1,Number(params.get('population'))||10000)), stepRequested=false;
+ let wallTool=false;
  let commands:Effect[]=[], visuals:Effect[]=[], pointer:Vec2|undefined, lastTickSample=0, waveStartTick=0;
  let latest:Settlement={epoch,tick:0,kills:0,crushKills:0,leaks:0,earned:0,live:0,invalid:0,maxPacking:0};
  let lastUI=0, previous=performance.now(), simulatedTime=0;
@@ -88,12 +90,10 @@ try {
      case 'population':if(state.mode==='lab'){requestedPopulation=action.value;resetWorld();}break;
      case 'tool':state.tool=action.tool;state.selectedKind=null;break;
      case 'select-tower':state.selectedKind=state.selectedKind===action.kind?null:action.kind;state.message=state.selectedKind?`${TOWERS[state.selectedKind].name}: click a clear build location.`:'Click a tower to inspect it.';break;
+     case 'wall-tool':wallTool=!wallTool;state.selectedKind=null;state.message=wallTool?'Wall tool: click to place a 4 × 4 Metal wall. Routes and the boss lane stay protected.':'Wall tool cancelled.';break;
      case 'start-wave':{
        const result=run.startWave();actionResult(result,'Wave incoming. Hold the choke.');if(!result.ok)break;
-       const batches=run.takeSpawns(gpu.shared.capacity);
-       const data=createParticles(batches,map,gpu.shared.capacity);count=data.length/PARTICLE_FLOATS;
-       if(count!==batches.reduce((sum,b)=>sum+b.count,0))throw new Error('Wave spawn region capacity must cover the authored wave.');
-       gpu.device.queue.writeBuffer(gpu.shared.particles,0,data.buffer);state.population=count;physics.reset();combat.reset();boss.reset(run.isBossWave);waveStartTick=clock.tick+1;state.paused=false;state.selectedKind=null;break;
+       count=0;state.population=0;physics.reset();combat.reset();boss.reset(run.isBossWave);waveStartTick=clock.tick+1;state.paused=false;state.selectedKind=null;break;
      }
      case 'upgrade':if(run.model.selected!==null)actionResult(run.upgrade(run.model.selected,action.branch),'Tower upgraded.');break;
      case 'buy-command':actionResult(run.buyCommandUpgrade(action.id),'Command upgrade installed.');break;
@@ -104,6 +104,7 @@ try {
    }
    updateUI(performance.now());
  };
+ wallButton.onclick=()=>handleAction({type:'wall-tool'});
  ui.canvas.addEventListener('pointermove',event=>{pointer=renderer.screenToWorld(event.clientX,event.clientY);if(editor.active&&event.buttons)editor.paint(pointer,event.buttons&2?true:undefined);});
  ui.canvas.addEventListener('wheel',event=>{if(editor.active)return;event.preventDefault();renderer.zoomAt(event.deltaY<0?1.13:1/1.13,event.clientX,event.clientY);},{passive:false});
  ui.canvas.addEventListener('contextmenu',event=>{if(editor.active)event.preventDefault();});
@@ -112,6 +113,7 @@ try {
    if(failed)return;const point=renderer.screenToWorld(event.clientX,event.clientY);
    if(editor.active){editor.paint(point,event.button===2?true:undefined);return;}
    if(state.mode==='game'){
+     if(wallTool){const wall={x:Math.floor(point.x/4)*4,y:Math.floor(point.y/4)*4,width:4,height:4};const candidate={...map,obstacles:[...map.obstacles,wall]};const issue=validateEditorMap(candidate);if(issue)state.message=issue;else{const result=run.spendMetal(60);if(result.ok){map=candidate;navigation=buildNavigation(map);run.setMap(map);state.message='Metal wall installed.';wallTool=false;}else state.message=result.reason??'Could not build wall.';}return;}
      if(state.selectedKind){const result=run.place(state.selectedKind,point);actionResult(result,result.tower?`${TOWERS[result.tower.kind].name} deployed.`:'Tower deployed.');}
      else{run.model.selected=run.model.towers.find(t=>Math.hypot(t.x-point.x,t.y-point.y)<3.5)?.id??null;}
    }else if(state.tool!=='inspect'){
@@ -134,6 +136,10 @@ try {
  function tick(){
    clock.tick++;simulatedTime+=clock.step;
    if(state.mode==='game')run.accrueVeterancy(clock.step);
+   if(state.mode==='game'&&run.model.phase==='combat'){
+     const batches=run.takeSpawns(gpu.shared.capacity-count,clock.step);
+     if(batches.length){const data=createParticles(batches,map,gpu.shared.capacity-count);const added=data.length/PARTICLE_FLOATS;gpu.device.queue.writeBuffer(gpu.shared.particles,count*PARTICLE_FLOATS*4,data.buffer);count+=added;state.population+=added;}
+   }
    const effects=commands;commands=[];
    const frame:CombatFrame={dt:clock.step,tick:clock.tick,count,map,effects,tuning:DEFAULT_TUNING,navigation,lab:state.mode==='lab',towers:state.mode==='game'?run.model.towers.map(tower=>({tower,definition:compileTower(tower,run.model.bonuses,run.model.commandUpgrades)})):[]};
    const encoder=gpu.device.createCommandEncoder({label:`Simulation tick ${clock.tick}`});
