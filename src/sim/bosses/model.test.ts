@@ -13,10 +13,11 @@ test('boss state occupies four vec4s and reset does not pre-settle an active bos
   const active = initialBossState(true, 7);
   assert.equal(active.length, BOSS_FLOATS);
   assert.equal(active[6], BOSS_HEALTH);
-  assert.equal(active[8], BOSS_PHASE.advance);
+  assert.equal(active[8], -1);
   assert.equal(active[10], 1);
   assert.equal(active[11], 0);
   assert.equal(active[12], 7);
+  assert.equal(active[15], 0);
 
   const inactive = initialBossState(false, 8);
   assert.equal(inactive[10], 0);
@@ -37,4 +38,3 @@ test('boss phase transitions preserve overshoot and cycle after recovery', () =>
     elapsed: 0,
   });
 });
-
