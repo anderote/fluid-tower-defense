@@ -11,17 +11,21 @@ export async function createCombat(device:GPUDevice,shared:SharedGPU):Promise<Co
   const towers=device.createBuffer({label:'Tower definitions',size:MAX_TOWERS*48,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
   const state=device.createBuffer({label:'Tower firing state',size:MAX_TOWERS*48,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST|GPUBufferUsage.COPY_SRC});
   const effects=device.createBuffer({label:'Manual damage effects',size:MAX_EFFECTS*48,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
+  const ownedBoss=!shared.bossState;
+  const bossBuffer=shared.bossState??device.createBuffer({label:'Inactive boss placeholder',size:64,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
   const preamble=`${PARTICLE_WGSL}
 struct Params { clock:vec4f, goal:vec4f, damage:vec4f, reserved:vec4f };
 struct Tower { position:vec4f, weapon:vec4f, flags:vec4f };
 struct TowerState { timing:vec4f, shot:vec4f, flags:vec4f };
 struct Effect { position:vec4f, direction:vec4f, extra:vec4f };
+struct Boss { motion:vec4f, body:vec4f, mode:vec4f, flags:vec4f };
 @group(0) @binding(0) var<uniform> params:Params;
 @group(0) @binding(1) var<storage,read_write> particles:array<Particle>;
 @group(0) @binding(2) var<storage,read> towers:array<Tower>;
 @group(0) @binding(3) var<storage,read_write> states:array<TowerState>;
 @group(0) @binding(4) var<storage,read> effects:array<Effect>;
 @group(0) @binding(5) var<storage,read_write> counters:array<atomic<u32>>;
+@group(0) @binding(6) var<storage,read_write> boss:array<Boss>;
 fn safeDir(delta:vec2f)->vec2f { return delta/max(length(delta),0.0001); }
 `;
   const shader=device.createShaderModule({label:'Combat compute',code:preamble+`
@@ -40,19 +44,24 @@ fn safeDir(delta:vec2f)->vec2f { return delta/max(length(delta),0.0001); }
   if(u32(def.position.w)==0u||u32(def.position.w)==3u){score=-d;}
   if(score>best){best=score;selected=i;found=true;}
  }
- if(found){let p=particles[selected];s.timing=vec4f(def.weapon.x,def.weapon.x,p.pos.xy);s.shot=vec4f(1,f32(selected),p.status.w,atan2(p.pos.y-def.position.y,p.pos.x-def.position.x));}
+ let b=boss[0];let bossDistance=distance(b.motion.xy,def.position.xy);
+ let bossScore=-distance(b.motion.xy,params.goal.xy)+select(0.0,30.0,u32(def.position.w)==2u);
+ if(b.mode.z>.5&&b.body.z>0&&bossDistance<=def.position.z&&(!found||bossScore>best)){
+  s.timing=vec4f(def.weapon.x,def.weapon.x,b.motion.xy);s.shot=vec4f(1,-1,b.flags.x,atan2(b.motion.y-def.position.y,b.motion.x-def.position.x));
+ }else if(found){let p=particles[selected];s.timing=vec4f(def.weapon.x,def.weapon.x,p.pos.xy);s.shot=vec4f(1,f32(selected),p.status.w,atan2(p.pos.y-def.position.y,p.pos.x-def.position.x));}
  states[t]=s;
 }
 @compute @workgroup_size(128) fn hit(@builtin(global_invocation_id) gid:vec3u){
  let i=gid.x;if(i>=u32(params.clock.z)){return;}var p=particles[i];if(p.state.w<0.5||p.body.z<=0){return;}
  for(var t=0u;t<u32(params.clock.w);t++){
   let s=states[t];if(s.shot.x<.5){continue;}let def=towers[t];let kind=u32(def.position.w);
-  if(kind==2u){if(u32(s.shot.y)==i&&s.shot.z==p.status.w){p.body.z-=def.weapon.y;}continue;}
+  if(kind==2u){if(s.shot.y>=0&&u32(s.shot.y)==i&&s.shot.z==p.status.w){p.body.z-=def.weapon.y;if(def.flags.y==1){p.status.x=max(p.status.x,.25);}}continue;}
   var origin=def.position.xy;var rad=def.position.z;
   if(kind==1u){origin=s.timing.zw;rad=def.weapon.w;}
   let delta=p.pos.xy-origin;let dist=length(delta);if(dist>rad){continue;}
   let forward=vec2f(cos(s.shot.w),sin(s.shot.w));
-  if(kind!=1u&&dot(safeDir(delta),forward)<0.45){continue;}
+  let coneCos=cos(clamp(def.weapon.w*.18,.25,1.35));
+  if(kind!=1u&&dot(safeDir(delta),forward)<coneCos){continue;}
   let falloff=max(.12,1.0-dist/max(rad,.001));
   p.body.z-=def.weapon.y*falloff;
   if(kind==3u){p.status.x=max(p.status.x,2.2);p.status.y=max(p.status.y,1.6);}else{
@@ -61,11 +70,24 @@ fn safeDir(delta:vec2f)->vec2f { return delta/max(length(delta),0.0001); }
  }
  for(var e=0u;e<u32(params.damage.z);e++){
   let f=effects[e];let delta=p.pos.xy-f.position.xy;let dist=length(delta);if(dist>f.position.z){continue;}
-  if(f.extra.x==1.0&&dot(safeDir(delta),f.direction.xy)<f.direction.z){continue;}
+  if(f.extra.x==1.0&&f.direction.z>0&&dot(safeDir(delta),f.direction.xy)<cos(f.direction.z*.5)){continue;}
   p.body.z-=f.position.w*max(0.0,1.0-dist/max(.001,f.position.z));
   if(f.extra.x==2.0){p.status.x=max(p.status.x,2.2);p.status.y=max(p.status.y,1.6);}
  }
  particles[i]=p;
+}
+@compute @workgroup_size(1) fn hitBoss(){
+ var b=boss[0];if(b.mode.z<.5||b.body.z<=0){return;}
+ let vulnerable=select(1.0,1.6,b.mode.x==1.0||b.mode.x==3.0);
+ for(var t=0u;t<u32(params.clock.w);t++){
+  let s=states[t];if(s.shot.x<.5){continue;}let def=towers[t];let kind=u32(def.position.w);
+  if(kind==2u){if(s.shot.y<0&&s.shot.z==b.flags.x){b.body.z-=def.weapon.y*vulnerable;}continue;}
+  let origin=select(def.position.xy,s.timing.zw,kind==1u);let rad=select(def.position.z,def.weapon.w,kind==1u);let delta=b.motion.xy-origin;let dist=max(0.0,length(delta)-b.body.x);if(dist>rad){continue;}
+  let forward=vec2f(cos(s.shot.w),sin(s.shot.w));if(kind!=1u&&dot(safeDir(delta),forward)<cos(clamp(def.weapon.w*.18,.25,1.35))){continue;}
+  b.body.z-=def.weapon.y*max(.25,1.0-dist/max(rad,.001))*vulnerable;
+  if(kind==3u){b.flags.w=max(b.flags.w,1.0);}
+ }
+ boss[0]=b;
 }
 @compute @workgroup_size(128) fn settle(@builtin(global_invocation_id) gid:vec3u){
  let i=gid.x;if(i>=u32(params.clock.z)){return;}var p=particles[i];if(p.state.w<.5){return;}
@@ -88,10 +110,11 @@ fn safeDir(delta:vec2f)->vec2f { return delta/max(length(delta),0.0001); }
     {binding:3,visibility:GPUShaderStage.COMPUTE,buffer:{type:'storage'}},
     {binding:4,visibility:GPUShaderStage.COMPUTE,buffer:{type:'read-only-storage'}},
     {binding:5,visibility:GPUShaderStage.COMPUTE,buffer:{type:'storage'}},
+    {binding:6,visibility:GPUShaderStage.COMPUTE,buffer:{type:'storage'}},
   ]});
   const pipelineLayout=device.createPipelineLayout({bindGroupLayouts:[layout]});
-  const pipelines=await Promise.all(['acquire','hit','settle'].map(entryPoint=>device.createComputePipelineAsync({label:`Combat ${entryPoint}`,layout:pipelineLayout,compute:{module:shader,entryPoint}})));
-  const bind=device.createBindGroup({layout,entries:[uniforms,shared.particles,towers,state,effects,shared.counters].map((buffer,binding)=>({binding,resource:{buffer}}))});
+  const pipelines=await Promise.all(['acquire','hit','settle','hitBoss'].map(entryPoint=>device.createComputePipelineAsync({label:`Combat ${entryPoint}`,layout:pipelineLayout,compute:{module:shader,entryPoint}})));
+  const bind=device.createBindGroup({layout,entries:[uniforms,shared.particles,towers,state,effects,shared.counters,bossBuffer].map((buffer,binding)=>({binding,resource:{buffer}}))});
   function dispatch(encoder:GPUCommandEncoder,index:number,groups:number){if(!groups)return;const pass=encoder.beginComputePass({label:['Target selection','Weapon effects','Settlement'][index]});pass.setPipeline(pipelines[index]);pass.setBindGroup(0,bind);pass.dispatchWorkgroups(groups);pass.end();}
   return {
     shotState:state,
@@ -101,10 +124,10 @@ fn safeDir(delta:vec2f)->vec2f { return delta/max(length(delta),0.0001); }
       const data=new Float32Array(Math.max(1,frame.towers.length)*12);
       frame.towers.forEach(({tower:t,definition:d},i)=>{data.set([t.x,t.y,d.range,['repulsor','mortar','autocannon','cryo'].indexOf(t.kind),d.cooldown,d.damage,d.force,d.radius,t.id,t.branch,t.level,0],i*12);});device.queue.writeBuffer(towers,0,data);
       if(frame.effects.length){const values=new Float32Array(frame.effects.length*12);frame.effects.forEach((e,i)=>values.set([e.x,e.y,e.radius,e.damage,e.direction.x,e.direction.y,e.cone,e.duration,['blast','push','slow','shot'].indexOf(e.kind),e.strength,e.source,0],i*12));device.queue.writeBuffer(effects,0,values);}
-      dispatch(encoder,0,Math.ceil(frame.towers.length/64));dispatch(encoder,1,Math.ceil(frame.count/128));
+      dispatch(encoder,0,Math.ceil(frame.towers.length/64));dispatch(encoder,1,Math.ceil(frame.count/128));dispatch(encoder,3,1);
     },
     encodeAfter(encoder,frame){encoder.clearBuffer(shared.counters,16,4);encoder.clearBuffer(shared.counters,24,4);dispatch(encoder,2,Math.ceil(frame.count/128));},
     reset(){device.queue.writeBuffer(state,0,new Float32Array(MAX_TOWERS*12));},
-    destroy(){uniforms.destroy();towers.destroy();state.destroy();effects.destroy();},
+    destroy(){uniforms.destroy();towers.destroy();state.destroy();effects.destroy();if(ownedBoss)bossBuffer.destroy();},
   };
 }
