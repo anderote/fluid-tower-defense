@@ -39,8 +39,18 @@ export function compileTower(tower: Tower, bonuses: readonly string[] = []): Tow
   let range=base.range, cooldown=base.cooldown, damage=base.damage, force=base.force, radius=base.radius;
   const level=Math.max(0,tower.level);
   range += level * 1.25; damage *= 1 + level * .12;
-  if (tower.branch === 0) { force *= 1.35; radius *= .82; }
-  if (tower.branch === 1) { cooldown *= .78; radius *= 1.25; }
+  if (tower.branch === 0) {
+    if (tower.kind==='repulsor') { force *= 1.55; radius *= .8; range += 2; }
+    if (tower.kind==='mortar') { damage *= 1.6; radius *= .78; cooldown *= 1.12; }
+    if (tower.kind==='autocannon') { damage *= 1.5; range *= 1.25; }
+    if (tower.kind==='cryo') { range *= 1.3; radius *= 1.2; cooldown *= .85; }
+  }
+  if (tower.branch === 1) {
+    if (tower.kind==='repulsor') { cooldown *= .7; radius *= 1.5; }
+    if (tower.kind==='mortar') { cooldown *= .68; radius *= 1.45; damage *= .78; }
+    if (tower.kind==='autocannon') { cooldown *= .65; radius *= 2; force += 3; }
+    if (tower.kind==='cryo') { range *= 1.5; radius *= 1.5; cooldown *= .85; }
+  }
   for (const bonus of bonuses) {
     if (bonus === 'hydraulic-advantage' && tower.kind === 'repulsor') { force *= 1.3; cooldown *= 1.12; }
     if (bonus === 'cold-fracture' && tower.kind === 'cryo') radius *= 1.2;
