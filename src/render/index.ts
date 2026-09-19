@@ -15,13 +15,14 @@ ${PARTICLE_WGSL}
 struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> };
 @group(0) @binding(0) var<uniform> camera: Camera;
 @group(0) @binding(1) var<storage,read> particles: array<Particle>;
-struct Out { @builtin(position) pos: vec4<f32>, @location(0) local: vec2<f32>, @location(1) color: vec4<f32> };
+struct Out { @builtin(position) pos: vec4<f32>, @location(0) local: vec2<f32>, @location(1) color: vec4<f32>, @location(2) bloodMode: f32 };
 fn world(p:vec2<f32>)->vec2<f32>{ let aspect=camera.viewport.x/max(1.0,camera.viewport.y); let targetAspect=camera.world.z/camera.world.w; let sx=min(1.0,targetAspect/aspect); let sy=min(1.0,aspect/targetAspect); return vec2((((p.x-camera.world.x)/camera.world.z)*2.0-1.0)*sx, (1.0-((p.y-camera.world.y)/camera.world.w)*2.0)*sy); }
 @vertex fn vs(@builtin(vertex_index) vi:u32,@builtin(instance_index) ii:u32)->Out {
   let corners=array<vec2<f32>,6>(vec2(-1,-1),vec2(1,-1),vec2(-1,1),vec2(-1,1),vec2(1,-1),vec2(1,1));
-  let p=particles[ii]; let c=corners[vi]; let dead=p.state.w<-.5; let radius=select(p.body.x, max(.16,p.body.x*(2.0+1.8*clamp(camera.time.x-(-p.body.w)/60.,0.,.32))), dead);
-  let q=world(p.pos.xy + c*radius); var o:Out; o.pos=vec4(q,0,1); o.local=c;
-  if(dead){ let age=camera.time.x-(-p.body.w)/60.; let tint=.55+.35*sin(f32(ii)*17.); o.color=vec4(tint,.012,.006,max(0.,1.-age/.82)); return o; }
+  let shard=vi/6u; let c=corners[vi%6u]; let p=particles[ii]; let dead=p.state.w<-.5; let radius=p.body.x;
+  var o:Out; o.local=c; o.bloodMode=0.;
+  if(dead){ let age=max(0.,camera.time.x-(-p.body.w)/60.);let seed=f32(ii)*17.+f32(shard)*2.4;let flight=clamp(age/.72,0.,1.);let dir=vec2(cos(seed),sin(seed));let stain=shard==0u;let center=select(p.pos.xy+dir*(.18+1.8*flight),p.pos.xy,stain);radius=select(max(.09,p.body.x*(.65+.5*(1.-flight))),max(.28,p.body.x*2.7),stain);let life=select(max(0.,1.-age/.82),max(0.,1.-age/16.),stain);o.pos=vec4(world(center+c*radius),0,1);o.color=vec4(.48+.35*sin(seed),.008,.004,life*select(.85,.38,stain));o.bloodMode=select(2.,1.,stain);return o; }
+  if(shard>0u){o.pos=vec4(2.,2.,0.,1.);o.color=vec4(0.);return o;}let q=world(p.pos.xy + c*radius); o.pos=vec4(q,0,1);
   let k=u32(p.state.z + 0.5); var col=vec3(0.77,0.85,0.68);
   if(k==1u){col=vec3(1.0,0.61,0.25);} if(k==2u){col=vec3(0.74,0.35,0.18);}
   let hp=clamp(p.body.z/max(0.001,p.body.w),0.0,1.0); let pressure=clamp(max(p.state.y,p.state.x)*.018,0.0,1.0);
@@ -29,7 +30,7 @@ fn world(p:vec2<f32>)->vec2<f32>{ let aspect=camera.viewport.x/max(1.0,camera.vi
   if(camera.time.y > .5){ col=mix(col,vec3(1.0,0.12,0.03),pressure); }
   o.color=vec4(col*(0.45+0.55*hp),p.state.w); return o;
 }
-@fragment fn fs(i:Out)->@location(0) vec4<f32>{ let d=dot(i.local,i.local); let blood=i.color.g<.02; let droplets=sin(i.local.x*11.)*sin(i.local.y*13.); if(d>1.0 || i.color.a<.02 || (blood && droplets<-.25)){discard;} let rim=smoothstep(.58,.98,d); return vec4(mix(i.color.rgb,vec3(1.0,.9,.65),select(rim*.18,0.,blood)),i.color.a); }
+@fragment fn fs(i:Out)->@location(0) vec4<f32>{ let d=dot(i.local,i.local); let blood=i.bloodMode>.5; let droplets=sin(i.local.x*11.)*sin(i.local.y*13.); if(d>1.0 || i.color.a<.02 || (blood && droplets<-.25)){discard;} let rim=smoothstep(.58,.98,d); return vec4(mix(i.color.rgb,vec3(1.0,.9,.65),select(rim*.18,0.,blood)),i.color.a); }
 `});
   const overlayModule=device.createShaderModule({code:`
 struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group(0) @binding(0) var<uniform> camera:Camera;
@@ -51,7 +52,7 @@ fn clip(p:vec2<f32>)->vec2<f32>{let aspect=camera.viewport.x/max(1.,camera.viewp
   const bgModule=device.createShaderModule({code:`
 struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group(0) @binding(0) var<uniform> camera:Camera;
 @vertex fn vs(@builtin(vertex_index) v:u32)->@builtin(position) vec4<f32>{let p=array<vec2<f32>,3>(vec2(-1,-1),vec2(3,-1),vec2(-1,3));return vec4(p[v],0,1);}
-@fragment fn fs(@builtin(position) p:vec4<f32>)->@location(0) vec4<f32>{let uv=p.xy/camera.viewport.xy;let w=camera.world.xy+vec2(uv.x*camera.world.z,(1.-uv.y)*camera.world.w);let line=(1.-smoothstep(.0,.035,abs(fract(w.x/10.-.5)-.5)))+(1.-smoothstep(.0,.035,abs(fract(w.y/10.-.5)-.5)));let scan=.018*sin(w.x*.7+w.y*.8+camera.time.x*1.5);return vec4(vec3(.035,.055,.045)+line*vec3(.035,.075,.055)+scan,1);}`});
+@fragment fn fs(@builtin(position) p:vec4<f32>)->@location(0) vec4<f32>{let uv=p.xy/camera.viewport.xy;let w=camera.world.xy+vec2(uv.x*camera.world.z,(1.-uv.y)*camera.world.w);let panel=abs(fract(w/8.)-.5);let seam=(1.-smoothstep(.42,.49,max(panel.x,panel.y)))*.12;let hatch=step(.93,fract((w.x+w.y)*1.35))*step(.84,fract(w.x/8.))*step(.84,fract(w.y/8.));let grain=.012*sin(w.x*5.7+w.y*3.1);return vec4(vec3(.045,.065,.057)+seam*vec3(.18,.24,.2)+hatch*vec3(.045,.07,.055)+grain,1);}`});
   const bg=device.createRenderPipeline({layout:'auto',vertex:{module:bgModule,entryPoint:'vs'},fragment:{module:bgModule,entryPoint:'fs',targets:[{format}]},primitive:{topology:'triangle-list'}});
   const particles=device.createRenderPipeline({layout:'auto',vertex:{module:particleModule,entryPoint:'vs'},fragment:{module:particleModule,entryPoint:'fs',targets:[{format}],},primitive:{topology:'triangle-list'},multisample:{count:1}});
   const overlay=device.createRenderPipeline({layout:'auto',vertex:{module:overlayModule,entryPoint:'vs',buffers:[{arrayStride:24,attributes:[{shaderLocation:0,offset:0,format:'float32x2'},{shaderLocation:1,offset:8,format:'float32x4'}]}]},fragment:{module:overlayModule,entryPoint:'fs',targets:[{format,blend:{color:{srcFactor:'src-alpha',dstFactor:'one-minus-src-alpha',operation:'add'},alpha:{srcFactor:'one',dstFactor:'one-minus-src-alpha',operation:'add'}}}]},primitive:{topology:'triangle-list'}});
@@ -82,7 +83,7 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
     if(scene.boss){const c: [number,number,number,number]=scene.boss.phase===2?[1,.15,.04,.95]:scene.boss.phase===1?[.9,.72,.2,.95]:[.55,.78,1,.95];ring(a,scene.boss.x,scene.boss.y,2.5,c,.55);rect(a,scene.boss.x-3,scene.boss.y-4,6*Math.max(0,scene.boss.health/scene.boss.maxHealth),.45,c);}
     const capped=a.slice(0,MAX_OVERLAY_VERTICES); const data=new Float32Array(capped.length*6);capped.forEach((v,i)=>data.set([v.x,v.y,v.r,v.g,v.b,v.a],i*6));return data;
   }
-  return { encode(encoder,scene){resize(); const v=view(); const u=new Float32Array([pixelW,pixelH,0,0,camera.x,camera.y,v.width,v.height,scene.time,scene.heatmap?1:0,0,0,0,0,0,0]);device.queue.writeBuffer(uniform,0,u);const visual=new Float32Array(Math.max(1,Math.min(MAX_TOWERS,scene.towers.length))*4);scene.towers.slice(0,MAX_TOWERS).forEach((t,i)=>visual.set([t.x,t.y,t.id,towerBehavior(t.kind)],i*4));device.queue.writeBuffer(towerVisuals,0,visual);const data=geometry(scene);if(data.byteLength)device.queue.writeBuffer(overlays,0,data.buffer,data.byteOffset,data.byteLength);const pass=encoder.beginRenderPass({colorAttachments:[{view:context.getCurrentTexture().createView(),clearValue:{r:.02,g:.03,b:.025,a:1},loadOp:'clear',storeOp:'store'}]});pass.setPipeline(bg);pass.setBindGroup(0,cameraBG);pass.draw(3);pass.setPipeline(overlay);pass.setBindGroup(0,cameraOverlay);pass.setVertexBuffer(0,overlays);pass.draw(data.length/6);pass.setPipeline(particles);pass.setBindGroup(0,cameraParticles);pass.draw(6,Math.min(scene.count,shared.capacity));if(shared.shotState){pass.setPipeline(cues);pass.setBindGroup(0,cameraCues);pass.draw(6,Math.min(MAX_TOWERS,scene.towers.length));}pass.end(); },
+  return { encode(encoder,scene){resize(); const v=view(); const u=new Float32Array([pixelW,pixelH,0,0,camera.x,camera.y,v.width,v.height,scene.time,scene.heatmap?1:0,0,0,0,0,0,0]);device.queue.writeBuffer(uniform,0,u);const visual=new Float32Array(Math.max(1,Math.min(MAX_TOWERS,scene.towers.length))*4);scene.towers.slice(0,MAX_TOWERS).forEach((t,i)=>visual.set([t.x,t.y,t.id,towerBehavior(t.kind)],i*4));device.queue.writeBuffer(towerVisuals,0,visual);const data=geometry(scene);if(data.byteLength)device.queue.writeBuffer(overlays,0,data.buffer,data.byteOffset,data.byteLength);const pass=encoder.beginRenderPass({colorAttachments:[{view:context.getCurrentTexture().createView(),clearValue:{r:.02,g:.03,b:.025,a:1},loadOp:'clear',storeOp:'store'}]});pass.setPipeline(bg);pass.setBindGroup(0,cameraBG);pass.draw(3);pass.setPipeline(overlay);pass.setBindGroup(0,cameraOverlay);pass.setVertexBuffer(0,overlays);pass.draw(data.length/6);pass.setPipeline(particles);pass.setBindGroup(0,cameraParticles);pass.draw(18,Math.min(scene.count,shared.capacity));if(shared.shotState){pass.setPipeline(cues);pass.setBindGroup(0,cameraCues);pass.draw(6,Math.min(MAX_TOWERS,scene.towers.length));}pass.end(); },
     screenToWorld,
     pan(dx,dy){camera.x+=dx;camera.y+=dy;clampCamera();},
     zoomAt(factor,clientX,clientY){const before=screenToWorld(clientX,clientY);camera.zoom=Math.max(1,Math.min(3,camera.zoom*factor));const after=screenToWorld(clientX,clientY);camera.x+=before.x-after.x;camera.y+=before.y-after.y;clampCamera();},
