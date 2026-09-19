@@ -6,4 +6,6 @@ Measure an open flow and a congested choke separately. Record browser/adapter, v
 
 Display refresh rate is not the simulation rate: the simulation uses a 60Hz fixed clock. Do not infer GPU compute milliseconds from display FPS. Optional GPU timestamps may be added after the first usable baseline.
 
-No benchmark results have been recorded yet.
+## Initial smoke sample — 2026-09-19
+
+Local Apple WebGPU adapter on M4 Max; 10,000 particle slots initialized. Display median was about 8.3 ms (120 Hz), p95 about 9 ms. At 31 seconds of simulated time, 4,495 remained alive and 5,505 had been crushed; invalid-particle and readback-error counts were zero. This is a shrinking-population smoke sample, not a sustained 10,000-live benchmark or GPU compute timing. Further controlled benchmarks remain to be run.

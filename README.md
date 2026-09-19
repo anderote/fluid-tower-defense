@@ -1,12 +1,43 @@
-# Fluid Tower Defense
+# Pressure Front
 
-A proposed tower-defense game where a GPU-simulated zombie crowd flows, packs, and takes damage under compression.
+A browser tower-defense prototype with a GPU-simulated compressible zombie crowd. Local WebGPU handles crowd physics, targeting, damage, and rendering.
 
-Current stage: research and gameplay architecture. The playable prototype is not implemented yet.
+## Run locally
 
-- [Technical research](RESEARCH.md): browser/native options, solver references, and performance targets.
-- [Gameplay architecture](GAMEPLAY_ARCHITECTURE.md): run structure, system ownership, content definitions, combat rules, progression, and build sequence.
-- [Content direction](CONTENT_DESIGN.md): example towers, upgrade branches, zombies, bosses, and bonuses.
-- [Parallel development plan](PARALLEL_DEVELOPMENT_PLAN.md): agent assignments, shared interfaces, file ownership, implementation batches, and integration checks.
+```sh
+npm install
+npm run dev
+```
 
-Agreed technical direction: begin with TypeScript, WebGPU, and WGSL; prototype a 10,000-zombie choke point with repulsion, explosions, and compression damage before expanding into the playable loop.
+Open the localhost URL printed by Vite in a browser with WebGPU enabled (a current Chrome or Safari). No API keys or server-side GPU are needed.
+
+## Play
+
+- **Level Editor:** paint or drag walls, use Erase (or right-drag), save/load a local level, then **Apply & Play** to start a fresh defense. The spawn, goal, and central boss lane remain clear. Cancel preserves the current run.
+- **View:** Fullscreen fills the display; Hide UI expands the arena. Show UI brings controls back.
+- **Lab:** starts with 10,000 zombies. Click to blast, select Push to shove toward the base, or toggle the actual pressure heatmap. Reset restores the swarm. Large population requests are capped by the non-overlapping spawn area and the actual count is displayed.
+- **Game:** select a tower and click clear ground near the choke. The shaded spawn zone and walls cannot hold towers. Select the same build button again or press Escape to leave placement mode. Click a deployed tower to inspect, upgrade, or sell it. Start the wave when ready.
+- Four towers: repulsor, mortar, autocannon, cryo emitter. Three normal enemy kinds: shambler, runner, brute. Five authored waves, branch upgrades, bonus choices, and the Bulldozer boss on the final wave.
+- Space pauses/resumes; H toggles the pressure overlay. Step advances one simulation tick while paused. Save/load operates between waves in this browser. Switching modes or resetting starts a fresh run; it does not overwrite a saved defense.
+
+This is an early playable prototype with simple geometric art and initial balancing. Enemy counts in Game are lower than the large Lab stress tests. Towers are nonblocking emplacements; terrain is static during combat. Mortar damage resolves on a firing tick, with visual impact cues. Full rigid-body corpses, arbitrary tower scripting, destructible terrain, and native packaging are not implemented.
+
+## Validate
+
+```sh
+npm test
+npm run build
+```
+
+Open `http://127.0.0.1:5173/?validate=1` while the dev server runs for real GPU compute/readback checks. Seven checks cover compression, impulses, slowing, exactly-once rewards, base arrivals, boss targeting/damage, and boss phase transitions. Developer diagnostics in the game show tick count, live population, invalid values, frame timings, and GPU readback errors. Display FPS is distinct from the fixed 60Hz simulation rate.
+
+## Architecture and planning
+
+- [Technical research](RESEARCH.md)
+- [Gameplay architecture](GAMEPLAY_ARCHITECTURE.md)
+- [Content direction](CONTENT_DESIGN.md)
+- [Parallel development plan](PARALLEL_DEVELOPMENT_PLAN.md)
+- [Implementation ledger](TASKS.md)
+- [Benchmark procedure](benchmarks/README.md)
+
+The planning documents include future content. See the implementation and validation results for current capabilities.

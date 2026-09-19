@@ -1,11 +1,15 @@
 # Implementation ledger
 
-| Task | Owner | Status | Acceptance |
-| --- | --- | --- | --- |
-| P0 — contracts and GPU foundation | Lead | Build and CPU checks passed; real GPU check in progress | Local adapter, compute result, buffer layout round trip |
-| PHY-1 — crowd simulation | Sol / simulation | Running in isolated worktree | Spatial neighbors, pressure, obstacles, impulse, exposure |
-| VIS-1 — renderer and interface | Terra / presentation | Running in isolated worktree | Instancing, world view, controls, responsive layout |
-| DATA-1 / NAV-1 / RUN-1 | Terra / gameplay | Running in isolated worktree | Definitions, flow field, waves/economy, progression checks |
-| Runtime integration | Lead | In progress | Shared clock/submission and async counters |
+Completed on 2026-09-19 using Sol for physics/bosses, Terra for presentation and gameplay/editor, and lead integration.
 
-Workers own only their assigned folders. Lead owns contracts, runtime, composition root, package dependencies, shared fixtures, and main-branch integration.
+| Area | Status |
+| --- | --- |
+| GPU contracts, fixed clock, asynchronous counters | Complete; real adapter and ABI verified |
+| Compressible crowd, pressure damage, spatial neighbors | Complete for prototype |
+| GPU targeting, four towers, slowing, firing effects | Complete for prototype |
+| Five waves, three enemy kinds, economy, upgrades, bonuses | Implemented; first wave played through |
+| Boss phase machine, damage, rewards and leaks | GPU checks passed |
+| Level editor, local saves, navigation validation | Integrated and browser smoke-tested |
+| Fullscreen and expanded arena controls | Integrated |
+
+Validation: 19 CPU tests, production build, and 7 real-GPU checks passed with zero GPU validation errors. Full five-wave difficulty balancing remains future playtesting.

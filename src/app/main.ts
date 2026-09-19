@@ -3,6 +3,8 @@ import { verifyABI } from '../runtime/abi-check.ts';
 import { FixedClock } from '../runtime/clock.ts';
 import { FrameMetrics } from '../runtime/metrics.ts';
 import { SettlementReader } from '../runtime/readback.ts';
+import { createLevelEditor } from '../editor/index.ts';
+import '../editor/style.css';
 import { createUI } from '../ui/index.ts';
 import { createRenderer } from '../render/index.ts';
 import {createBoss} from '../sim/bosses/index.ts';
@@ -19,7 +21,7 @@ if(params.has('validate')) {
  const {showValidation}=await import('./validation-page.ts');await showValidation(root);
 } else {
 const run=createRun();
-const state:UIState={mode:params.get('mode')==='game'?'game':'lab',phase:'preparation',paused:false,fps:0,frameMs:0,population:10000,capacity:65536,kills:0,crushKills:0,scrap:450,baseHealth:100,wave:0,waveCount:5,selected:null,selectedKind:null,heatmap:false,tool:'blast',message:'Connecting to local GPU…',adapter:'WebGPU',bonusChoices:[]};
+const state:UIState={mode:params.get('mode')==='lab'?'lab':'game',phase:'preparation',paused:false,fps:0,frameMs:0,population:10000,capacity:65536,kills:0,crushKills:0,scrap:450,baseHealth:100,wave:0,waveCount:5,selected:null,selectedKind:null,heatmap:false,tool:'blast',message:'Connecting to local GPU…',adapter:'WebGPU',bonusChoices:[]};
 let handleAction:(action:GameAction)=>void=()=>{};
 const ui=createUI(root,action=>handleAction(action));
 try {
@@ -36,7 +38,7 @@ try {
  gpu.shared.shotState=combat.shotState;
  const renderer=await createRenderer(gpu.device,gpu.context,gpu.format,gpu.shared,ui.canvas);
  const clock=new FixedClock(), metrics=new FrameMetrics();
- const map=DEFAULT_MAP, navigation=buildNavigation(map);
+ let map=DEFAULT_MAP, navigation=buildNavigation(map);
  let epoch=run.epoch,count=0, requestedPopulation=Math.min(50000,Math.max(1,Number(params.get('population'))||10000)), stepRequested=false;
  let commands:Effect[]=[], visuals:Effect[]=[], pointer:Vec2|undefined, lastTickSample=0, waveStartTick=0;
  let latest:Settlement={epoch,tick:0,kills:0,crushKills:0,leaks:0,earned:0,live:0,invalid:0,maxPacking:0};
@@ -44,6 +46,12 @@ try {
  const diagnostics=document.createElement('details');diagnostics.className='diagnostics';diagnostics.innerHTML='<summary>Developer diagnostics</summary><pre></pre>';root.append(diagnostics);
  const diagnosticText=diagnostics.querySelector('pre')!;
  const errors:string[]=[];
+ let previousPaused=false;
+ const editor=createLevelEditor(root.querySelector<HTMLElement>('.view-actions')!,map,newMap=>{
+   map=newMap;navigation=buildNavigation(map);run.setMap(map);state.mode='game';resetWorld();previousPaused=false;
+   state.message='Custom level ready. Build your defense, then start a wave.';
+ },active=>{if(active){previousPaused=state.paused;state.paused=true;state.selectedKind=null;stepRequested=false;state.message='Paint walls on the arena. Right-drag erases. Apply & Play starts a fresh defense.';}else{state.paused=previousPaused;}});
+
  const settlement=new SettlementReader(gpu.device,s=>{
    if(s.epoch!==epoch)return;
    latest=s;state.population=s.live;state.kills=s.kills;state.crushKills=s.crushKills;
@@ -70,6 +78,7 @@ try {
  const actionResult=(result:{ok:boolean;reason?:string},success:string)=>{state.message=result.ok?success:result.reason||'Action unavailable.';};
  handleAction=action=>{
    if(failed)return;
+   if(editor.active){state.message='Apply or cancel your level before using game controls.';return;}
    switch(action.type){
      case 'mode':state.mode=action.mode;resetWorld();break;
      case 'pause':state.paused=!state.paused;break;
@@ -95,10 +104,12 @@ try {
    }
    updateUI(performance.now());
  };
- ui.canvas.addEventListener('pointermove',event=>{pointer=renderer.screenToWorld(event.clientX,event.clientY);});
+ ui.canvas.addEventListener('pointermove',event=>{pointer=renderer.screenToWorld(event.clientX,event.clientY);if(editor.active&&event.buttons)editor.paint(pointer,event.buttons&2?true:undefined);});
+ ui.canvas.addEventListener('contextmenu',event=>{if(editor.active)event.preventDefault();});
  ui.canvas.addEventListener('pointerleave',()=>{pointer=undefined;});
  ui.canvas.addEventListener('pointerdown',event=>{
    if(failed)return;const point=renderer.screenToWorld(event.clientX,event.clientY);
+   if(editor.active){editor.paint(point,event.button===2?true:undefined);return;}
    if(state.mode==='game'){
      if(state.selectedKind){const result=run.place(state.selectedKind,point);actionResult(result,result.tower?`${TOWERS[result.tower.kind].name} deployed.`:'Tower deployed.');}
      else{run.model.selected=run.model.towers.find(t=>Math.hypot(t.x-point.x,t.y-point.y)<3.5)?.id??null;}
@@ -133,12 +144,12 @@ try {
    try{
      const elapsed=(now-previous)/1000;previous=now;metrics.push(elapsed*1000);
      const active=state.mode==='lab'||run.model.phase==='combat'||run.model.phase==='settling';
-     const steps=stepRequested?1:clock.advance(elapsed,state.paused||!active);
+     const steps=editor.active?0:stepRequested?1:clock.advance(elapsed,state.paused||!active);
      for(let i=0;i<steps;i++)tick();stepRequested=false;
      if(!state.paused){for(const effect of visuals)effect.duration-=elapsed;visuals=visuals.filter(e=>e.duration>0);}
      const encoder=gpu.device.createCommandEncoder({label:'Present'});
      const ghost=state.mode==='game'&&state.selectedKind&&pointer?{...pointer,kind:state.selectedKind,valid:canPlace(map,run.model.towers,pointer,1.25)&&run.model.phase==='preparation'}:undefined;
-     renderer.encode(encoder,{count,time:simulatedTime,map,towers:state.mode==='game'?run.model.towers:[],effects:visuals,heatmap:state.heatmap,selection:run.model.selected,ghost,boss:latest.boss?.active?latest.boss:undefined});
+     renderer.encode(encoder,{count:editor.active?0:count,time:simulatedTime,map:editor.active?editor.map:map,towers:!editor.active&&state.mode==='game'?run.model.towers:[],effects:editor.active?[]:visuals,heatmap:state.heatmap,selection:run.model.selected,ghost:editor.active?undefined:ghost,boss:!editor.active&&latest.boss?.active?latest.boss:undefined});
      gpu.device.queue.submit([encoder.finish()]);
      if(now-lastUI>100)updateUI(now);
      requestAnimationFrame(frame);

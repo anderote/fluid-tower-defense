@@ -25,9 +25,9 @@ export function validateEditorMap(map:WorldMap):string|undefined {
 
 export function createLevelEditor(mount:HTMLElement, initial:WorldMap, onApply:(map:WorldMap)=>void, onActive:(active:boolean)=>void) {
   let applied=clone(initial), map=clone(initial), active=false, erase=false;
-  const root=document.createElement('section'); root.className='level-editor'; root.style.cssText='position:fixed;top:12px;right:12px;z-index:20;font:12px system-ui';
+  const root=document.createElement('section'); root.className='level-editor'; root.style.cssText='position:relative;z-index:20;font:12px system-ui';
   const toggle=document.createElement('button'); toggle.textContent='LEVEL EDITOR';
-  const panel=document.createElement('div'); panel.className='level-editor-panel'; panel.style.cssText='display:grid;gap:6px;width:190px;margin-top:6px;padding:10px;background:#101827;color:#e8f2ff;border:1px solid #4d6d8f;border-radius:8px';
+  const panel=document.createElement('div'); panel.className='level-editor-panel'; panel.style.cssText='position:absolute;right:0;top:100%;display:grid;gap:6px;width:210px;margin-top:6px;padding:10px;background:#101827;color:#e8f2ff;border:1px solid #4d6d8f;border-radius:8px';
   const status=document.createElement('p');
   const button=(label:string, handler:()=>void)=>{const element=document.createElement('button');element.textContent=label;element.style.cssText='padding:6px 8px;background:#1d3754;color:#fff;border:1px solid #6095c5;border-radius:4px;cursor:pointer';element.onclick=handler;panel.append(element);return element;};
   const setActive=(next:boolean)=>{if(next)map=clone(applied);active=next;panel.hidden=!next;panel.style.display=next?'grid':'none';onActive(next);};
@@ -39,7 +39,7 @@ export function createLevelEditor(mount:HTMLElement, initial:WorldMap, onApply:(
   button('Clear walls',()=>{const next={...map,obstacles:[]};map={...next,id:customId(next)};note('Walls cleared.');});
   button('Reset default',()=>{map=clone(DEFAULT_MAP);note('Default map restored.');});
   button('Save level',()=>{try{localStorage.setItem(SAVE_KEY,JSON.stringify(map));note('Saved locally.');}catch{note('Could not save this level.');}});
-  button('Load level',()=>{try{const raw=localStorage.getItem(SAVE_KEY);if(!raw)throw new Error();const candidate=JSON.parse(raw) as WorldMap;const issue=validateEditorMap(candidate);if(issue)throw new Error(issue);map={...clone(candidate),id:customId(candidate)};note('Loaded local level.');}catch(error){note(error instanceof Error&&error.message?error.message:'No valid saved level.');}});
+  button('Load level',()=>{try{const raw=localStorage.getItem(SAVE_KEY);if(!raw)throw new Error();const candidate=JSON.parse(raw) as WorldMap;const issue=validateEditorMap(candidate);if(issue)throw new Error(issue);map=clone(candidate);note('Loaded local level.');}catch(error){note(error instanceof Error&&error.message?error.message:'No valid saved level.');}});
   button('Apply & Play',()=>{const issue=validateEditorMap(map);if(issue){note(issue);return;}applied=clone(map);onApply(clone(map));setActive(false);});
   button('Cancel',()=>{map=clone(applied);setActive(false);}); panel.append(status); root.append(toggle,panel); mount.append(root); panel.hidden=true; panel.style.display='none';
   return {
@@ -48,7 +48,7 @@ export function createLevelEditor(mount:HTMLElement, initial:WorldMap, onApply:(
       const x=Math.floor(point.x/GRID)*GRID,y=Math.floor(point.y/GRID)*GRID, wall={x,y,width:GRID,height:GRID};
       if(x<0||y<0||x+GRID>160||y+GRID>100)return;
       const index=map.obstacles.findIndex(existing=>x>=existing.x&&x<existing.x+existing.width&&y>=existing.y&&y<existing.y+existing.height);
-      if(requestedErase){if(index>=0)map.obstacles.splice(index,1);return;}
+      if(requestedErase){if(index>=0){map.obstacles.splice(index,1);map.id=customId(map);}return;}
       if(index>=0||map.obstacles.length>=64)return;
       const candidate=clone(map);candidate.obstacles.push(wall);const issue=validateEditorMap(candidate);
       if(issue){note(issue);return;}map={...candidate,id:customId(candidate)};
