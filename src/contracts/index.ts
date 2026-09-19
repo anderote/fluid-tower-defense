@@ -27,7 +27,7 @@ export const P = { x:0,y:1,vx:2,vy:3,radius:4,mass:5,hp:6,maxHp:7,packing:8,pres
 export interface SharedGPU { particles: GPUBuffer; counters: GPUBuffer; capacity: number; shotState?: GPUBuffer; bossState?: GPUBuffer }
 export interface PhysicsFrame { dt: number; tick: number; count: number; map: WorldMap; effects: readonly Effect[]; tuning: Tuning; navigation?: NavigationField; lab: boolean }
 export interface PhysicsModule { encode(encoder: GPUCommandEncoder, frame: PhysicsFrame): void; reset(): void; destroy(): void }
-export interface Settlement { epoch: number; tick: number; kills: number; crushKills: number; leaks: number; earned: number; live: number; invalid: number; maxPacking: number }
+export interface Settlement { epoch: number; tick: number; kills: number; crushKills: number; leaks: number; earned: number; live: number; invalid: number; maxPacking: number; boss?:{x:number;y:number;health:number;maxHealth:number;phase:number;active:boolean} }
 // counters: cumulative kills, crush kills, leaks (base damage), earned, current live, invalid, max packing*1000; remaining reserved. Live/max packing may be reset each sampled tick by root.
 export interface RenderScene { count: number; time: number; map: WorldMap; towers: readonly Tower[]; effects: readonly Effect[]; heatmap: boolean; selection: number | null; ghost?: Vec2 & {kind: TowerKind; valid: boolean}; boss?: Vec2 & {health:number;maxHealth:number;phase:number} }
 export interface Renderer { encode(encoder: GPUCommandEncoder, scene: RenderScene): void; screenToWorld(clientX:number,clientY:number):Vec2; destroy():void }
