@@ -212,6 +212,14 @@ export async function createPhysics(device: GPUDevice, shared: SharedGPU): Promi
   });
   const pipelineLayout = device.createPipelineLayout({ label: 'Physics pipeline layout', bindGroupLayouts: [bindGroupLayout] });
   const shader = device.createShaderModule({ label: 'Crowd physics', code: PHYSICS_WGSL });
+  const compilation = await shader.getCompilationInfo();
+  const shaderErrors = compilation.messages.filter((message) => message.type === 'error');
+  if (shaderErrors.length > 0) {
+    const details = shaderErrors
+      .map((message) => `${message.lineNum}:${message.linePos} ${message.message}`)
+      .join('\n');
+    throw new Error(`Crowd physics shader compilation failed:\n${details}`);
+  }
   const [binPipeline, densityPipeline, motionPipeline, integrationPipeline] = await Promise.all([
     device.createComputePipelineAsync({ label: 'Physics bin particles', layout: pipelineLayout, compute: { module: shader, entryPoint: 'binParticles' } }),
     device.createComputePipelineAsync({ label: 'Physics measure density', layout: pipelineLayout, compute: { module: shader, entryPoint: 'measureDensity' } }),
