@@ -22,13 +22,13 @@ export const DEFAULT_MAP: WorldMap = {
 
 export function validateContent(): void {
   const finite = (value:number, label:string) => { if (!Number.isFinite(value)) throw new Error(`${label} must be finite`); };
-  for (const tower of Object.values(TOWERS)) {
-    if (tower.id !== (tower.id as TowerKind) || tower.cost <= 0 || tower.range <= 0 || tower.cooldown <= 0 || tower.radius < 0 || tower.branches.length !== 2 || tower.branches[0] === tower.branches[1]) throw new Error(`Invalid tower ${tower.id}`);
+  for (const [key,tower] of Object.entries(TOWERS) as [TowerKind,TowerDef][]) {
+    if (tower.id !== key || tower.cost <= 0 || tower.range <= 0 || tower.cooldown <= 0 || tower.damage < 0 || tower.force < 0 || tower.radius < 0 || tower.branches.length !== 2 || tower.branches[0] === tower.branches[1]) throw new Error(`Invalid tower ${tower.id}`);
     [tower.cost,tower.range,tower.cooldown,tower.damage,tower.force,tower.radius].forEach((value,index)=>finite(value,`${tower.id}[${index}]`));
   }
   const seen = new Set<number>();
-  for (const enemy of Object.values(ENEMIES)) {
-    if (seen.has(enemy.index) || enemy.radius <= 0 || enemy.mass <= 0 || enemy.health <= 0 || enemy.speed <= 0 || enemy.bounty < 0 || enemy.leak <= 0) throw new Error(`Invalid enemy ${enemy.id}`);
+  for (const [key,enemy] of Object.entries(ENEMIES) as [EnemyKind,EnemyDef][]) {
+    if (enemy.id !== key || seen.has(enemy.index) || enemy.radius <= 0 || enemy.mass <= 0 || enemy.health <= 0 || enemy.speed <= 0 || enemy.bounty < 0 || enemy.leak <= 0) throw new Error(`Invalid enemy ${enemy.id}`);
     seen.add(enemy.index); [enemy.radius,enemy.mass,enemy.health,enemy.speed,enemy.crushTolerance,enemy.bounty,enemy.leak].forEach((value,index)=>finite(value,`${enemy.id}[${index}]`));
   }
 }

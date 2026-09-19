@@ -28,7 +28,7 @@ export function buildNavigation(map: WorldMap): NavigationField {
   return {width,height,cellSize:CELL_SIZE,vectors,distances,version:++version};
 }
 
-/** Checks a circular tower footprint against bounds, static walls, spawn and other towers. */
+/** Checks a circular mounted-emplacement footprint against bounds, static walls, spawn and other towers. */
 export function canPlace(map: WorldMap, towers: readonly Tower[], position: Vec2, footprint: number): boolean {
   if (!Number.isFinite(position.x) || !Number.isFinite(position.y) || !Number.isFinite(footprint) || footprint <= 0) return false;
   if (position.x-footprint<0 || position.y-footprint<0 || position.x+footprint>map.width || position.y+footprint>map.height) return false;
