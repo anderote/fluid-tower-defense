@@ -38,7 +38,7 @@ struct Obstacle { rect: vec4<f32> }
 struct Effect {
   posRadius: vec4<f32>,
   data: vec4<f32>,
-  meta: vec4<f32>,
+  flags: vec4<f32>,
 }
 
 @group(0) @binding(0) var<storage, read_write> particles: array<Particle>;
@@ -183,7 +183,7 @@ fn effectImpulse(position: vec2<f32>, mass: f32) -> vec2<f32> {
   var impulse = vec2<f32>(0.0);
   for (var effectIndex = 0u; effectIndex < params.effectCount; effectIndex += 1u) {
     let effect = effects[effectIndex];
-    let kind = u32(max(0.0, effect.meta.x) + 0.5);
+    let kind = u32(max(0.0, effect.flags.x) + 0.5);
     if (kind > 1u) { continue; }
     let offset = position - effect.posRadius.xy;
     let distance = length(offset);
@@ -197,7 +197,7 @@ fn effectImpulse(position: vec2<f32>, mass: f32) -> vec2<f32> {
       let directionLength = length(effect.data.zw);
       if (directionLength <= 0.0001) { continue; }
       let direction = effect.data.zw / directionLength;
-      let cone = effect.meta.y;
+      let cone = effect.flags.y;
       if (cone > 0.0 && distance > 0.02 && dot(offset / distance, direction) < cos(0.5 * cone)) { continue; }
       impulse += direction * effect.data.x * falloff / mass;
     }
@@ -209,7 +209,7 @@ fn slowMultiplier(position: vec2<f32>, remaining: f32) -> f32 {
   var multiplier = select(1.0, 0.45, remaining > 0.0);
   for (var effectIndex = 0u; effectIndex < params.effectCount; effectIndex += 1u) {
     let effect = effects[effectIndex];
-    let kind = u32(max(0.0, effect.meta.x) + 0.5);
+    let kind = u32(max(0.0, effect.flags.x) + 0.5);
     if (kind == 2u && distance(position, effect.posRadius.xy) < effect.posRadius.z) {
       multiplier = min(multiplier, 1.0 - clamp(effect.data.x, 0.0, 0.9));
     }
@@ -344,9 +344,9 @@ fn slowDuration(position: vec2<f32>, previous: f32) -> f32 {
   var remaining = max(0.0, previous - params.fullDt);
   for (var effectIndex = 0u; effectIndex < params.effectCount; effectIndex += 1u) {
     let effect = effects[effectIndex];
-    let kind = u32(max(0.0, effect.meta.x) + 0.5);
+    let kind = u32(max(0.0, effect.flags.x) + 0.5);
     if (kind == 2u && distance(position, effect.posRadius.xy) < effect.posRadius.z) {
-      remaining = max(remaining, max(0.0, effect.meta.z));
+      remaining = max(remaining, max(0.0, effect.flags.z));
     }
   }
   return remaining;
