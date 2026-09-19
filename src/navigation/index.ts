@@ -1,0 +1,39 @@
+import {type NavigationField, type Tower, type Vec2, type WorldMap} from '../contracts/index.ts';
+
+const CELL_SIZE = 1;
+let version = 0;
+const inside = (map:WorldMap,x:number,y:number) => x >= 0 && y >= 0 && x < map.width && y < map.height;
+const blocked = (map:WorldMap,x:number,y:number) => map.obstacles.some(rect => x >= rect.x && x < rect.x+rect.width && y >= rect.y && y < rect.y+rect.height);
+
+/** A reverse breadth-first field. Distances are in cells and vectors point to the goal. */
+export function buildNavigation(map: WorldMap): NavigationField {
+  const width=Math.ceil(map.width/CELL_SIZE), height=Math.ceil(map.height/CELL_SIZE), size=width*height;
+  const distances=new Float32Array(size); distances.fill(Infinity);
+  const vectors=new Float32Array(size*2);
+  const index=(x:number,y:number)=>y*width+x;
+  const goalX=Math.min(width-1,Math.max(0,Math.floor(map.goal.x/CELL_SIZE))), goalY=Math.min(height-1,Math.max(0,Math.floor(map.goal.y/CELL_SIZE)));
+  const queueX=new Int32Array(size), queueY=new Int32Array(size); let head=0,tail=0;
+  if (!blocked(map,goalX*CELL_SIZE,goalY*CELL_SIZE)) { distances[index(goalX,goalY)]=0; queueX[tail]=goalX;queueY[tail++]=goalY; }
+  const directions=[[1,0],[-1,0],[0,1],[0,-1]] as const;
+  while(head<tail) {
+    const x=queueX[head],y=queueY[head++],distance=distances[index(x,y)];
+    for(const [dx,dy] of directions) { const nx=x+dx,ny=y+dy,at=index(nx,ny); if(inside(map,nx*CELL_SIZE,ny*CELL_SIZE) && !blocked(map,nx*CELL_SIZE,ny*CELL_SIZE) && distances[at] === Infinity) { distances[at]=distance+1;queueX[tail]=nx;queueY[tail++]=ny; } }
+  }
+  for(let y=0;y<height;y++) for(let x=0;x<width;x++) {
+    const at=index(x,y), current=distances[at]; if(!Number.isFinite(current) || current===0) continue;
+    let best=current,bx=x,by=y;
+    for(const [dx,dy] of directions) { const nx=x+dx,ny=y+dy; if(nx>=0&&ny>=0&&nx<width&&ny<height&&distances[index(nx,ny)]<best) {best=distances[index(nx,ny)];bx=nx;by=ny;} }
+    const length=Math.hypot(bx-x,by-y); vectors[at*2]=(bx-x)/length;vectors[at*2+1]=(by-y)/length;
+  }
+  return {width,height,cellSize:CELL_SIZE,vectors,distances,version:++version};
+}
+
+/** Checks a circular tower footprint against bounds, static walls, spawn and other towers. */
+export function canPlace(map: WorldMap, towers: readonly Tower[], position: Vec2, footprint: number): boolean {
+  if (!Number.isFinite(position.x) || !Number.isFinite(position.y) || !Number.isFinite(footprint) || footprint <= 0) return false;
+  if (position.x-footprint<0 || position.y-footprint<0 || position.x+footprint>map.width || position.y+footprint>map.height) return false;
+  const circleRect=(rect:{x:number;y:number;width:number;height:number})=>{ const x=Math.max(rect.x,Math.min(position.x,rect.x+rect.width)),y=Math.max(rect.y,Math.min(position.y,rect.y+rect.height)); return Math.hypot(position.x-x,position.y-y) < footprint; };
+  if (map.obstacles.some(circleRect) || circleRect(map.spawn)) return false;
+  if (Math.hypot(position.x-map.goal.x,position.y-map.goal.y) < footprint+map.goalRadius) return false;
+  return towers.every(tower=>Math.hypot(position.x-tower.x,position.y-tower.y) >= footprint+1.25);
+}
