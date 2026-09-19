@@ -25,7 +25,8 @@ export const BOSS_PHASE_SECONDS = {
 export function initialBossState(active: boolean, generation: number): Float32Array {
   const state = new Float32Array(BOSS_FLOATS);
   state.set([BOSS_RADIUS, BOSS_MASS, BOSS_HEALTH, BOSS_HEALTH], 4);
-  state.set([BOSS_PHASE.advance, 0, active ? 1 : 0, active ? 0 : 1], 8);
+  // Phase -1 is the one-shot GPU initialization sentinel. Flag.w is reserved for slow duration.
+  state.set([-1, 0, active ? 1 : 0, active ? 0 : 1], 8);
   state.set([generation, BOSS_REWARD, BOSS_LEAK, 0], 12);
   return state;
 }
@@ -41,4 +42,3 @@ export function nextBossPhase(phase: number, elapsed: number): { phase: number; 
   if (elapsed < durations[phase]) return { phase, elapsed };
   return { phase: (phase + 1) % 4, elapsed: elapsed - durations[phase] };
 }
-

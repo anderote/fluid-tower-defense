@@ -57,16 +57,16 @@ fn advanceBoss() {
   var boss = bossState;
   if (params.clock.w < 0.5 || boss.mode.z < 0.5 || boss.mode.w > 0.5) { return; }
 
-  if (boss.flags.w < 0.5) {
+  if (boss.mode.x < 0.0) {
     boss.motion = vec4<f32>(params.spawn.x + min(params.spawn.z * 0.2, 2.0), params.spawn.y + params.spawn.w * 0.5, 0.0, 0.0);
     boss.body = vec4<f32>(${BOSS_RADIUS}, ${BOSS_MASS}, ${BOSS_HEALTH}, ${BOSS_HEALTH});
     boss.mode = vec4<f32>(f32(PHASE_ADVANCE), 0.0, 1.0, 0.0);
-    boss.flags = vec4<f32>(boss.flags.x, ${BOSS_REWARD}, ${BOSS_LEAK}, 1.0);
+    boss.flags = vec4<f32>(boss.flags.x, ${BOSS_REWARD}, ${BOSS_LEAK}, 0.0);
   }
 
   if (boss.body.z <= 0.0) {
     boss.body.z = 0.0;
-    boss.motion.zw = vec2<f32>(0.0);
+    boss.motion = vec4<f32>(boss.motion.xy, vec2<f32>(0.0));
     boss.mode.x = f32(PHASE_DEAD);
     bossState = boss;
     return;
@@ -94,14 +94,20 @@ fn advanceBoss() {
   if (phase == PHASE_BRACE) { speed = 0.0; }
   if (phase == PHASE_CHARGE) { speed = 7.5; }
   if (phase == PHASE_RECOVER) { speed = 0.3; }
-  boss.motion.zw = direction * speed;
-  boss.motion.xy += boss.motion.zw * params.clock.x;
-  boss.motion.xy = clamp(boss.motion.xy, vec2<f32>(boss.body.x), params.world.xy - vec2<f32>(boss.body.x));
+  let slowMultiplier = select(1.0, 0.6, boss.flags.w > 0.0);
+  boss.flags.w = max(0.0, boss.flags.w - params.clock.x);
+  let nextVelocity = direction * speed * slowMultiplier;
+  let nextPosition = clamp(
+    boss.motion.xy + nextVelocity * params.clock.x,
+    vec2<f32>(boss.body.x),
+    params.world.xy - vec2<f32>(boss.body.x),
+  );
+  boss.motion = vec4<f32>(nextPosition, nextVelocity);
   boss.mode.x = f32(phase);
   boss.mode.y = timer;
 
   if (distance(boss.motion.xy, goal) <= params.rules.x + boss.body.x) {
-    boss.motion.zw = vec2<f32>(0.0);
+    boss.motion = vec4<f32>(boss.motion.xy, vec2<f32>(0.0));
     boss.mode.x = f32(PHASE_LEAKED);
   }
   bossState = boss;
@@ -128,9 +134,10 @@ fn pushParticles(@builtin(global_invocation_id) gid: vec3<u32>) {
   if (separation <= 0.0001) { normal = safeDirection(boss.motion.zw); }
   let overlap = contactDistance - separation;
   let force = select(72.0, 180.0, phase == PHASE_CHARGE);
-  particle.pos.zw += normal * force * overlap * params.clock.x / mass;
-  particle.pos.zw += (boss.motion.zw - particle.pos.zw) * min(0.35, overlap / contactDistance) * params.clock.x * 4.0;
-  particle.pos.xy += normal * min(0.18, overlap * 0.35);
+  var nextParticleVelocity = particle.pos.zw + normal * force * overlap * params.clock.x / mass;
+  nextParticleVelocity += (boss.motion.zw - nextParticleVelocity) * min(0.35, overlap / contactDistance) * params.clock.x * 4.0;
+  let nextParticlePosition = particle.pos.xy + normal * min(0.18, overlap * 0.35);
+  particle.pos = vec4<f32>(nextParticlePosition, nextParticleVelocity);
   particles[index] = particle;
 }
 
@@ -141,7 +148,7 @@ fn resolveBoss() {
   if (boss.mode.z > 0.5 && boss.mode.w < 0.5) {
     if (boss.body.z <= 0.0 || phase == PHASE_DEAD) {
       boss.body.z = 0.0;
-      boss.motion.zw = vec2<f32>(0.0);
+      boss.motion = vec4<f32>(boss.motion.xy, vec2<f32>(0.0));
       boss.mode.x = f32(PHASE_DEAD);
       boss.mode.z = 0.0;
       boss.mode.w = 1.0;
@@ -303,4 +310,3 @@ export {
   BOSS_RADIUS,
   BOSS_REWARD,
 } from './model.ts';
-
