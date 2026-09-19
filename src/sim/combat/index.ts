@@ -96,7 +96,7 @@ fn safeDir(delta:vec2f)->vec2f { return delta/max(length(delta),0.0001); }
  let brittle=select(1.0,1.7,p.status.y>0.0);
  let crush=max(0.0,p.status.z)*brittle/tolerance;
  let wasAlive=p.body.z>0.0;p.body.z-=crush;p.status.z=0;
- if(p.body.z<=0.0){p.body.z=0;p.state.w=0;atomicAdd(&counters[0],1u);if(wasAlive&&crush>0){atomicAdd(&counters[1],1u);}atomicAdd(&counters[3],select(3u,8u,kind==2u));}
+ if(p.body.z<=0.0){p.body.z=0;p.body.w=-params.clock.y;p.state.w=-1;atomicAdd(&counters[0],1u);if(wasAlive&&crush>0){atomicAdd(&counters[1],1u);}atomicAdd(&counters[3],select(3u,8u,kind==2u));}
  else if(params.goal.w<.5&&distance(p.pos.xy,params.goal.xy)<params.goal.z){p.state.w=0;atomicAdd(&counters[2],select(1u,3u,kind==2u));}
  else{atomicAdd(&counters[4],1u);atomicMax(&counters[6],u32(clamp(p.state.x,0.0,1000.0)*1000.0));}
  p.status.y=max(0.0,p.status.y-params.clock.x);

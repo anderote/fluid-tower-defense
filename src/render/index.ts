@@ -18,8 +18,9 @@ struct Out { @builtin(position) pos: vec4<f32>, @location(0) local: vec2<f32>, @
 fn world(p:vec2<f32>)->vec2<f32>{ let aspect=camera.viewport.x/max(1.0,camera.viewport.y); let targetAspect=camera.world.z/camera.world.w; let sx=min(1.0,targetAspect/aspect); let sy=min(1.0,aspect/targetAspect); return vec2((((p.x-camera.world.x)/camera.world.z)*2.0-1.0)*sx, (1.0-((p.y-camera.world.y)/camera.world.w)*2.0)*sy); }
 @vertex fn vs(@builtin(vertex_index) vi:u32,@builtin(instance_index) ii:u32)->Out {
   let corners=array<vec2<f32>,6>(vec2(-1,-1),vec2(1,-1),vec2(-1,1),vec2(-1,1),vec2(1,-1),vec2(1,1));
-  let p=particles[ii]; let c=corners[vi]; let radius=p.body.x;
+  let p=particles[ii]; let c=corners[vi]; let dead=p.state.w<-.5; let radius=select(p.body.x, max(.16,p.body.x*1.9), dead);
   let q=world(p.pos.xy + c*radius); var o:Out; o.pos=vec4(q,0,1); o.local=c;
+  if(dead){ let age=camera.time.x-(-p.body.w)/60.; o.color=vec4(.75+.25*sin(f32(ii)*17.),.025,.01,max(0.,1.-age/.72)); return o; }
   let k=u32(p.state.z + 0.5); var col=vec3(0.77,0.85,0.68);
   if(k==1u){col=vec3(1.0,0.61,0.25);} if(k==2u){col=vec3(0.74,0.35,0.18);}
   let hp=clamp(p.body.z/max(0.001,p.body.w),0.0,1.0); let pressure=clamp(max(p.state.y,p.state.x)*.018,0.0,1.0);
@@ -27,7 +28,7 @@ fn world(p:vec2<f32>)->vec2<f32>{ let aspect=camera.viewport.x/max(1.0,camera.vi
   if(camera.time.y > .5){ col=mix(col,vec3(1.0,0.12,0.03),pressure); }
   o.color=vec4(col*(0.45+0.55*hp),p.state.w); return o;
 }
-@fragment fn fs(i:Out)->@location(0) vec4<f32>{ let d=dot(i.local,i.local); if(d>1.0 || i.color.a<0.5){discard;} let rim=smoothstep(.58,.98,d); return vec4(mix(i.color.rgb,vec3(1.0,.9,.65),rim*.18),1); }
+@fragment fn fs(i:Out)->@location(0) vec4<f32>{ let d=dot(i.local,i.local); if(d>1.0 || i.color.a<.02){discard;} let rim=smoothstep(.58,.98,d); return vec4(mix(i.color.rgb,vec3(1.0,.9,.65),rim*.18),i.color.a); }
 `});
   const overlayModule=device.createShaderModule({code:`
 struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group(0) @binding(0) var<uniform> camera:Camera;
@@ -59,22 +60,30 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
   const cameraOverlay=device.createBindGroup({layout:overlay.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:uniform}}]});
   const cameraCues=device.createBindGroup({layout:cues.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:uniform}},{binding:1,resource:{buffer:shared.shotState ?? emptyShots}},{binding:2,resource:{buffer:towerVisuals}}]});
   let pixelW=0,pixelH=0;
+  let camera={x:0,y:0,zoom:1};
+  const view=()=>({width:W/camera.zoom,height:H/camera.zoom});
+  const clampCamera=()=>{const v=view();camera.x=Math.max(0,Math.min(W-v.width,camera.x));camera.y=Math.max(0,Math.min(H-v.height,camera.y));};
   const resize=()=>{const d=Math.min(devicePixelRatio||1,2),max=device.limits.maxTextureDimension2D; const w=Math.max(1,Math.min(max,Math.round(canvas.clientWidth*d))),h=Math.max(1,Math.min(max,Math.round(canvas.clientHeight*d))); if(w!==pixelW||h!==pixelH){pixelW=w;pixelH=h;canvas.width=w;canvas.height=h;context.configure({device,format,alphaMode:'opaque'});} };
+  const screenToWorld=(clientX:number,clientY:number):Vec2=>{const r=canvas.getBoundingClientRect(),aspect=r.width/r.height,target=W/H,sx=Math.min(1,target/aspect),sy=Math.min(1,aspect/target),v=view();return{x:Math.max(0,Math.min(W,camera.x+(((clientX-r.left)/r.width*2-1)/sx+1)*v.width/2)),y:Math.max(0,Math.min(H,camera.y+(((clientY-r.top)/r.height*2-1)/sy+1)*v.height/2))}};
   const push=(a:V[],x:number,y:number,c:[number,number,number,number])=>a.push({x,y,r:c[0],g:c[1],b:c[2],a:c[3]});
   const tri=(a:V[], p:Vec2,q:Vec2,r:Vec2,c:[number,number,number,number])=>{push(a,p.x,p.y,c);push(a,q.x,q.y,c);push(a,r.x,r.y,c)};
   const rect=(a:V[],x:number,y:number,w:number,h:number,c:[number,number,number,number])=>{tri(a,{x,y},{x:x+w,y},{x,y:y+h},c);tri(a,{x:x+w,y},{x:x+w,y:y+h},{x,y:y+h},c)};
   const ring=(a:V[],x:number,y:number,rad:number,c:[number,number,number,number],width=0.65)=>{const n=28;for(let i=0;i<n;i++){const u=i/n*Math.PI*2,v=(i+1)/n*Math.PI*2;const p=(rr:number,t:number)=>({x:x+Math.cos(t)*rr,y:y+Math.sin(t)*rr});tri(a,p(rad-width,u),p(rad-width,v),p(rad,v),c);tri(a,p(rad-width,u),p(rad,v),p(rad,u),c)}};
+  const diamond=(a:V[],x:number,y:number,size:number,c:[number,number,number,number])=>{tri(a,{x,y:y-size},{x:x+size,y},{x,y:y+size},c);tri(a,{x,y:y-size},{x,y:y+size},{x:x-size,y},c)};
+  const towerShape=(a:V[],t:Vec2 & {kind:string;level?:number},c:[number,number,number,number])=>{const s=1.65+(t.level??0)*.12;if(t.kind==='repulsor')tri(a,{x:t.x,y:t.y-s},{x:t.x+s,y:t.y+s},{x:t.x-s,y:t.y+s},c);else if(t.kind==='mortar')rect(a,t.x-s,t.y-s,s*2,s*2,c);else if(t.kind==='autocannon')diamond(a,t.x,t.y,s,c);else{rect(a,t.x-s*.38,t.y-s,s*.76,s*2,c);rect(a,t.x-s,t.y-s*.38,s*2,s*.76,c);}};
   function geometry(scene:RenderScene): Float32Array { const a:V[]=[];
     for(const o of scene.map.obstacles){rect(a,o.x,o.y,o.width,o.height,[.17,.22,.18,.95]);rect(a,o.x+.45,o.y+.45,Math.max(0,o.width-.9),Math.min(1,o.height),[.38,.5,.25,.3]);}
     rect(a,scene.map.spawn.x,scene.map.spawn.y,scene.map.spawn.width,scene.map.spawn.height,[.95,.48,.12,.11]); ring(a,scene.map.goal.x,scene.map.goal.y,scene.map.goalRadius,[.71,.98,.31,.85]);
-    for(const t of scene.towers){const c: [number,number,number,number]=t.kind==='repulsor'?[.73,1,.22,.95]:t.kind==='mortar'?[1,.62,.16,.95]:t.kind==='autocannon'?[.28,.85,1,.95]:[.4,.85,.95,.95];ring(a,t.x,t.y,3.3+t.level*.25,c,.7); const q={x:t.x+Math.cos(t.angle)*5,y:t.y+Math.sin(t.angle)*5}; tri(a,{x:t.x-1.7,y:t.y-1.7},{x:t.x+1.7,y:t.y+1.7},q,c);if(scene.selection===t.id)ring(a,t.x,t.y,6,[1,.88,.4,.9],.45);}
-    if(scene.ghost){ring(a,scene.ghost.x,scene.ghost.y,3.2,scene.ghost.valid?[.65,1,.25,.8]:[1,.18,.12,.8],.65)}
+    for(const t of scene.towers){const c: [number,number,number,number]=t.kind==='repulsor'?[.73,1,.22,.95]:t.kind==='mortar'?[1,.62,.16,.95]:t.kind==='autocannon'?[.28,.85,1,.95]:[.4,.85,.95,.95];towerShape(a,t,c);if(scene.selection===t.id)ring(a,t.x,t.y,4.2,[1,.88,.4,.9],.35);}
+    if(scene.ghost){const c: [number,number,number,number]=scene.ghost.valid?[.65,1,.25,.8]:[1,.18,.12,.8];ring(a,scene.ghost.x,scene.ghost.y,scene.ghost.range,c,.22);towerShape(a,scene.ghost,c);}
     for(const e of scene.effects){const c: [number,number,number,number]=e.kind==='blast'?[1,.42,.1,.75]:e.kind==='slow'?[.25,.8,1,.56]:[.7,1,.2,.5];ring(a,e.x,e.y,Math.max(1,e.radius),c,Math.max(.35,e.radius*.08)); if(e.kind==='push'){const q={x:e.x+e.direction.x*e.radius,y:e.y+e.direction.y*e.radius};tri(a,{x:e.x-1,y:e.y-1},{x:e.x+1,y:e.y+1},q,c)}}
     if(scene.boss){const c: [number,number,number,number]=scene.boss.phase===2?[1,.15,.04,.95]:scene.boss.phase===1?[.9,.72,.2,.95]:[.55,.78,1,.95];ring(a,scene.boss.x,scene.boss.y,2.5,c,.55);rect(a,scene.boss.x-3,scene.boss.y-4,6*Math.max(0,scene.boss.health/scene.boss.maxHealth),.45,c);}
     const capped=a.slice(0,MAX_OVERLAY_VERTICES); const data=new Float32Array(capped.length*6);capped.forEach((v,i)=>data.set([v.x,v.y,v.r,v.g,v.b,v.a],i*6));return data;
   }
-  return { encode(encoder,scene){resize(); const u=new Float32Array([pixelW,pixelH,0,0,0,0,W,H,scene.time,scene.heatmap?1:0,0,0,0,0,0,0]);device.queue.writeBuffer(uniform,0,u);const visual=new Float32Array(Math.max(1,Math.min(MAX_TOWERS,scene.towers.length))*4);scene.towers.slice(0,MAX_TOWERS).forEach((t,i)=>visual.set([t.x,t.y,t.id,['repulsor','mortar','autocannon','cryo'].indexOf(t.kind)],i*4));device.queue.writeBuffer(towerVisuals,0,visual);const data=geometry(scene);if(data.byteLength)device.queue.writeBuffer(overlays,0,data.buffer,data.byteOffset,data.byteLength);const pass=encoder.beginRenderPass({colorAttachments:[{view:context.getCurrentTexture().createView(),clearValue:{r:.02,g:.03,b:.025,a:1},loadOp:'clear',storeOp:'store'}]});pass.setPipeline(bg);pass.setBindGroup(0,cameraBG);pass.draw(3);pass.setPipeline(overlay);pass.setBindGroup(0,cameraOverlay);pass.setVertexBuffer(0,overlays);pass.draw(data.length/6);pass.setPipeline(particles);pass.setBindGroup(0,cameraParticles);pass.draw(6,Math.min(scene.count,shared.capacity));if(shared.shotState){pass.setPipeline(cues);pass.setBindGroup(0,cameraCues);pass.draw(6,Math.min(MAX_TOWERS,scene.towers.length));}pass.end(); },
-    screenToWorld(clientX,clientY){const r=canvas.getBoundingClientRect(),aspect=r.width/r.height,target=W/H,sx=Math.min(1,target/aspect),sy=Math.min(1,aspect/target);return{x:Math.max(0,Math.min(W,(((clientX-r.left)/r.width*2-1)/sx+1)*W/2)),y:Math.max(0,Math.min(H,(((clientY-r.top)/r.height*2-1)/sy+1)*H/2))}},
+  return { encode(encoder,scene){resize(); const v=view(); const u=new Float32Array([pixelW,pixelH,0,0,camera.x,camera.y,v.width,v.height,scene.time,scene.heatmap?1:0,0,0,0,0,0,0]);device.queue.writeBuffer(uniform,0,u);const visual=new Float32Array(Math.max(1,Math.min(MAX_TOWERS,scene.towers.length))*4);scene.towers.slice(0,MAX_TOWERS).forEach((t,i)=>visual.set([t.x,t.y,t.id,['repulsor','mortar','autocannon','cryo'].indexOf(t.kind)],i*4));device.queue.writeBuffer(towerVisuals,0,visual);const data=geometry(scene);if(data.byteLength)device.queue.writeBuffer(overlays,0,data.buffer,data.byteOffset,data.byteLength);const pass=encoder.beginRenderPass({colorAttachments:[{view:context.getCurrentTexture().createView(),clearValue:{r:.02,g:.03,b:.025,a:1},loadOp:'clear',storeOp:'store'}]});pass.setPipeline(bg);pass.setBindGroup(0,cameraBG);pass.draw(3);pass.setPipeline(overlay);pass.setBindGroup(0,cameraOverlay);pass.setVertexBuffer(0,overlays);pass.draw(data.length/6);pass.setPipeline(particles);pass.setBindGroup(0,cameraParticles);pass.draw(6,Math.min(scene.count,shared.capacity));if(shared.shotState){pass.setPipeline(cues);pass.setBindGroup(0,cameraCues);pass.draw(6,Math.min(MAX_TOWERS,scene.towers.length));}pass.end(); },
+    screenToWorld,
+    pan(dx,dy){camera.x+=dx;camera.y+=dy;clampCamera();},
+    zoomAt(factor,clientX,clientY){const before=screenToWorld(clientX,clientY);camera.zoom=Math.max(1,Math.min(3,camera.zoom*factor));const after=screenToWorld(clientX,clientY);camera.x+=before.x-after.x;camera.y+=before.y-after.y;clampCamera();},
     destroy(){uniform.destroy();overlays.destroy();towerVisuals.destroy();emptyShots.destroy();}
   };
 }

@@ -91,8 +91,7 @@ try {
      case 'start-wave':{
        const result=run.startWave();actionResult(result,'Wave incoming. Hold the choke.');if(!result.ok)break;
        const batches=run.takeSpawns(gpu.shared.capacity);
-       const spawnMap={...map,spawn:{x:50,y:35,width:32,height:30}};
-       const data=createParticles(batches,spawnMap,gpu.shared.capacity);count=data.length/PARTICLE_FLOATS;
+       const data=createParticles(batches,map,gpu.shared.capacity);count=data.length/PARTICLE_FLOATS;
        if(count!==batches.reduce((sum,b)=>sum+b.count,0))throw new Error('Wave spawn region capacity must cover the authored wave.');
        gpu.device.queue.writeBuffer(gpu.shared.particles,0,data.buffer);state.population=count;physics.reset();combat.reset();boss.reset(run.isBossWave);waveStartTick=clock.tick+1;state.paused=false;state.selectedKind=null;break;
      }
@@ -105,6 +104,7 @@ try {
    updateUI(performance.now());
  };
  ui.canvas.addEventListener('pointermove',event=>{pointer=renderer.screenToWorld(event.clientX,event.clientY);if(editor.active&&event.buttons)editor.paint(pointer,event.buttons&2?true:undefined);});
+ ui.canvas.addEventListener('wheel',event=>{if(editor.active)return;event.preventDefault();renderer.zoomAt(event.deltaY<0?1.13:1/1.13,event.clientX,event.clientY);},{passive:false});
  ui.canvas.addEventListener('contextmenu',event=>{if(editor.active)event.preventDefault();});
  ui.canvas.addEventListener('pointerleave',()=>{pointer=undefined;});
  ui.canvas.addEventListener('pointerdown',event=>{
@@ -119,7 +119,9 @@ try {
      state.message=state.tool==='blast'?'Concussive blast deployed.':'Pressure pulse deployed toward the base.';
    }else state.message=`World position ${point.x.toFixed(1)}, ${point.y.toFixed(1)} · peak packing ${latest.maxPacking.toFixed(2)}`;
  });
- window.addEventListener('keydown',event=>{if((event.target as HTMLElement).matches('input,textarea,select'))return;if(event.code==='Space'){event.preventDefault();handleAction({type:'pause'});}if(event.key==='Escape'){state.selectedKind=null;run.model.selected=null;}if(event.key.toLowerCase()==='h')handleAction({type:'heatmap',value:!state.heatmap});});
+ const panKeys=new Set<string>();
+ window.addEventListener('keydown',event=>{if((event.target as HTMLElement).matches('input,textarea,select'))return;const key=event.key.toLowerCase();if(['w','a','s','d'].includes(key)){event.preventDefault();panKeys.add(key);return;}if(event.code==='Space'){event.preventDefault();handleAction({type:'pause'});}if(event.key==='Escape'){state.selectedKind=null;run.model.selected=null;}if(key==='h')handleAction({type:'heatmap',value:!state.heatmap});if(key==='+'||key==='=')renderer.zoomAt(1.13,ui.canvas.getBoundingClientRect().x+ui.canvas.clientWidth/2,ui.canvas.getBoundingClientRect().y+ui.canvas.clientHeight/2);if(key==='-')renderer.zoomAt(1/1.13,ui.canvas.getBoundingClientRect().x+ui.canvas.clientWidth/2,ui.canvas.getBoundingClientRect().y+ui.canvas.clientHeight/2);});
+ window.addEventListener('keyup',event=>panKeys.delete(event.key.toLowerCase()));
  function updateUI(now:number){
    const report=metrics.report();state.fps=report.fps;state.frameMs=report.medianMs;
    state.scrap=run.model.scrap;state.baseHealth=run.model.baseHealth/20*100;state.wave=run.model.wave;state.waveCount=run.model.waveCount;state.phase=state.mode==='lab'?'combat':run.model.phase;
@@ -144,11 +146,12 @@ try {
    try{
      const elapsed=(now-previous)/1000;previous=now;metrics.push(elapsed*1000);
      const active=state.mode==='lab'||run.model.phase==='combat'||run.model.phase==='settling';
+     if(!editor.active&&panKeys.size){const speed=52*elapsed;renderer.pan((panKeys.has('d')?speed:0)-(panKeys.has('a')?speed:0),(panKeys.has('s')?speed:0)-(panKeys.has('w')?speed:0));}
      const steps=editor.active?0:stepRequested?1:clock.advance(elapsed,state.paused||!active);
      for(let i=0;i<steps;i++)tick();stepRequested=false;
      if(!state.paused){for(const effect of visuals)effect.duration-=elapsed;visuals=visuals.filter(e=>e.duration>0);}
      const encoder=gpu.device.createCommandEncoder({label:'Present'});
-     const ghost=state.mode==='game'&&state.selectedKind&&pointer?{...pointer,kind:state.selectedKind,valid:canPlace(map,run.model.towers,pointer,1.25)&&run.model.phase==='preparation'}:undefined;
+     const ghost=state.mode==='game'&&state.selectedKind&&pointer?{...pointer,kind:state.selectedKind,range:compileTower({id:0,kind:state.selectedKind,x:pointer.x,y:pointer.y,level:0,branch:-1,angle:0,cooldown:0,spent:0},run.model.bonuses).range,valid:canPlace(map,run.model.towers,pointer,1.25)&&run.model.phase==='preparation'}:undefined;
      renderer.encode(encoder,{count:editor.active?0:count,time:simulatedTime,map:editor.active?editor.map:map,towers:!editor.active&&state.mode==='game'?run.model.towers:[],effects:editor.active?[]:visuals,heatmap:state.heatmap,selection:run.model.selected,ghost:editor.active?undefined:ghost,boss:!editor.active&&latest.boss?.active?latest.boss:undefined});
      gpu.device.queue.submit([encoder.finish()]);
      if(now-lastUI>100)updateUI(now);
