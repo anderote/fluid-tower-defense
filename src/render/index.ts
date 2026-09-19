@@ -19,7 +19,7 @@ struct Out { @builtin(position) pos: vec4<f32>, @location(0) local: vec2<f32>, @
 fn world(p:vec2<f32>)->vec2<f32>{ let aspect=camera.viewport.x/max(1.0,camera.viewport.y); let targetAspect=camera.world.z/camera.world.w; let sx=min(1.0,targetAspect/aspect); let sy=min(1.0,aspect/targetAspect); return vec2((((p.x-camera.world.x)/camera.world.z)*2.0-1.0)*sx, (1.0-((p.y-camera.world.y)/camera.world.w)*2.0)*sy); }
 @vertex fn vs(@builtin(vertex_index) vi:u32,@builtin(instance_index) ii:u32)->Out {
   let corners=array<vec2<f32>,6>(vec2(-1,-1),vec2(1,-1),vec2(-1,1),vec2(-1,1),vec2(1,-1),vec2(1,1));
-  let shard=vi/6u; let c=corners[vi%6u]; let p=particles[ii]; let dead=p.state.w<-.5; let radius=p.body.x;
+  let shard=vi/6u; let c=corners[vi%6u]; let p=particles[ii]; let dead=p.state.w<-.5; var radius=p.body.x;
   var o:Out; o.local=c; o.bloodMode=0.;
   if(dead){ let age=max(0.,camera.time.x-(-p.body.w)/60.);let seed=f32(ii)*17.+f32(shard)*2.4;let flight=clamp(age/.72,0.,1.);let dir=vec2(cos(seed),sin(seed));let stain=shard==0u;let center=select(p.pos.xy+dir*(.18+1.8*flight),p.pos.xy,stain);radius=select(max(.09,p.body.x*(.65+.5*(1.-flight))),max(.28,p.body.x*2.7),stain);let life=select(max(0.,1.-age/.82),max(0.,1.-age/16.),stain);o.pos=vec4(world(center+c*radius),0,1);o.color=vec4(.48+.35*sin(seed),.008,.004,life*select(.85,.38,stain));o.bloodMode=select(2.,1.,stain);return o; }
   if(shard>0u){o.pos=vec4(2.,2.,0.,1.);o.color=vec4(0.);return o;}let q=world(p.pos.xy + c*radius); o.pos=vec4(q,0,1);
@@ -46,7 +46,7 @@ struct TowerState { timing:vec4<f32>, shot:vec4<f32>, flags:vec4<f32> };
 struct Out { @builtin(position) pos:vec4<f32>, @location(0) local:vec2<f32>, @location(1) kind:f32, @location(2) fresh:f32 };
 fn clip(p:vec2<f32>)->vec2<f32>{let aspect=camera.viewport.x/max(1.,camera.viewport.y);let targetAspect=camera.world.z/camera.world.w;let sx=min(1.,targetAspect/aspect);let sy=min(1.,aspect/targetAspect);return vec2((((p.x-camera.world.x)/camera.world.z)*2.-1.)*sx,(1.-((p.y-camera.world.y)/camera.world.w)*2.)*sy);}
 @vertex fn vs(@builtin(vertex_index) vi:u32,@builtin(instance_index) ii:u32)->Out {let c=array<vec2<f32>,6>(vec2(-1.,-1.),vec2(1.,-1.),vec2(-1.,1.),vec2(-1.,1.),vec2(1.,-1.),vec2(1.,1.));let s=states[ii];let t=towers[ii];let kind=t.w;let fresh=select(0.,1.,s.shot.x>.5 && s.timing.y>0. && s.timing.y-s.timing.x<.20 && abs(s.flags.x-t.z)<.5);let aim=s.timing.zw;let d=aim-t.xy;let len=max(.1,length(d));let forward=d/len;let side=vec2(-forward.y,forward.x);var p:vec2<f32>;
- if(kind==1.){p=aim+c[vi]*max(2.5,min(8.,len*.18));}else if(kind==0.){p=t.xy+c[vi]*(3.5+len*.04);}else{p=t.xy+forward*((c[vi].x+1.)*.5*len)+side*c[vi].y*select(.35,2.4,kind==3.);}
+ if(kind==1.){p=aim+c[vi]*max(2.5,min(8.,len*.18));}else if(kind==0.){p=t.xy+c[vi]*(3.5+len*.04);}else if(kind==2.){p=aim+c[vi]*vec2(1.7,.16);}else{p=t.xy+forward*((c[vi].x+1.)*.5*len)+side*c[vi].y*select(.35,2.4,kind==3.);}
  var o:Out;o.pos=vec4(clip(p),0,1);o.local=c[vi];o.kind=kind;o.fresh=fresh;return o;}
 @fragment fn fs(i:Out)->@location(0) vec4<f32>{if(i.fresh<.5){discard;}let d=length(i.local);var col=vec3(.72,1.,.16);var a=0.;if(i.kind==1.){a=1.-smoothstep(.52,.72,d);a*=smoothstep(.05,.22,abs(d-.56));col=vec3(1.,.43,.08);}else if(i.kind==2.){a=(1.-smoothstep(.5,.96,abs(i.local.y)))*.85;col=vec3(.35,.86,1.);}else if(i.kind==3.){a=(1.-smoothstep(.35,1.,abs(i.local.y)))*smoothstep(-1.,.1,i.local.x);col=vec3(.3,.85,1.);}else{a=smoothstep(.92,.35,d)*.55;}return vec4(col,a);}`});
   const bgModule=device.createShaderModule({code:`

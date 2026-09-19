@@ -3,11 +3,11 @@ import {P, PARTICLE_FLOATS, type CommandUpgrade, type EnemyDef, type EnemyKind, 
 export const TOWERS: Record<TowerKind, TowerDef> = {
   repulsor: {id:'repulsor', name:'Repulsor', description:'Pulses enemies toward the choke walls.', cost:90, range:15, cooldown:1.05, damage:2, force:30, radius:3.4, color:'#50d5ff', branches:['Ram','Wave']},
   mortar: {id:'mortar', name:'Mortar', description:'Lobs a concussive shell into dense crowds.', cost:120, range:38, cooldown:2.25, damage:22, force:18, radius:4.8, color:'#ff9b55', branches:['Siege','Cluster']},
-  autocannon: {id:'autocannon', name:'Autocannon', description:'Rapidly picks off runners and stragglers.', cost:105, range:28, cooldown:.22, damage:5, force:4, radius:.8, color:'#ffe46b', branches:['Piercer','Suppressor']},
-  cryo: {id:'cryo', name:'Cryo Emitter', description:'Slows a cone of incoming enemies.', cost:110, range:13, cooldown:.7, damage:1, force:0, radius:4.1, color:'#a995ff', branches:['Deep Freeze','Cold Front']},
-  tesla: {id:'tesla', name:'Tesla Coil', description:'Arcs through a close cone and locks targets down.', cost:140, range:20, cooldown:.48, damage:7, force:0, radius:5.2, color:'#9a7dff', branches:['Capacitor','Storm Cell']},
+  autocannon: {id:'autocannon', name:'Autocannon', description:'Rapidly picks off runners and knocks them back.', cost:105, range:28, cooldown:.22, damage:5, force:9, radius:.8, color:'#ffe46b', branches:['Piercer','Suppressor']},
+  cryo: {id:'cryo', name:'Cryo Emitter', description:'Slows and shoves a cone of incoming enemies.', cost:110, range:13, cooldown:.7, damage:1, force:6, radius:4.1, color:'#a995ff', branches:['Deep Freeze','Cold Front']},
+  tesla: {id:'tesla', name:'Tesla Coil', description:'Arcs, locks down, and shoves close targets.', cost:140, range:20, cooldown:.48, damage:7, force:8, radius:5.2, color:'#9a7dff', branches:['Capacitor','Storm Cell']},
   rocket: {id:'rocket', name:'Rocket Pod', description:'Launches wide blast volleys into packed swarms.', cost:165, range:44, cooldown:2.9, damage:34, force:24, radius:6.6, color:'#ff5f48', branches:['Warhead','Salvo']},
-  railgun: {id:'railgun', name:'Railgun', description:'Deletes priority targets along a long firing lane.', cost:180, range:48, cooldown:.78, damage:38, force:10, radius:1.1, color:'#73f5d2', branches:['Slug','Accelerator']},
+  railgun: {id:'railgun', name:'Railgun', description:'Penetrates and hurls targets along a long firing lane.', cost:180, range:48, cooldown:.78, damage:38, force:26, radius:1.1, color:'#73f5d2', branches:['Slug','Accelerator']},
 };
 
 export const COMMAND_UPGRADES: readonly CommandUpgrade[] = [
