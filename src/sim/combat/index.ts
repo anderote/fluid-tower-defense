@@ -1,4 +1,5 @@
 import { PARTICLE_WGSL, MAX_EFFECTS, type SharedGPU, type PhysicsFrame, type Tower, type TowerDef } from '../../contracts/index.ts';
+import { towerBehavior } from '../../content/index.ts';
 
 const MAX_TOWERS=64;
 export interface CombatFrame extends PhysicsFrame { towers:readonly {tower:Tower;definition:TowerDef}[] }
@@ -122,7 +123,7 @@ fn safeDir(delta:vec2f)->vec2f { return delta/max(length(delta),0.0001); }
       if(frame.towers.length>MAX_TOWERS||frame.effects.length>MAX_EFFECTS)throw new Error('Combat command capacity exceeded');
       const u=new Float32Array([frame.dt,frame.tick,frame.count,frame.towers.length,frame.map.goal.x,frame.map.goal.y,frame.map.goalRadius,frame.lab?1:0,frame.tuning.crushDamage,frame.tuning.crushThreshold,frame.effects.length,0,0,0,0,0]);device.queue.writeBuffer(uniforms,0,u);
       const data=new Float32Array(Math.max(1,frame.towers.length)*12);
-      frame.towers.forEach(({tower:t,definition:d},i)=>{data.set([t.x,t.y,d.range,['repulsor','mortar','autocannon','cryo'].indexOf(t.kind),d.cooldown,d.damage,d.force,d.radius,t.id,t.branch,t.level,0],i*12);});device.queue.writeBuffer(towers,0,data);
+      frame.towers.forEach(({tower:t,definition:d},i)=>{data.set([t.x,t.y,d.range,towerBehavior(t.kind),d.cooldown,d.damage,d.force,d.radius,t.id,t.branch,t.level,0],i*12);});device.queue.writeBuffer(towers,0,data);
       if(frame.effects.length){const values=new Float32Array(frame.effects.length*12);frame.effects.forEach((e,i)=>values.set([e.x,e.y,e.radius,e.damage,e.direction.x,e.direction.y,e.cone,e.duration,['blast','push','slow','shot'].indexOf(e.kind),e.strength,e.source,0],i*12));device.queue.writeBuffer(effects,0,values);}
       dispatch(encoder,0,Math.ceil(frame.towers.length/64));dispatch(encoder,1,Math.ceil(frame.count/128));dispatch(encoder,3,1);
     },

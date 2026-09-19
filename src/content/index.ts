@@ -1,11 +1,28 @@
-import {P, PARTICLE_FLOATS, type EnemyDef, type EnemyKind, type SpawnBatch, type Tower, type TowerDef, type TowerKind, type WorldMap} from '../contracts/index.ts';
+import {P, PARTICLE_FLOATS, type CommandUpgrade, type EnemyDef, type EnemyKind, type SpawnBatch, type Tower, type TowerDef, type TowerKind, type WorldMap} from '../contracts/index.ts';
 
 export const TOWERS: Record<TowerKind, TowerDef> = {
   repulsor: {id:'repulsor', name:'Repulsor', description:'Pulses enemies toward the choke walls.', cost:90, range:15, cooldown:1.05, damage:2, force:30, radius:3.4, color:'#50d5ff', branches:['Ram','Wave']},
   mortar: {id:'mortar', name:'Mortar', description:'Lobs a concussive shell into dense crowds.', cost:120, range:38, cooldown:2.25, damage:22, force:18, radius:4.8, color:'#ff9b55', branches:['Siege','Cluster']},
   autocannon: {id:'autocannon', name:'Autocannon', description:'Rapidly picks off runners and stragglers.', cost:105, range:28, cooldown:.22, damage:5, force:4, radius:.8, color:'#ffe46b', branches:['Piercer','Suppressor']},
   cryo: {id:'cryo', name:'Cryo Emitter', description:'Slows a cone of incoming enemies.', cost:110, range:13, cooldown:.7, damage:1, force:0, radius:4.1, color:'#a995ff', branches:['Deep Freeze','Cold Front']},
+  tesla: {id:'tesla', name:'Tesla Coil', description:'Arcs through a close cone and locks targets down.', cost:140, range:20, cooldown:.48, damage:7, force:0, radius:5.2, color:'#9a7dff', branches:['Capacitor','Storm Cell']},
+  rocket: {id:'rocket', name:'Rocket Pod', description:'Launches wide blast volleys into packed swarms.', cost:165, range:44, cooldown:2.9, damage:34, force:24, radius:6.6, color:'#ff5f48', branches:['Warhead','Salvo']},
+  railgun: {id:'railgun', name:'Railgun', description:'Deletes priority targets along a long firing lane.', cost:180, range:48, cooldown:.78, damage:38, force:10, radius:1.1, color:'#73f5d2', branches:['Slug','Accelerator']},
 };
+
+export const COMMAND_UPGRADES: readonly CommandUpgrade[] = [
+  {id:'targeting-grid',name:'Targeting Grid',description:'+18% range to every tower.',cost:260},
+  {id:'ammunition-forge',name:'Ammunition Forge',description:'+25% damage to every tower.',cost:300},
+  {id:'bulkhead-plating',name:'Bulkhead Plating',description:'+5 base integrity immediately.',cost:220},
+  {id:'salvage-magnets',name:'Salvage Magnets',description:'+25% Metal recovered from kills.',cost:280},
+];
+
+/** Packs authored towers into the four supported GPU weapon behaviours. */
+export const towerBehavior=(kind:TowerKind):number=>({repulsor:0,mortar:1,autocannon:2,cryo:3,tesla:3,rocket:1,railgun:2}[kind]);
+export const MAX_VETERANCY=20;
+export const veterancyLevel=(xp:number):number=>Math.min(MAX_VETERANCY,Math.floor(Math.log1p(Math.max(0,xp)/40)/Math.log(1.42)));
+/** Semilogarithmic: rank 1 matters, rank 20 is strong but never breaks balance. */
+export const veterancyMultiplier=(level:number):number=>1+.115*Math.log1p(Math.min(MAX_VETERANCY,Math.max(0,level)));
 
 export const ENEMIES: Record<EnemyKind, EnemyDef> = {
   shambler: {id:'shambler', index:0, name:'Shambler', radius:.22, mass:1, health:30, speed:2.5, crushTolerance:1, bounty:3, leak:1, color:'#76c66e'},
@@ -34,27 +51,37 @@ export function validateContent(): void {
 }
 
 /** Compiles the small, supported progression set into a combat-ready definition. */
-export function compileTower(tower: Tower, bonuses: readonly string[] = []): TowerDef {
+export function compileTower(tower: Tower, bonuses: readonly string[] = [], commandUpgrades: readonly string[] = []): TowerDef {
   const base=TOWERS[tower.kind];
   let range=base.range, cooldown=base.cooldown, damage=base.damage, force=base.force, radius=base.radius;
   const level=Math.max(0,tower.level);
   range += level * 1.25; damage *= 1 + level * .12;
+  const veteran=veterancyMultiplier(tower.veterancy ?? veterancyLevel(tower.veterancyXp ?? 0));
+  range*=1+(veteran-1)*.55; damage*=veteran; cooldown/=1+(veteran-1)*.28;
   if (tower.branch === 0) {
     if (tower.kind==='repulsor') { force *= 1.55; radius *= .8; range += 2; }
     if (tower.kind==='mortar') { damage *= 1.6; radius *= .78; cooldown *= 1.12; }
     if (tower.kind==='autocannon') { damage *= 1.5; range *= 1.25; }
     if (tower.kind==='cryo') { range *= 1.3; radius *= 1.2; cooldown *= .85; }
+    if (tower.kind==='tesla') { damage *= 1.45; radius *= 1.25; }
+    if (tower.kind==='rocket') { damage *= 1.6; radius *= .8; }
+    if (tower.kind==='railgun') { damage *= 1.75; cooldown *= 1.15; }
   }
   if (tower.branch === 1) {
     if (tower.kind==='repulsor') { cooldown *= .7; radius *= 1.5; }
     if (tower.kind==='mortar') { cooldown *= .68; radius *= 1.45; damage *= .78; }
     if (tower.kind==='autocannon') { cooldown *= .65; radius *= 2; force += 3; }
     if (tower.kind==='cryo') { range *= 1.5; radius *= 1.5; cooldown *= .85; }
+    if (tower.kind==='tesla') { range *= 1.3; radius *= 1.5; cooldown *= .78; }
+    if (tower.kind==='rocket') { cooldown *= .62; radius *= 1.45; damage *= .8; }
+    if (tower.kind==='railgun') { cooldown *= .58; range *= 1.18; }
   }
   for (const bonus of bonuses) {
     if (bonus === 'hydraulic-advantage' && tower.kind === 'repulsor') { force *= 1.3; cooldown *= 1.12; }
     if (bonus === 'cold-field' && tower.kind === 'cryo') radius *= 1.2;
   }
+  if (commandUpgrades.includes('targeting-grid')) range *= 1.18;
+  if (commandUpgrades.includes('ammunition-forge')) damage *= 1.25;
   return {...base,range,cooldown,damage,force,radius};
 }
 

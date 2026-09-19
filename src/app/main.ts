@@ -21,7 +21,7 @@ if(params.has('validate')) {
  const {showValidation}=await import('./validation-page.ts');await showValidation(root);
 } else {
 const run=createRun();
-const state:UIState={mode:params.get('mode')==='lab'?'lab':'game',phase:'preparation',paused:false,fps:0,frameMs:0,population:10000,capacity:65536,kills:0,crushKills:0,scrap:450,baseHealth:100,wave:0,waveCount:5,selected:null,selectedKind:null,heatmap:false,tool:'blast',message:'Connecting to local GPU…',adapter:'WebGPU',bonusChoices:[]};
+const state:UIState={mode:params.get('mode')==='lab'?'lab':'game',phase:'preparation',paused:false,fps:0,frameMs:0,population:10000,capacity:65536,kills:0,crushKills:0,metal:650,baseHealth:100,wave:0,waveCount:5,selected:null,selectedKind:null,heatmap:false,tool:'blast',message:'Connecting to local GPU…',adapter:'WebGPU',bonusChoices:[],commandUpgrades:[]};
 let handleAction:(action:GameAction)=>void=()=>{};
 const ui=createUI(root,action=>handleAction(action));
 try {
@@ -96,6 +96,7 @@ try {
        gpu.device.queue.writeBuffer(gpu.shared.particles,0,data.buffer);state.population=count;physics.reset();combat.reset();boss.reset(run.isBossWave);waveStartTick=clock.tick+1;state.paused=false;state.selectedKind=null;break;
      }
      case 'upgrade':if(run.model.selected!==null)actionResult(run.upgrade(run.model.selected,action.branch),'Tower upgraded.');break;
+     case 'buy-command':actionResult(run.buyCommandUpgrade(action.id),'Command upgrade installed.');break;
      case 'sell':if(run.model.selected!==null)actionResult(run.sell(run.model.selected),'Tower sold.');break;
      case 'bonus':actionResult(run.chooseBonus(action.id),'Bonus installed for this run.');break;
      case 'save':try{run.save();state.message='Saved between waves on this browser.';}catch(error){state.message=String(error);}break;
@@ -124,16 +125,17 @@ try {
  window.addEventListener('keyup',event=>panKeys.delete(event.key.toLowerCase()));
  function updateUI(now:number){
    const report=metrics.report();state.fps=report.fps;state.frameMs=report.medianMs;
-   state.scrap=run.model.scrap;state.baseHealth=run.model.baseHealth/20*100;state.wave=run.model.wave;state.waveCount=run.model.waveCount;state.phase=state.mode==='lab'?'combat':run.model.phase;
+   state.metal=run.model.metal;state.baseHealth=run.model.baseHealth/30*100;state.wave=run.model.wave;state.waveCount=run.model.waveCount;state.phase=state.mode==='lab'?'combat':run.model.phase;
    state.selected=run.model.towers.find(t=>t.id===run.model.selected)??null;state.bonusChoices=state.mode==='game'?run.model.bonusChoices:[];
-   state.bossHealth=latest.boss?.active?latest.boss.health/latest.boss.maxHealth*100:undefined;
+   state.bossHealth=latest.boss?.active?latest.boss.health/latest.boss.maxHealth*100:undefined;state.commandUpgrades=state.mode==='game'?run.model.commandUpgrades:[];
    ui.update(state);lastUI=now;
    diagnosticText.textContent=JSON.stringify({adapter:gpu.adapter,abi:'passed',epoch,tick:clock.tick,simulationSeconds:simulatedTime,slots:count,live:latest.live,requested:requestedPopulation,invalid:latest.invalid,peakPacking:latest.maxPacking,crushKills:latest.crushKills,kills:latest.kills,medianMs:report.medianMs,p95Ms:report.p95Ms,frameSamples:report.samples,canvas:[ui.canvas.width,ui.canvas.height],readbackErrors:errors,boss:latest.boss},null,2);
  }
  function tick(){
    clock.tick++;simulatedTime+=clock.step;
+   if(state.mode==='game')run.accrueVeterancy(clock.step);
    const effects=commands;commands=[];
-   const frame:CombatFrame={dt:clock.step,tick:clock.tick,count,map,effects,tuning:DEFAULT_TUNING,navigation,lab:state.mode==='lab',towers:state.mode==='game'?run.model.towers.map(tower=>({tower,definition:compileTower(tower,run.model.bonuses)})):[]};
+   const frame:CombatFrame={dt:clock.step,tick:clock.tick,count,map,effects,tuning:DEFAULT_TUNING,navigation,lab:state.mode==='lab',towers:state.mode==='game'?run.model.towers.map(tower=>({tower,definition:compileTower(tower,run.model.bonuses,run.model.commandUpgrades)})):[]};
    const encoder=gpu.device.createCommandEncoder({label:`Simulation tick ${clock.tick}`});
    const bossFrame={dt:clock.step,tick:clock.tick,count,map:{...map,spawn:{x:50,y:35,width:32,height:30}},active:state.mode==='game'&&run.isBossWave};
    combat.encodeBefore(encoder,frame);boss.encode(encoder,bossFrame);physics.encode(encoder,frame);combat.encodeAfter(encoder,frame);boss.encodeResolve(encoder,bossFrame);
@@ -151,7 +153,7 @@ try {
      for(let i=0;i<steps;i++)tick();stepRequested=false;
      if(!state.paused){for(const effect of visuals)effect.duration-=elapsed;visuals=visuals.filter(e=>e.duration>0);}
      const encoder=gpu.device.createCommandEncoder({label:'Present'});
-     const ghost=state.mode==='game'&&state.selectedKind&&pointer?{...pointer,kind:state.selectedKind,range:compileTower({id:0,kind:state.selectedKind,x:pointer.x,y:pointer.y,level:0,branch:-1,angle:0,cooldown:0,spent:0},run.model.bonuses).range,valid:canPlace(map,run.model.towers,pointer,1.25)&&run.model.phase==='preparation'}:undefined;
+     const ghost=state.mode==='game'&&state.selectedKind&&pointer?{...pointer,kind:state.selectedKind,range:compileTower({id:0,kind:state.selectedKind,x:pointer.x,y:pointer.y,level:0,branch:-1,angle:0,cooldown:0,spent:0},run.model.bonuses,run.model.commandUpgrades).range,valid:canPlace(map,run.model.towers,pointer,1.25)&&run.model.phase==='preparation'}:undefined;
      renderer.encode(encoder,{count:editor.active?0:count,time:simulatedTime,map:editor.active?editor.map:map,towers:!editor.active&&state.mode==='game'?run.model.towers:[],effects:editor.active?[]:visuals,heatmap:state.heatmap,selection:run.model.selected,ghost:editor.active?undefined:ghost,boss:!editor.active&&latest.boss?.active?latest.boss:undefined});
      gpu.device.queue.submit([encoder.finish()]);
      if(now-lastUI>100)updateUI(now);

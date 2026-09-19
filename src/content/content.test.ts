@@ -3,7 +3,7 @@ import {test} from 'node:test';
 import {ENEMIES, DEFAULT_MAP, TOWERS, compileTower, createParticles, validateContent} from './index.ts';
 import {P, PARTICLE_FLOATS} from '../contracts/index.ts';
 
-test('content registry is valid and has the initial roster',()=>{ validateContent(); assert.equal(Object.keys(TOWERS).length,4);assert.equal(Object.keys(ENEMIES).length,3); });
+test('content registry is valid and has the expanded roster',()=>{ validateContent(); assert.equal(Object.keys(TOWERS).length,7);assert.equal(Object.keys(ENEMIES).length,3); });
 test('particle generator reports its actual populated prefix and keeps bodies apart',()=>{
  const particles=createParticles([{count:20,kind:'brute',seed:4}],DEFAULT_MAP,10);
  assert.equal(particles.length,10*PARTICLE_FLOATS);

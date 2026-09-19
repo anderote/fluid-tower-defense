@@ -5,11 +5,11 @@ import {createRun} from './index.ts';
 test('cumulative settlements pay only newly reported totals',()=>{
   const run=createRun(); run.startWave(); run.takeSpawns(200);
   run.applySettlement({epoch:1,tick:3,kills:2,crushKills:1,leaks:1,earned:6,live:1,invalid:0,maxPacking:0});
-  assert.equal(run.model.scrap,456); assert.equal(run.model.baseHealth,19);
+  assert.equal(run.model.metal,656); assert.equal(run.model.baseHealth,19);
   run.applySettlement({epoch:1,tick:3,kills:2,crushKills:1,leaks:1,earned:6,live:1,invalid:0,maxPacking:0});
-  assert.equal(run.model.scrap,456);
+  assert.equal(run.model.metal,656);
   run.applySettlement({epoch:1,tick:4,kills:3,crushKills:1,leaks:1,earned:9,live:0,invalid:0,maxPacking:0});
-  assert.equal(run.model.scrap,459);
+  assert.equal(run.model.metal,659);
 });
 test('branches lock and preparation saves restore',()=>{
   const run=createRun(), result=run.place('repulsor',{x:84,y:50}); assert.ok(result.ok && result.tower); const tower=result.tower;
@@ -30,7 +30,7 @@ test('counter rollback is ignored and settling keeps combat running while enemie
   const run=createRun(); run.startWave(); run.takeSpawns(200);
   run.applySettlement({epoch:1,tick:1,kills:4,crushKills:0,leaks:0,earned:12,live:2,invalid:0,maxPacking:0});
   run.applySettlement({epoch:1,tick:2,kills:1,crushKills:0,leaks:0,earned:3,live:1,invalid:0,maxPacking:0});
-  assert.equal(run.model.scrap,462);
+  assert.equal(run.model.metal,662);
   assert.equal(run.finishSettling().ok,false); assert.equal(run.model.phase,'combat');
 });
 test('salvage can be selected at both authored milestones and remains saveable',()=>{

@@ -1,4 +1,4 @@
-import {DEFAULT_MAP, TOWERS} from '../content/index.ts';
+import {COMMAND_UPGRADES, DEFAULT_MAP, TOWERS, veterancyLevel} from '../content/index.ts';
 import {canPlace} from '../navigation/index.ts';
 import type {BonusChoice, RunModel, Settlement, SpawnBatch, Tower, TowerKind, Vec2, WorldMap} from '../contracts/index.ts';
 
@@ -8,7 +8,7 @@ type Wave = {spawns:readonly SpawnBatch[]; payment:number; bonus:boolean};
 type Applied = Pick<Settlement,'kills'|'crushKills'|'leaks'|'earned'> & {tick:number};
 type SavedRun = {version:1; contentVersion:string; mapId?:string; model:RunModel; epoch:number; applied:Applied};
 
-export const CONTENT_VERSION = 'pressure-front-1';
+export const CONTENT_VERSION = 'pressure-front-2';
 const SAVE_KEY = 'pressure-front.run.v1';
 const MAX_TOWERS = 64;
 const WAVES: readonly Wave[] = [
@@ -21,14 +21,14 @@ const WAVES: readonly Wave[] = [
 const BONUSES: readonly BonusChoice[] = [
   {id:'hydraulic-advantage',name:'Hydraulic Advantage',description:'Repulsors push harder but pulse a little slower.'},
   {id:'cold-field',name:'Cold Field',description:'Cryo emitters cover a wider field.'},
-  {id:'salvage-contract',name:'Salvage Contract',description:'Gain 35 scrap now.'},
+  {id:'salvage-contract',name:'Salvage Contract',description:'Gain 35 Metal now.'},
 ];
 const emptyApplied = ():Applied => ({kills:0,crushKills:0,leaks:0,earned:0,tick:-1});
 const isFiniteInteger = (value:unknown):value is number => typeof value === 'number' && Number.isFinite(value) && Number.isInteger(value);
 const isNonNegative = (value:unknown):value is number => typeof value === 'number' && Number.isFinite(value) && value >= 0;
 const isTowerKind = (value:unknown):value is TowerKind => typeof value === 'string' && Object.hasOwn(TOWERS,value);
-const copy = (model:RunModel):RunModel => ({...model,towers:model.towers.map(t=>({...t})),pending:model.pending.map(b=>({...b})),bonusChoices:model.bonusChoices.map(b=>({...b})),bonuses:[...model.bonuses]});
-const fresh = ():RunModel => ({phase:'preparation',scrap:450,baseHealth:20,wave:0,waveCount:WAVES.length,towers:[],selected:null,pending:[],bonusChoices:[],bonuses:[]});
+const copy = (model:RunModel):RunModel => ({...model,towers:model.towers.map(t=>({...t})),pending:model.pending.map(b=>({...b})),bonusChoices:model.bonusChoices.map(b=>({...b})),bonuses:[...model.bonuses],commandUpgrades:[...model.commandUpgrades]});
+const fresh = ():RunModel => ({phase:'preparation',metal:650,baseHealth:20,wave:0,waveCount:WAVES.length,towers:[],selected:null,pending:[],bonusChoices:[],bonuses:[],commandUpgrades:[]});
 const spentAtLevel = (kind:TowerKind, level:number):number => {
   let spent=TOWERS[kind].cost;
   for (let upgrade=0;upgrade<level;upgrade++) spent+=45+upgrade*35;
@@ -65,17 +65,17 @@ export class RunController {
     if (!isTowerKind(kind)) return {ok:false,reason:'Unknown tower.'};
     if (this.model.towers.length>=MAX_TOWERS) return {ok:false,reason:'The tower limit has been reached.'};
     const def=TOWERS[kind];
-    if (this.model.scrap<def.cost) return {ok:false,reason:'Insufficient scrap.'};
+    if (this.model.metal<def.cost) return {ok:false,reason:'Insufficient Metal.'};
     if (!canPlace(this.map,this.model.towers,position,1.25)) return {ok:false,reason:'That position is blocked or too close to another tower.'};
-    const tower:Tower={id:this.nextTowerId++,kind,x:position.x,y:position.y,level:0,branch:-1,angle:0,cooldown:0,spent:def.cost};
-    this.model.scrap-=def.cost; this.model.towers.push(tower); this.model.selected=tower.id;
+    const tower:Tower={id:this.nextTowerId++,kind,x:position.x,y:position.y,level:0,branch:-1,angle:0,cooldown:0,spent:def.cost,veterancy:0,veterancyXp:0};
+    this.model.metal-=def.cost; this.model.towers.push(tower); this.model.selected=tower.id;
     return {ok:true,tower};
   }
   sell(id:number):ActionResult {
     if (this.model.phase!=='preparation') return {ok:false,reason:'Towers can only be sold during preparation.'};
     const index=this.model.towers.findIndex(t=>t.id===id);
     if (index<0) return {ok:false,reason:'Tower not found.'};
-    const [tower]=this.model.towers.splice(index,1); this.model.scrap+=Math.floor(tower.spent*.7);
+    const [tower]=this.model.towers.splice(index,1); this.model.metal+=Math.floor(tower.spent*.7);
     if (this.model.selected===id) this.model.selected=null;
     return {ok:true};
   }
@@ -87,8 +87,8 @@ export class RunController {
     if (tower.branch>=0 && tower.branch!==branch) return {ok:false,reason:'This tower is committed to its other branch.'};
     if (tower.level>=3) return {ok:false,reason:'This tower is fully upgraded.'};
     const cost=45+tower.level*35;
-    if (this.model.scrap<cost) return {ok:false,reason:'Insufficient scrap.'};
-    this.model.scrap-=cost; tower.spent+=cost; tower.level++; tower.branch=branch;
+    if (this.model.metal<cost) return {ok:false,reason:'Insufficient Metal.'};
+    this.model.metal-=cost; tower.spent+=cost; tower.level++; tower.branch=branch;
     return {ok:true};
   }
   startWave():ActionResult {
@@ -114,23 +114,38 @@ export class RunController {
     if (settlement.kills<this.applied.kills || settlement.crushKills<this.applied.crushKills || settlement.leaks<this.applied.leaks || settlement.earned<this.applied.earned) return;
     const leaks=settlement.leaks-this.applied.leaks, earned=settlement.earned-this.applied.earned;
     this.applied={kills:settlement.kills,crushKills:settlement.crushKills,leaks:settlement.leaks,earned:settlement.earned,tick:settlement.tick};
-    this.model.scrap+=earned; this.model.baseHealth=Math.max(0,this.model.baseHealth-leaks); this.live=settlement.live;
+    this.model.metal+=Math.floor(earned*(this.model.commandUpgrades.includes('salvage-magnets')?1.25:1)); this.model.baseHealth=Math.max(0,this.model.baseHealth-leaks); this.live=settlement.live;
     if (this.model.baseHealth===0) this.model.phase='lost';
   }
   finishSettling():ActionResult {
     if (this.model.phase!=='combat' && this.model.phase!=='settling') return {ok:false,reason:'There is no wave to settle.'};
     if (this.model.pending.length || this.live>0) return {ok:false,reason:'Waiting for live enemies or queued spawns.'};
-    const completed=WAVES[this.model.wave-1]; this.model.scrap+=completed.payment;
+    const completed=WAVES[this.model.wave-1]; this.model.metal+=completed.payment;
     if (this.model.wave===this.model.waveCount) { this.model.phase='won'; return {ok:true}; }
     this.model.phase='preparation'; this.model.bonusChoices=completed.bonus ? this.eligibleBonuses() : [];
     return {ok:true};
   }
   chooseBonus(id:string):ActionResult {
     if (!this.model.bonusChoices.some(choice=>choice.id===id)) return {ok:false,reason:'That bonus is not available.'};
-    if (id==='salvage-contract') this.model.scrap+=35;
+    if (id==='salvage-contract') this.model.metal+=35;
     else if (!this.model.bonuses.includes(id)) this.model.bonuses.push(id);
     this.model.bonusChoices=[];
     return {ok:true};
+  }
+  buyCommandUpgrade(id:string):ActionResult {
+    if (this.model.phase!=='preparation') return {ok:false,reason:'Command upgrades are only available between waves.'};
+    const upgrade=COMMAND_UPGRADES.find(candidate=>candidate.id===id);
+    if (!upgrade) return {ok:false,reason:'Unknown command upgrade.'};
+    if (this.model.commandUpgrades.includes(id)) return {ok:false,reason:'That command upgrade is already installed.'};
+    if (this.model.metal<upgrade.cost) return {ok:false,reason:'Insufficient Metal.'};
+    this.model.metal-=upgrade.cost;this.model.commandUpgrades.push(id);
+    if(id==='bulkhead-plating') this.model.baseHealth=Math.min(30,this.model.baseHealth+5);
+    return {ok:true};
+  }
+  spendMetal(cost:number):ActionResult { if(this.model.phase!=='preparation')return {ok:false,reason:'Build walls before the wave starts.'};if(this.model.metal<cost)return {ok:false,reason:'Insufficient Metal.'};this.model.metal-=cost;return {ok:true}; }
+  accrueVeterancy(seconds:number):void {
+    if(this.model.phase!=='combat'||!Number.isFinite(seconds)||seconds<=0)return;
+    for(const tower of this.model.towers){tower.veterancyXp=(tower.veterancyXp??0)+seconds*1.8;tower.veterancy=veterancyLevel(tower.veterancyXp);}
   }
   reset():void { Object.assign(this.model,fresh()); this.nextTowerId=1; this.runEpoch++; this.applied=emptyApplied(); this.live=0; }
   setMap(map:WorldMap):void { this.map=map; }
@@ -165,11 +180,11 @@ export class RunController {
   private validSave(value:unknown):value is SavedRun {
     if (!value || typeof value!=='object') return false;
     const saved=value as SavedRun, model=saved.model;
-    if (saved.version!==1 || saved.contentVersion!==CONTENT_VERSION || (saved.mapId!==this.map.id && !(saved.mapId===undefined && this.map.id===DEFAULT_MAP.id)) || !isFiniteInteger(saved.epoch) || saved.epoch<0 || !validApplied(saved.applied) || !model || typeof model!=='object' || model.phase!=='preparation' || !isFiniteInteger(model.scrap) || model.scrap<0 || !isFiniteInteger(model.baseHealth) || model.baseHealth<0 || model.baseHealth>20 || !isFiniteInteger(model.wave) || model.wave<0 || model.wave>=WAVES.length || model.waveCount!==WAVES.length || !Array.isArray(model.towers) || model.towers.length>MAX_TOWERS || !Array.isArray(model.pending) || model.pending.length!==0 || !Array.isArray(model.bonuses) || !Array.isArray(model.bonusChoices) || model.bonusChoices.some(choice=>!BONUSES.some(known=>known.id===choice.id))) return false;
+    if (saved.version!==1 || saved.contentVersion!==CONTENT_VERSION || (saved.mapId!==this.map.id && !(saved.mapId===undefined && this.map.id===DEFAULT_MAP.id)) || !isFiniteInteger(saved.epoch) || saved.epoch<0 || !validApplied(saved.applied) || !model || typeof model!=='object' || model.phase!=='preparation' || !isFiniteInteger(model.metal) || model.metal<0 || !isFiniteInteger(model.baseHealth) || model.baseHealth<0 || model.baseHealth>30 || !isFiniteInteger(model.wave) || model.wave<0 || model.wave>=WAVES.length || model.waveCount!==WAVES.length || !Array.isArray(model.towers) || model.towers.length>MAX_TOWERS || !Array.isArray(model.pending) || model.pending.length!==0 || !Array.isArray(model.bonuses) || !Array.isArray(model.commandUpgrades) || !Array.isArray(model.bonusChoices) || model.bonusChoices.some(choice=>!BONUSES.some(known=>choice.id===known.id))) return false;
     const towers:Tower[]=[];
     for (const tower of model.towers) { if (!validTower(this.map,tower,towers)) return false; towers.push(tower); }
     if (model.selected!==null && (!isFiniteInteger(model.selected) || !towers.some(tower=>tower.id===model.selected))) return false;
-    return model.bonuses.every((bonus,index)=>typeof bonus==='string' && BONUSES.some(known=>known.id===bonus) && model.bonuses.indexOf(bonus)===index);
+    return model.bonuses.every((bonus,index)=>typeof bonus==='string' && BONUSES.some(known=>known.id===bonus) && model.bonuses.indexOf(bonus)===index) && model.commandUpgrades.every((upgrade,index)=>typeof upgrade==='string' && COMMAND_UPGRADES.some(known=>known.id===upgrade) && model.commandUpgrades.indexOf(upgrade)===index);
   }
 }
 export const createRun=(initialMap:WorldMap=DEFAULT_MAP):RunController=>new RunController(initialMap);
