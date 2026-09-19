@@ -17,6 +17,11 @@ test('branches lock and preparation saves restore',()=>{
   const restored=createRun(); assert.equal(restored.load(run.save()).ok,true); assert.equal(restored.model.towers[0].branch,0);
   assert.equal(restored.sell(tower.id).ok,true);
 });
+test('tower and wall Metal spending remains available during combat',()=>{
+  const run=createRun(); assert.equal(run.startWave().ok,true);
+  assert.equal(run.place('repulsor',{x:84,y:50}).ok,true);
+  assert.equal(run.spendMetal(60).ok,true);
+});
 
 test('invalid saves are rejected without mutating the current run',()=>{
   const run=createRun(); const placed=run.place('repulsor',{x:84,y:50}); assert.ok(placed.ok);

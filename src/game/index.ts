@@ -63,7 +63,7 @@ export class RunController {
   get isBossWave():boolean { return this.model.wave===this.model.waveCount; }
 
   place(kind:TowerKind, position:Vec2):PlaceResult {
-    if (this.model.phase!=='preparation') return {ok:false,reason:'Towers can only be placed during preparation.'};
+    if (this.model.phase==='won' || this.model.phase==='lost') return {ok:false,reason:'The run is over.'};
     if (!isTowerKind(kind)) return {ok:false,reason:'Unknown tower.'};
     if (this.model.towers.length>=MAX_TOWERS) return {ok:false,reason:'The tower limit has been reached.'};
     const def=TOWERS[kind];
@@ -74,7 +74,7 @@ export class RunController {
     return {ok:true,tower};
   }
   sell(id:number):ActionResult {
-    if (this.model.phase!=='preparation') return {ok:false,reason:'Towers can only be sold during preparation.'};
+    if (this.model.phase==='won' || this.model.phase==='lost') return {ok:false,reason:'The run is over.'};
     const index=this.model.towers.findIndex(t=>t.id===id);
     if (index<0) return {ok:false,reason:'Tower not found.'};
     const [tower]=this.model.towers.splice(index,1); this.model.metal+=Math.floor(tower.spent*.7);
@@ -146,7 +146,7 @@ export class RunController {
     if(id==='bulkhead-plating') this.model.baseHealth=Math.min(30,this.model.baseHealth+5);
     return {ok:true};
   }
-  spendMetal(cost:number):ActionResult { if(this.model.phase!=='preparation')return {ok:false,reason:'Build walls before the wave starts.'};if(this.model.metal<cost)return {ok:false,reason:'Insufficient Metal.'};this.model.metal-=cost;return {ok:true}; }
+  spendMetal(cost:number):ActionResult { if(this.model.phase==='won'||this.model.phase==='lost')return {ok:false,reason:'The run is over.'};if(this.model.metal<cost)return {ok:false,reason:'Insufficient Metal.'};this.model.metal-=cost;return {ok:true}; }
   refundMetal(amount:number):void { this.model.metal+=Math.max(0,Math.floor(amount)); }
   accrueVeterancy(seconds:number):void {
     if(this.model.phase!=='combat'||!Number.isFinite(seconds)||seconds<=0)return;
