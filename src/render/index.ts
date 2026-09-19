@@ -13,7 +13,7 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> };
 @group(0) @binding(0) var<uniform> camera: Camera;
 @group(0) @binding(1) var<storage,read> particles: array<Particle>;
 struct Out { @builtin(position) pos: vec4<f32>, @location(0) local: vec2<f32>, @location(1) color: vec4<f32> };
-fn world(p:vec2<f32>)->vec2<f32>{ return vec2(((p.x-camera.world.x)/camera.world.z)*2.0-1.0, 1.0-((p.y-camera.world.y)/camera.world.w)*2.0); }
+fn world(p:vec2<f32>)->vec2<f32>{ let aspect=camera.viewport.x/max(1.0,camera.viewport.y); let target=camera.world.z/camera.world.w; let sx=min(1.0,target/aspect); let sy=min(1.0,aspect/target); return vec2((((p.x-camera.world.x)/camera.world.z)*2.0-1.0)*sx, (1.0-((p.y-camera.world.y)/camera.world.w)*2.0)*sy); }
 @vertex fn vs(@builtin(vertex_index) vi:u32,@builtin(instance_index) ii:u32)->Out {
   let corners=array<vec2<f32>,6>(vec2(-1,-1),vec2(1,-1),vec2(-1,1),vec2(-1,1),vec2(1,-1),vec2(1,1));
   let p=particles[ii]; let c=corners[vi]; let radius=p.body.x;
@@ -30,7 +30,7 @@ fn world(p:vec2<f32>)->vec2<f32>{ return vec2(((p.x-camera.world.x)/camera.world
   const overlayModule=device.createShaderModule({code:`
 struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group(0) @binding(0) var<uniform> camera:Camera;
 struct I { @location(0) pos:vec2<f32>, @location(1) color:vec4<f32> }; struct O { @builtin(position) pos:vec4<f32>, @location(0) color:vec4<f32> };
-@vertex fn vs(i:I)->O { var o:O; o.pos=vec4(((i.pos.x-camera.world.x)/camera.world.z)*2.-1.,1.-((i.pos.y-camera.world.y)/camera.world.w)*2.,0,1);o.color=i.color;return o; }
+@vertex fn vs(i:I)->O { let aspect=camera.viewport.x/max(1.,camera.viewport.y);let target=camera.world.z/camera.world.w;let sx=min(1.,target/aspect);let sy=min(1.,aspect/target);var o:O; o.pos=vec4((((i.pos.x-camera.world.x)/camera.world.z)*2.-1.)*sx,(1.-((i.pos.y-camera.world.y)/camera.world.w)*2.)*sy,0,1);o.color=i.color;return o; }
 @fragment fn fs(i:O)->@location(0) vec4<f32>{return i.color;}`});
   const bgModule=device.createShaderModule({code:`
 struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group(0) @binding(0) var<uniform> camera:Camera;
@@ -43,7 +43,7 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
   const cameraParticles=device.createBindGroup({layout:particles.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:uniform}},{binding:1,resource:{buffer:shared.particles}}]});
   const cameraOverlay=device.createBindGroup({layout:overlay.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:uniform}}]});
   let pixelW=0,pixelH=0;
-  const resize=()=>{const d=Math.min(devicePixelRatio||1,2); const w=Math.max(1,Math.round(canvas.clientWidth*d)),h=Math.max(1,Math.round(canvas.clientHeight*d)); if(w!==pixelW||h!==pixelH){pixelW=w;pixelH=h;canvas.width=w;canvas.height=h;context.configure({device,format,alphaMode:'opaque'});} };
+  const resize=()=>{const d=Math.min(devicePixelRatio||1,2),max=device.limits.maxTextureDimension2D; const w=Math.max(1,Math.min(max,Math.round(canvas.clientWidth*d))),h=Math.max(1,Math.min(max,Math.round(canvas.clientHeight*d))); if(w!==pixelW||h!==pixelH){pixelW=w;pixelH=h;canvas.width=w;canvas.height=h;context.configure({device,format,alphaMode:'opaque'});} };
   const push=(a:V[],x:number,y:number,c:[number,number,number,number])=>a.push({x,y,r:c[0],g:c[1],b:c[2],a:c[3]});
   const tri=(a:V[], p:Vec2,q:Vec2,r:Vec2,c:[number,number,number,number])=>{push(a,p.x,p.y,c);push(a,q.x,q.y,c);push(a,r.x,r.y,c)};
   const rect=(a:V[],x:number,y:number,w:number,h:number,c:[number,number,number,number])=>{tri(a,{x,y},{x:x+w,y},{x,y:y+h},c);tri(a,{x:x+w,y},{x:x+w,y:y+h},{x,y:y+h},c)};
@@ -58,7 +58,7 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
     const capped=a.slice(0,MAX_OVERLAY_VERTICES); const data=new Float32Array(capped.length*6);capped.forEach((v,i)=>data.set([v.x,v.y,v.r,v.g,v.b,v.a],i*6));return data;
   }
   return { encode(encoder,scene){resize(); const u=new Float32Array([pixelW,pixelH,0,0,0,0,W,H,scene.time,scene.heatmap?1:0,0,0,0,0,0,0]);device.queue.writeBuffer(uniform,0,u);const data=geometry(scene);if(data.byteLength)device.queue.writeBuffer(overlays,0,data.buffer,data.byteOffset,data.byteLength);const pass=encoder.beginRenderPass({colorAttachments:[{view:context.getCurrentTexture().createView(),clearValue:{r:.02,g:.03,b:.025,a:1},loadOp:'clear',storeOp:'store'}]});pass.setPipeline(bg);pass.setBindGroup(0,cameraBG);pass.draw(3);pass.setPipeline(overlay);pass.setBindGroup(0,cameraOverlay);pass.setVertexBuffer(0,overlays);pass.draw(data.length/6);pass.setPipeline(particles);pass.setBindGroup(0,cameraParticles);pass.draw(6,Math.min(scene.count,shared.capacity));pass.end(); },
-    screenToWorld(clientX,clientY){const r=canvas.getBoundingClientRect();return{x:Math.max(0,Math.min(W,(clientX-r.left)/r.width*W)),y:Math.max(0,Math.min(H,(clientY-r.top)/r.height*H))}},
+    screenToWorld(clientX,clientY){const r=canvas.getBoundingClientRect(),aspect=r.width/r.height,target=W/H,sx=Math.min(1,target/aspect),sy=Math.min(1,aspect/target);return{x:Math.max(0,Math.min(W,(((clientX-r.left)/r.width*2-1)/sx+1)*W/2)),y:Math.max(0,Math.min(H,(1-((clientY-r.top)/r.height*2-1)/sy)*H/2))}},
     destroy(){uniform.destroy();overlays.destroy();}
   };
 }
