@@ -21,7 +21,7 @@ if(params.has('validate')) {
  const {showValidation}=await import('./validation-page.ts');await showValidation(root);
 } else {
 const run=createRun();
-const state:UIState={mode:params.get('mode')==='lab'?'lab':'game',phase:'preparation',paused:false,fps:0,frameMs:0,population:10000,capacity:65536,kills:0,crushKills:0,metal:650,baseHealth:100,wave:0,waveCount:5,selected:null,selectedKind:null,heatmap:false,tool:'blast',message:'Connecting to local GPU…',adapter:'WebGPU',bonusChoices:[],commandUpgrades:[]};
+const state:UIState={mode:params.get('mode')==='lab'?'lab':'game',phase:'preparation',paused:false,fps:0,frameMs:0,population:10000,capacity:65536,kills:0,crushKills:0,metal:650,baseHealth:100,wave:0,waveCount:5,difficulty:1,selected:null,selectedKind:null,heatmap:false,tool:'blast',message:'Connecting to local GPU…',adapter:'WebGPU',bonusChoices:[],commandUpgrades:[]};
 let handleAction:(action:GameAction)=>void=()=>{};
 const ui=createUI(root,action=>handleAction(action));
 const wallButton=document.createElement('button');wallButton.textContent='METAL WALL · 60';wallButton.title='Build a 4 × 4 wall during preparation';root.querySelector('.view-actions')!.append(wallButton);
@@ -99,6 +99,7 @@ try {
      case 'upgrade':if(run.model.selected!==null)actionResult(run.upgrade(run.model.selected,action.branch),'Tower upgraded.');break;
      case 'buy-command':actionResult(run.buyCommandUpgrade(action.id),'Command upgrade installed.');break;
      case 'sell':if(run.model.selected!==null)actionResult(run.sell(run.model.selected),'Tower sold.');break;
+     case 'difficulty':state.difficulty=run.setSpawnMultiplier(action.value);state.message=`Zombie production set to ${state.difficulty}×.`;break;
      case 'bonus':actionResult(run.chooseBonus(action.id),'Bonus installed for this run.');break;
      case 'save':try{run.save();state.message='Saved between waves on this browser.';}catch(error){state.message=String(error);}break;
      case 'load':{const result=run.load();if(result.ok){state.mode='game';resetWorld(false);}actionResult(result,'Saved defense restored.');break;}

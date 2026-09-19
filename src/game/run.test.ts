@@ -22,6 +22,15 @@ test('tower and wall Metal spending remains available during combat',()=>{
   assert.equal(run.place('repulsor',{x:84,y:50}).ok,true);
   assert.equal(run.spendMetal(60).ok,true);
 });
+test('difficulty multiplier scales continuous zombie production and clamps to 1–100',()=>{
+  const baseline=createRun(), intense=createRun();
+  baseline.startWave(); intense.startWave();
+  baseline.setSpawnMultiplier(1); intense.setSpawnMultiplier(1000);
+  const normal=baseline.takeSpawns(65_536,1).reduce((sum,batch)=>sum+batch.count,0);
+  const boosted=intense.takeSpawns(65_536,1).reduce((sum,batch)=>sum+batch.count,0);
+  assert.equal(normal,66); assert.equal(boosted,6_666);
+  assert.equal(intense.setSpawnMultiplier(0),1);
+});
 
 test('invalid saves are rejected without mutating the current run',()=>{
   const run=createRun(); const placed=run.place('repulsor',{x:84,y:50}); assert.ok(placed.ok);

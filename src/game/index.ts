@@ -12,11 +12,11 @@ export const CONTENT_VERSION = 'pressure-front-2';
 const SAVE_KEY = 'pressure-front.run.v1';
 const MAX_TOWERS = 64;
 const WAVES: readonly Wave[] = [
-  {spawns:[{kind:'shambler',count:2_250,seed:101}],payment:180,bonus:false,peakRate:220,rampSeconds:4},
-  {spawns:[{kind:'runner',count:2_550,seed:201},{kind:'shambler',count:4_950,seed:202}],payment:300,bonus:true,peakRate:450,rampSeconds:6},
-  {spawns:[{kind:'brute',count:840,seed:301},{kind:'shambler',count:13_160,seed:302}],payment:480,bonus:false,peakRate:750,rampSeconds:8},
-  {spawns:[{kind:'runner',count:13_200,seed:401},{kind:'brute',count:2_600,seed:402},{kind:'shambler',count:16_200,seed:403}],payment:750,bonus:true,peakRate:1_100,rampSeconds:10},
-  {spawns:[{kind:'shambler',count:35_000,seed:501},{kind:'runner',count:17_500,seed:502},{kind:'brute',count:5_500,seed:503}],payment:1_150,bonus:false,peakRate:1_500,rampSeconds:12},
+  {spawns:[{kind:'shambler',count:28_000,seed:101}],payment:300,bonus:false,peakRate:250,rampSeconds:12},
+  {spawns:[{kind:'runner',count:12_000,seed:201},{kind:'shambler',count:33_000,seed:202}],payment:520,bonus:true,peakRate:380,rampSeconds:16},
+  {spawns:[{kind:'brute',count:4_000,seed:301},{kind:'shambler',count:56_000,seed:302}],payment:820,bonus:false,peakRate:500,rampSeconds:20},
+  {spawns:[{kind:'runner',count:24_000,seed:401},{kind:'brute',count:7_000,seed:402},{kind:'shambler',count:34_000,seed:403}],payment:1_250,bonus:true,peakRate:550,rampSeconds:22},
+  {spawns:[{kind:'shambler',count:34_000,seed:501},{kind:'runner',count:23_000,seed:502},{kind:'brute',count:8_000,seed:503}],payment:1_800,bonus:false,peakRate:550,rampSeconds:24},
 ];
 const BONUSES: readonly BonusChoice[] = [
   {id:'hydraulic-advantage',name:'Hydraulic Advantage',description:'Repulsors push harder but pulse a little slower.'},
@@ -55,12 +55,14 @@ export class RunController {
   private live=0;
   private spawnElapsed=0;
   private spawnCredit=0;
+  private spawnMultiplier=1;
   private map:WorldMap;
 
   constructor(initialMap:WorldMap=DEFAULT_MAP) { this.map=initialMap; }
 
   get epoch():number { return this.runEpoch; }
   get isBossWave():boolean { return this.model.wave===this.model.waveCount; }
+  setSpawnMultiplier(value:number):number { this.spawnMultiplier=Math.max(1,Math.min(100,Math.round(value)||1)); return this.spawnMultiplier; }
 
   place(kind:TowerKind, position:Vec2):PlaceResult {
     if (this.model.phase==='won' || this.model.phase==='lost') return {ok:false,reason:'The run is over.'};
@@ -101,7 +103,7 @@ export class RunController {
   }
   takeSpawns(capacity:number, seconds=0):SpawnBatch[] {
     if (this.model.phase!=='combat' || !isFiniteInteger(capacity) || capacity<=0) return [];
-    const wave=WAVES[this.model.wave-1];this.spawnElapsed+=Math.max(0,seconds);const ramp=Math.min(1,this.spawnElapsed/wave.rampSeconds);this.spawnCredit+=wave.peakRate*(.2+.8*ramp)*Math.max(0,seconds);
+    const wave=WAVES[this.model.wave-1];this.spawnElapsed+=Math.max(0,seconds);const ramp=Math.min(1,this.spawnElapsed/wave.rampSeconds);this.spawnCredit+=wave.peakRate*this.spawnMultiplier*(.2+.8*ramp)*Math.max(0,seconds);
     let available=seconds===0?capacity:Math.min(capacity,Math.floor(this.spawnCredit)); const accepted:SpawnBatch[]=[];
     while (available>0 && this.model.pending.length) {
       const batch=this.model.pending[0], count=Math.min(batch.count,available);
