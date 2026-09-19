@@ -53,7 +53,7 @@ export function compileTower(tower: Tower, bonuses: readonly string[] = []): Tow
   }
   for (const bonus of bonuses) {
     if (bonus === 'hydraulic-advantage' && tower.kind === 'repulsor') { force *= 1.3; cooldown *= 1.12; }
-    if (bonus === 'cold-fracture' && tower.kind === 'cryo') radius *= 1.2;
+    if (bonus === 'cold-field' && tower.kind === 'cryo') radius *= 1.2;
   }
   return {...base,range,cooldown,damage,force,radius};
 }

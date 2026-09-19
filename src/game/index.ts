@@ -20,7 +20,7 @@ const WAVES: readonly Wave[] = [
 ];
 const BONUSES: readonly BonusChoice[] = [
   {id:'hydraulic-advantage',name:'Hydraulic Advantage',description:'Repulsors push harder but pulse a little slower.'},
-  {id:'cold-fracture',name:'Cold Fracture',description:'Cryo emitters control a wider area.'},
+  {id:'cold-field',name:'Cold Field',description:'Cryo emitters cover a wider field.'},
   {id:'salvage-contract',name:'Salvage Contract',description:'Gain 35 scrap now.'},
 ];
 const emptyApplied = ():Applied => ({kills:0,crushKills:0,leaks:0,earned:0,tick:-1});
@@ -29,17 +29,22 @@ const isNonNegative = (value:unknown):value is number => typeof value === 'numbe
 const isTowerKind = (value:unknown):value is TowerKind => typeof value === 'string' && Object.hasOwn(TOWERS,value);
 const copy = (model:RunModel):RunModel => ({...model,towers:model.towers.map(t=>({...t})),pending:model.pending.map(b=>({...b})),bonusChoices:model.bonusChoices.map(b=>({...b})),bonuses:[...model.bonuses]});
 const fresh = ():RunModel => ({phase:'preparation',scrap:450,baseHealth:20,wave:0,waveCount:WAVES.length,towers:[],selected:null,pending:[],bonusChoices:[],bonuses:[]});
+const spentAtLevel = (kind:TowerKind, level:number):number => {
+  let spent=TOWERS[kind].cost;
+  for (let upgrade=0;upgrade<level;upgrade++) spent+=45+upgrade*35;
+  return spent;
+};
 
 function validTower(tower:unknown, prior:readonly Tower[]): tower is Tower {
   if (!tower || typeof tower !== 'object') return false;
   const value=tower as Tower;
-  if (!isFiniteInteger(value.id) || value.id<=0 || !isTowerKind(value.kind) || !isNonNegative(value.x) || !isNonNegative(value.y) || !isFiniteInteger(value.level) || value.level<0 || value.level>3 || !isFiniteInteger(value.branch) || ![-1,0,1].includes(value.branch) || (value.level===0 && value.branch!==-1) || (value.level>0 && value.branch===-1) || !isNonNegative(value.angle) || !isNonNegative(value.cooldown) || !isNonNegative(value.spent) || value.spent<TOWERS[value.kind].cost || prior.some(other=>other.id===value.id)) return false;
+  if (!isFiniteInteger(value.id) || value.id<=0 || !isTowerKind(value.kind) || !isNonNegative(value.x) || !isNonNegative(value.y) || !isFiniteInteger(value.level) || value.level<0 || value.level>3 || !isFiniteInteger(value.branch) || ![-1,0,1].includes(value.branch) || (value.level===0 && value.branch!==-1) || (value.level>0 && value.branch===-1) || !isNonNegative(value.angle) || !isNonNegative(value.cooldown) || !isFiniteInteger(value.spent) || value.spent!==spentAtLevel(value.kind,value.level) || prior.some(other=>other.id===value.id)) return false;
   return canPlace(DEFAULT_MAP,prior,value,1.25);
 }
 function validApplied(value:unknown): value is Applied {
   if (!value || typeof value !== 'object') return false;
   const applied=value as Applied;
-  return isFiniteInteger(applied.tick) && applied.tick>=-1 && isNonNegative(applied.kills) && isNonNegative(applied.crushKills) && isNonNegative(applied.leaks) && isNonNegative(applied.earned);
+  return isFiniteInteger(applied.tick) && applied.tick>=-1 && isFiniteInteger(applied.kills) && applied.kills>=0 && isFiniteInteger(applied.crushKills) && applied.crushKills>=0 && isFiniteInteger(applied.leaks) && applied.leaks>=0 && isFiniteInteger(applied.earned) && applied.earned>=0;
 }
 
 export class RunController {
@@ -114,19 +119,22 @@ export class RunController {
     if (this.model.pending.length || this.live>0) return {ok:false,reason:'Waiting for live enemies or queued spawns.'};
     const completed=WAVES[this.model.wave-1]; this.model.scrap+=completed.payment;
     if (this.model.wave===this.model.waveCount) { this.model.phase='won'; return {ok:true}; }
-    this.model.phase='preparation'; this.model.bonusChoices=this.eligibleBonuses();
+    this.model.phase='preparation'; this.model.bonusChoices=completed.bonus ? this.eligibleBonuses() : [];
     return {ok:true};
   }
   chooseBonus(id:string):ActionResult {
     if (!this.model.bonusChoices.some(choice=>choice.id===id)) return {ok:false,reason:'That bonus is not available.'};
-    this.model.bonuses.push(id); if (id==='salvage-contract') this.model.scrap+=35; this.model.bonusChoices=[];
+    if (id==='salvage-contract') this.model.scrap+=35;
+    else if (!this.model.bonuses.includes(id)) this.model.bonuses.push(id);
+    this.model.bonusChoices=[];
     return {ok:true};
   }
   reset():void { Object.assign(this.model,fresh()); this.nextTowerId=1; this.runEpoch++; this.applied=emptyApplied(); this.live=0; }
   save():string {
     if (this.model.phase!=='preparation') throw new Error('Runs can only be saved between waves.');
     const text=JSON.stringify({version:1,contentVersion:CONTENT_VERSION,model:copy(this.model),epoch:this.runEpoch,applied:this.applied} satisfies SavedRun);
-    try { if (typeof window!=='undefined') window.localStorage.setItem(SAVE_KEY,text); } catch { /* optional storage */ }
+    try { if (typeof window!=='undefined') window.localStorage.setItem(SAVE_KEY,text); }
+    catch (error) { throw new Error(`Could not save run: ${error instanceof Error ? error.message : String(error)}`); }
     return text;
   }
   load(text?:string):ActionResult {
@@ -142,18 +150,18 @@ export class RunController {
     } catch { return {ok:false,reason:'Invalid saved run.'}; }
   }
   private validSettlement(value:Settlement):boolean {
-    return isFiniteInteger(value.epoch) && value.epoch>=0 && isFiniteInteger(value.tick) && value.tick>=0 && isNonNegative(value.kills) && isNonNegative(value.crushKills) && isNonNegative(value.leaks) && isNonNegative(value.earned) && isFiniteInteger(value.live) && value.live>=0 && isNonNegative(value.invalid) && isNonNegative(value.maxPacking);
+    return isFiniteInteger(value.epoch) && value.epoch>=0 && isFiniteInteger(value.tick) && value.tick>=0 && isFiniteInteger(value.kills) && value.kills>=0 && isFiniteInteger(value.crushKills) && value.crushKills>=0 && isFiniteInteger(value.leaks) && value.leaks>=0 && isFiniteInteger(value.earned) && value.earned>=0 && isFiniteInteger(value.live) && value.live>=0 && isFiniteInteger(value.invalid) && value.invalid>=0 && isNonNegative(value.maxPacking);
   }
   private eligibleBonuses():BonusChoice[] {
     const owns=(kind:TowerKind)=>this.model.towers.some(tower=>tower.kind===kind);
-    const useful=BONUSES.filter(bonus=>(bonus.id==='hydraulic-advantage' && owns('repulsor')) || (bonus.id==='cold-fracture' && owns('cryo')));
+    const useful=BONUSES.filter(bonus=>!this.model.bonuses.includes(bonus.id) && ((bonus.id==='hydraulic-advantage' && owns('repulsor')) || (bonus.id==='cold-field' && owns('cryo'))));
     const salvage=BONUSES.find(bonus=>bonus.id==='salvage-contract')!;
     return [...useful.slice(0,1),salvage].map(bonus=>({...bonus}));
   }
   private validSave(value:unknown):value is SavedRun {
     if (!value || typeof value!=='object') return false;
     const saved=value as SavedRun, model=saved.model;
-    if (saved.version!==1 || saved.contentVersion!==CONTENT_VERSION || !isFiniteInteger(saved.epoch) || saved.epoch<0 || !validApplied(saved.applied) || !model || typeof model!=='object' || model.phase!=='preparation' || !isNonNegative(model.scrap) || !isNonNegative(model.baseHealth) || !isFiniteInteger(model.wave) || model.wave<0 || model.wave>WAVES.length || model.waveCount!==WAVES.length || !Array.isArray(model.towers) || model.towers.length>MAX_TOWERS || !Array.isArray(model.pending) || model.pending.length!==0 || !Array.isArray(model.bonuses) || !Array.isArray(model.bonusChoices) || model.bonusChoices.some(choice=>!BONUSES.some(known=>known.id===choice.id))) return false;
+    if (saved.version!==1 || saved.contentVersion!==CONTENT_VERSION || !isFiniteInteger(saved.epoch) || saved.epoch<0 || !validApplied(saved.applied) || !model || typeof model!=='object' || model.phase!=='preparation' || !isFiniteInteger(model.scrap) || model.scrap<0 || !isFiniteInteger(model.baseHealth) || model.baseHealth<0 || model.baseHealth>20 || !isFiniteInteger(model.wave) || model.wave<0 || model.wave>=WAVES.length || model.waveCount!==WAVES.length || !Array.isArray(model.towers) || model.towers.length>MAX_TOWERS || !Array.isArray(model.pending) || model.pending.length!==0 || !Array.isArray(model.bonuses) || !Array.isArray(model.bonusChoices) || model.bonusChoices.some(choice=>!BONUSES.some(known=>known.id===choice.id))) return false;
     const towers:Tower[]=[];
     for (const tower of model.towers) { if (!validTower(tower,towers)) return false; towers.push(tower); }
     if (model.selected!==null && (!isFiniteInteger(model.selected) || !towers.some(tower=>tower.id===model.selected))) return false;
