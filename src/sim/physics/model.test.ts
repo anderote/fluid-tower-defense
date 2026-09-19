@@ -12,6 +12,7 @@ test('packing is based on occupied area rather than mass', () => {
   const large = packingContribution(0.4, 0.25);
   assert.ok(Math.abs(large / small - 4) < 1e-12);
   assert.ok(Math.abs(occupiedArea(0.4) / occupiedArea(0.2) - 4) < 1e-12);
+  assert.ok(Number.isFinite(occupiedArea(Number.NaN)));
 });
 
 test('pressure has no attractive branch below comfortable packing', () => {
@@ -26,4 +27,3 @@ test('exposure is zero below threshold and converges across substeps', () => {
   const twoSteps = 2 * exposureIncrement(2.1, 1.8, 18, 1 / 120);
   assert.ok(Math.abs(oneStep - twoSteps) < 1e-12);
 });
-

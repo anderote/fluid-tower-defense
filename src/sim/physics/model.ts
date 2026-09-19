@@ -6,6 +6,7 @@ export const MIN_BODY_RADIUS = 0.05;
 export const MAX_BODY_RADIUS = 0.45;
 
 export function occupiedArea(radius: number): number {
+  if (!Number.isFinite(radius)) radius = 0.25;
   const r = Math.min(MAX_BODY_RADIUS, Math.max(MIN_BODY_RADIUS, Math.abs(radius)));
   return Math.PI * r * r;
 }
@@ -35,4 +36,3 @@ export function exposureIncrement(
   const excess = Math.max(0, packing - threshold);
   return Math.max(0, dt) * Math.max(0, damageRate) * excess * excess;
 }
-
