@@ -20,12 +20,12 @@ export const COMMAND_UPGRADES: readonly CommandUpgrade[] = [
   {id:'repulsor-impact-3',name:'Impact Coils III',description:'Repulsors deal +4 pulse damage.',cost:200},
   {id:'repulsor-impact-4',name:'Impact Coils IV',description:'Repulsors deal +5 pulse damage.',cost:270},
   {id:'repulsor-impact-5',name:'Impact Coils V',description:'Repulsors deal +6 pulse damage and +8% force.',cost:350},
-  {id:'barbed-wire-1',name:'Barbed Wire I',description:'+35% wire damage and durability.',cost:100},
-  {id:'barbed-wire-2',name:'Barbed Wire II',description:'+30% wire slow duration and durability.',cost:170},
-  {id:'barbed-wire-3',name:'Barbed Wire III',description:'+50% wire damage, slow duration, and durability.',cost:260},
+  {id:'barbed-wire-1',name:'Barbed Wire I',description:'+35% wire damage, resistance, and lifespan.',cost:100},
+  {id:'barbed-wire-2',name:'Barbed Wire II',description:'+30% wire damage, resistance, and lifespan.',cost:170},
+  {id:'barbed-wire-3',name:'Barbed Wire III',description:'+50% wire damage, resistance, and lifespan.',cost:260},
 ];
 
-export const barbedWireStats=(upgrades:readonly string[])=>{let damage=.45,slow=.65,durability=140;for(const [id,d,s,h] of [['barbed-wire-1',1.35,1,1.35],['barbed-wire-2',1,1.3,1.3],['barbed-wire-3',1.5,1.5,1.5]] as const)if(upgrades.includes(id)){damage*=d;slow*=s;durability*=h;}return {damage,slow,durability};};
+export const barbedWireStats=(upgrades:readonly string[])=>{let damage=.45,slow=.65,durability=140,resistance=1.75;for(const [id,multiplier] of [['barbed-wire-1',1.35],['barbed-wire-2',1.3],['barbed-wire-3',1.5]] as const)if(upgrades.includes(id)){damage*=multiplier;slow*=multiplier;durability*=multiplier;resistance*=multiplier;}return {damage,slow,durability,resistance};};
 
 /** Packs authored towers into the four supported GPU weapon behaviours. */
 export const towerBehavior=(kind:TowerKind):number=>({repulsor:0,mortar:1,autocannon:2,cryo:3,tesla:3,rocket:1,railgun:2}[kind]);
