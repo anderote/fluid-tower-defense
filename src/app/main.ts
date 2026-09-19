@@ -5,6 +5,7 @@ import { FrameMetrics } from '../runtime/metrics.ts';
 import { SettlementReader } from '../runtime/readback.ts';
 import { createUI } from '../ui/index.ts';
 import { createRenderer } from '../render/index.ts';
+import {createBoss} from '../sim/bosses/index.ts';
 import { createPhysics } from '../sim/physics/index.ts';
 import { createCombat, type CombatFrame } from '../sim/combat/index.ts';
 import { createParticles, DEFAULT_MAP, compileTower, TOWERS } from '../content/index.ts';
@@ -14,6 +15,9 @@ import { DEFAULT_TUNING, PARTICLE_FLOATS, type UIState, type GameAction, type Ef
 
 const root=document.querySelector<HTMLElement>('#app')!;
 const params=new URLSearchParams(location.search);
+if(params.has('validate')) {
+ const {showValidation}=await import('./validation-page.ts');await showValidation(root);
+} else {
 const run=createRun();
 const state:UIState={mode:params.get('mode')==='game'?'game':'lab',phase:'preparation',paused:false,fps:0,frameMs:0,population:10000,capacity:65536,kills:0,crushKills:0,scrap:450,baseHealth:100,wave:0,waveCount:5,selected:null,selectedKind:null,heatmap:false,tool:'blast',message:'Connecting to local GPU…',adapter:'WebGPU',bonusChoices:[]};
 let handleAction:(action:GameAction)=>void=()=>{};
@@ -26,6 +30,7 @@ try {
  void gpu.device.lost.then(info=>fail(`GPU connection lost: ${info.message}. Reload to reconnect.`));
  if(!await verifyABI(gpu.device))throw new Error('GPU particle layout check failed.');
  state.adapter=`${gpu.adapter} / WEBGPU`;
+ const boss=await createBoss(gpu.device,gpu.shared);
  const physics=await createPhysics(gpu.device,gpu.shared);
  const combat=await createCombat(gpu.device,gpu.shared);
  gpu.shared.shotState=combat.shotState;
@@ -51,7 +56,7 @@ try {
  },error=>errors.push(String(error)));
  function resetWorld(resetRun=true){
    if(resetRun)run.reset();epoch=run.epoch;
-   physics.reset();combat.reset();clock.reset();metrics.reset();lastTickSample=0;waveStartTick=0;simulatedTime=0;
+   physics.reset();combat.reset();boss.reset(false);clock.reset();metrics.reset();lastTickSample=0;waveStartTick=0;simulatedTime=0;
    gpu.device.queue.writeBuffer(gpu.shared.counters,0,new Uint32Array(16));
    commands=[];visuals=[];count=0;state.kills=state.crushKills=0;state.selectedKind=null;state.selected=null;state.paused=false;
    latest={epoch,tick:0,kills:0,crushKills:0,leaks:0,earned:0,live:0,invalid:0,maxPacking:0};
@@ -80,7 +85,7 @@ try {
        const spawnMap={...map,spawn:{x:50,y:35,width:32,height:30}};
        const data=createParticles(batches,spawnMap,gpu.shared.capacity);count=data.length/PARTICLE_FLOATS;
        if(count!==batches.reduce((sum,b)=>sum+b.count,0))throw new Error('Wave spawn region capacity must cover the authored wave.');
-       gpu.device.queue.writeBuffer(gpu.shared.particles,0,data.buffer);state.population=count;physics.reset();combat.reset();waveStartTick=clock.tick+1;state.paused=false;state.selectedKind=null;break;
+       gpu.device.queue.writeBuffer(gpu.shared.particles,0,data.buffer);state.population=count;physics.reset();combat.reset();boss.reset(run.isBossWave);waveStartTick=clock.tick+1;state.paused=false;state.selectedKind=null;break;
      }
      case 'upgrade':if(run.model.selected!==null)actionResult(run.upgrade(run.model.selected,action.branch),'Tower upgraded.');break;
      case 'sell':if(run.model.selected!==null)actionResult(run.sell(run.model.selected),'Tower sold.');break;
@@ -108,15 +113,17 @@ try {
    const report=metrics.report();state.fps=report.fps;state.frameMs=report.medianMs;
    state.scrap=run.model.scrap;state.baseHealth=run.model.baseHealth/20*100;state.wave=run.model.wave;state.waveCount=run.model.waveCount;state.phase=state.mode==='lab'?'combat':run.model.phase;
    state.selected=run.model.towers.find(t=>t.id===run.model.selected)??null;state.bonusChoices=state.mode==='game'?run.model.bonusChoices:[];
+   state.bossHealth=latest.boss?.active?latest.boss.health/latest.boss.maxHealth*100:undefined;
    ui.update(state);lastUI=now;
-   diagnosticText.textContent=JSON.stringify({adapter:gpu.adapter,abi:'passed',epoch,tick:clock.tick,simulationSeconds:simulatedTime,slots:count,live:latest.live,requested:requestedPopulation,invalid:latest.invalid,peakPacking:latest.maxPacking,crushKills:latest.crushKills,kills:latest.kills,medianMs:report.medianMs,p95Ms:report.p95Ms,frameSamples:report.samples,canvas:[ui.canvas.width,ui.canvas.height],readbackErrors:errors},null,2);
+   diagnosticText.textContent=JSON.stringify({adapter:gpu.adapter,abi:'passed',epoch,tick:clock.tick,simulationSeconds:simulatedTime,slots:count,live:latest.live,requested:requestedPopulation,invalid:latest.invalid,peakPacking:latest.maxPacking,crushKills:latest.crushKills,kills:latest.kills,medianMs:report.medianMs,p95Ms:report.p95Ms,frameSamples:report.samples,canvas:[ui.canvas.width,ui.canvas.height],readbackErrors:errors,boss:latest.boss},null,2);
  }
  function tick(){
    clock.tick++;simulatedTime+=clock.step;
    const effects=commands;commands=[];
    const frame:CombatFrame={dt:clock.step,tick:clock.tick,count,map,effects,tuning:DEFAULT_TUNING,navigation,lab:state.mode==='lab',towers:state.mode==='game'?run.model.towers.map(tower=>({tower,definition:compileTower(tower,run.model.bonuses)})):[]};
    const encoder=gpu.device.createCommandEncoder({label:`Simulation tick ${clock.tick}`});
-   combat.encodeBefore(encoder,frame);physics.encode(encoder,frame);combat.encodeAfter(encoder,frame);
+   const bossFrame={dt:clock.step,tick:clock.tick,count,map:{...map,spawn:{x:50,y:35,width:32,height:30}},active:state.mode==='game'&&run.isBossWave};
+   combat.encodeBefore(encoder,frame);boss.encode(encoder,bossFrame);physics.encode(encoder,frame);combat.encodeAfter(encoder,frame);boss.encodeResolve(encoder,bossFrame);
    let finish:(()=>void)|undefined;
    if(clock.tick-lastTickSample>=6||stepRequested){finish=settlement.encode(encoder,gpu.shared.counters,epoch,clock.tick);if(finish)lastTickSample=clock.tick;}
    gpu.device.queue.submit([encoder.finish()]);finish?.();
@@ -131,7 +138,7 @@ try {
      if(!state.paused){for(const effect of visuals)effect.duration-=elapsed;visuals=visuals.filter(e=>e.duration>0);}
      const encoder=gpu.device.createCommandEncoder({label:'Present'});
      const ghost=state.mode==='game'&&state.selectedKind&&pointer?{...pointer,kind:state.selectedKind,valid:canPlace(map,run.model.towers,pointer,1.25)&&run.model.phase==='preparation'}:undefined;
-     renderer.encode(encoder,{count,time:simulatedTime,map,towers:state.mode==='game'?run.model.towers:[],effects:visuals,heatmap:state.heatmap,selection:run.model.selected,ghost});
+     renderer.encode(encoder,{count,time:simulatedTime,map,towers:state.mode==='game'?run.model.towers:[],effects:visuals,heatmap:state.heatmap,selection:run.model.selected,ghost,boss:latest.boss?.active?latest.boss:undefined});
      gpu.device.queue.submit([encoder.finish()]);
      if(now-lastUI>100)updateUI(now);
      requestAnimationFrame(frame);
@@ -139,3 +146,5 @@ try {
  }
  resetWorld();updateUI(performance.now());requestAnimationFrame(frame);
 } catch(error){state.message=String(error);state.paused=true;ui.update(state);console.error(error);}
+
+}
