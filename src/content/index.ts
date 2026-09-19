@@ -34,7 +34,7 @@ export const ENEMIES: Record<EnemyKind, EnemyDef> = {
 export const DEFAULT_MAP: WorldMap = {
   id:'pressure-front', width:160, height:100,
   obstacles:[{x:88,y:0,width:6,height:38},{x:88,y:62,width:6,height:38}],
-  spawn:{x:2,y:2,width:80,height:96}, goal:{x:156,y:50}, goalRadius:4,
+  spawn:{x:2,y:35,width:20,height:30}, goal:{x:156,y:50}, goalRadius:4,
 };
 
 export function validateContent(): void {

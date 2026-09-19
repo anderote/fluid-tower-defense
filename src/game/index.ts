@@ -147,6 +147,7 @@ export class RunController {
     return {ok:true};
   }
   spendMetal(cost:number):ActionResult { if(this.model.phase!=='preparation')return {ok:false,reason:'Build walls before the wave starts.'};if(this.model.metal<cost)return {ok:false,reason:'Insufficient Metal.'};this.model.metal-=cost;return {ok:true}; }
+  refundMetal(amount:number):void { this.model.metal+=Math.max(0,Math.floor(amount)); }
   accrueVeterancy(seconds:number):void {
     if(this.model.phase!=='combat'||!Number.isFinite(seconds)||seconds<=0)return;
     for(const tower of this.model.towers){tower.veterancyXp=(tower.veterancyXp??0)+seconds*1.8;tower.veterancy=veterancyLevel(tower.veterancyXp);}

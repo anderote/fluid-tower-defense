@@ -19,9 +19,9 @@ struct Out { @builtin(position) pos: vec4<f32>, @location(0) local: vec2<f32>, @
 fn world(p:vec2<f32>)->vec2<f32>{ let aspect=camera.viewport.x/max(1.0,camera.viewport.y); let targetAspect=camera.world.z/camera.world.w; let sx=min(1.0,targetAspect/aspect); let sy=min(1.0,aspect/targetAspect); return vec2((((p.x-camera.world.x)/camera.world.z)*2.0-1.0)*sx, (1.0-((p.y-camera.world.y)/camera.world.w)*2.0)*sy); }
 @vertex fn vs(@builtin(vertex_index) vi:u32,@builtin(instance_index) ii:u32)->Out {
   let corners=array<vec2<f32>,6>(vec2(-1,-1),vec2(1,-1),vec2(-1,1),vec2(-1,1),vec2(1,-1),vec2(1,1));
-  let p=particles[ii]; let c=corners[vi]; let dead=p.state.w<-.5; let radius=select(p.body.x, max(.16,p.body.x*1.9), dead);
+  let p=particles[ii]; let c=corners[vi]; let dead=p.state.w<-.5; let radius=select(p.body.x, max(.16,p.body.x*(2.0+1.8*clamp(camera.time.x-(-p.body.w)/60.,0.,.32))), dead);
   let q=world(p.pos.xy + c*radius); var o:Out; o.pos=vec4(q,0,1); o.local=c;
-  if(dead){ let age=camera.time.x-(-p.body.w)/60.; o.color=vec4(.75+.25*sin(f32(ii)*17.),.025,.01,max(0.,1.-age/.72)); return o; }
+  if(dead){ let age=camera.time.x-(-p.body.w)/60.; let tint=.55+.35*sin(f32(ii)*17.); o.color=vec4(tint,.012,.006,max(0.,1.-age/.82)); return o; }
   let k=u32(p.state.z + 0.5); var col=vec3(0.77,0.85,0.68);
   if(k==1u){col=vec3(1.0,0.61,0.25);} if(k==2u){col=vec3(0.74,0.35,0.18);}
   let hp=clamp(p.body.z/max(0.001,p.body.w),0.0,1.0); let pressure=clamp(max(p.state.y,p.state.x)*.018,0.0,1.0);
@@ -29,7 +29,7 @@ fn world(p:vec2<f32>)->vec2<f32>{ let aspect=camera.viewport.x/max(1.0,camera.vi
   if(camera.time.y > .5){ col=mix(col,vec3(1.0,0.12,0.03),pressure); }
   o.color=vec4(col*(0.45+0.55*hp),p.state.w); return o;
 }
-@fragment fn fs(i:Out)->@location(0) vec4<f32>{ let d=dot(i.local,i.local); if(d>1.0 || i.color.a<.02){discard;} let rim=smoothstep(.58,.98,d); return vec4(mix(i.color.rgb,vec3(1.0,.9,.65),rim*.18),i.color.a); }
+@fragment fn fs(i:Out)->@location(0) vec4<f32>{ let d=dot(i.local,i.local); let blood=i.color.g<.02; let droplets=sin(i.local.x*11.)*sin(i.local.y*13.); if(d>1.0 || i.color.a<.02 || (blood && droplets<-.25)){discard;} let rim=smoothstep(.58,.98,d); return vec4(mix(i.color.rgb,vec3(1.0,.9,.65),select(rim*.18,0.,blood)),i.color.a); }
 `});
   const overlayModule=device.createShaderModule({code:`
 struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group(0) @binding(0) var<uniform> camera:Camera;
@@ -77,6 +77,7 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
     rect(a,scene.map.spawn.x,scene.map.spawn.y,scene.map.spawn.width,scene.map.spawn.height,[.95,.48,.12,.11]); ring(a,scene.map.goal.x,scene.map.goal.y,scene.map.goalRadius,[.71,.98,.31,.85]);
     for(const t of scene.towers){const c: [number,number,number,number]=t.kind==='repulsor'?[.73,1,.22,.95]:t.kind==='mortar'?[1,.62,.16,.95]:t.kind==='autocannon'?[.28,.85,1,.95]:t.kind==='cryo'?[.4,.85,.95,.95]:t.kind==='tesla'?[.62,.45,1,.95]:t.kind==='rocket'?[1,.25,.15,.95]:[.35,1,.78,.95];towerShape(a,t,c);if(scene.selection===t.id)ring(a,t.x,t.y,4.2,[1,.88,.4,.9],.35);}
     if(scene.ghost){const c: [number,number,number,number]=scene.ghost.valid?[.65,1,.25,.8]:[1,.18,.12,.8];ring(a,scene.ghost.x,scene.ghost.y,scene.ghost.range,c,.22);towerShape(a,scene.ghost,c);}
+    if(scene.wallGhost)rect(a,scene.wallGhost.x,scene.wallGhost.y,scene.wallGhost.width,scene.wallGhost.height,scene.wallGhost.valid?[.25,.85,.95,.5]:[1,.15,.08,.5]);
     for(const e of scene.effects){const c: [number,number,number,number]=e.kind==='blast'?[1,.42,.1,.75]:e.kind==='slow'?[.25,.8,1,.56]:[.7,1,.2,.5];ring(a,e.x,e.y,Math.max(1,e.radius),c,Math.max(.35,e.radius*.08)); if(e.kind==='push'){const q={x:e.x+e.direction.x*e.radius,y:e.y+e.direction.y*e.radius};tri(a,{x:e.x-1,y:e.y-1},{x:e.x+1,y:e.y+1},q,c)}}
     if(scene.boss){const c: [number,number,number,number]=scene.boss.phase===2?[1,.15,.04,.95]:scene.boss.phase===1?[.9,.72,.2,.95]:[.55,.78,1,.95];ring(a,scene.boss.x,scene.boss.y,2.5,c,.55);rect(a,scene.boss.x-3,scene.boss.y-4,6*Math.max(0,scene.boss.health/scene.boss.maxHealth),.45,c);}
     const capped=a.slice(0,MAX_OVERLAY_VERTICES); const data=new Float32Array(capped.length*6);capped.forEach((v,i)=>data.set([v.x,v.y,v.r,v.g,v.b,v.a],i*6));return data;

@@ -13,7 +13,7 @@ import { createCombat, type CombatFrame } from '../sim/combat/index.ts';
 import { createParticles, DEFAULT_MAP, compileTower, TOWERS } from '../content/index.ts';
 import { buildNavigation, canPlace } from '../navigation/index.ts';
 import { createRun } from '../game/index.ts';
-import { DEFAULT_TUNING, PARTICLE_FLOATS, type UIState, type GameAction, type Effect, type Vec2, type Settlement } from '../contracts/index.ts';
+import { DEFAULT_TUNING, PARTICLE_FLOATS, type UIState, type GameAction, type Effect, type Vec2, type Rect, type Settlement } from '../contracts/index.ts';
 
 const root=document.querySelector<HTMLElement>('#app')!;
 const params=new URLSearchParams(location.search);
@@ -42,6 +42,7 @@ try {
  let map=DEFAULT_MAP, navigation=buildNavigation(map);
  let epoch=run.epoch,count=0, requestedPopulation=Math.min(50000,Math.max(1,Number(params.get('population'))||10000)), stepRequested=false;
  let wallTool=false;
+ let builtWalls:Rect[]=[];
  let commands:Effect[]=[], visuals:Effect[]=[], pointer:Vec2|undefined, lastTickSample=0, waveStartTick=0;
  let latest:Settlement={epoch,tick:0,kills:0,crushKills:0,leaks:0,earned:0,live:0,invalid:0,maxPacking:0};
  let lastUI=0, previous=performance.now(), simulatedTime=0;
@@ -105,15 +106,18 @@ try {
    updateUI(performance.now());
  };
  wallButton.onclick=()=>handleAction({type:'wall-tool'});
- ui.canvas.addEventListener('pointermove',event=>{pointer=renderer.screenToWorld(event.clientX,event.clientY);if(editor.active&&event.buttons)editor.paint(pointer,event.buttons&2?true:undefined);});
+ const wallAt=(point:Vec2):Rect=>({x:Math.floor(point.x/4)*4,y:Math.floor(point.y/4)*4,width:4,height:4});
+ const placeWall=(wall:Rect)=>{if(builtWalls.some(existing=>existing.x===wall.x&&existing.y===wall.y))return;const candidate={...map,obstacles:[...map.obstacles,wall]};const issue=validateEditorMap(candidate);if(issue){state.message=issue;return;}const result=run.spendMetal(60);if(!result.ok){state.message=result.reason??'Could not build wall.';return;}builtWalls.push(wall);map=candidate;navigation=buildNavigation(map);run.setMap(map);state.message='Metal wall installed. Right-drag removes for 30 Metal.';};
+ const removeWall=(point:Vec2)=>{const index=builtWalls.findIndex(w=>point.x>=w.x&&point.x<w.x+w.width&&point.y>=w.y&&point.y<w.y+w.height);if(index<0)return;const [wall]=builtWalls.splice(index,1);map={...map,obstacles:map.obstacles.filter(existing=>existing!==wall)};navigation=buildNavigation(map);run.setMap(map);run.refundMetal(30);state.message='Metal wall recovered for 30 Metal.';};
+ ui.canvas.addEventListener('pointermove',event=>{pointer=renderer.screenToWorld(event.clientX,event.clientY);if(editor.active&&event.buttons)editor.paint(pointer,event.buttons&2?true:undefined);if(wallTool&&(event.buttons&2))removeWall(pointer);if(wallTool&&(event.buttons&1)){const wall=wallAt(pointer);if(!builtWalls.some(w=>w.x===wall.x&&w.y===wall.y))placeWall(wall);}});
  ui.canvas.addEventListener('wheel',event=>{if(editor.active)return;event.preventDefault();renderer.zoomAt(event.deltaY<0?1.13:1/1.13,event.clientX,event.clientY);},{passive:false});
- ui.canvas.addEventListener('contextmenu',event=>{if(editor.active)event.preventDefault();});
+ ui.canvas.addEventListener('contextmenu',event=>{if(editor.active||wallTool)event.preventDefault();});
  ui.canvas.addEventListener('pointerleave',()=>{pointer=undefined;});
  ui.canvas.addEventListener('pointerdown',event=>{
    if(failed)return;const point=renderer.screenToWorld(event.clientX,event.clientY);
    if(editor.active){editor.paint(point,event.button===2?true:undefined);return;}
    if(state.mode==='game'){
-     if(wallTool){const wall={x:Math.floor(point.x/4)*4,y:Math.floor(point.y/4)*4,width:4,height:4};const candidate={...map,obstacles:[...map.obstacles,wall]};const issue=validateEditorMap(candidate);if(issue)state.message=issue;else{const result=run.spendMetal(60);if(result.ok){map=candidate;navigation=buildNavigation(map);run.setMap(map);state.message='Metal wall installed.';wallTool=false;}else state.message=result.reason??'Could not build wall.';}return;}
+     if(wallTool){if(event.button===2)removeWall(point);else placeWall(wallAt(point));return;}
      if(state.selectedKind){const result=run.place(state.selectedKind,point);actionResult(result,result.tower?`${TOWERS[result.tower.kind].name} deployed.`:'Tower deployed.');}
      else{run.model.selected=run.model.towers.find(t=>Math.hypot(t.x-point.x,t.y-point.y)<3.5)?.id??null;}
    }else if(state.tool!=='inspect'){
@@ -160,7 +164,8 @@ try {
      if(!state.paused){for(const effect of visuals)effect.duration-=elapsed;visuals=visuals.filter(e=>e.duration>0);}
      const encoder=gpu.device.createCommandEncoder({label:'Present'});
      const ghost=state.mode==='game'&&state.selectedKind&&pointer?{...pointer,kind:state.selectedKind,range:compileTower({id:0,kind:state.selectedKind,x:pointer.x,y:pointer.y,level:0,branch:-1,angle:0,cooldown:0,spent:0},run.model.bonuses,run.model.commandUpgrades).range,valid:canPlace(map,run.model.towers,pointer,1.25)&&run.model.phase==='preparation'}:undefined;
-     renderer.encode(encoder,{count:editor.active?0:count,time:simulatedTime,map:editor.active?editor.map:map,towers:!editor.active&&state.mode==='game'?run.model.towers:[],effects:editor.active?[]:visuals,heatmap:state.heatmap,selection:run.model.selected,ghost:editor.active?undefined:ghost,boss:!editor.active&&latest.boss?.active?latest.boss:undefined});
+     const wallGhost=state.mode==='game'&&wallTool&&pointer?{...wallAt(pointer),valid:!validateEditorMap({...map,obstacles:[...map.obstacles,wallAt(pointer)]})}:undefined;
+     renderer.encode(encoder,{count:editor.active?0:count,time:simulatedTime,map:editor.active?editor.map:map,towers:!editor.active&&state.mode==='game'?run.model.towers:[],effects:editor.active?[]:visuals,heatmap:state.heatmap,selection:run.model.selected,ghost:editor.active?undefined:ghost,wallGhost,boss:!editor.active&&latest.boss?.active?latest.boss:undefined});
      gpu.device.queue.submit([encoder.finish()]);
      if(now-lastUI>100)updateUI(now);
      requestAnimationFrame(frame);
