@@ -96,18 +96,23 @@ export function createParticles(batches: readonly SpawnBatch[], map: WorldMap, c
   if (!limit) return new Float32Array(0);
   const largest = Math.max(...batches.filter(batch=>batch.count>0).map(batch=>ENEMIES[batch.kind].radius), .18);
   const spacing = largest * 2 + .02;
-  const columns = Math.floor(map.spawn.width / spacing);
-  const rows = Math.floor(map.spawn.height / spacing);
-  const latticeCapacity = columns * rows;
+  const maxColumns = Math.floor(map.spawn.width / spacing);
+  const maxRows = Math.floor(map.spawn.height / spacing);
+  const latticeCapacity = maxColumns * maxRows;
   const actual = Math.min(limit,latticeCapacity);
   if (limit > actual) console.warn(`Particle spawn region holds ${actual} non-overlapping particles; ${limit - actual} remain pending`);
   const output = new Float32Array(actual * PARTICLE_FLOATS);
+  // Each streamed batch begins as a compact, centered plug instead of accumulating from top-left.
+  const columns=Math.min(maxColumns,Math.max(1,Math.ceil(Math.sqrt(actual*map.spawn.width/map.spawn.height))));
+  const rows=Math.ceil(actual/columns);
+  const startX=map.spawn.x+(map.spawn.width-columns*spacing)*.5;
+  const startY=map.spawn.y+(map.spawn.height-rows*spacing)*.5;
   let cursor=0, slot=0;
   for (const batch of batches) {
     const count=Math.max(0,Math.floor(batch.count)), enemy=ENEMIES[batch.kind], jitter=random(batch.seed);
     for (let i=0;i<count && slot<actual;i++,slot++) {
       const col=slot%columns,row=Math.floor(slot/columns);
-      const baseX=map.spawn.x+(col+.5)*spacing, baseY=map.spawn.y+(row+.5)*spacing;
+      const baseX=startX+(col+.5)*spacing, baseY=startY+(row+.5)*spacing;
       // A tiny deterministic jitter is safely smaller than the lattice clearance.
       const offset=(jitter()-.5)*.008;
       output[cursor+P.x]=baseX+offset; output[cursor+P.y]=baseY+(jitter()-.5)*.008;
