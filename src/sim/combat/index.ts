@@ -107,7 +107,7 @@ fn safeDir(delta:vec2f)->vec2f { return delta/max(length(delta),0.0001); }
 }
 @compute @workgroup_size(128) fn settle(@builtin(global_invocation_id) gid:vec3u){
  let i=gid.x;if(i>=u32(params.clock.z)){return;}var p=particles[i];if(p.state.w<.5){return;}
- let kind=u32(p.state.z);let tolerance=select(1.0,2.1,kind==2u);
+ let kind=u32(p.state.z);let tolerance=select(select(1.0,.72,kind==1u),2.1,kind==2u);
  // Exposure is physics-owned until this settlement consumes it.
  let brittle=select(1.0,1.7,p.status.y>0.0);
  let crush=max(0.0,p.status.z)*brittle/tolerance;

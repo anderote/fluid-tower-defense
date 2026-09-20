@@ -17,7 +17,8 @@ import {
 import { PHYSICS_WGSL } from './shader.ts';
 
 const WORKGROUP_SIZE = 128;
-const PARAM_BYTES = 112;
+// WGSL uniform structs are bound at their 16-byte-padded size.
+const PARAM_BYTES = 128;
 const OBSTACLE_BYTES = 16;
 const EFFECT_BYTES = 48;
 const NAV_BYTES = 16;
