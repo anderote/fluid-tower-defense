@@ -3,13 +3,23 @@ import {TESLA_STATE_WGSL,TESLA_HEADER_BYTES,TESLA_PARTICLE_BYTES} from '../effec
 import { ENEMY_WGSL, towerBehavior } from '../content/index.ts';
 import { PARTICLE_WGSL, type RenderScene, type Renderer, type SharedGPU, type TowerKind, type Vec2 } from '../contracts/index.ts';
 import {screenToWorld as unproject, worldToScreen as project} from './camera.ts';
-import {TURRET_GRID, turretPixelRects, type TurretInk} from './turret-art.ts';
+import {TURRET_GRID, turretHardpoints, turretPixelRects, type TurretInk} from './turret-art.ts';
 import {createRedAlertArt,hasRedAlertSprite,type TurretArtStyle,type FloorArtStyle} from './red-alert.ts';
 import type {WireArtStyle} from './wire-art.ts';
 import {SHOT_GEOMETRY_WGSL} from './shot-geometry.ts';
 import {createShamblers} from './shamblers.ts';
+import {ZOMBIE_ROSTER_WGSL} from './zombie-roster.ts';
 
 const MAX_TOWERS = 64;
+const WEAPON_KINDS:readonly TowerKind[]=['repulsor','mortar','autocannon','cryo','tesla','rocket','railgun','incinerator'];
+const wgslFloat=(value:number)=>Number.isInteger(value)?`${value}.`:`${value}`;
+const MUZZLE_OFFSETS_WGSL=`fn muzzleOffset(weapon:f32,barrel:f32)->vec2<f32>{${WEAPON_KINDS.map((kind,index)=>{
+  const muzzles=turretHardpoints(kind).muzzles;
+  const result=muzzles.map(point=>`vec2(${wgslFloat(point.x)},${wgslFloat(point.y)})`);
+  const body=muzzles.slice(0,-1).map((_,barrel)=>`if(barrel<${wgslFloat(barrel+.5)}){return ${result[barrel]};}`).join('');
+  const branch=`${body}return ${result.at(-1)};`;
+  return index===WEAPON_KINDS.length-1?branch:`if(weapon<${wgslFloat(index+.5)}){${branch}}`;
+}).join('')}}`;
 type V = { x:number; y:number; r:number; g:number; b:number; a:number };
 const sameRect=(left:{x:number;y:number;width:number;height:number},right:{x:number;y:number;width:number;height:number})=>left.x===right.x&&left.y===right.y&&left.width===right.width&&left.height===right.height;
 
@@ -32,6 +42,7 @@ export async function createRenderer(device: GPUDevice, context: GPUCanvasContex
 ${PARTICLE_WGSL}
 ${ENEMY_WGSL}
 ${TESLA_STATE_WGSL}
+${ZOMBIE_ROSTER_WGSL}
 struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> };
 @group(0) @binding(0) var<uniform> camera: Camera;
 @group(0) @binding(1) var<storage,read> particles: array<Particle>;
@@ -52,7 +63,7 @@ fn pressureColor(value:f32)->vec3<f32>{
   let shock=electricity.victims[ii].shock;let shockAge=teslaAge(shock,p.status.w,camera.time.x);
   if((dead&&shock.x>0.&&shock.y==p.status.w&&shock.z>.5)||(!dead&&shockAge<.24)){o.pos=vec4(2.,2.,0.,1.);o.color=vec4(0.);return o;}
   if(dead){ let age=max(0.,camera.time.x-(-p.body.w)/60.);let seed=f32(ii)*17.+f32(shard)*2.4;let flight=clamp(age/.78,0.,1.);let dir=vec2(cos(seed),sin(seed));let stain=shard==0u;let mist=shard>4u;let speed=select(.85+fract(seed*3.1)*2.2,.38+fract(seed)*.8,mist);let center=select(p.pos.xy+dir*(.18+speed*flight)+vec2(0.,age*age*.7),p.pos.xy,stain);radius=select(max(.07,p.body.x*(.36+.72*(1.-flight))*select(1.,.62,mist)),max(.38,p.body.x*3.25),stain);let life=select(max(0.,1.-age/select(.95,.62,mist)),max(0.,1.-age/18.),stain);o.pos=vec4(world(center+c*radius),0,1);o.color=vec4(select(.42+.3*sin(seed),.7+.18*sin(seed*2.),mist),.008,.004,life*select(.9,.42,stain));o.bloodMode=select(2.,1.,stain);return o; }
-  if(shard>0u||p.state.z<.5){o.pos=vec4(2.,2.,0.,1.);o.color=vec4(0.);return o;}
+  if(shard>0u||zombieAtlas(u32(max(0.,round(p.state.z))))>=0.){o.pos=vec4(2.,2.,0.,1.);o.color=vec4(0.);return o;}
   let speed=length(p.pos.zw);let forward=select(vec2(1.,0.),p.pos.zw/max(.001,speed),speed>.02);let side=vec2(-forward.y,forward.x);let breathe=1.+.055*sin(camera.time.x*5.5+f32(ii)*.37);let offset=(forward*c.x*(1.03+min(.28,speed*.035))+side*c.y*.92)*radius*breathe;let q=world(p.pos.xy+offset);o.pos=vec4(q,0,1);
   let k=u32(clamp(p.state.z,0.0,5.0)+0.5); var col=enemyColor(k);
   let hp=clamp(p.body.z/max(0.001,p.body.w),0.0,1.0);let rawPressure=max(0.,p.state.y);let pressure=clamp(log2(1.+rawPressure)/7.,0.,1.);
@@ -76,17 +87,19 @@ struct TowerState { timing:vec4<f32>, shot:vec4<f32>, flags:vec4<f32> };
 @group(0) @binding(2) var<storage,read> towers:array<vec4<f32>>;
 struct Out { @builtin(position) pos:vec4<f32>, @location(0) local:vec2<f32>, @location(1) kind:f32, @location(2) age:f32, @location(3) shard:f32, @location(4) weapon:f32, @location(5) elapsed:f32 };
 fn clip(p:vec2<f32>)->vec2<f32>{let aspect=camera.viewport.x/max(1.,camera.viewport.y);let targetAspect=camera.world.z/camera.world.w;let sx=min(1.,targetAspect/aspect);let sy=min(1.,aspect/targetAspect);return vec2((((p.x-camera.world.x)/camera.world.z)*2.-1.)*sx,(1.-((p.y-camera.world.y)/camera.world.w)*2.)*sy);}
-fn muzzleDistance(weapon:f32)->f32{if(weapon<.5){return 1.55;}if(weapon<1.5){return 1.7;}if(weapon<2.5){return 2.;}if(weapon<3.5){return 2.;}if(weapon<4.5){return 1.8;}if(weapon<5.5){return 2.;}if(weapon<6.5){return 2.15;}return 2.15;}
+${MUZZLE_OFFSETS_WGSL}
+fn muzzlePoint(origin:vec2<f32>,forward:vec2<f32>,weapon:f32,barrel:f32)->vec2<f32>{let offset=muzzleOffset(weapon,barrel);let side=vec2(-forward.y,forward.x);return origin+forward*offset.x+side*offset.y;}
+fn muzzleDistance(weapon:f32)->f32{return muzzleOffset(weapon,select(0.,1.,weapon>=4.5&&weapon<5.5)).x;}
 @vertex fn vs(@builtin(vertex_index) vi:u32,@builtin(instance_index) ii:u32)->Out {
  let corners=array<vec2<f32>,6>(vec2(-1.,-1.),vec2(1.,-1.),vec2(-1.,1.),vec2(-1.,1.),vec2(1.,-1.),vec2(1.,1.));
  let shard=vi/6u;let q=corners[vi%6u];let s=states[ii];let t=towers[ii];let kind=floor(t.w+.001);let weapon=round(fract(t.w)*100.);
  var life=.24;if(weapon==1.){life=.62;}else if(weapon==2.){life=.32;}else if(weapon==4.){life=.3;}else if(weapon==5.){life=.56;}else if(weapon==6.){life=.18;}else if(weapon==7.){life=.34;}
- let elapsed=max(0.,s.timing.y-s.timing.x);let valid=s.timing.y>0.&&elapsed<=life&&abs(s.flags.x-t.z)<.5&&weapon!=1.&&weapon!=5.&&weapon!=4.;let age=select(2.,clamp(elapsed/life,0.,1.),valid);
- let aim=s.timing.zw;let delta=aim-t.xy;let len=max(.1,length(delta));let forward=delta/len;let side=vec2(-forward.y,forward.x);let muzzle=t.xy+forward*muzzleDistance(weapon);let seed=f32(shard)*2.399+f32(ii)*.71;let burst=vec2(cos(seed),sin(seed));var p:vec2<f32>;
+ let elapsed=max(0.,s.timing.y-s.timing.x);let valid=s.timing.y>0.&&elapsed<=life&&abs(s.flags.x-t.z)<.5&&weapon!=4.;let age=select(2.,clamp(elapsed/life,0.,1.),valid);
+ let aim=s.timing.zw;let delta=aim-t.xy;let len=max(.1,length(delta));let forward=delta/len;let side=vec2(-forward.y,forward.x);let muzzle=muzzlePoint(t.xy,forward,weapon,0.);let seed=f32(shard)*2.399+f32(ii)*.71;let burst=vec2(cos(seed),sin(seed));var p:vec2<f32>;
  if(weapon==0.){
   let distance=.15+age*(4.5+len*.035);p=muzzle+burst*distance+q*(select(.22,1.05,shard==0u));
  }else if(weapon==1.){
-  if(shard==0u){let travel=min(1.,age*1.55);let arc=sin(travel*3.14159);let center=mix(t.xy,aim,travel)+side*arc*1.4;p=center+q*(.5+arc*.42);}else{let impactAge=max(0.,(age-.52)/.48);let distance=impactAge*(1.4+f32(shard)*.32);p=aim+burst*distance+q*(.18+.035*f32(shard));}
+  if(shard==0u){p=muzzle+forward*q.x*(1.25-1.7*elapsed)+side*q.y*(.55-.6*elapsed);}else{let smokeAge=clamp(elapsed/.62,0.,1.);p=muzzle-forward*smokeAge*(.35+f32(shard)*.035)+burst*(.1+smokeAge*.45)+q*(.13+smokeAge*.2);}
  }else if(weapon==2.){
   if(shard==0u){p=muzzle+forward*q.x*(1.4-2.8*elapsed)+side*q.y*(.58-1.05*elapsed);}
   else if(shard==1u){p=autocannonTracer(q,muzzle,forward,len-muzzleDistance(weapon),elapsed);}
@@ -97,7 +110,7 @@ fn muzzleDistance(weapon:f32)->f32{if(weapon<.5){return 1.55;}if(weapon<1.5){ret
  }else if(weapon==4.){
   let u=(f32(shard)+.5)/12.;let beamLen=max(0.,len-muzzleDistance(weapon));let jitter=sin(u*39.+f32(ii)*2.1+age*17.)*(.35+sin(u*3.14159)*.95);p=muzzle+forward*(beamLen*u)+side*jitter+forward*q.x*(beamLen/21.)+side*q.y*.16;
  }else if(weapon==5.){
-  let lane=f32(shard%3u)-1.;let travel=min(1.,age*1.7);let center=mix(t.xy,aim+side*lane*2.1,travel);if(shard<3u){p=center+forward*q.x*.9+side*q.y*.34;}else{let trail=fract(f32(shard)*.381);p=mix(t.xy,center,trail)+side*(lane+sin(seed)*.45)+q*(.18+.22*age);}
+  let tube=f32(shard%3u);let tubeDelay=tube*.045;let launch=muzzlePoint(t.xy,forward,weapon,tube);if(elapsed<tubeDelay){p=vec2(1e6);}else if(shard<3u){p=launch+forward*q.x*max(.2,1.35-(elapsed-tubeDelay)*2.4)+side*q.y*.42;}else{let smokeAge=clamp((elapsed-tubeDelay)/.5,0.,1.);p=launch-forward*smokeAge*.65+burst*(.08+smokeAge*.55)+q*(.14+.24*smokeAge);}
  }else if(weapon==6.){
   if(shard==0u){p=muzzle+forward*((q.x+1.)*.5*max(0.,len-muzzleDistance(weapon)))+side*q.y*.16;}else{p=aim+burst*(.4+f32(shard)*.22)+q*.14;}
  }else{
@@ -296,8 +309,8 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
       if(world.width!==scene.map.width||world.height!==scene.map.height){world={width:scene.map.width,height:scene.map.height};clampCamera();}
       resize();const v=view(),shake=scene.cameraShake??0,shakeX=Math.sin(scene.time*83.7)*shake,shakeY=Math.cos(scene.time*71.3)*shake*.7;
       device.queue.writeBuffer(uniform,0,new Float32Array([pixelW,pixelH,0,0,camera.x+shakeX,camera.y+shakeY,v.width,v.height,scene.time,scene.heatmap?1:0,0,0,0,0,0,0]));
-      const visual=new Float32Array(Math.max(1,Math.min(MAX_TOWERS,scene.towers.length))*4),weaponKinds=['repulsor','mortar','autocannon','cryo','tesla','rocket','railgun','incinerator'];
-      scene.towers.slice(0,MAX_TOWERS).forEach((t,i)=>visual.set([t.x,t.y,t.id,towerBehavior(t.kind)+weaponKinds.indexOf(t.kind)/100],i*4));device.queue.writeBuffer(towerVisuals,0,visual);
+      const visual=new Float32Array(Math.max(1,Math.min(MAX_TOWERS,scene.towers.length))*4);
+      scene.towers.slice(0,MAX_TOWERS).forEach((t,i)=>visual.set([t.x,t.y,t.id,towerBehavior(t.kind)+WEAPON_KINDS.indexOf(t.kind)/100],i*4));device.queue.writeBuffer(towerVisuals,0,visual);
       redAlert?.prepare(scene);
       shamblers.prepare(encoder,scene);
       const data=geometry(scene),fx=foregroundGeometry(scene);

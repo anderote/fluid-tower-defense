@@ -12,6 +12,7 @@ try{
  const canvas=document.querySelector('canvas')!,gpu=await connectGPU(canvas),{device,shared}=gpu;
  device.addEventListener('uncapturederror',event=>{status.textContent=`FAIL: ${event.error.message}`;});
  device.pushErrorScope('validation');
+ shared.bossState=device.createBuffer({size:64,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST|GPUBufferUsage.COPY_SRC});
  const combat=await createCombat(device,shared);shared.shotState=combat.shotState;
  const tower:Tower={id:1,kind:'tesla',x:15,y:16,angle:0,level:0,branch:-1,cooldown:0,spent:0};
  const map={id:'tesla-lab',width:60,height:32,obstacles:[],spawn:{x:0,y:0,width:0,height:0},goal:{x:30,y:16},goalRadius:0};
@@ -54,6 +55,15 @@ try{
  seed(30,2);frame.tick=62;step();shocks=await read(shared.teslaState!,TESLA_HEADER_BYTES,8*TESLA_PARTICLE_BYTES);particles=await read(shared.particles,0,8*64);
  assert(shocks[1]!==particles[P.generation]&&particles[P.hp]===30,'Recycled enemy inherited the previous hit');checks++;
  combat.reset();const reset=await read(shared.teslaState!,0,TESLA_HEADER_BYTES+8*TESLA_PARTICLE_BYTES);assert(reset.every(v=>v===0),'Reset retained electrical effects');checks++;
+ // A Tesla bolt can target a boss and then chain into infantry, but cannot hit
+ // an unselected boss just because it lies in the same cone.
+ const bossData=(x:number)=>new Float32Array([x,16,0,0,1,1,100,100,0,0,1,0,1,0,0,0]);
+ seed();device.queue.writeBuffer(shared.bossState,0,bossData(26));frame.tick=60;frame.map={...map,goal:{x:26,y:16}};step();
+ let boss=await read(shared.bossState);links=await read(shared.teslaState!,0,6*16);
+ assert(boss[6]===90&&links[2]===-1&&links[6]===0,'Boss strike or outgoing infantry chain failed');checks++;
+ combat.reset();seed();device.queue.writeBuffer(shared.bossState,0,bossData(32));frame.map=map;step();boss=await read(shared.bossState);
+ assert(boss[6]===100,'Tesla damaged an unselected boss');checks++;
+ device.queue.writeBuffer(shared.bossState,0,new Float32Array(16));combat.reset();
  // Keep a real production hit frozen for inspection at arbitrary animation ages.
  frame.tick=60;tower.branch=-1;seed(1);step();const shot=await read(combat.shotState,0,48);
  const renderer=await createRenderer(device,gpu.context,gpu.format,shared,canvas);
@@ -65,5 +75,5 @@ try{
   const e=device.createCommandEncoder();renderer.encode(e,scene);device.queue.submit([e.finish()]);raf=requestAnimationFrame(draw);
  };draw();await device.queue.onSubmittedWorkDone();const error=await device.popErrorScope();if(error)throw Error(error.message);
  status.textContent=`PASS: ${checks} GPU combat checks; original skeleton sequence and renderer validated.`;
- window.addEventListener('pagehide',()=>{cancelAnimationFrame(raf);audio.destroy();renderer.destroy();combat.destroy();shared.particles.destroy();shared.counters.destroy();device.destroy();});
+ window.addEventListener('pagehide',()=>{cancelAnimationFrame(raf);audio.destroy();renderer.destroy();combat.destroy();shared.particles.destroy();shared.counters.destroy();shared.bossState?.destroy();device.destroy();});
 }catch(error){status.textContent=`FAIL: ${String(error)}`;console.error(error);}

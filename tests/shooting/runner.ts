@@ -1,6 +1,6 @@
 import {SHOT_GEOMETRY_WGSL} from '../../src/render/shot-geometry.ts';
 import {createRenderer} from '../../src/render/index.ts';
-import type {RenderScene,SharedGPU} from '../../src/contracts/index.ts';
+import type {RenderScene,SharedGPU,TowerKind} from '../../src/contracts/index.ts';
 
 const status=document.querySelector('#status')!;
 try{
@@ -50,7 +50,8 @@ try{
   const shots=device.createBuffer({size:64*48,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
   const shared:SharedGPU={particles:device.createBuffer({size:256,usage:GPUBufferUsage.STORAGE}),counters:device.createBuffer({size:512,usage:GPUBufferUsage.STORAGE}),capacity:1,shotState:shots};
   const renderer=await createRenderer(device,context,navigator.gpu.getPreferredCanvasFormat(),shared,canvas);
-  const scene:RenderScene={count:0,time:1,heatmap:false,selection:null,effects:[],map:{id:'shooting',width:100,height:56,obstacles:[],spawn:{x:0,y:0,width:0,height:0},goal:{x:100,y:56},goalRadius:0},towers:Array.from({length:8},(_,i)=>({id:i+1,kind:'autocannon',x:13+i%4*25,y:14+Math.floor(i/4)*28,angle:i*Math.PI/4,level:0,branch:-1,cooldown:0,spent:0}))};
+  const kinds:TowerKind[]=['repulsor','mortar','autocannon','cryo','tesla','rocket','railgun','incinerator'];
+  const scene:RenderScene={count:0,time:1,heatmap:false,selection:null,effects:[],map:{id:'shooting',width:100,height:56,obstacles:[],spawn:{x:0,y:0,width:0,height:0},goal:{x:100,y:56},goalRadius:0},towers:kinds.map((kind,i)=>({id:i+1,kind,x:13+i%4*25,y:14+Math.floor(i/4)*28,angle:i*Math.PI/4,level:0,branch:-1,cooldown:0,spent:0}))};
   const draw=()=>{
     const elapsed=Number((document.querySelector('#age') as HTMLSelectElement).value),range=Number((document.querySelector('#range') as HTMLSelectElement).value),data=new Float32Array(64*12);
     scene.towers.forEach((t,i)=>data.set([1,1+elapsed,t.x+Math.cos(t.angle)*range,t.y+Math.sin(t.angle)*range,1,0,0,t.angle,t.id,1,0,0],i*12));
