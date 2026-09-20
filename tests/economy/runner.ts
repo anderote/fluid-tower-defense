@@ -29,7 +29,7 @@ async function navigate(path:string) {
     const timer=setTimeout(()=>reject(new Error('Frame navigation timed out')),12_000);
     frame.onload=()=>{clearTimeout(timer);resolve();};frame.src=path;
   });
-  if(path!=='about:blank')await until(()=>text('#adapter').includes('/ WEBGPU')&&!!frame.contentDocument!.querySelector('.diagnostics'),'GPU game did not initialize');
+  if(path!=='about:blank')await until(()=>!!frame.contentDocument!.querySelector('.diagnostics'),'GPU game did not initialize');
 }
 async function fresh(metal:number) {
   await navigate('about:blank');

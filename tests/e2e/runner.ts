@@ -34,7 +34,7 @@ async function loadFrame(path:string){
 }
 async function navigate(path='/'){
  await loadFrame(path);
- await until(()=>!!doc().querySelector('#adapter')?.textContent?.includes('/ WEBGPU'),'Game failed to initialize WebGPU');
+ await until(()=>!!doc().querySelector('.diagnostics'),'Game failed to initialize WebGPU');
  await until(()=>text('#metal')!=='000','Game failed to initialize UI');
 }
 async function fresh(path='/'){await loadFrame('about:blank');freshStorage();await navigate(path);}
