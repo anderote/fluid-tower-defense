@@ -1,5 +1,5 @@
-import {COMMAND_UPGRADES, DEFAULT_MAP, TOWERS, veterancyLevel} from '../content/index.ts';
-import {canPlace,resolvePlacement} from '../navigation/index.ts';
+import {COMMAND_UPGRADES, DEFAULT_MAP, MAX_TOWER_LEVEL, TOWERS, towerUpgradeCost, veterancyLevel} from '../content/index.ts';
+import {canPlace} from '../navigation/index.ts';
 import type {BonusChoice, MetaUpgrade, Rect, RunModel, Settlement, SpawnBatch, Tower, TowerKind, Vec2, WorldMap} from '../contracts/index.ts';
 
 export type ActionResult = {ok:true} | {ok:false; reason:string};
@@ -71,14 +71,14 @@ const offeredBonuses=(level:number,wave:number,owned:readonly string[]):BonusCho
 };
 const spentAtLevel = (kind:TowerKind, level:number):number => {
   let spent=TOWERS[kind].cost;
-  for (let upgrade=0;upgrade<level;upgrade++) spent+=45+upgrade*35;
+  for (let upgrade=0;upgrade<level;upgrade++) spent+=towerUpgradeCost(upgrade);
   return spent;
 };
 
 function validTower(map:WorldMap, tower:unknown, prior:readonly Tower[], mounts:readonly Rect[]): tower is Tower {
   if (!tower || typeof tower !== 'object') return false;
   const value=tower as Tower;
-  if (!isFiniteInteger(value.id) || value.id<=0 || !isTowerKind(value.kind) || !isNonNegative(value.x) || !isNonNegative(value.y) || !isFiniteInteger(value.level) || value.level<0 || value.level>3 || !isFiniteInteger(value.branch) || ![-1,0,1].includes(value.branch) || (value.level===0 && value.branch!==-1) || (value.level>0 && value.branch===-1) || !isNonNegative(value.angle) || !isNonNegative(value.cooldown) || !isFiniteInteger(value.spent) || value.spent!==spentAtLevel(value.kind,value.level) || prior.some(other=>other.id===value.id)) return false;
+  if (!isFiniteInteger(value.id) || value.id<=0 || !isTowerKind(value.kind) || !isNonNegative(value.x) || !isNonNegative(value.y) || !isFiniteInteger(value.level) || value.level<0 || value.level>MAX_TOWER_LEVEL || !isFiniteInteger(value.branch) || ![-1,0,1].includes(value.branch) || (value.level===0 && value.branch!==-1) || (value.level>0 && value.branch===-1) || !isNonNegative(value.angle) || !isNonNegative(value.cooldown) || !isFiniteInteger(value.spent) || value.spent!==spentAtLevel(value.kind,value.level) || prior.some(other=>other.id===value.id)) return false;
   return canPlace(map,prior,value,1.25,mounts);
 }
 function validApplied(value:unknown): value is Applied {
@@ -132,8 +132,8 @@ export class RunController {
     if (!tower || !isTowerKind(tower.kind)) return {ok:false,reason:'Tower not found.'};
     if (branch!==0 && branch!==1) return {ok:false,reason:'Choose branch 0 or 1.'};
     if (tower.branch>=0 && tower.branch!==branch) return {ok:false,reason:'This tower is committed to its other branch.'};
-    if (tower.level>=3) return {ok:false,reason:'This tower is fully upgraded.'};
-    const cost=45+tower.level*35;
+    if (tower.level>=MAX_TOWER_LEVEL) return {ok:false,reason:'This tower is fully upgraded.'};
+    const cost=towerUpgradeCost(tower.level);
     if (this.model.metal<cost) return {ok:false,reason:'Insufficient Metal.'};
     this.model.metal-=cost; tower.spent+=cost; tower.level++; tower.branch=branch;
     return {ok:true};

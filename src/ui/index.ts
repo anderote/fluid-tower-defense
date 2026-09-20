@@ -2,8 +2,10 @@ import type { GameAction, GameUI, UIState } from "../contracts/index.ts";
 import {
   COMMAND_UPGRADES,
   compileTower,
+  MAX_TOWER_LEVEL,
   MAX_VETERANCY,
   TOWERS,
+  towerUpgradeCost,
   veterancyLevel,
 } from "../content/index.ts";
 import "./style.css";
@@ -130,7 +132,7 @@ export function createUI(
     update(s: UIState) {
       const locked = s.phase === "settling" || s.phase === "combat",
         chosen = s.selected ? TOWERS[s.selected.kind] : undefined,
-        upgrade = 45 + (s.selected?.level ?? 0) * 35;
+        upgrade = towerUpgradeCost(s.selected?.level ?? 0);
       $("#phase").textContent = s.phase.toUpperCase();
       $("#adapter").textContent = s.adapter;
       $("#fps").textContent = `${s.fps | 0} FPS`;
@@ -209,11 +211,13 @@ export function createUI(
         const button = element as HTMLButtonElement,
           bad =
             !chosen ||
-            s.selected!.level >= 3 ||
+            s.selected!.level >= MAX_TOWER_LEVEL ||
             s.metal < upgrade ||
             (s.selected!.branch >= 0 && s.selected!.branch !== index);
         button.textContent = chosen
-          ? `${chosen.branches[index]} · ${upgrade} METAL`
+          ? s.selected!.level >= MAX_TOWER_LEVEL
+            ? `${chosen.branches[index]} · MAX LEVEL`
+            : `${chosen.branches[index]} · ${upgrade} METAL`
           : `BRANCH ${index ? "B" : "A"}`;
         button.disabled = bad;
       });

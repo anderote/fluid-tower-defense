@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {DEFAULT_MAP} from '../content/index.ts';
 import {CommandProgression, createRun, WAVES_PER_LEVEL, waveFor} from './index.ts';
+import {MAX_TOWER_LEVEL, TOWERS, towerUpgradeCost} from '../content/index.ts';
 
 test('cumulative settlements pay only newly reported totals',()=>{
   const run=createRun(); run.startWave(); run.takeSpawns(200);
@@ -39,6 +40,19 @@ test('branches lock and preparation saves restore',()=>{
   assert.equal(run.upgrade(tower.id,0).ok,true); assert.equal(run.upgrade(tower.id,1).ok,false);
   const restored=createRun(); assert.equal(restored.load(run.save()).ok,true); assert.equal(restored.model.towers[0].branch,0);
   assert.equal(restored.sell(tower.id).ok,true);
+});
+test('common towers support fifty upgrade levels and persist at the cap',()=>{
+  assert.equal(MAX_TOWER_LEVEL,50);
+  for(const kind of Object.keys(TOWERS) as (keyof typeof TOWERS)[]){
+    const run=createRun(), result=run.place(kind,{x:84,y:50}); assert.ok(result.ok && result.tower); const tower=result.tower;
+    run.model.metal=100_000;
+    for(let level=0;level<MAX_TOWER_LEVEL;level++) assert.equal(run.upgrade(tower.id,0).ok,true,`${kind} upgrade ${level+1}`);
+    assert.equal(tower.level,50);
+    assert.equal(tower.spent,TOWERS[kind].cost+Array.from({length:50},(_,level)=>towerUpgradeCost(level)).reduce((sum,cost)=>sum+cost,0));
+    assert.equal(run.upgrade(tower.id,0).ok,false);
+    assert.equal(run.upgrade(tower.id,1).ok,false);
+    const restored=createRun(); assert.equal(restored.load(run.save()).ok,true); assert.equal(restored.model.towers[0].level,50);
+  }
 });
 test('tower and wall Metal spending remains available during combat',()=>{
   const run=createRun(); assert.equal(run.startWave().ok,true);
