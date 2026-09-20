@@ -89,7 +89,7 @@ export class RunController {
     if (this.model.metal<def.cost) return {ok:false,reason:'Insufficient Metal.'};
     if (!canPlace(this.map,this.model.towers,position,1.25)) return {ok:false,reason:'That position is blocked or too close to another tower.'};
     const tower:Tower={id:this.nextTowerId++,kind,x:position.x,y:position.y,level:0,branch:-1,angle:0,cooldown:0,spent:def.cost,kills:0,veterancy:0,veterancyXp:0};
-    this.model.metal-=def.cost; this.model.towers.push(tower); this.model.selected=tower.id;
+    this.model.metal-=def.cost; this.model.towers.push(tower); this.model.selected=null;
     return {ok:true,tower};
   }
   sell(id:number):ActionResult {
