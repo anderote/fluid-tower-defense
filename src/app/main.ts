@@ -11,10 +11,8 @@ import {createBoss} from '../sim/bosses/index.ts';
 import { createPhysics } from '../sim/physics/index.ts';
 import { createCombat, type CombatFrame } from '../sim/combat/index.ts';
 import { barbedWireStats, createParticles, DEFAULT_MAP, compileTower, TOWERS } from '../content/index.ts';
-import { buildNavigation, canPlace, snapToMount } from '../navigation/index.ts';
-import { createCommandProgression, createRun } from '../game/index.ts';
-import {defensePlacementIssue,WALL_COST,WALL_REFUND,WIRE_COST,WIRE_REFUND} from '../defenses/index.ts';
-import {wallCapacity,wallHealthAfterPressure} from '../sim/walls/model.ts';
+import { buildNavigation, canPlace } from '../navigation/index.ts';
+import { createCommandProgression, createRun, STARTING_METAL } from '../game/index.ts';
 import { COUNTER_WORDS, DEFAULT_TUNING, PARTICLE_FLOATS, type UIState, type GameAction, type Effect, type Vec2, type Rect, type Settlement, type VisualParticle, type VisualParticleStyle, type WorldMap } from '../contracts/index.ts';
 
 const root=document.querySelector<HTMLElement>('#app')!;
@@ -24,7 +22,7 @@ if(params.has('validate')) {
 } else {
 const run=createRun();
 const progression=createCommandProgression();
-const state:UIState={mode:params.get('mode')==='lab'?'lab':'game',phase:'preparation',paused:false,fps:0,frameMs:0,population:10000,capacity:65536,kills:0,crushKills:0,leaks:0,earned:0,maxPressure:0,metal:650,baseHealth:100,level:1,wave:0,waveCount:10,difficulty:1,selected:null,selectedKind:null,buildTool:null,heatmap:false,tool:'blast',message:'Connecting to local GPU…',adapter:'WebGPU',bonusChoices:[],commandUpgrades:[],commandXp:progression.xp,metaUpgrades:progression.upgrades()};
+const state:UIState={mode:params.get('mode')==='lab'?'lab':'game',phase:'preparation',paused:false,fps:0,frameMs:0,population:10000,capacity:65536,kills:0,crushKills:0,leaks:0,earned:0,maxPressure:0,metal:STARTING_METAL,baseHealth:100,level:1,wave:0,waveCount:10,difficulty:1,selected:null,selectedKind:null,heatmap:false,tool:'blast',message:'Connecting to local GPU…',adapter:'WebGPU',bonusChoices:[],commandUpgrades:[],commandXp:progression.xp,metaUpgrades:progression.upgrades(),towerUnlocks:progression.towerUnlocks()};
 let handleAction:(action:GameAction)=>void=()=>{};
 const ui=createUI(root,action=>handleAction(action));
 try {
@@ -105,11 +103,11 @@ try {
      case 'new-game':newGame();break;
      case 'heatmap':state.heatmap=action.value;break;
      case 'population':if(state.mode==='lab'){requestedPopulation=action.value;resetWorld();}break;
-     case 'tool':state.tool=action.tool;state.selectedKind=null;state.buildTool=null;break;
-     case 'select-tower':state.buildTool=null;run.model.selected=null;state.selectedKind=state.selectedKind===action.kind?null:action.kind;state.message=state.selectedKind?`${TOWERS[state.selectedKind].name}: click a clear build location.`:'Click a tower to inspect it.';break;
-     case 'wall-tool':state.buildTool=state.buildTool==='wall'?null:'wall';state.selectedKind=null;run.model.selected=null;state.message=state.buildTool==='wall'?'Wall tool: click to place a 4 × 4 Metal wall. Keep at least one route to the goal.':'Wall tool cancelled.';break;
-     case 'wire-tool':state.buildTool=state.buildTool==='wire'?null:'wire';state.selectedKind=null;run.model.selected=null;state.message=state.buildTool==='wire'?'Barbed wire: restrains the swarm until high pressure forces a breach.':'Barbed wire tool cancelled.';break;
-     case 'demolish-tool':state.buildTool=state.buildTool==='demolish'?null:'demolish';state.selectedKind=null;run.model.selected=null;state.message=state.buildTool==='demolish'?'Demolish tool: click a player-built Metal wall or Barbed Wire to recover half its cost.':'Demolish tool cancelled.';break;
+     case 'tool':state.tool=action.tool;state.selectedKind=null;break;
+     case 'select-tower':if(action.kind&&!progression.isTowerUnlocked(action.kind)){state.selectedKind=null;state.message=`${TOWERS[action.kind].name} is locked. Research it with Command XP first.`;break;}wallTool=false;wireTool=false;run.model.selected=null;state.selectedKind=state.selectedKind===action.kind?null:action.kind;state.message=state.selectedKind?`${TOWERS[state.selectedKind].name}: click a clear build location.`:'Click a tower to inspect it.';break;
+     case 'unlock-tower':{const result=progression.unlockTower(action.kind);actionResult(result,`${TOWERS[action.kind].name} unlocked permanently.`);state.selectedKind=null;break;}
+     case 'wall-tool':wallTool=!wallTool;wireTool=false;state.selectedKind=null;state.message=wallTool?'Wall tool: click to place a 4 × 4 Metal wall. Keep at least one route to the goal.':'Wall tool cancelled.';break;
+     case 'wire-tool':wireTool=!wireTool;wallTool=false;state.selectedKind=null;state.message=wireTool?'Barbed wire: restrains the swarm until high pressure forces a breach.':'Barbed wire tool cancelled.';break;
      case 'start-wave':{
        const result=run.startWave();actionResult(result,'Wave incoming. Hold the choke.');if(!result.ok)break;
        count=0;spawnSlot=0;state.population=0;physics.reset();combat.reset();boss.reset(run.isBossWave);waveStartTick=clock.tick+1;state.paused=false;state.selectedKind=null;break;
@@ -180,7 +178,7 @@ try {
    const report=metrics.report();state.fps=report.fps;state.frameMs=report.medianMs;
    state.metal=run.model.metal;state.baseHealth=run.model.baseHealth/20*100;state.level=run.model.level;state.wave=run.model.wave;state.waveCount=run.model.waveCount;state.phase=state.mode==='lab'?'combat':run.model.phase;
    state.selected=run.model.towers.find(t=>t.id===run.model.selected)??null;state.bonusChoices=state.mode==='game'?run.model.bonusChoices:[];
-   state.bossHealth=latest.boss?.active?latest.boss.health/latest.boss.maxHealth*100:undefined;state.commandUpgrades=state.mode==='game'?run.model.commandUpgrades:[];state.commandXp=progression.xp;state.metaUpgrades=progression.upgrades();
+   state.bossHealth=latest.boss?.active?latest.boss.health/latest.boss.maxHealth*100:undefined;state.commandUpgrades=state.mode==='game'?run.model.commandUpgrades:[];state.commandXp=progression.xp;state.metaUpgrades=progression.upgrades();state.towerUnlocks=progression.towerUnlocks();
    ui.update(state);positionInspector();if(now-lastAutosave>1500){saveSession();lastAutosave=now;}lastUI=now;
    diagnosticText.textContent=JSON.stringify({adapter:gpu.adapter,abi:'passed',epoch,tick:clock.tick,simulationSeconds:simulatedTime,slots:count,live:latest.live,requested:requestedPopulation,invalid:latest.invalid,peakPacking:latest.maxPacking,crushKills:latest.crushKills,kills:latest.kills,medianMs:report.medianMs,p95Ms:report.p95Ms,frameSamples:report.samples,canvas:[ui.canvas.width,ui.canvas.height],readbackErrors:errors,boss:latest.boss},null,2);
  }

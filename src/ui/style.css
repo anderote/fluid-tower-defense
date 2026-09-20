@@ -99,6 +99,9 @@ button small { margin-top: 5px; color: var(--term-faint); font-size: 8px; line-h
 .tower-grid button b { font-size: 11px; letter-spacing: .06em; }
 .tower-grid button .cost { grid-column: 2; margin-top: 2px; }
 .tower-grid em, .defense-tools em { float: right; color: var(--term-faint); font-size: 8px; font-style: normal; font-weight: 400; }
+.tower-grid button.locked { border-color: color-mix(in srgb, var(--term-warn) 38%, var(--term-border)); opacity: .72; }
+.tower-grid button.locked .tower-shape { filter: grayscale(1); opacity: .45; }
+.tower-grid button.locked .cost { color: var(--term-warn); font-size: 7px; }
 
 .tower-shape { grid-row: 1 / span 2; display: block; width: 19px; height: 19px; background: var(--term-accent); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
 [data-tower="mortar"] .tower-shape, [data-tower="tesla"] .tower-shape { background: #ff9d36; clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); }

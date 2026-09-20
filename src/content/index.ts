@@ -43,9 +43,9 @@ export const veterancyLevel=(xp:number):number=>Math.min(MAX_VETERANCY,Math.floo
 export const veterancyMultiplier=(level:number):number=>1+.115*Math.log1p(Math.min(MAX_VETERANCY,Math.max(0,level)));
 
 export const ENEMIES: Record<EnemyKind, EnemyDef> = {
-  shambler: {id:'shambler', index:0, name:'Shambler', radius:.22, mass:1, health:30, speed:2.5, crushTolerance:1, bounty:3, leak:1, color:'#76c66e'},
-  runner: {id:'runner', index:1, name:'Runner', radius:.18, mass:.7, health:18, speed:4.7, crushTolerance:.72, bounty:3, leak:1, color:'#e6d45d'},
-  brute: {id:'brute', index:2, name:'Brute', radius:.32, mass:3, health:100, speed:1.55, crushTolerance:2.1, bounty:8, leak:3, color:'#cf6d68'},
+  shambler: {id:'shambler', index:0, name:'Shambler', radius:.22, mass:1, health:30, speed:2.5, crushTolerance:1, bounty:1, leak:1, color:'#76c66e'},
+  runner: {id:'runner', index:1, name:'Runner', radius:.18, mass:.7, health:18, speed:4.7, crushTolerance:.72, bounty:1, leak:1, color:'#e6d45d'},
+  brute: {id:'brute', index:2, name:'Brute', radius:.32, mass:3, health:100, speed:1.55, crushTolerance:2.1, bounty:2, leak:3, color:'#cf6d68'},
 };
 
 // Three staged gates form a pressure corridor through the arena.

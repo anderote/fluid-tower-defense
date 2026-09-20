@@ -73,7 +73,7 @@ export async function runGPUValidation(device:GPUDevice):Promise<GPUValidationRe
     check('lethal damage pays one bounty',async()=>{
       const frames=[{effects:[effect('shot',40,50,0,100)],tuning:{drive:0,pressure:0}},{tuning:{drive:0,pressure:0}}];
       const out=await scenario(device,[particle(40,50)],frames);
-      return out.counters[0]!==1 || out.counters[3]!==3 ? `expected one shambler bounty, got kills=${out.counters[0]} earned=${out.counters[3]}` : undefined;
+      return out.counters[0]!==1 || out.counters[3]!==1 ? `expected one shambler bounty, got kills=${out.counters[0]} earned=${out.counters[3]}` : undefined;
     }),
     check('base arrival leaks once',async()=>{
       const out=await scenario(device,[particle(150,50)],[{tuning:{drive:0,pressure:0},lab:false},{tuning:{drive:0,pressure:0},lab:false}]);
