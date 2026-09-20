@@ -38,6 +38,19 @@ test('each tower branch changes a useful supported combat stat',()=>{
   }
 });
 
+test('every tower level keeps advancing core stats along both upgrade paths',()=>{
+  for (const kind of Object.keys(TOWERS) as (keyof typeof TOWERS)[]) for(const branch of [0,1]) {
+    const tower:Tower={id:1,kind,x:84,y:50,level:1,branch,angle:0,cooldown:0,spent:TOWERS[kind].cost};
+    const current=compileTower(tower),next=compileTower({...tower,level:2});
+    assert.ok(next.damage>current.damage,`${kind} branch ${branch} damage`);
+    assert.ok(next.peakPressureKpa>current.peakPressureKpa,`${kind} branch ${branch} pressure`);
+    assert.ok(next.range>current.range,`${kind} branch ${branch} range`);
+    assert.ok(1/next.cooldown>1/current.cooldown,`${kind} branch ${branch} rate`);
+    if(current.force>0)assert.ok(next.force>current.force,`${kind} branch ${branch} impulse`);
+    assert.ok(next.radius>current.radius,`${kind} branch ${branch} radius`);
+  }
+});
+
 test('tower identities use dedicated combat behaviours where required',()=>{
  assert.equal(towerBehavior('rocket'),12);
  assert.equal(towerBehavior('incinerator'),14);

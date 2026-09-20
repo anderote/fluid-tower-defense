@@ -211,6 +211,11 @@ button small { margin-top: 5px; color: var(--term-faint); font-size: var(--text-
 #commands button { position: relative; min-height: 59px; padding-right: 80px; text-align: left; }
 #commands .cost { position: absolute; top: 8px; right: 8px; margin: 0; }
 #commands .cost::after { content: ""; }
+#commands .command-system { min-height: 66px; }
+#commands .command-system b em { color: var(--term-muted); font-style: normal; font-weight: 500; }
+.research-progress { display: flex; gap: 4px; margin-top: 8px; }
+.research-progress i { display: block; width: 16px; height: 3px; background: var(--term-border-strong); }
+.research-progress i.installed { background: var(--term-accent); box-shadow: 0 0 6px color-mix(in srgb, var(--term-accent) 55%, transparent); }
 .bonus button { width: 100%; margin: 3px 0; text-align: left; }
 
 footer { height: 50px; gap: 12px; border-width: 1px 0 0; background: var(--term-field); }

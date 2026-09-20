@@ -132,8 +132,8 @@ const cases:{name:string;run:()=>Promise<void>}[]=[
   await sleep(600);assert(control.isConnected,'Research controls were recreated during telemetry refresh');assert(doc().activeElement===control,'Keyboard focus was lost during telemetry refresh');
  }},
  {name:'Research prerequisites unlock after purchase and remain locked in combat',run:async()=>{
-  await fresh();click('#research-tab');assert(element<HTMLButtonElement>('[data-command="repulsor-impact-2"]').disabled,'Rank II should be locked');
-  click('[data-command="repulsor-impact-1"]');await until(()=>!element<HTMLButtonElement>('[data-command="repulsor-impact-2"]').disabled,'Rank II did not unlock');
+  await fresh();click('#research-tab');assert(!doc().querySelector('[data-command="repulsor-impact-2"]'),'Future ranks should not render as separate controls');
+  click('[data-command="repulsor-impact-1"]');await until(()=>!!doc().querySelector('[data-command="repulsor-impact-2"]'),'Sequential control did not advance to Rank II');
   click('[data-action="start-wave"]');await until(()=>text('#phase')==='COMBAT','Wave did not start');assert(element<HTMLButtonElement>('[data-command="repulsor-impact-2"]').disabled,'Research is enabled in combat');
   click('#build-tab');click('[data-action="pause"]');
  }},
