@@ -65,12 +65,13 @@ fn enemyLeak(kind:u32)->u32 { switch kind { ${enemyCases('leak',value=>`${value}
 fn enemyColor(kind:u32)->vec3f { switch kind { ${enemyCases('color',value=>`vec3f(${hexRgb(String(value)).map(wgslNumber).join(',')})`)} default: { return vec3f(${hexRgb(ENEMIES.shambler.color).map(wgslNumber).join(',')}); } } }
 `;
 
-// Three staged gates form a pressure corridor through the arena.
+// The horde enters from beyond the west edge. The first gate is deliberately
+// continuous from the top and bottom edges, leaving one defendable middle gap.
 export const DEFAULT_MAP: WorldMap = {
   id:'pressure-front-bastion', width:160, height:100,
   obstacles:[
-    {x:48,y:0,width:8,height:32},
-    {x:48,y:68,width:8,height:32},
+    {x:48,y:0,width:8,height:40},
+    {x:48,y:60,width:8,height:40},
     {x:84,y:0,width:8,height:40},
     {x:68,y:36,width:24,height:4},
     {x:84,y:60,width:8,height:40},
@@ -78,7 +79,7 @@ export const DEFAULT_MAP: WorldMap = {
     {x:120,y:0,width:8,height:36},
     {x:120,y:64,width:8,height:36},
   ],
-  spawn:{x:2,y:35,width:20,height:30}, goal:{x:156,y:50}, goalRadius:4,
+  spawn:{x:0,y:20,width:8,height:60}, goal:{x:156,y:50}, goalRadius:4,
 };
 
 export function validateContent(): void {
@@ -169,14 +170,15 @@ export function createParticles(batches: readonly SpawnBatch[], map: WorldMap, c
   const actual = Math.min(limit,latticeCapacity);
   if (limit > actual) console.warn(`Particle spawn region holds ${actual} non-overlapping particles; ${limit - actual} remain pending`);
   const output = new Float32Array(actual * PARTICLE_FLOATS);
-  // Randomly sample the inlet lattice without replacement so streamed arrivals pop up
-  // across the whole spawn region instead of visibly sweeping through rows.
+  // Inlet cells are all beyond the west boundary. Physics introduces them at the
+  // visible edge on the next step, making a continuous, thick advancing column
+  // rather than a block materializing inside the battlefield.
   const columns=maxColumns;
   let cursor=0, slot=0;
   const usedCells=new Set<number>();
   const cellsFor=(band:SpawnBatch['band']):number[]=>{
-    const [rowFrom,rowTo]=band==='upper'?[0,.38]:band==='center'?[.31,.69]:band==='lower'?[.62,1]:band==='inlet'?[.25,.75]:[0,1];
-    const [columnFrom,columnTo]=band==='inlet'?[.25,.75]:[0,1];
+    const [rowFrom,rowTo]=band==='upper'?[0,.38]:band==='center'?[.31,.69]:band==='lower'?[.62,1]:band==='inlet'?[.08,.92]:[0,1];
+    const [columnFrom,columnTo]=band==='inlet'?[0,1]:[0,1];
     const firstRow=Math.max(0,Math.floor(maxRows*rowFrom)),lastRow=Math.min(maxRows,Math.ceil(maxRows*rowTo));
     const firstColumn=Math.max(0,Math.floor(columns*columnFrom)),lastColumn=Math.min(columns,Math.ceil(columns*columnTo));
     const width=Math.max(0,lastColumn-firstColumn);
@@ -190,7 +192,7 @@ export function createParticles(batches: readonly SpawnBatch[], map: WorldMap, c
       if(cell<0)break;
       usedCells.add(cell);slot++;
       const col=cell%columns,row=Math.floor(cell/columns);
-      const baseX=map.spawn.x+(col+.5)*spacing, baseY=map.spawn.y+(row+.5)*spacing;
+      const baseX=map.spawn.x+(col+.5)*spacing-(batch.band==='inlet'?map.spawn.width:0), baseY=map.spawn.y+(row+.5)*spacing;
       // A tiny deterministic jitter is safely smaller than the lattice clearance.
       const offset=(jitter()-.5)*.008;
       output[cursor+P.x]=baseX+offset; output[cursor+P.y]=baseY+(jitter()-.5)*.008;

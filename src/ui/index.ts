@@ -54,6 +54,16 @@ export function createUI(
       difficulty.querySelector("b")!.textContent = `${value}×`;
       onAction({ type: "difficulty", value });
     });
+  const streamWidth = document.createElement("label");
+  streamWidth.className = "difficulty";
+  streamWidth.innerHTML =
+    'STREAM WIDTH <b>60</b><input type="range" min="1" max="100" value="60" aria-label="Zombie stream width">';
+  shell.querySelector("header")!.insertBefore(streamWidth, shell.querySelector(".status"));
+  streamWidth.querySelector<HTMLInputElement>("input")!.addEventListener("input", (event) => {
+    const value = +(event.target as HTMLInputElement).value;
+    streamWidth.querySelector("b")!.textContent = String(value);
+    onAction({type:'stream-width',value});
+  });
   root
     .querySelectorAll<HTMLButtonElement>("[data-tower]")
     .forEach(
@@ -178,6 +188,8 @@ export function createUI(
       $("#command-xp").textContent = `${s.commandXp} XP`;
       difficulty.querySelector<HTMLInputElement>("input")!.value = String(s.difficulty);
       difficulty.querySelector("b")!.textContent = `${s.difficulty}×`;
+      streamWidth.querySelector<HTMLInputElement>("input")!.value = String(s.streamWidth);
+      streamWidth.querySelector("b")!.textContent = String(s.streamWidth);
       $("#meta-upgrades").innerHTML = s.metaUpgrades
         .map((upgrade) => {
           const cost = Math.round(upgrade.cost * (1 + upgrade.rank * 0.55));

@@ -68,7 +68,9 @@ const PHASE_WEIGHTS:readonly (readonly [SpawnBatch['kind'],number])[][]=[
   [['shambler',.26],['runner',.16],['brute',.16],['rager',.16],['softbody',.13],['husk',.13]],
   [['shambler',.3],['runner',.14],['brute',.2],['rager',.16],['softbody',.12],['husk',.08]],
 ];
-const burstFor=(kind:SpawnBatch['kind']):number=>({shambler:5,runner:6,brute:2,rager:4,softbody:3,husk:5})[kind];
+// Emit as soon as a zombie earns its place in the stream. Packet-sized bursts
+// made even rate-based waves look like periodic mass spawns.
+const burstFor=(_kind:SpawnBatch['kind']):number=>1;
 
 /** Deterministic authored-pattern director with bounded population and unbounded stat scaling. */
 export function waveFor(level:number,wave:number):Wave {
@@ -76,15 +78,15 @@ export function waveFor(level:number,wave:number):Wave {
   const threat=globalWave-1,phase=(globalWave-1)%WAVES_PER_LEVEL,cycle=Math.floor((globalWave-1)/WAVES_PER_LEVEL);
   // Every role feeds the same inlet from the first second through the end of a
   // wave, creating one sustained advancing front instead of delayed packets.
-  const total=Math.min(62_000,Math.round((1_500+threat*620+Math.pow(threat,1.38)*145)*1.55));
+  const total=Math.min(62_000,Math.round((8_000+threat*1_900+Math.pow(threat,1.38)*400)*1.55));
   const healthScale=1+Math.max(0,globalWave-WAVES_PER_LEVEL)*.035;
   const seed=(globalWave*10_000+globalWave*977)>>>0;
   const weights=new Map(PHASE_WEIGHTS[phase]);
   if(cycle>0){for(const kind of ['runner','brute','rager','softbody','husk'] as const)weights.set(kind,(weights.get(kind)??0)+.025);}
   const weightTotal=[...weights.values()].reduce((sum,value)=>sum+value,0);
-  // Waves deliberately last long enough to read as sustained pressure: 30 seconds
-  // at the opening, growing to a one-minute stream in the endless game.
-  const duration=Math.min(60,30+threat*2);
+  // The much larger populations remain a readable stream instead of an opening
+  // dump: arrivals are spread over 40–75 seconds.
+  const duration=Math.min(75,45+threat*2);
   const spawns:SpawnBatch[]=[];
   let assigned=0,index=0;
   for(const [kind,weight] of weights){
