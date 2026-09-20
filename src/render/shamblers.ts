@@ -70,7 +70,7 @@ fn clip(p:vec2<f32>)->vec2<f32>{let aspect=camera.viewport.x/max(1.,camera.viewp
       // Reuse terrain depth when available: trees, walls, and defenses then
       // occlude units according to their shared ground-contact depth.
       const depthTexture=sceneDepth??depth!;
-      const pass=encoder.beginRenderPass({label:'Shambler sprites',colorAttachments:[{view:target,loadOp:'load',storeOp:'store'}],depthStencilAttachment:{view:depthTexture.createView(),depthClearValue:1,depthLoadOp:sceneDepth?'load':'clear',depthStoreOp:'discard'}});
+      const pass=encoder.beginRenderPass({label:'Shambler sprites',colorAttachments:[{view:target,loadOp:'load',storeOp:'store'}],depthStencilAttachment:{view:depthTexture.createView(),depthClearValue:1,depthLoadOp:sceneDepth?'load':'clear',depthStoreOp:sceneDepth?'store':'discard'}});
       pass.setPipeline(pipeline);pass.setBindGroup(0,bindings);pass.draw(6,Math.min(count,shared.capacity));pass.end();
     },
     destroy(){texture.destroy();state.destroy();clock.destroy();depth?.destroy();}

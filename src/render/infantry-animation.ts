@@ -1,0 +1,58 @@
+import {infantryStats,type Soldier,type InfantryKind} from '../infantry/model.ts';
+
+export const INFANTRY_FRAME=48,INFANTRY_FRAMES=31,INFANTRY_FACINGS=8;
+export const INFANTRY_PIVOT={x:24,y:32};
+export const INFANTRY_PIXEL=.1;
+export const INFANTRY_KINDS=['rifle','rocket','flame','samurai'] as const;
+// Shared atlas layout: idle, six run frames, sixteen attack slots, eight collapse frames.
+export const INFANTRY_ATTACK=7,INFANTRY_DEATH=23;
+export const infantryFacing=(angle:number)=>((Math.round(angle/(Math.PI/4))%8)+8)%8;
+// Westwood frames start north and turn counterclockwise; our world starts east.
+export const classicInfantryFacing=(facing:number)=>(6-facing+8)%8;
+export const attackFrames=(kind:InfantryKind)=>kind==='flame'?16:8;
+export interface InfantryPose {facing:number;frame:number;alpha:number;moving:boolean}
+type Motion={x:number;y:number;time:number;phase:number;heading:number;pose:InfantryPose};
+
+/** Render-only state: animation follows actual travel, without changing saves or combat. */
+export function createInfantryAnimator(){
+  const motion=new Map<number,Motion>();let lastTime=-1;
+  return {
+    prepare(soldiers:readonly Soldier[],time:number){
+      if(time<lastTime)motion.clear();lastTime=time;
+      const active=new Set(soldiers.map(s=>s.id));
+      for(const id of motion.keys())if(!active.has(id))motion.delete(id);
+      return soldiers.map(s=>{
+        const old=motion.get(s.id);
+        if(old&&time===old.time)return old.pose;
+        const dt=old?time-old.time:0,dx=old?s.x-old.x:0,dy=old?s.y-old.y:0,distance=Math.hypot(dx,dy);
+        const moving=dt>0&&distance/dt>.12&&distance<6;
+        const phase=moving?((old?.phase??0)+distance/1.8)%1:(old?.phase??(s.id*.381966)%1);
+        const kind=s.kind??'rifle',stats=infantryStats(kind,s.quality,s.defense);
+        const duration=Math.min(kind==='rocket'?.64:kind==='flame'?.8:.52,stats.cooldown*.8);
+        const elapsed=Math.max(0,stats.cooldown-s.cooldown);
+        const firing=s.health>0&&(s.flash>0||(s.cooldown>0&&elapsed<duration));
+        let heading=s.angle;
+        if(moving&&!firing){
+          const target=Math.atan2(dy,dx),previous=old?.heading??target;
+          const turn=Math.atan2(Math.sin(target-previous),Math.cos(target-previous));
+          heading=previous+Math.max(-dt*12,Math.min(dt*12,turn));
+        }
+        let frame=moving?1+Math.min(5,Math.floor(phase*6)):0;
+        if(firing){
+          const progress=kind==='flame'?((time+s.id*.137)% .8)/.8:Math.min(.999,elapsed/duration);
+          frame=INFANTRY_ATTACK+Math.floor(progress*attackFrames(kind));
+        }
+        if(s.health<=0)frame=INFANTRY_DEATH+Math.min(7,Math.floor(s.dead/.08));
+        const pose={facing:infantryFacing(heading),frame,alpha:s.health>0?1:Math.max(0,Math.min(1,(3-s.dead)/.8)),moving};
+        motion.set(s.id,{x:s.x,y:s.y,time,phase,heading,pose});return pose;
+      });
+    },
+  };
+}
+
+/** Effects use the same snapped facing and elevation as the sprite weapon. */
+export function infantryMuzzle(s:Pick<Soldier,'x'|'y'|'angle'|'kind'>){
+  const angle=infantryFacing(s.angle)*Math.PI/4,dx=Math.cos(angle),dy=Math.sin(angle);
+  const reach=s.kind==='rocket'?.85:.75;
+  return {x:s.x+dx*reach,y:s.y-.85+dy*reach*.6,dx,dy};
+}
