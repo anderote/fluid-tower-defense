@@ -159,6 +159,19 @@ try {
      case 'difficulty':state.difficulty=run.setSpawnMultiplier(action.value);resizeSpawn();state.message=`Horde intensity ${state.difficulty}: denser groups approach from the west.`;break;
      case 'stream-width':state.streamWidth=Math.max(1,Math.min(100,Math.round(action.value)));run.setHordeScale(state.streamWidth);resizeSpawn();navigation=buildNavigation(map);run.setMap(map);state.message=`Stream width ${state.streamWidth}: quota is ${(state.streamWidth*100_000*Math.pow(run.model.wave+1,1.67)).toLocaleString(undefined,{maximumFractionDigits:0})} zombies.`;break;
      case 'bonus':actionResult(run.chooseBonus(action.id),'Bonus installed for this run.');break;
+     case 'save':try{
+       if(state.mode!=='game'||!['preparation','checkpoint'].includes(run.model.phase))throw new Error('Defenses can only be saved between waves in Game mode.');
+       saveDefense(localStorage,CHECKPOINT_KEY,run,{map,spawnBaseline,builtWalls,builtWires,difficulty:state.difficulty,streamWidth:state.streamWidth});
+       state.message='Defense checkpoint saved. Autosaves will not overwrite it.';
+     }catch(error){state.message=`Could not save defense: ${error instanceof Error?error.message:String(error)}`;}break;
+     case 'load':try{
+       const saved=loadDefense(localStorage,CHECKPOINT_KEY,run);
+       map=saved.map;spawnBaseline=saved.spawnBaseline;
+       builtWalls=saved.builtWalls.map(wall=>{const stored=wall as Rect & Partial<{health:number;maxHealth:number}>,maxHealth=typeof stored.maxHealth==='number'?stored.maxHealth:wallCapacity(0);return {...stored,health:typeof stored.health==='number'?stored.health:maxHealth,maxHealth};});
+       builtWires=saved.builtWires;state.difficulty=saved.difficulty;state.streamWidth=saved.streamWidth??Math.max(1,Math.min(100,Math.round(saved.map.spawn.height)));
+       run.setHordeScale(state.streamWidth);resizeSpawn();navigation=buildNavigation(map);run.setMap(map);syncTowerMounts();state.mode='game';resetWorld(false);
+       state.message='Defense checkpoint restored, including terrain and flow.';
+     }catch(error){state.message=`Could not load defense: ${error instanceof Error?error.message:String(error)}`;}break;
    }
    if(!state.upgradeMode){hoveredTowerId=null;state.upgradeTarget=null;window.clearTimeout(hoverClearTimer);}
    updateUI(performance.now());

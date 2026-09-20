@@ -59,14 +59,14 @@ const cases:{name:string;run:()=>Promise<void>}[]=[
  }},
  {name:'Reset removes paid terrain and restores a fresh economy',run:async()=>{
   await fresh();click('[data-action="wall-tool"]');point(22,22);click('[data-action="wire-tool"]');point(30,22);
-  click('[data-action="reset"]');await until(()=>text('#metal')==='3000','Reset did not restore starting Metal');
+  click('[data-action="reset"]');click('[data-reset-choice="confirm"]');await until(()=>text('#metal')==='3000','Reset did not restore starting Metal');
   const saved=snapshot();assert(saved.builtWalls.length===0&&saved.builtWires.length===0,'Reset kept free structures');assert(!hasRect(saved.map.obstacles,20,20)&&!hasRect(saved.map.obstacles,28,20),'Reset kept terrain collisions');
  }},
  {name:'Ordinary clicks can mount towers; mounted walls cannot be demolished',run:async()=>{
   await fresh();click('[data-action="wall-tool"]');point(22,22);click('[data-tower="repulsor"]');point(21.7,22.3);
   await until(()=>text('#metal')==='2850','Click did not snap onto the player-wall mount');
   const saved=snapshot(),run=JSON.parse(saved.runState);assert(run.model.towers[0].x===22&&run.model.towers[0].y===22,'Mounted tower is not centered');
-  click('[data-action="demolish-tool"]');point(22,22);await until(()=>text('#message').includes('Sell the mounted tower'),'Mounted wall demolition was not blocked');
+  click('[data-action="demolish-tool"]');point(22,22);await until(()=>text('#message').includes('Sell the mounted turret'),'Mounted wall demolition was not blocked');
  }},
  {name:'Starting indestructible walls accept turret mounts',run:async()=>{
   await fresh();click('[data-tower="repulsor"]');point(50.8,22.9);
@@ -88,7 +88,7 @@ const cases:{name:string;run:()=>Promise<void>}[]=[
   const canvas=element('canvas').getBoundingClientRect(),arena=element('.arena').getBoundingClientRect(),popup=element('.selected-popup').getBoundingClientRect();
   const sx=Math.min(1,1.6/(canvas.width/canvas.height));
   const expectedX=canvas.left+canvas.width*((40/160*2-1)*sx+1)/2;
-  assert(Math.abs(popup.left+popup.width/2-expectedX)<2,'Inspector is horizontally detached from its tower');
+  assert(Math.abs(popup.left-expectedX-18)<2,'Inspector is horizontally detached from its tower');
   assert(Math.abs(popup.top+popup.height/2-(canvas.top+canvas.height/2))<2,'Inspector is vertically detached from its tower');
   assert(popup.left>=arena.left&&popup.right<=arena.right&&popup.top>=arena.top&&popup.bottom<=arena.bottom,'Inspector escaped the arena');
  }},
