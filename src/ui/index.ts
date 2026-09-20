@@ -143,7 +143,7 @@ export function createUI(
       xp = t.veterancyXp ?? 0,
       next = rank >= MAX_VETERANCY
         ? "MAX RANK"
-        : `${Math.max(0,Math.ceil(veterancyXpForLevel(rank + 1) - xp))} XP TO RANK ${rank + 1}`,
+        : `${Math.max(0,Math.ceil(veterancyXpForLevel(rank + 1) - xp))} KILLS TO RANK ${rank + 1}`,
       mods = [
         t.level ? `BRANCH: ${chosen.branches[t.branch]}` : "BASE CONFIGURATION",
         ...s.commandUpgrades

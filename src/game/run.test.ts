@@ -242,16 +242,16 @@ test('restarting a level resets its run state without returning to level one',()
   assert.equal(run.model.level,1);
 });
 
-test('credited kills add turret XP once, alongside time XP, and survive saving',()=>{
+test('credited kills add turret XP once and survive saving',()=>{
   const run=createRun();const placed=run.place('autocannon',{x:84,y:50});assert.ok(placed.ok&&placed.tower);
-  run.startWave();run.accrueVeterancy(10);
+  run.startWave();
   const report={epoch:run.epoch,tick:1,kills:100,crushKills:20,leaks:0,earned:30,live:0,invalid:0,maxPacking:0,towerKills:[80]};
   run.applySettlement(report);run.applySettlement(report);run.applySettlement({...report,tick:2});
-  assert.equal(placed.tower.kills,80);assert.equal(placed.tower.veterancyXp,98);assert.equal(placed.tower.veterancy,1);
+  assert.equal(placed.tower.kills,80);assert.equal(placed.tower.veterancyXp,80);assert.equal(placed.tower.veterancy,1);
   run.model.phase='checkpoint';run.model.pending=[];const restored=createRun();assert.equal(restored.load(run.save()).ok,true);
-  assert.equal(restored.model.towers[0].veterancyXp,98);
+  assert.equal(restored.model.towers[0].veterancyXp,80);
   restored.startWave();restored.applySettlement({...report,epoch:restored.epoch,towerKills:[5],kills:5,crushKills:0});
-  assert.equal(restored.model.towers[0].veterancyXp,103);
+  assert.equal(restored.model.towers[0].veterancyXp,85);
 });
 
 test('Salvage Magnets pays identical rewards for burst and trickle readbacks',()=>{
