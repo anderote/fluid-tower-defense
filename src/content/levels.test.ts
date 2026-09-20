@@ -56,7 +56,7 @@ test('outdoor roads meet matching edges without overlapping template cells',()=>
 test('trees and rocks reject tower mounting while interior wall cells support it',()=>{
   assert.equal(terrainMounts(campaignMap(1)).length,0);assert.equal(terrainMounts(campaignMap(2)).length,0);
   const map=campaignMap(3),mounts=terrainMounts(map);assert.ok(mounts.length>0);
-  for(const r of mounts)assert.ok(canPlace(map,[],{x:r.x+2,y:r.y+2},1.25,mounts));
+  for(const r of mounts)assert.ok(canPlace(map,[],{x:r.x+r.width/2,y:r.y+r.height/2},1.25,mounts));
 });
 test('level relocation refunds deployed towers and structures, preserving research and global wave',()=>{
   const run=createRun(campaignMap(1));assert.ok(run.place('autocannon',{x:40,y:48}).ok);

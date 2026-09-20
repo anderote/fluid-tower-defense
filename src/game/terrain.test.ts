@@ -24,19 +24,21 @@ test('saved custom sessions retain their authored terrain',()=>{
  const custom={...DEFAULT_MAP,id:'custom-map',obstacles:[{x:12,y:0,width:4,height:24}]};
  assert.deepEqual(restoreSessionTerrain(custom,DEFAULT_MAP,[],[]),custom);
 });
-test('mount snapping centers nearby clicks without moving clear-ground placements',()=>{
- const wall={x:20,y:20,width:4,height:4};
- assert.deepEqual(snapToMount({x:21.7,y:22.3},[wall]),{x:22,y:22});
- assert.deepEqual(snapToMount({x:24,y:22},[wall]),{x:24,y:22});
+test('mount snapping selects the nearest top-cap hardpoint without moving clear-ground placements',()=>{
+ const mounts=wallMountCells([{x:20,y:20,width:4,height:4}]);
+ assert.deepEqual(snapToMount({x:21.2,y:21.5},mounts),{x:21.25,y:21.35});
+ assert.deepEqual(snapToMount({x:24,y:22},mounts),{x:24,y:22});
 });
-test('authored wall rectangles become unique 4 x 4 turret mounts',()=>{
+test('authored wall rectangles become unique paired top-cap turret mounts',()=>{
  const mounts=wallMountCells([
   {x:48,y:0,width:8,height:8},
   {x:48,y:4,width:8,height:4},
  ]);
  assert.deepEqual(mounts,[
-  {x:48,y:0,width:4,height:4},{x:52,y:0,width:4,height:4},
-  {x:48,y:4,width:4,height:4},{x:52,y:4,width:4,height:4},
+  {x:49.24,y:1.34,width:.02,height:.02},{x:50.74,y:1.34,width:.02,height:.02},
+  {x:53.24,y:1.34,width:.02,height:.02},{x:54.74,y:1.34,width:.02,height:.02},
+  {x:49.24,y:5.34,width:.02,height:.02},{x:50.74,y:5.34,width:.02,height:.02},
+  {x:53.24,y:5.34,width:.02,height:.02},{x:54.74,y:5.34,width:.02,height:.02},
  ]);
 });
 test('structures reject overlaps and tower footprints before spending Metal',()=>{
