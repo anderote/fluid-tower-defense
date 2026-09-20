@@ -124,6 +124,10 @@ button small { margin-top: 5px; color: var(--term-faint); font-size: 8px; line-h
 .wide { width: 100%; margin-top: 7px; }
 .danger { border-color: color-mix(in srgb, var(--term-error) 50%, transparent); color: var(--term-error); }
 .danger:hover:not(:disabled) { border-color: var(--term-error); background: color-mix(in srgb, var(--term-error) 10%, transparent); color: var(--term-error); }
+.reset-gate { position: fixed; z-index: 20; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(0,0,0,.72); }
+.reset-gate section { width: min(390px,100%); padding: 16px; border: 1px solid var(--term-error); background: var(--term-bg); box-shadow: 0 16px 48px rgba(0,0,0,.55); }
+.reset-gate p { margin: 10px 0 16px; color: var(--term-muted); font-size: 10px; line-height: 1.6; }
+.reset-gate section > div { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
 
 #commands { display: grid; gap: 6px; }
 #commands button { position: relative; min-height: 59px; padding-right: 80px; text-align: left; }

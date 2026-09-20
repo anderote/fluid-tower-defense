@@ -88,6 +88,7 @@ try {
    }else state.message='Build near the choke. Select a tower, then click a clear location.';
    state.population=count;previous=performance.now();
  }
+ const clearPlayerStructures=()=>{const structures=[...builtWalls,...builtWires],same=(left:Rect,right:Rect)=>left.x===right.x&&left.y===right.y&&left.width===right.width&&left.height===right.height;map={...map,obstacles:map.obstacles.filter(obstacle=>!structures.some(structure=>same(obstacle,structure)))};builtWalls=[];builtWires=[];navigation=buildNavigation(map);run.setMap(map);run.setBuildMounts([]);};
  const actionResult=(result:{ok:boolean;reason?:string},success:string)=>{state.message=result.ok?success:result.reason||'Action unavailable.';};
  handleAction=action=>{
    if(failed)return;
@@ -95,6 +96,7 @@ try {
    switch(action.type){
      case 'mode':state.mode=action.mode;resetWorld();break;
      case 'pause':state.paused=!state.paused;break;
+     case 'reset':clearPlayerStructures();resetWorld();state.message='Run reset. Placed walls and wire were removed.';break;
      case 'restart-wave':{
        const result=run.restartWave();actionResult(result,'Wave restarted. Defenses remain in position.');if(!result.ok)break;
        epoch=run.epoch;count=0;spawnSlot=0;commands=[];visuals=[];visualParticles=[];state.population=0;state.kills=state.crushKills=state.leaks=state.earned=state.maxPressure=0;
