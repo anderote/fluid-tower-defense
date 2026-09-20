@@ -1,7 +1,7 @@
 export type Vec2 = { x: number; y: number };
 export type Rect = Vec2 & { width: number; height: number };
 export interface WorldMap { id: string; width: number; height: number; obstacles: Rect[]; spawn: Rect; goal: Vec2; goalRadius: number }
-export type TowerKind = 'repulsor' | 'mortar' | 'autocannon' | 'cryo' | 'tesla' | 'rocket' | 'railgun';
+export type TowerKind = 'repulsor' | 'mortar' | 'autocannon' | 'cryo' | 'tesla' | 'rocket' | 'railgun' | 'incinerator';
 export type EnemyKind = 'shambler' | 'runner' | 'brute';
 export type EffectKind = 'blast' | 'push' | 'slow' | 'shot';
 export interface Effect extends Vec2 { kind: EffectKind; radius: number; strength: number; damage: number; direction: Vec2; cone: number; duration: number; source: number }

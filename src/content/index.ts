@@ -5,9 +5,10 @@ export const TOWERS: Record<TowerKind, TowerDef> = {
   mortar: {id:'mortar', name:'Mortar', description:'Lobs a concussive shell into dense crowds.', cost:120, range:38, cooldown:2.25, damage:22, force:18, radius:4.8, color:'#ff9b55', branches:['Siege','Cluster']},
   autocannon: {id:'autocannon', name:'Autocannon', description:'Rapidly picks off runners and knocks them back.', cost:105, range:28, cooldown:.22, damage:5, force:9, radius:.8, color:'#ffe46b', branches:['Piercer','Suppressor']},
   cryo: {id:'cryo', name:'Cryo Emitter', description:'Slows and shoves a cone of incoming enemies.', cost:110, range:13, cooldown:.7, damage:1, force:6, radius:4.1, color:'#a995ff', branches:['Deep Freeze','Cold Front']},
-  tesla: {id:'tesla', name:'Tesla Coil', description:'Arcs, locks down, and shoves close targets.', cost:140, range:20, cooldown:.48, damage:7, force:8, radius:5.2, color:'#9a7dff', branches:['Capacitor','Storm Cell']},
-  rocket: {id:'rocket', name:'Rocket Pod', description:'Launches wide blast volleys into packed swarms.', cost:165, range:44, cooldown:2.9, damage:34, force:24, radius:6.6, color:'#ff5f48', branches:['Warhead','Salvo']},
+  tesla: {id:'tesla', name:'Tesla Coil', description:'Arcs through nearby enemies, briefly slowing and making them brittle.', cost:140, range:20, cooldown:.48, damage:7, force:8, radius:5.2, color:'#9a7dff', branches:['Capacitor','Storm Cell']},
+  rocket: {id:'rocket', name:'Rocket Pod', description:'Saturates dense crowds with a three-warhead scatter salvo.', cost:165, range:44, cooldown:2.9, damage:34, force:24, radius:6.6, color:'#ff5f48', branches:['Warhead','Barrage']},
   railgun: {id:'railgun', name:'Railgun', description:'Penetrates and hurls targets along a long firing lane.', cost:180, range:48, cooldown:.78, damage:38, force:26, radius:1.1, color:'#73f5d2', branches:['Slug','Accelerator']},
+  incinerator: {id:'incinerator', name:'Incinerator', description:'Bathes a short cone in heat that burns enemies over time.', cost:145, range:16, cooldown:.55, damage:13, force:0, radius:4.8, color:'#ff7848', branches:['Furnace','Wildfire']},
 };
 
 const infrastructureResearch=(prefix:string,name:string,description:string,cost:number):readonly CommandUpgrade[]=>Array.from({length:20},(_,index)=>({id:`${prefix}-${index+1}`,name:`${name} ${index+1}`,description,cost:Math.round(cost+(index*42)+(Math.sqrt(index)*28))}));
@@ -31,8 +32,8 @@ const researchMultiplier=(level:number)=>1+.58*Math.log1p(Math.max(0,Math.min(20
 export const barbedWireStats=(upgrades:readonly string[])=>{const multiplier=researchMultiplier(researchLevel(upgrades,'barbed-wire'));return {damage:.45*multiplier,slow:.65*multiplier,durability:140*multiplier,resistance:1.75*multiplier};};
 export const metalWallStats=(upgrades:readonly string[])=>{const multiplier=researchMultiplier(researchLevel(upgrades,'wall-engineering'));return {durability:240*multiplier,resistance:34*multiplier};};
 
-/** Packs authored towers into the four supported GPU weapon behaviours. */
-export const towerBehavior=(kind:TowerKind):number=>({repulsor:0,mortar:1,autocannon:2,cryo:3,tesla:13,rocket:1,railgun:2}[kind]);
+/** Packs authored towers into the supported GPU weapon behaviours. */
+export const towerBehavior=(kind:TowerKind):number=>({repulsor:0,mortar:1,autocannon:2,cryo:3,tesla:13,rocket:12,railgun:2,incinerator:14}[kind]);
 export const MAX_VETERANCY=20;
 export const veterancyLevel=(xp:number):number=>Math.min(MAX_VETERANCY,Math.floor(Math.log1p(Math.max(0,xp)/40)/Math.log(1.42)));
 /** Semilogarithmic: rank 1 matters, rank 20 is strong but never breaks balance. */
@@ -80,6 +81,7 @@ export function compileTower(tower: Tower, bonuses: readonly string[] = [], comm
     if (tower.kind==='tesla') { damage *= 1.45; radius *= 1.25; }
     if (tower.kind==='rocket') { damage *= 1.6; radius *= .8; }
     if (tower.kind==='railgun') { damage *= 1.75; cooldown *= 1.15; }
+    if (tower.kind==='incinerator') { damage *= 1.55; radius *= .82; }
   }
   if (tower.branch === 1) {
     if (tower.kind==='repulsor') { cooldown *= .7; radius *= 1.5; }
@@ -89,6 +91,7 @@ export function compileTower(tower: Tower, bonuses: readonly string[] = [], comm
     if (tower.kind==='tesla') { range *= 1.3; radius *= 1.5; cooldown *= .78; }
     if (tower.kind==='rocket') { cooldown *= .62; radius *= 1.45; damage *= .8; }
     if (tower.kind==='railgun') { cooldown *= .58; range *= 1.18; }
+    if (tower.kind==='incinerator') { range *= 1.18; radius *= 1.4; cooldown *= .82; damage *= .82; }
   }
   for (const bonus of bonuses) {
     if (bonus === 'hydraulic-advantage' && tower.kind === 'repulsor') { force *= 1.3; cooldown *= 1.12; }
