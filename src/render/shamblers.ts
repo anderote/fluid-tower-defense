@@ -45,7 +45,7 @@ fn clip(p:vec2<f32>)->vec2<f32>{let aspect=camera.viewport.x/max(1.,camera.viewp
 @fragment fn fs(i:Out)->@location(0) vec4<f32>{
  let texel=textureLoad(atlas,vec2<i32>(floor(i.uv)),0);if(texel.a<.5||i.tint.a<.01){discard;}
  var color=texel.rgb*i.tint.rgb;
- if(i.pressure>.001){let warm=mix(vec3(.02,.88,1.),vec3(1.,.9,.08),clamp(i.pressure*2.,0.,1.));let hot=mix(vec3(1.,.3,.015),vec3(.92,.015,.08),clamp((i.pressure-.8)*5.,0.,1.));color=mix(color,mix(warm,hot,smoothstep(.5,.8,i.pressure)),.35+.55*i.pressure);}
+ if(i.pressure>.001){let warm=mix(vec3(.02,.88,1.),vec3(1.,.9,.08),clamp(i.pressure*2.,0.,1.));let hot=mix(vec3(1.,.3,.015),vec3(.92,.015,.08),clamp((i.pressure-.8)*5.,0.,1.));color=mix(color,mix(warm,hot,smoothstep(.5,.8,i.pressure)),.28+.44*i.pressure);}
  return vec4(color,i.tint.a);
 }`});
   const pipeline=await device.createRenderPipelineAsync({layout:'auto',vertex:{module:shader,entryPoint:'vs'},fragment:{module:shader,entryPoint:'fs',targets:[{format,blend:{color:{srcFactor:'src-alpha',dstFactor:'one-minus-src-alpha',operation:'add'},alpha:{srcFactor:'one',dstFactor:'one-minus-src-alpha',operation:'add'}}}]},primitive:{topology:'triangle-list'},depthStencil:{format:'depth32float',depthWriteEnabled:true,depthCompare:'less-equal'}});

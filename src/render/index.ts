@@ -68,7 +68,7 @@ fn pressureColor(value:f32)->vec3<f32>{
   let k=u32(clamp(p.state.z,0.0,5.0)+0.5); var col=enemyColor(k);
   let hp=clamp(p.body.z/max(0.001,p.body.w),0.0,1.0);let rawPressure=max(0.,p.state.y);let pressure=clamp(log2(1.+rawPressure)/7.,0.,1.);
   // time.y is the heatmap switch: data comes solely from this particle's pressure/packing fields.
-  if(camera.time.y > .5&&pressure>.001){col=mix(col,pressureColor(pressure),.35+.65*pressure);}
+  if(camera.time.y > .5&&pressure>.001){col=mix(col,pressureColor(pressure),.28+.52*pressure);}
   o.color=vec4(col*(.42+.58*hp),p.state.w); return o;
 }
 @fragment fn fs(i:Out)->@location(0) vec4<f32>{let d=length(i.local);let blood=i.bloodMode>.5;let irregular=.045*sin(i.local.x*13.+i.local.y*7.)+.035*sin(i.local.y*19.);let edge=select(1.,1.+irregular,blood);if(d>edge||i.color.a<.02){discard;}var alpha=i.color.a*(1.-smoothstep(edge-.16,edge,d));if(i.bloodMode>1.5){alpha*=.72+.28*sin((i.local.x-i.local.y)*12.);}let light=max(0.,dot(normalize(i.local+vec2(.001)),normalize(vec2(-.65,-.75))));let rim=smoothstep(.62,.98,d);let col=select(i.color.rgb*(.82+.18*light)+vec3(.07)*light*light,mix(i.color.rgb,vec3(.16,.002,0.),rim*.35),blood);return vec4(col,alpha);}
