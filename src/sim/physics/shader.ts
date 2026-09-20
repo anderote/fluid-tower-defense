@@ -21,7 +21,8 @@ struct Params {
   pressureStiffness: f32,
   viscosity: f32,
   drive: f32,
-  crushThreshold: f32,
+  damagePressure: f32,
+  crushPressure: f32,
   crushDamage: f32,
   effectScale: f32,
   goalX: f32,
@@ -187,6 +188,7 @@ fn measureDensity(@builtin(global_invocation_id) gid: vec3<u32>) {
   particles[index].state.x = packing;
   particles[index].state.y = pressure;
   atomicMax(&counters[6], u32(packing * 1000.0));
+  atomicMax(&counters[14], u32(pressure * 100.0));
 }
 
 fn effectImpulse(position: vec2<f32>, mass: f32) -> vec2<f32> {
@@ -413,8 +415,11 @@ fn integrateParticles(@builtin(global_invocation_id) gid: vec3<u32>) {
 
   particles[index].pos = vec4<f32>(position, velocity);
   particles[index].status.x = slowDuration(position, previousSlow);
-  let excess = max(0.0, particle.state.x - max(0.0, params.crushThreshold));
-  particles[index].status.z = max(0.0, previousExposure) + params.dt * max(0.0, params.crushDamage) * excess * excess;
+  let damageStart = max(0.0, params.damagePressure);
+  let damageEnd = max(damageStart + 0.001, params.crushPressure);
+  let ramp = clamp((max(0.0, particle.state.y) - damageStart) / (damageEnd - damageStart), 0.0, 1.0);
+  let smoothRamp = ramp * ramp * (3.0 - 2.0 * ramp);
+  particles[index].status.z = max(0.0, previousExposure) + params.dt * max(0.0, params.crushDamage) * smoothRamp;
 
   if (invalid && params.substepIndex == 0u) { atomicAdd(&counters[5], 1u); }
   if (params.substepIndex + 1u == params.substepCount) { atomicAdd(&counters[4], 1u); }

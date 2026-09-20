@@ -12,8 +12,8 @@ export interface TowerDef { id: TowerKind; name: string; description: string; co
 export interface EnemyDef { id: EnemyKind; index: number; name: string; radius: number; mass: number; health: number; speed: number; crushTolerance: number; bounty: number; leak: number; color: string }
 export interface Tower extends Vec2 { id: number; kind: TowerKind; level: number; branch: number; angle: number; cooldown: number; spent: number; kills?:number; veterancy?:number; veterancyXp?:number }
 export interface NavigationField { width: number; height: number; cellSize: number; vectors: Float32Array; alternateVectors: Float32Array; distances: Float32Array; version: number }
-export interface Tuning { pressure: number; viscosity: number; drive: number; crushThreshold: number; crushDamage: number }
-export const DEFAULT_TUNING: Tuning = { pressure: 36, viscosity: 2, drive: 5, crushThreshold: 1.8, crushDamage: 18 };
+export interface Tuning { pressure: number; viscosity: number; drive: number; damagePressure: number; crushPressure: number; crushDamage: number }
+export const DEFAULT_TUNING: Tuning = { pressure: 36, viscosity: 2, drive: 5, damagePressure: 24, crushPressure: 96, crushDamage: 18 };
 export const WORLD_WIDTH = 160;
 export const WORLD_HEIGHT = 100;
 export const MAX_PARTICLES = 65536;
@@ -32,8 +32,9 @@ export const P = { x:0,y:1,vx:2,vy:3,radius:4,mass:5,hp:6,maxHp:7,packing:8,pres
 export interface SharedGPU { particles: GPUBuffer; counters: GPUBuffer; capacity: number; shotState?: GPUBuffer; bossState?: GPUBuffer }
 export interface PhysicsFrame { dt: number; tick: number; count: number; map: WorldMap; effects: readonly Effect[]; tuning: Tuning; navigation?: NavigationField; lab: boolean }
 export interface PhysicsModule { encode(encoder: GPUCommandEncoder, frame: PhysicsFrame): void; reset(): void; destroy(): void }
-export interface Settlement { epoch: number; tick: number; kills: number; crushKills: number; leaks: number; earned: number; live: number; invalid: number; maxPacking: number; towerKills?:readonly number[]; boss?:{x:number;y:number;health:number;maxHealth:number;phase:number;active:boolean} }
-// counters: cumulative kills, crush kills, leaks (base damage), earned, current live, invalid, max packing*1000; remaining reserved. Live/max packing may be reset each sampled tick by root.
+export interface Settlement { epoch: number; tick: number; kills: number; crushKills: number; leaks: number; earned: number; live: number; invalid: number; maxPacking: number; maxPressure?:number; towerKills?:readonly number[]; boss?:{x:number;y:number;health:number;maxHealth:number;phase:number;active:boolean} }
+// counters: cumulative kills, crush kills, leaks (base damage), earned, current live, invalid,
+// max packing*1000, boss telemetry at 7..13, max pressure*100 at 14, then tower kills at 16+.
 export interface RenderScene { count: number; time: number; map: WorldMap; towers: readonly Tower[]; effects: readonly Effect[]; visualParticles?: readonly VisualParticle[]; wires?: readonly (Rect & {health:number;maxHealth:number;breached:boolean})[]; heatmap: boolean; selection: number | null; ghost?: Vec2 & {kind: TowerKind; valid: boolean; range:number}; wallGhost?: Rect & {valid:boolean}; boss?: Vec2 & {health:number;maxHealth:number;phase:number} }
 export interface Renderer { encode(encoder: GPUCommandEncoder, scene: RenderScene): void; screenToWorld(clientX:number,clientY:number):Vec2; worldToScreen(x:number,y:number):Vec2; pan(dx:number,dy:number):void; zoomAt(factor:number,clientX:number,clientY:number):void; destroy():void }
 export type GameAction = {type:'mode';mode:'lab'|'game'} | {type:'pause'} | {type:'step'} | {type:'reset'} | {type:'start-wave'} | {type:'select-tower';kind:TowerKind|null} | {type:'wall-tool'} | {type:'wire-tool'} | {type:'upgrade';branch:number} | {type:'buy-command';id:string} | {type:'buy-meta';id:string} | {type:'sell'} | {type:'difficulty';value:number} | {type:'heatmap';value:boolean} | {type:'population';value:number} | {type:'tool';tool:'blast'|'push'|'inspect'} | {type:'bonus';id:string} | {type:'save'} | {type:'load'};

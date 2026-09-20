@@ -61,7 +61,7 @@ export async function runGPUValidation(device:GPUDevice):Promise<GPUValidationRe
     }),
     check('compressed cluster crushes once',async()=>{
       const cluster=Array.from({length:12},(_,i)=>particle(50+(i%4)*.03,50+Math.floor(i/4)*.03,2,20));
-      const first=await scenario(device,cluster,Array.from({length:5},()=>({tuning:{drive:0,pressure:0,crushThreshold:.1,crushDamage:800}})));
+      const first=await scenario(device,cluster,Array.from({length:5},()=>({tuning:{drive:0,pressure:36,damagePressure:0,crushPressure:1,crushDamage:800}})));
       const before=first.history[3], after=first.history[4];
       if (first.counters[0]===0 || first.counters[1]!==first.counters[0]) return `expected crush kills, got kills=${first.counters[0]} crush=${first.counters[1]}`;
       return after[0]!==before[0] ? `kills changed after dead-particle tick (${before[0]} to ${after[0]})` : undefined;
