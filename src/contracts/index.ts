@@ -11,7 +11,7 @@ export interface Effect extends Vec2 { kind: EffectKind; radius: number; strengt
 export type VisualParticleStyle = 'spark' | 'smoke' | 'debris' | 'mist' | 'shell';
 export interface VisualParticle extends Vec2 { vx:number; vy:number; size:number; life:number; age:number; color:[number,number,number]; gravity:number; drag:number; style:VisualParticleStyle; spin:number }
 /** Render-only M79/LAW rounds driven by confirmed GPU shot events. */
-export interface HeavyProjectile extends Vec2 { kind:'mortar'|'rocket'; target:Vec2; age:number; delay:number; flight:number; serial:number; lane:number; peakPressureKpa:number }
+export interface HeavyProjectile extends Vec2 { kind:'mortar'|'rocket'; target:Vec2; age:number; delay:number; flight:number; launchTick?:number; serial:number; lane:number; peakPressureKpa:number }
 export interface HeavyExplosion extends Vec2 { kind:'mortar'|'rocket'; age:number; life:number; scale:number; direction:Vec2; serial:number }
 export interface TowerDef { id: TowerKind; name: string; description: string; cost: number; range: number; cooldown: number; damage: number; force: number; radius: number; peakPressureKpa:number; color: string; branches: readonly [string, string] }
 export interface EnemyDef { id: EnemyKind; index: number; name: string; radius: number; mass: number; health: number; speed: number; drive: number; pressureLimit: number; crushResistance: number; bounty: number; leak: number; color: string }

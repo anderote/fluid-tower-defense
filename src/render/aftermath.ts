@@ -101,7 +101,8 @@ fn partVertex(vi:u32,i:u32,air:bool)->Out{
       const next=new Map<string,number>();for(const e of scene.heavyExplosions??[]){const key=[e.kind,e.serial,e.x,e.y].join(':');const age=seen.get(key);if(age===undefined||e.age<age){device.queue.writeBuffer(scorches,(cursor++%SCORCH_CAPACITY)*16,new Float32Array([e.x,e.y,e.scale,scene.time-e.age]));}next.set(key,e.age);}seen=next;
     },
     ground(pass:GPURenderPassEncoder){draw(pass,0,6,SCORCH_CAPACITY);draw(pass,1,30,CORPSE_CAPACITY+HIT_CAPACITY);draw(pass,2,24,CORPSE_CAPACITY);draw(pass,3,6,CORPSE_CAPACITY);draw(pass,4,24,CORPSE_CAPACITY);},
-    air(pass:GPURenderPassEncoder){draw(pass,5,24,CORPSE_CAPACITY);draw(pass,6,36,CORPSE_CAPACITY+HIT_CAPACITY);},
+    fragments(pass:GPURenderPassEncoder){draw(pass,5,24,CORPSE_CAPACITY);},
+    spray(pass:GPURenderPassEncoder){draw(pass,6,36,CORPSE_CAPACITY+HIT_CAPACITY);},
     destroy(){parts.destroy();scorches.destroy();}
   };
 }
