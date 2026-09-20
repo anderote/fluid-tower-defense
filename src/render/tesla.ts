@@ -2,14 +2,16 @@ import {PARTICLE_WGSL,type SharedGPU} from '../contracts/index.ts';
 import {ELECTROCUTION_DURATION,ELECTROCUTION_FRAMES,TESLA_LINKS,TESLA_STATE_WGSL} from '../effects/tesla.ts';
 import type {TurretArtStyle} from './red-alert.ts';
 
+const assetBase=(import.meta as ImportMeta&{env?:{BASE_URL?:string}}).env?.BASE_URL??'/';
+
 /** The same GPU hit records drive the bolt, its impact and the victim animation. */
 export async function createTeslaEffects(device:GPUDevice,format:GPUTextureFormat,camera:GPUBuffer,towers:GPUBuffer,shared:SharedGPU,style:TurretArtStyle){
   if(!shared.teslaState||!shared.shotState)return null;
-  const response=await fetch('/assets/red-alert/atlas.json');
+  const response=await fetch(`${assetBase}assets/red-alert/atlas.json`);
   if(!response.ok)throw Error('Tesla electrocution atlas is missing');
   const atlas=await response.json() as {frames:{x:number;y:number;width:number;height:number}[];sprites:Record<string,number[]>};
   if(atlas.sprites.electro?.length!==14)throw Error('Reimport Red Alert assets for the electrocution frames');
-  const image=await fetch('/assets/red-alert/atlas.png');if(!image.ok)throw Error('Tesla electrocution texture is missing');
+  const image=await fetch(`${assetBase}assets/red-alert/atlas.png`);if(!image.ok)throw Error('Tesla electrocution texture is missing');
   const bitmap=await createImageBitmap(await image.blob(),{premultiplyAlpha:'none',colorSpaceConversion:'none'});
   const texture=device.createTexture({label:'Red Alert electrocution sprites',size:[bitmap.width,bitmap.height],format:'rgba8unorm',usage:GPUTextureUsage.TEXTURE_BINDING|GPUTextureUsage.COPY_DST|GPUTextureUsage.RENDER_ATTACHMENT});
   device.queue.copyExternalImageToTexture({source:bitmap},{texture},[bitmap.width,bitmap.height]);bitmap.close();
