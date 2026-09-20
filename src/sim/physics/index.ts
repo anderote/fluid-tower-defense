@@ -19,8 +19,7 @@ import {
 import { PHYSICS_WGSL } from './shader.ts';
 
 const WORKGROUP_SIZE = 128;
-// Uniform structs may receive implementation padding beyond their final scalar.
-// Bind a full 16-byte-aligned tail so the same WGSL layout is valid across GPUs.
+// WGSL uniform structs are bound at their 16-byte-padded size.
 const PARAM_BYTES = 128;
 const OBSTACLE_BYTES = 16;
 const EFFECT_BYTES = 48;
