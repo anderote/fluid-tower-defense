@@ -1,4 +1,4 @@
-import { PARTICLE_WGSL, MAX_EFFECTS, type SharedGPU, type PhysicsFrame, type Tower, type TowerDef } from '../../contracts/index.ts';
+import { PARTICLE_WGSL, HORDE_PRESSURE_COUNTER, MAX_EFFECTS, type SharedGPU, type PhysicsFrame, type Tower, type TowerDef } from '../../contracts/index.ts';
 import { ENEMY_BOUNTY_DIVISOR, ENEMY_WGSL, towerBehavior } from '../../content/index.ts';
 
 const MAX_TOWERS=64;
@@ -108,6 +108,7 @@ fn safeDir(delta:vec2f)->vec2f { return delta/max(length(delta),0.0001); }
 }
 @compute @workgroup_size(128) fn settle(@builtin(global_invocation_id) gid:vec3u){
  let i=gid.x;if(i>=u32(params.clock.z)){return;}var p=particles[i];if(p.state.w<.5){return;}
+ if(p.pos.x < -10.0 && p.state.y > 40.0){atomicStore(&counters[${HORDE_PRESSURE_COUNTER}],1u);}
  let kind=u32(clamp(p.state.z,0.0,5.0)+0.5);let tolerance=enemyCrushResistance(kind);
  // Exposure is physics-owned until this settlement consumes it.
  let brittle=select(1.0,1.7,p.status.y>0.0);
@@ -116,6 +117,7 @@ fn safeDir(delta:vec2f)->vec2f { return delta/max(length(delta),0.0001); }
  if(p.body.z<=0.0){p.body.z=0;p.body.w=-params.clock.y;p.state.w=-1;atomicAdd(&counters[0],1u);if(wasAlive&&crush>0){atomicAdd(&counters[1],1u);}else{let owner=atomicLoad(&owners[i]);if(owner>0u&&owner<=64u){atomicAdd(&counters[16u+owner-1u],1u);}}let bounty=enemyBountyPoints(kind);let prior=atomicAdd(&counters[15],bounty);let payout=(prior+bounty)/${ENEMY_BOUNTY_DIVISOR}u-prior/${ENEMY_BOUNTY_DIVISOR}u;if(payout>0u){atomicAdd(&counters[3],payout);}}
  else if(params.goal.w<.5&&distance(p.pos.xy,params.goal.xy)<params.goal.z){p.state.w=0;atomicAdd(&counters[2],enemyLeak(kind));}
  else{atomicAdd(&counters[4],1u);atomicMax(&counters[6],u32(clamp(p.state.x,0.0,1000.0)*1000.0));}
+ if(p.state.w<.5){heat[i]=Heat(vec2f(0));atomicStore(&owners[i],0u);}
  p.status.y=max(0.0,p.status.y-params.clock.x);
  particles[i]=p;
 }`});
@@ -145,7 +147,7 @@ fn safeDir(delta:vec2f)->vec2f { return delta/max(length(delta),0.0001); }
       if(frame.effects.length){const values=new Float32Array(frame.effects.length*12);frame.effects.forEach((e,i)=>values.set([e.x,e.y,e.radius,e.damage,e.direction.x,e.direction.y,e.cone,e.duration,['blast','push','slow','shot'].indexOf(e.kind),e.strength,e.source,0],i*12));device.queue.writeBuffer(effects,0,values);}
       encoder.clearBuffer(shared.counters,14*4,4);dispatch(encoder,0,Math.ceil(frame.towers.length/64));dispatch(encoder,1,Math.ceil(frame.count/128));dispatch(encoder,2,Math.ceil(frame.count/128));dispatch(encoder,4,1);
     },
-    encodeAfter(encoder,frame){encoder.clearBuffer(shared.counters,16,4);encoder.clearBuffer(shared.counters,24,4);dispatch(encoder,3,Math.ceil(frame.count/128));},
+    encodeAfter(encoder,frame){encoder.clearBuffer(shared.counters,HORDE_PRESSURE_COUNTER*4,4);encoder.clearBuffer(shared.counters,16,4);encoder.clearBuffer(shared.counters,24,4);dispatch(encoder,3,Math.ceil(frame.count/128));},
     reset(){device.queue.writeBuffer(state,0,new Float32Array(MAX_TOWERS*12));device.queue.writeBuffer(heat,0,new Float32Array(shared.capacity*2));device.queue.writeBuffer(ownership,0,new Uint32Array(shared.capacity));},
     resetAttribution(){device.queue.writeBuffer(shared.counters,16*4,new Uint32Array(MAX_TOWERS));},
     destroy(){uniforms.destroy();towers.destroy();state.destroy();effects.destroy();heat.destroy();ownership.destroy();if(ownedBoss)bossBuffer.destroy();},
