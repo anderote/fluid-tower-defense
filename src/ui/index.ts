@@ -259,6 +259,10 @@ export function createUI(
           if(lockedTower){button.dataset.unlock=kind;button.querySelector("em")!.textContent="LOCKED";button.querySelector(".cost")!.textContent=`UNLOCK ${unlock.cost.toLocaleString()} METAL`;}
           else{delete button.dataset.unlock;button.querySelector("em")!.textContent=`[${index+1}]`;button.querySelector(".cost")!.textContent=`${TOWERS[kind].cost} METAL`;}
         });
+      const activeBuildAction=s.buildTool?`${s.buildTool}-tool`:'';
+      root.querySelectorAll<HTMLElement>('[data-action$="-tool"]').forEach(element=>
+        element.classList.toggle('active',element.dataset.action===activeBuildAction),
+      );
       root.querySelectorAll("[data-upgrade]").forEach((element, index) => {
         const button = element as HTMLButtonElement,
           bad =
