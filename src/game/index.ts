@@ -1,4 +1,4 @@
-import {COMMAND_UPGRADES, DEFAULT_MAP, MAX_TOWER_LEVEL, MAX_VETERANCY, TOWERS, towerUpgradeCost, veterancyLevel} from '../content/index.ts';
+import {COMMAND_UPGRADES, compileTower, DEFAULT_MAP, MAX_TOWER_LEVEL, MAX_VETERANCY, TOWERS, towerUpgradeCost, veterancyLevel} from '../content/index.ts';
 import {canPlace, hasSpawnRoute, mapWithTurretObstacles, resolvePlacement} from '../navigation/index.ts';
 import {commandUpgradeAvailability} from './research.ts';
 import {freshInfantry,validInfantry,infantryMap} from '../infantry/model.ts';
@@ -36,7 +36,7 @@ const emptyApplied = ():Applied => ({kills:0,crushKills:0,leaks:0,earned:0,tick:
 const isFiniteInteger = (value:unknown):value is number => typeof value === 'number' && Number.isFinite(value) && Number.isInteger(value);
 const isNonNegative = (value:unknown):value is number => typeof value === 'number' && Number.isFinite(value) && value >= 0;
 const isTowerKind = (value:unknown):value is TowerKind => typeof value === 'string' && Object.hasOwn(TOWERS,value);
-const copy = (model:RunModel):RunModel => ({...model,towers:model.towers.map(t=>({...t})),pending:model.pending.map(b=>({...b})),bonusChoices:model.bonusChoices.map(b=>({...b})),bonuses:[...model.bonuses],commandUpgrades:[...model.commandUpgrades],unlockedTowers:[...model.unlockedTowers],statRanks:{...model.statRanks}});
+const copy = (model:RunModel):RunModel => ({...model,towers:model.towers.map(t=>({...t,...(t.groundTarget?{groundTarget:{...t.groundTarget}}:{})})),pending:model.pending.map(b=>({...b})),bonusChoices:model.bonusChoices.map(b=>({...b})),bonuses:[...model.bonuses],commandUpgrades:[...model.commandUpgrades],unlockedTowers:[...model.unlockedTowers],statRanks:{...model.statRanks}});
 const fresh = ():RunModel => ({phase:'preparation',metal:STARTING_METAL,salvageCredit:0,baseHealth:20,level:1,wave:0,waveCount:WAVES_PER_LEVEL,towers:[],selected:null,pending:[],bonusChoices:[],bonuses:[],commandUpgrades:[],unlockedTowers:[...STARTER_TOWERS],statRanks:{}});
 
 const PHASE_WEIGHTS:readonly (readonly [SpawnBatch['kind'],number])[][]=[
@@ -97,6 +97,7 @@ function validTower(map:WorldMap, tower:unknown, prior:readonly Tower[], mounts:
   if(value.kills!==undefined&&(!isFiniteInteger(value.kills)||value.kills<0))return false;
   if(value.veterancy!==undefined&&(!isFiniteInteger(value.veterancy)||value.veterancy<0||value.veterancy>MAX_VETERANCY))return false;
   if(value.veterancyXp!==undefined&&!isNonNegative(value.veterancyXp))return false;
+  if(value.groundTarget!==undefined&&(!value.groundTarget||!Number.isFinite(value.groundTarget.x)||!Number.isFinite(value.groundTarget.y)||value.groundTarget.x<0||value.groundTarget.y<0||value.groundTarget.x>map.width||value.groundTarget.y>map.height))return false;
   return canPlace(map,prior,value,1.25,mounts);
 }
 function validApplied(value:unknown): value is Applied {
@@ -191,7 +192,19 @@ export class RunController {
     if (!canPlace(buildMap,otherTowers,placement,1.25,this.buildMounts)) return {ok:false,reason:'That position is blocked or too close to another tower.'};
     if (!hasSpawnRoute(mapWithTurretObstacles(buildMap,[...otherTowers,placement]))) return {ok:false,reason:'That turret would seal the zombie route to the goal.'};
     if (this.model.metal<TOWER_MOVE_COST) return {ok:false,reason:`Requires ${TOWER_MOVE_COST} Metal.`};
-    this.model.metal-=TOWER_MOVE_COST;tower.x=placement.x;tower.y=placement.y;
+    this.model.metal-=TOWER_MOVE_COST;tower.x=placement.x;tower.y=placement.y;delete tower.groundTarget;
+    return {ok:true};
+  }
+  setGroundTarget(id:number, target:Vec2|null):ActionResult {
+    if (this.model.phase==='won' || this.model.phase==='lost') return {ok:false,reason:'The run is over.'};
+    const tower=this.model.towers.find(candidate=>candidate.id===id);
+    if (!tower) return {ok:false,reason:'Tower not found.'};
+    if (target===null){delete tower.groundTarget;return {ok:true};}
+    if (!Number.isFinite(target.x)||!Number.isFinite(target.y)||target.x<0||target.y<0||target.x>this.map.width||target.y>this.map.height) return {ok:false,reason:'Choose a point inside the battlefield.'};
+    const range=compileTower(tower,this.model.bonuses,this.model.commandUpgrades,this.statModifiers()).range;
+    if (Math.hypot(target.x-tower.x,target.y-tower.y)>range) return {ok:false,reason:'That ground target is outside this turret’s range.'};
+    tower.groundTarget={x:target.x,y:target.y};
+    tower.angle=(Math.atan2(target.y-tower.y,target.x-tower.x)+Math.PI*2)%(Math.PI*2);
     return {ok:true};
   }
   upgrade(id:number, branch:number):ActionResult {

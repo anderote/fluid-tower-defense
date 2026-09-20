@@ -8,11 +8,11 @@ const actions:GameAction[]=[];
 try {
   createUI(root,action=>actions.push(action));
   const controls=root.querySelectorAll<HTMLButtonElement>('.selected-popup .tower-actions > button');
-  if(controls.length!==2||controls[0].dataset.action!=='move'||controls[1].dataset.action!=='sell') {
-    throw new Error('Tower inspector must retain both move and sell controls');
+  if(controls.length!==4||controls[0].dataset.action!=='move'||controls[1].dataset.action!=='set-ground-target'||controls[2].dataset.action!=='clear-ground-target'||controls[3].dataset.action!=='sell') {
+    throw new Error('Tower inspector must retain move, targeting, and sell controls');
   }
   controls.forEach(control=>control.click());
-  if(actions.map(action=>action.type).join(',')!=='move,sell') {
+  if(actions.map(action=>action.type).join(',')!=='move,set-ground-target,clear-ground-target,sell') {
     throw new Error('Tower controls did not dispatch their actions');
   }
   if(!root.querySelector('canvas')||!root.querySelector('aside > [data-action="start-wave"]')) {
@@ -24,7 +24,7 @@ try {
   handle.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowLeft',bubbles:true}));
   if(dock.dataset.windowMoved!=='true'||dock.style.position!=='fixed')throw Error('Window must retain its moved position');
   const rect=dock.getBoundingClientRect();if(rect.left<0||rect.top<0)throw Error('Moved window must remain onscreen');
-  result.textContent='PASS: UI initializes with working move and sell controls';
+  result.textContent='PASS: UI initializes with working move, targeting, and sell controls';
 } catch(error) {
   result.textContent=`FAIL: ${String(error)}`;
   throw error;
