@@ -9,7 +9,7 @@ import {AUTOCANNON_MUZZLE_LIFT,SOLDAT_FACINGS} from './soldat-art.ts';
 import {createTeslaEffects} from './tesla.ts';
 import {createAftermathRenderer} from './aftermath.ts';
 import {TESLA_STATE_WGSL,TESLA_HEADER_BYTES,TESLA_PARTICLE_BYTES} from '../effects/tesla.ts';
-import { ENEMY_WGSL, towerBehavior } from '../content/index.ts';
+import { ENEMY_WGSL, towerBehavior, towerRequiresLineOfSight } from '../content/index.ts';
 import { PARTICLE_WGSL, type RenderScene, type Renderer, type SharedGPU, type TowerKind, type Vec2 } from '../contracts/index.ts';
 import {cameraPanBounds,screenToWorld as unproject, worldToScreen as project} from './camera.ts';
 import {TURRET_GRID, turretHardpoints, turretPixelRects, type TurretInk} from './turret-art.ts';
@@ -18,6 +18,7 @@ import type {WireArtStyle} from './wire-art.ts';
 import {SHOT_GEOMETRY_WGSL} from './shot-geometry.ts';
 import {createShamblers} from './shamblers.ts';
 import {ZOMBIE_ROSTER_WGSL} from './zombie-roster.ts';
+import {lineOfSightPolygon} from './line-of-sight.ts';
 
 const MAX_TOWERS = 64;
 const WEAPON_KINDS:readonly TowerKind[]=['repulsor','mortar','autocannon','cryo','tesla','rocket','railgun','incinerator'];
@@ -239,6 +240,14 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
   };
   function geometry(scene:RenderScene): Float32Array { const a:V[]=[];
     const activeWires=(scene.wires??[]).filter(wire=>!wire.breached);
+    const focused=scene.selection===null?undefined:scene.towers.find(tower=>tower.id===scene.selection);
+    if(focused&&scene.selectionRange){
+      const color:[number,number,number,number]=focused.kind==='incinerator'?[1,.25,.055,.105]:focused.kind==='rocket'?[1,.32,.15,.09]:focused.kind==='railgun'?[.25,1,.74,.09]:focused.kind==='autocannon'?[1,.82,.25,.09]:[.55,.9,1,.075];
+      const points=towerRequiresLineOfSight(focused.kind)?lineOfSightPolygon(focused,scene.selectionRange,scene.map.obstacles):Array.from({length:192},(_,index)=>{const angle=index/192*Math.PI*2;return {x:focused.x+Math.cos(angle)*scene.selectionRange!,y:focused.y+Math.sin(angle)*scene.selectionRange!};});
+      for(let index=0;index<points.length;index++)tri(a,focused,points[index],points[(index+1)%points.length],color);
+      const edge:[number,number,number,number]=[color[0],color[1],color[2],.34];
+      for(let index=0;index<points.length;index++){const start=points[index],end=points[(index+1)%points.length];streak(a,end.x,end.y,end.x-start.x,end.y-start.y,Math.hypot(end.x-start.x,end.y-start.y),.055,edge);}
+    }
     if(!redAlert)for(const o of scene.map.obstacles){if(activeWires.some(wire=>sameRect(wire,o)))continue;rect(a,o.x-.22,o.y-.22,o.width+.44,o.height+.44,[.018,.021,.027,.78]);rect(a,o.x,o.y,o.width,o.height,[.13,.15,.19,.98]);rect(a,o.x+.38,o.y+.38,Math.max(0,o.width-.76),Math.max(0,o.height-.76),[.22,.25,.3,.92]);rect(a,o.x+.38,o.y+.38,Math.max(0,o.width-.76),.34,[.5,.57,.66,.42]);rect(a,o.x+o.width-.58,o.y+.45,.18,Math.max(0,o.height-.9),[.045,.052,.07,.74]);for(let y=o.y+2;y<o.y+o.height-1;y+=5)rect(a,o.x+.08,y,Math.min(.48,o.width*.16),1.5,[.95,.61,.12,.38]);}
     for(const wall of scene.walls??[]){
       const integrity=Math.max(0,Math.min(1,wall.health/wall.maxHealth)),damage=1-integrity;
@@ -279,7 +288,6 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
       }
     }
     rect(a,scene.map.spawn.x,scene.map.spawn.y,scene.map.spawn.width,scene.map.spawn.height,[.95,.48,.12,.11]); ring(a,scene.map.goal.x,scene.map.goal.y,scene.map.goalRadius,[.71,.98,.31,.85]);
-    const focused=scene.selection===null?undefined:scene.towers.find(tower=>tower.id===scene.selection);
     if(focused?.groundTarget&&!scene.groundTargetGhost){const target=focused.groundTarget,distance=Math.hypot(target.x-focused.x,target.y-focused.y);for(let d=4;d<distance-1;d+=1.25){const t=d/distance;disc(a,focused.x+(target.x-focused.x)*t,focused.y+(target.y-focused.y)*t,.09,[1,.79,.18,.58],6);}const pulse=.78+.22*Math.sin(scene.time*6);ring(a,target.x,target.y,1.55,[1,.78,.12,.92*pulse],.18);ring(a,target.x,target.y,.5,[1,.9,.35,.82*pulse],.11);rect(a,target.x-2.05,target.y-.07,1.25,.14,[1,.78,.12,.85]);rect(a,target.x+.8,target.y-.07,1.25,.14,[1,.78,.12,.85]);rect(a,target.x-.07,target.y-2.05,.14,1.25,[1,.78,.12,.85]);rect(a,target.x-.07,target.y+.8,.14,1.25,[1,.78,.12,.85]);}
     if(scene.groundTargetGhost){const g=scene.groundTargetGhost,c:[number,number,number,number]=g.valid?[.65,1,.25,.84]:[1,.18,.12,.88],distance=Math.hypot(g.x-g.originX,g.y-g.originY);ring(a,g.originX,g.originY,g.range,[c[0],c[1],c[2],.38],.16);for(let d=3;d<distance-1;d+=1.25){const t=d/distance;disc(a,g.originX+(g.x-g.originX)*t,g.originY+(g.y-g.originY)*t,.09,[c[0],c[1],c[2],.55],6);}ring(a,g.x,g.y,1.45,c,.2);ring(a,g.x,g.y,.42,c,.1);}
     for(const t of scene.towers){const c: [number,number,number,number]=t.kind==='repulsor'?[.73,1,.22,.95]:t.kind==='mortar'?[1,.62,.16,.95]:t.kind==='autocannon'?[.28,.85,1,.95]:t.kind==='cryo'?[.4,.85,.95,.95]:t.kind==='tesla'?[.62,.45,1,.95]:t.kind==='rocket'?[1,.25,.15,.95]:t.kind==='incinerator'?[1,.31,.12,.95]:[.35,1,.78,.95];towerShape(a,t,c);if(scene.selection===t.id)ring(a,t.x,t.y,4.2,[1,.88,.4,.9],.35);}
