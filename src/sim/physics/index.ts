@@ -114,14 +114,15 @@ function packParams(
   f32[14] = Math.max(0, finite(frame.tuning.pressure));
   f32[15] = Math.max(0, finite(frame.tuning.viscosity));
   f32[16] = Math.max(0, finite(frame.tuning.drive));
-  f32[17] = Math.max(0, finite(frame.tuning.crushThreshold));
-  f32[18] = Math.max(0, finite(frame.tuning.crushDamage));
-  f32[19] = 1;
-  f32[20] = finite(frame.map.goal.x, frame.map.width);
-  f32[21] = finite(frame.map.goal.y, frame.map.height * 0.5);
-  f32[22] = PHYSICS_KERNEL_RADIUS;
-  u32[23] = substepIndex;
-  u32[24] = PHYSICS_SUBSTEPS;
+  f32[17] = Math.max(0, finite(frame.tuning.damagePressure));
+  f32[18] = Math.max(0, finite(frame.tuning.crushPressure));
+  f32[19] = Math.max(0, finite(frame.tuning.crushDamage));
+  f32[20] = 1;
+  f32[21] = finite(frame.map.goal.x, frame.map.width);
+  f32[22] = finite(frame.map.goal.y, frame.map.height * 0.5);
+  f32[23] = PHYSICS_KERNEL_RADIUS;
+  u32[24] = substepIndex;
+  u32[25] = PHYSICS_SUBSTEPS;
   return storage;
 }
 

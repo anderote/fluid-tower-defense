@@ -27,12 +27,25 @@ export function pressureForPacking(packing: number, stiffness: number): number {
   return Math.min(200, Math.max(0, stiffness) * Math.max(p * p - 1, 0));
 }
 
+export function pressureDamageRate(
+  pressure: number,
+  damagePressure: number,
+  crushPressure: number,
+  crushDamage: number,
+): number {
+  const start = Math.max(0, damagePressure);
+  const end = Math.max(start + 0.001, crushPressure);
+  const ramp = Math.min(1, Math.max(0, (Math.max(0, pressure) - start) / (end - start)));
+  const smoothRamp = ramp * ramp * (3 - 2 * ramp);
+  return Math.max(0, crushDamage) * smoothRamp;
+}
+
 export function exposureIncrement(
-  packing: number,
-  threshold: number,
-  damageRate: number,
+  pressure: number,
+  damagePressure: number,
+  crushPressure: number,
+  crushDamage: number,
   dt: number,
 ): number {
-  const excess = Math.max(0, packing - threshold);
-  return Math.max(0, dt) * Math.max(0, damageRate) * excess * excess;
+  return Math.max(0, dt) * pressureDamageRate(pressure, damagePressure, crushPressure, crushDamage);
 }

@@ -4,6 +4,7 @@ import {
   exposureIncrement,
   occupiedArea,
   packingContribution,
+  pressureDamageRate,
   pressureForPacking,
 } from './model.ts';
 
@@ -21,9 +22,16 @@ test('pressure has no attractive branch below comfortable packing', () => {
   assert.ok(pressureForPacking(1.2, 36) > 0);
 });
 
-test('exposure is zero below threshold and converges across substeps', () => {
-  assert.equal(exposureIncrement(1.7, 1.8, 18, 1 / 60), 0);
-  const oneStep = exposureIncrement(2.1, 1.8, 18, 1 / 60);
-  const twoSteps = 2 * exposureIncrement(2.1, 1.8, 18, 1 / 120);
+test('pressure damage ramps smoothly to the full crush rate', () => {
+  assert.equal(pressureDamageRate(23, 24, 96, 18), 0);
+  assert.equal(pressureDamageRate(24, 24, 96, 18), 0);
+  assert.equal(pressureDamageRate(60, 24, 96, 18), 9);
+  assert.equal(pressureDamageRate(96, 24, 96, 18), 18);
+  assert.equal(pressureDamageRate(200, 24, 96, 18), 18);
+});
+
+test('pressure exposure converges across substeps', () => {
+  const oneStep = exposureIncrement(60, 24, 96, 18, 1 / 60);
+  const twoSteps = 2 * exposureIncrement(60, 24, 96, 18, 1 / 120);
   assert.ok(Math.abs(oneStep - twoSteps) < 1e-12);
 });
