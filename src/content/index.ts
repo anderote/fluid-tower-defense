@@ -32,7 +32,7 @@ export const barbedWireStats=(upgrades:readonly string[])=>{const multiplier=res
 export const metalWallStats=(upgrades:readonly string[])=>{const multiplier=researchMultiplier(researchLevel(upgrades,'wall-engineering'));return {durability:240*multiplier,resistance:34*multiplier};};
 
 /** Packs authored towers into the four supported GPU weapon behaviours. */
-export const towerBehavior=(kind:TowerKind):number=>({repulsor:0,mortar:1,autocannon:2,cryo:3,tesla:3,rocket:1,railgun:2}[kind]);
+export const towerBehavior=(kind:TowerKind):number=>({repulsor:0,mortar:1,autocannon:2,cryo:3,tesla:13,rocket:1,railgun:2}[kind]);
 export const MAX_VETERANCY=20;
 export const veterancyLevel=(xp:number):number=>Math.min(MAX_VETERANCY,Math.floor(Math.log1p(Math.max(0,xp)/40)/Math.log(1.42)));
 /** Semilogarithmic: rank 1 matters, rank 20 is strong but never breaks balance. */

@@ -57,6 +57,7 @@ fn safeDir(delta:vec2f)->vec2f { return delta/max(length(delta),0.0001); }
  for(var t=0u;t<u32(params.clock.w);t++){
   let s=states[t];if(s.shot.x<.5){continue;}let def=towers[t];let kind=u32(def.position.w);
   if(kind==2u){let rail=def.flags.w>.5;let forward=vec2f(cos(s.shot.w),sin(s.shot.w));if(rail){let offset=p.pos.xy-def.position.xy;let along=dot(offset,forward);let across=abs(offset.x*forward.y-offset.y*forward.x);if(along>=0.&&along<=def.position.z&&across<=1.05){let fall=max(.35,1.-along/max(def.position.z,.001));let kick=forward*def.weapon.z*fall/max(.1,p.body.y);p.body.z-=def.weapon.y*fall;p.pos.z=p.pos.z+kick.x;p.pos.w=p.pos.w+kick.y;}}else if(s.shot.y>=0&&u32(s.shot.y)==i&&s.shot.z==p.status.w){let kick=forward*def.weapon.z/max(.1,p.body.y);p.body.z-=def.weapon.y;p.pos.z=p.pos.z+kick.x;p.pos.w=p.pos.w+kick.y;if(def.flags.y==1){p.status.x=max(p.status.x,.25);}}continue;}
+  if(kind==13u){let primary=s.shot.y>=0&&u32(s.shot.y)==i&&s.shot.z==p.status.w;let chainDistance=distance(p.pos.xy,s.timing.zw);let random=fract(sin(f32(i)*12.9898+f32(t)*78.233+params.clock.y*4.37)*43758.5453);let chained=!primary&&chainDistance<=def.weapon.w*1.35&&random<.075;if(primary||chained){let power=select(.52,1.,primary);p.body.z-=def.weapon.y*power;p.status.y=max(p.status.y,.8);p.status.x=max(p.status.x,.32);}continue;}
   var origin=def.position.xy;var rad=def.position.z;
   if(kind==1u){origin=s.timing.zw;rad=def.weapon.w;}
   let delta=p.pos.xy-origin;let dist=length(delta);if(dist>rad){continue;}
@@ -123,7 +124,7 @@ fn safeDir(delta:vec2f)->vec2f { return delta/max(length(delta),0.0001); }
       if(frame.towers.length>MAX_TOWERS||frame.effects.length>MAX_EFFECTS)throw new Error('Combat command capacity exceeded');
       const u=new Float32Array([frame.dt,frame.tick,frame.count,frame.towers.length,frame.map.goal.x,frame.map.goal.y,frame.map.goalRadius,frame.lab?1:0,frame.tuning.crushDamage,frame.tuning.crushThreshold,frame.effects.length,0,0,0,0,0]);device.queue.writeBuffer(uniforms,0,u);
       const data=new Float32Array(Math.max(1,frame.towers.length)*12);
-      frame.towers.forEach(({tower:t,definition:d},i)=>{data.set([t.x,t.y,d.range,towerBehavior(t.kind),d.cooldown,d.damage,d.force,d.radius,t.id,t.branch,t.level,t.kind==='railgun'?1:0],i*12);});device.queue.writeBuffer(towers,0,data);
+      frame.towers.forEach(({tower:t,definition:d},i)=>{data.set([t.x,t.y,d.range,towerBehavior(t.kind),d.cooldown,d.damage,d.force,d.radius,t.id,t.branch,t.kind==='tesla'?1:0,t.kind==='railgun'?1:0],i*12);});device.queue.writeBuffer(towers,0,data);
       if(frame.effects.length){const values=new Float32Array(frame.effects.length*12);frame.effects.forEach((e,i)=>values.set([e.x,e.y,e.radius,e.damage,e.direction.x,e.direction.y,e.cone,e.duration,['blast','push','slow','shot'].indexOf(e.kind),e.strength,e.source,0],i*12));device.queue.writeBuffer(effects,0,values);}
       dispatch(encoder,0,Math.ceil(frame.towers.length/64));dispatch(encoder,1,Math.ceil(frame.count/128));dispatch(encoder,3,1);
     },
