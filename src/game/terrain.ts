@@ -18,6 +18,21 @@ export function restoreSessionTerrain(
   return {...base,obstacles:[...base.obstacles,...walls,...wires.filter(wire=>!wire.breached)]};
 }
 
+/** Split authored wall rectangles into the same 4 x 4 mounts used by built walls. */
+export function wallMountCells(walls:readonly Rect[],size=4):Rect[] {
+  if(!Number.isFinite(size)||size<=0)return [];
+  const cells:Rect[]=[],seen=new Set<string>();
+  for(const wall of walls){
+    const columns=Math.floor(wall.width/size),rows=Math.floor(wall.height/size);
+    for(let row=0;row<rows;row++)for(let column=0;column<columns;column++){
+      const cell={x:wall.x+column*size,y:wall.y+row*size,width:size,height:size};
+      const key=`${cell.x}:${cell.y}:${cell.width}:${cell.height}`;
+      if(!seen.has(key)){seen.add(key);cells.push(cell);}
+    }
+  }
+  return cells;
+}
+
 export function snapToMount(point:Vec2,mounts:readonly Rect[]):Vec2 {
   const wall=mounts.find(rect=>point.x>=rect.x&&point.x<rect.x+rect.width&&point.y>=rect.y&&point.y<rect.y+rect.height);
   return wall?{x:wall.x+wall.width/2,y:wall.y+wall.height/2}:point;
