@@ -26,19 +26,18 @@ test('saved custom sessions retain their authored terrain',()=>{
 });
 test('mount snapping selects the nearest top-cap hardpoint without moving clear-ground placements',()=>{
  const mounts=wallMountCells([{x:20,y:20,width:4,height:4}]);
- assert.deepEqual(snapToMount({x:21.2,y:21.5},mounts),{x:21.25,y:21.35});
+ assert.deepEqual(snapToMount({x:21.8,y:21.5},mounts),{x:22,y:21.35});
  assert.deepEqual(snapToMount({x:24,y:22},mounts),{x:24,y:22});
 });
-test('authored wall rectangles become unique paired top-cap turret mounts',()=>{
+test('connected wall cells gain one shared mount per pair without duplicating overlaps',()=>{
  const mounts=wallMountCells([
   {x:48,y:0,width:8,height:8},
   {x:48,y:4,width:8,height:4},
  ]);
  assert.deepEqual(mounts,[
-  {x:49.24,y:1.34,width:.02,height:.02},{x:50.74,y:1.34,width:.02,height:.02},
-  {x:53.24,y:1.34,width:.02,height:.02},{x:54.74,y:1.34,width:.02,height:.02},
-  {x:49.24,y:5.34,width:.02,height:.02},{x:50.74,y:5.34,width:.02,height:.02},
-  {x:53.24,y:5.34,width:.02,height:.02},{x:54.74,y:5.34,width:.02,height:.02},
+  {x:49.99,y:1.34,width:.02,height:.02},{x:53.99,y:1.34,width:.02,height:.02},
+  {x:49.99,y:5.34,width:.02,height:.02},{x:53.99,y:5.34,width:.02,height:.02},
+  {x:51.99,y:1.34,width:.02,height:.02},{x:51.99,y:5.34,width:.02,height:.02},
  ]);
 });
 test('structures reject overlaps and tower footprints before spending Metal',()=>{
