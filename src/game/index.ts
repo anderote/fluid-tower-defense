@@ -73,20 +73,20 @@ const PHASE_WEIGHTS:readonly (readonly [SpawnBatch['kind'],number])[][]=[
 const burstFor=(_kind:SpawnBatch['kind']):number=>1;
 
 /** Deterministic authored-pattern director with bounded population and unbounded stat scaling. */
-export function waveFor(level:number,wave:number):Wave {
+export function waveFor(level:number,wave:number,slider=1):Wave {
   const globalWave=Math.max(1,Math.floor(wave>WAVES_PER_LEVEL?wave:(Math.max(1,level)-1)*WAVES_PER_LEVEL+wave));
   const threat=globalWave-1,phase=(globalWave-1)%WAVES_PER_LEVEL,cycle=Math.floor((globalWave-1)/WAVES_PER_LEVEL);
-  // Every role feeds the same inlet from the first second through the end of a
-  // wave, creating one sustained advancing front instead of delayed packets.
-  const total=Math.min(62_000,Math.round((8_000+threat*1_900+Math.pow(threat,1.38)*400)*1.55));
+  // The quota is intentionally far beyond the on-screen population. The inlet
+  // keeps feeding until it is met, while the runtime pauses it when capacity is full.
+  const hordeScale=Math.max(1,Math.min(100,Math.round(slider)));
+  const total=Math.round(hordeScale*100_000*Math.pow(globalWave,1.67));
   const healthScale=1+Math.max(0,globalWave-WAVES_PER_LEVEL)*.035;
   const seed=(globalWave*10_000+globalWave*977)>>>0;
   const weights=new Map(PHASE_WEIGHTS[phase]);
   if(cycle>0){for(const kind of ['runner','brute','rager','softbody','husk'] as const)weights.set(kind,(weights.get(kind)??0)+.025);}
   const weightTotal=[...weights.values()].reduce((sum,value)=>sum+value,0);
-  // The much larger populations remain a readable stream instead of an opening
-  // dump: arrivals are spread over 40–75 seconds.
-  const duration=Math.min(75,45+threat*2);
+  const arrivalRate=2_400;
+  const duration=total/arrivalRate;
   const spawns:SpawnBatch[]=[];
   let assigned=0,index=0;
   for(const [kind,weight] of weights){
@@ -127,6 +127,7 @@ export class RunController {
   private live=0;
   private spawnElapsed=0;
   private spawnMultiplier=1;
+  private hordeScale=1;
   private waveStartBaseHealth=20;
   private map:WorldMap;
   private buildMounts:Rect[]=[];
@@ -137,6 +138,7 @@ export class RunController {
   get isBossWave():boolean { return this.model.wave>0&&this.model.wave%WAVES_PER_LEVEL===0; }
   get extractionXp():number { return this.model.wave<WAVES_PER_LEVEL?0:Math.round(180+this.model.wave*18+Math.max(0,this.model.wave-WAVES_PER_LEVEL)*8); }
   setSpawnMultiplier(value:number):number { this.spawnMultiplier=Math.max(1,Math.min(40,Math.round(value)||1)); return this.spawnMultiplier; }
+  setHordeScale(value:number):number { this.hordeScale=Math.max(1,Math.min(100,Math.round(value)||1)); return this.hordeScale; }
 
   place(kind:TowerKind, position:Vec2):PlaceResult {
     if (this.model.phase==='won' || this.model.phase==='lost') return {ok:false,reason:'The run is over.'};
@@ -173,12 +175,12 @@ export class RunController {
   startWave():ActionResult {
     if (this.model.phase!=='preparation') return {ok:false,reason:'The current wave is not ready to start.'};
     if(this.model.bonusChoices.length)return {ok:false,reason:'Choose a command boon before starting the wave.'};
-    const wave=waveFor(this.model.level,this.model.wave+1); this.waveStartBaseHealth=this.model.baseHealth;this.model.wave++; this.model.pending=wave.spawns.map(batch=>({...batch,credit:0})); this.model.phase='combat'; this.live=0;this.spawnElapsed=0;
+    const wave=waveFor(this.model.level,this.model.wave+1,this.hordeScale); this.waveStartBaseHealth=this.model.baseHealth;this.model.wave++; this.model.pending=wave.spawns.map(batch=>({...batch,credit:0})); this.model.phase='combat'; this.live=0;this.spawnElapsed=0;
     return {ok:true};
   }
   restartWave():ActionResult {
     if(this.model.wave<1||!['combat','settling','lost'].includes(this.model.phase))return {ok:false,reason:'There is no active wave to restart.'};
-    const wave=waveFor(this.model.level,this.model.wave);this.model.pending=wave.spawns.map(batch=>({...batch,credit:0}));this.model.phase='combat';this.model.baseHealth=this.waveStartBaseHealth;this.model.selected=null;
+    const wave=waveFor(this.model.level,this.model.wave,this.hordeScale);this.model.pending=wave.spawns.map(batch=>({...batch,credit:0}));this.model.phase='combat';this.model.baseHealth=this.waveStartBaseHealth;this.model.selected=null;
     this.live=0;this.spawnElapsed=0;this.runEpoch++;this.applied=emptyApplied();
     return {ok:true};
   }
@@ -186,12 +188,12 @@ export class RunController {
     if (this.model.phase!=='combat' || !isFiniteInteger(capacity) || capacity<=0) return [];
     const previous=this.spawnElapsed;this.spawnElapsed+=Math.max(0,seconds);let available=capacity;const accepted:SpawnBatch[]=[];
     for(const batch of this.model.pending){
-      if(available<=0)break;
+      if(seconds!==0&&available<=0)break;
       if(seconds===0)batch.credit=batch.count;
       else{const active=Math.max(0,this.spawnElapsed-Math.max(previous,batch.start??0));batch.credit=(batch.credit??0)+active*(batch.rate??1)*this.spawnMultiplier;}
       const burst=Math.max(1,Math.floor(batch.burst??1)),earned=Math.floor(batch.credit??0);
       const spawnable=seconds===0?batch.count:batch.count<=burst?(earned>=batch.count?batch.count:0):Math.floor(earned/burst)*burst;
-      const count=Math.min(batch.count,available,spawnable);if(count<=0)continue;
+      const count=seconds===0?Math.min(batch.count,spawnable):Math.min(batch.count,available,spawnable);if(count<=0)continue;
       accepted.push({...batch,count,credit:undefined});available-=count;this.live+=count;batch.count-=count;batch.credit=Math.max(0,(batch.credit??0)-count);batch.seed=(batch.seed+count)>>>0;
     }
     this.model.pending=this.model.pending.filter(batch=>batch.count>0);
