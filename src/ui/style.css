@@ -89,6 +89,7 @@ button small { margin-top: 5px; color: var(--term-faint); font-size: 8px; line-h
 .cost::after { content: " M"; color: var(--term-faint); font-size: 7px; }
 
 .tower-grid, .defense-tools { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+.defense-tools { grid-template-columns: repeat(3, 1fr); }
 .defense-tools { margin-bottom: 0; }
 .defense-tools button { min-height: 54px; background: var(--term-field); }
 .defense-tools button b { font-size: 10px; }
