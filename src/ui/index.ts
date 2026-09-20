@@ -9,6 +9,7 @@ import {
   TOWERS,
   towerUpgradeCost,
   veterancyLevel,
+  veterancyXpForLevel,
 } from "../content/index.ts";
 import { previewNextWave } from "../game/wave-preview.ts";
 import {formatPressure,pressureKpa} from "../sim/pressure/model.ts";
@@ -119,10 +120,10 @@ export function createUI(
     return `<em class="stat-delta ${rounded > 0 ? "gain" : "loss"}">${rounded > 0 ? "+" : ""}${rounded.toFixed(precision)}</em>`;
   };
   const rankInsignia = (rank: number) => {
-    const stars = Math.min(2, Math.floor(rank / 10)),
-      chevrons = Math.min(1, Math.floor((rank % 10) / 5)),
+    const stars = Math.min(5, Math.floor(rank / 20)),
+      chevrons = Math.min(3, Math.floor((rank % 20) / 5)),
       stripes = rank % 5,
-      title = rank === MAX_VETERANCY ? "LEGEND" : rank >= 15 ? "HEROIC" : rank >= 10 ? "ELITE" : rank >= 5 ? "VETERAN" : rank ? "FIELD" : "RECRUIT";
+      title = rank === MAX_VETERANCY ? "LEGEND" : rank >= 75 ? "HEROIC" : rank >= 50 ? "ELITE" : rank >= 20 ? "VETERAN" : rank ? "FIELD" : "RECRUIT";
     return `<div class="rank-insignia rank-${rank}" role="img" aria-label="${title}, veterancy rank ${rank}"><span class="rank-marks">${Array.from({length:stars},()=>'<i class="rank-star"></i>').join("")}${Array.from({length:chevrons},()=>'<i class="rank-chevron"></i>').join("")}${Array.from({length:stripes},()=>'<i class="rank-stripe"></i>').join("") || '<i class="rank-recruit"></i>'}</span><small>${title}</small></div>`;
   };
   const renderTowerStats = (s: UIState) => {
@@ -142,7 +143,7 @@ export function createUI(
       xp = t.veterancyXp ?? 0,
       next = rank >= MAX_VETERANCY
         ? "MAX RANK"
-        : `${Math.ceil(40 * (Math.pow(1.42, rank + 1) - 1) - xp)} XP TO RANK ${rank + 1}`,
+        : `${Math.max(0,Math.ceil(veterancyXpForLevel(rank + 1) - xp))} XP TO RANK ${rank + 1}`,
       mods = [
         t.level ? `BRANCH: ${chosen.branches[t.branch]}` : "BASE CONFIGURATION",
         ...s.commandUpgrades
