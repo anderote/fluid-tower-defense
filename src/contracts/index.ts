@@ -1,7 +1,7 @@
 export type Vec2 = { x: number; y: number };
 export type Rect = Vec2 & { width: number; height: number };
 export type Biome='forest'|'winter'|'interior';
-export interface MapScenery { biome:Biome; title:string; briefing:string; solids:Rect[]; mounts:Rect[]; tiles:(Vec2&{sprite:string;columns:number;rows:number})[]; props:(Vec2&{sprite:string})[]; regions:(Rect&{sprite:string})[] }
+export interface MapScenery { biome:Biome; title:string; briefing:string; solids:Rect[]; mounts:Rect[]; tiles:(Vec2&{sprite:string;columns:number;rows:number;firstFrame?:number})[]; props:(Vec2&{sprite:string})[]; regions:(Rect&{sprite:string})[] }
 export interface WorldMap { id: string; width: number; height: number; obstacles: Rect[]; spawn: Rect; goal: Vec2; goalRadius: number; scenery?:MapScenery }
 export type TowerKind = 'repulsor' | 'mortar' | 'autocannon' | 'cryo' | 'tesla' | 'rocket' | 'railgun' | 'incinerator';
 export type EnemyKind = 'shambler' | 'runner' | 'brute' | 'rager' | 'softbody' | 'husk';

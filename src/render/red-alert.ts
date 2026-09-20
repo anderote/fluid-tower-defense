@@ -97,7 +97,8 @@ struct Out{@builtin(position) pos:vec4<f32>,@location(0) uv:vec2<f32>,@location(
       }
       for(const stamp of scenery?.tiles??[]){
         const ids=atlas.sprites[stamp.sprite];if(!ids)continue;
-        for(let i=0;i<Math.min(ids.length,stamp.columns*stamp.rows);i++)sprite(data,ids[i],stamp.x+(i%stamp.columns)*4,stamp.y+Math.floor(i/stamp.columns)*4,4,4);
+        const firstFrame=Math.max(0,stamp.firstFrame??0);
+        for(let i=0;i<Math.min(ids.length-firstFrame,stamp.columns*stamp.rows);i++)sprite(data,ids[firstFrame+i],stamp.x+(i%stamp.columns)*4,stamp.y+Math.floor(i/stamp.columns)*4,4,4);
       }
       upload(terrain,data);
       const wallData:number[]=[];
