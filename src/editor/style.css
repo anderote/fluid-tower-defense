@@ -1,4 +1,4 @@
-.level-editor { position: relative; z-index: 20; font: 10px "JetBrains Mono", ui-monospace, monospace; }
+.level-editor { position: relative; z-index: 20; font: var(--text-small)/1.45 var(--font-ui); }
 .level-editor-panel {
   position: absolute;
   top: 100%;
