@@ -16,7 +16,7 @@ Start with 2D simulation and top-down/isometric presentation. Keep the same rule
 
 ## Run structure and economy
 
-Default proposal: a finite sequence of authored waves with escalating compositions, preparation between waves, branch upgrades, occasional bonus choices, and boss encounters. Store wave counts, boss timing, and bonus cadence in the scenario definition.
+Use a deterministic wave director with authored ten-wave patterns, preparation between waves, branch upgrades, occasional bonus choices, and a boss every tenth wave. Wave 10 unlocks extraction; continuing retains the defense and repeats the pattern with broader compositions, higher tempo, and gradual health scaling. Raw population and spawn rate stay capped so endless difficulty does not become a hardware benchmark.
 
 Preparation allows placement, selling, wall changes, inspection, and upgrades. During combat, allow upgrades and player abilities; defer geometry changes to preparation for the first release. This gives navigation and crowd pressure predictable boundaries while keeping combat interactive.
 

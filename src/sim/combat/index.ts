@@ -1,5 +1,5 @@
 import { PARTICLE_WGSL, MAX_EFFECTS, type SharedGPU, type PhysicsFrame, type Tower, type TowerDef } from '../../contracts/index.ts';
-import { ENEMIES, towerBehavior } from '../../content/index.ts';
+import { ENEMY_WGSL, towerBehavior } from '../../content/index.ts';
 
 const MAX_TOWERS=64;
 export interface CombatFrame extends PhysicsFrame { towers:readonly {tower:Tower;definition:TowerDef}[] }
@@ -17,6 +17,7 @@ export async function createCombat(device:GPUDevice,shared:SharedGPU):Promise<Co
   const ownedBoss=!shared.bossState;
   const bossBuffer=shared.bossState??device.createBuffer({label:'Inactive boss placeholder',size:64,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
   const preamble=`${PARTICLE_WGSL}
+${ENEMY_WGSL}
 struct Params { clock:vec4f, goal:vec4f, damage:vec4f, reserved:vec4f };
 struct Tower { position:vec4f, weapon:vec4f, flags:vec4f };
 struct TowerState { timing:vec4f, shot:vec4f, flags:vec4f };
@@ -107,13 +108,13 @@ fn safeDir(delta:vec2f)->vec2f { return delta/max(length(delta),0.0001); }
 }
 @compute @workgroup_size(128) fn settle(@builtin(global_invocation_id) gid:vec3u){
  let i=gid.x;if(i>=u32(params.clock.z)){return;}var p=particles[i];if(p.state.w<.5){return;}
- let kind=u32(p.state.z);let tolerance=select(select(1.0,.72,kind==1u),2.1,kind==2u);
+ let kind=u32(clamp(p.state.z,0.0,5.0)+0.5);let tolerance=enemyCrushResistance(kind);
  // Exposure is physics-owned until this settlement consumes it.
  let brittle=select(1.0,1.7,p.status.y>0.0);
  let crush=max(0.0,p.status.z)*brittle/tolerance;
  let wasAlive=p.body.z>0.0;p.body.z-=crush;p.status.z=0;
- if(p.body.z<=0.0){p.body.z=0;p.body.w=-params.clock.y;p.state.w=-1;atomicAdd(&counters[0],1u);if(wasAlive&&crush>0){atomicAdd(&counters[1],1u);}else{let owner=atomicLoad(&owners[i]);if(owner>0u&&owner<=64u){atomicAdd(&counters[16u+owner-1u],1u);}}let regularBounty=select(${ENEMIES.shambler.bounty}u,${ENEMIES.runner.bounty}u,kind==1u);atomicAdd(&counters[3],select(regularBounty,${ENEMIES.brute.bounty}u,kind==2u));}
- else if(params.goal.w<.5&&distance(p.pos.xy,params.goal.xy)<params.goal.z){p.state.w=0;atomicAdd(&counters[2],select(1u,3u,kind==2u));}
+ if(p.body.z<=0.0){p.body.z=0;p.body.w=-params.clock.y;p.state.w=-1;atomicAdd(&counters[0],1u);if(wasAlive&&crush>0){atomicAdd(&counters[1],1u);}else{let owner=atomicLoad(&owners[i]);if(owner>0u&&owner<=64u){atomicAdd(&counters[16u+owner-1u],1u);}}atomicAdd(&counters[3],enemyBounty(kind));}
+ else if(params.goal.w<.5&&distance(p.pos.xy,params.goal.xy)<params.goal.z){p.state.w=0;atomicAdd(&counters[2],enemyLeak(kind));}
  else{atomicAdd(&counters[4],1u);atomicMax(&counters[6],u32(clamp(p.state.x,0.0,1000.0)*1000.0));}
  p.status.y=max(0.0,p.status.y-params.clock.x);
  particles[i]=p;
