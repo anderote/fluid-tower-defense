@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {redAlertFacing,wallTiles,floorSprites} from './red-alert.ts';
+import {redAlertFacing,wallTiles,floorSprites,usesClassicDefenseSprite} from './red-alert.ts';
 import {readFileSync} from 'node:fs';
 
 test('grating is opt-in and an older atlas safely retains the panel floor',()=>{
@@ -23,6 +23,12 @@ test('original gun facings point toward the target in all four quadrants and wra
   assert.equal(redAlertFacing(Math.PI/2),16);
   assert.equal(redAlertFacing(2*Math.PI),24);
   assert.equal(redAlertFacing(-2*Math.PI),24);
+});
+test('the default view preserves the original Coil and Flame Tower silhouettes',()=>{
+  assert.equal(usesClassicDefenseSprite('tesla'),true);
+  assert.equal(usesClassicDefenseSprite('incinerator'),true);
+  assert.equal(usesClassicDefenseSprite('autocannon'),false);
+  assert.equal(usesClassicDefenseSprite('rocket'),false);
 });
 test('adjacent walls suppress internal faces and expose a new end after demolition',()=>{
   const first={x:4,y:4,width:4,height:4},second={x:4,y:8,width:4,height:4};
