@@ -50,7 +50,7 @@ function savedModel() {
 }
 async function reset() {
   click('[data-action="reset"]');click('[data-reset-choice="confirm"]');
-  await until(()=>text('#metal')==='1200','Reset did not restore Metal');
+  await until(()=>text('#metal')==='3000','Reset did not restore Metal');
 }
 
 async function gpuCheck(repulsor:boolean) {
