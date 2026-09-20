@@ -45,10 +45,19 @@ export const ENEMIES: Record<EnemyKind, EnemyDef> = {
   brute: {id:'brute', index:2, name:'Brute', radius:.32, mass:3, health:100, speed:1.55, crushTolerance:2.1, bounty:8, leak:3, color:'#cf6d68'},
 };
 
-// Two wall segments leave a 24-world-unit choke at the map's centre.
+// Three staged gates form a pressure corridor while leaving the boss lane clear.
 export const DEFAULT_MAP: WorldMap = {
-  id:'pressure-front', width:160, height:100,
-  obstacles:[{x:88,y:0,width:6,height:38},{x:88,y:62,width:6,height:38}],
+  id:'pressure-front-bastion', width:160, height:100,
+  obstacles:[
+    {x:48,y:0,width:8,height:32},
+    {x:48,y:68,width:8,height:32},
+    {x:84,y:0,width:8,height:40},
+    {x:68,y:36,width:24,height:4},
+    {x:84,y:60,width:8,height:40},
+    {x:84,y:60,width:24,height:4},
+    {x:120,y:0,width:8,height:36},
+    {x:120,y:64,width:8,height:36},
+  ],
   spawn:{x:2,y:35,width:20,height:30}, goal:{x:156,y:50}, goalRadius:4,
 };
 
