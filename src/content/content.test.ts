@@ -4,6 +4,9 @@ import {ENEMIES, DEFAULT_MAP, TOWERS, barbedWireStats, compileTower, createParti
 import {P, PARTICLE_FLOATS, type Tower} from '../contracts/index.ts';
 
 test('content registry is valid and has six readable enemy roles',()=>{ validateContent(); assert.equal(Object.keys(TOWERS).length,8);assert.equal(Object.keys(ENEMIES).length,6);assert.ok(ENEMIES.rager.drive>ENEMIES.shambler.drive);assert.ok(ENEMIES.husk.pressureLimit<ENEMIES.brute.pressureLimit); });
+test('turret placement costs follow the intended power curve',()=>{
+ assert.deepEqual(Object.fromEntries(Object.entries(TOWERS).map(([kind,tower])=>[kind,tower.cost])),{repulsor:120,mortar:350,autocannon:80,cryo:200,tesla:600,rocket:1_600,railgun:2_500,incinerator:800});
+});
 test('enemy bodies use the tuned physical footprint',()=>{
  assert.deepEqual(Object.values(ENEMIES).map(enemy=>enemy.radius),[.4125,.31875,.6375,.43125,.5625,.35625]);
 });

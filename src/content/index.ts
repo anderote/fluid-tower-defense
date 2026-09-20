@@ -2,14 +2,14 @@ import {P, PARTICLE_FLOATS, type CommandUpgrade, type EnemyDef, type EnemyKind, 
 import {scaledPeakPressure} from '../sim/pressure/model.ts';
 
 export const TOWERS: Record<TowerKind, TowerDef> = {
-  repulsor: {id:'repulsor', name:'Repulsor', description:'Pulses enemies toward the choke walls.', cost:90, range:10, cooldown:1.35, damage:2, force:16, radius:2.7, peakPressureKpa:240, color:'#50d5ff', branches:['Ram','Wave']},
-  mortar: {id:'mortar', name:'Mortar', description:'Lobs a concussive shell into dense crowds.', cost:120, range:38, cooldown:2.25, damage:22, force:18, radius:4.8, peakPressureKpa:650, color:'#ff9b55', branches:['Siege','Cluster']},
-  autocannon: {id:'autocannon', name:'Autocannon', description:'Rapidly picks off runners and knocks them back.', cost:105, range:28, cooldown:.22, damage:5, force:9, radius:.8, peakPressureKpa:180, color:'#ffe46b', branches:['Piercer','Suppressor']},
-  cryo: {id:'cryo', name:'Cryo Emitter', description:'Slows and shoves a cone of incoming enemies.', cost:110, range:13, cooldown:.7, damage:1, force:6, radius:4.1, peakPressureKpa:95, color:'#a995ff', branches:['Deep Freeze','Cold Front']},
-  tesla: {id:'tesla', name:'Tesla Coil', description:'Chains lightning through nearby enemies, briefly slowing them and frying lethal hits to ash.', cost:140, range:20, cooldown:.48, damage:7, force:8, radius:5.2, peakPressureKpa:120, color:'#9a7dff', branches:['Capacitor','Storm Cell']},
-  rocket: {id:'rocket', name:'Rocket Pod', description:'Saturates dense crowds with a three-warhead scatter salvo.', cost:165, range:44, cooldown:2.9, damage:34, force:24, radius:6.6, peakPressureKpa:1250, color:'#ff5f48', branches:['Warhead','Barrage']},
+  repulsor: {id:'repulsor', name:'Repulsor', description:'Pulses enemies toward the choke walls.', cost:120, range:10, cooldown:1.35, damage:2, force:16, radius:2.7, peakPressureKpa:240, color:'#50d5ff', branches:['Ram','Wave']},
+  mortar: {id:'mortar', name:'Mortar', description:'Lobs a concussive shell into dense crowds.', cost:350, range:38, cooldown:2.25, damage:22, force:18, radius:4.8, peakPressureKpa:650, color:'#ff9b55', branches:['Siege','Cluster']},
+  autocannon: {id:'autocannon', name:'Autocannon', description:'Rapidly picks off runners and knocks them back.', cost:80, range:28, cooldown:.22, damage:5, force:9, radius:.8, peakPressureKpa:180, color:'#ffe46b', branches:['Piercer','Suppressor']},
+  cryo: {id:'cryo', name:'Cryo Emitter', description:'Slows and shoves a cone of incoming enemies.', cost:200, range:13, cooldown:.7, damage:1, force:6, radius:4.1, peakPressureKpa:95, color:'#a995ff', branches:['Deep Freeze','Cold Front']},
+  tesla: {id:'tesla', name:'Tesla Coil', description:'Chains lightning through nearby enemies, briefly slowing them and frying lethal hits to ash.', cost:600, range:20, cooldown:.48, damage:7, force:8, radius:5.2, peakPressureKpa:120, color:'#9a7dff', branches:['Capacitor','Storm Cell']},
+  rocket: {id:'rocket', name:'Rocket Pod', description:'Saturates dense crowds with a three-warhead scatter salvo.', cost:1_600, range:44, cooldown:2.9, damage:34, force:24, radius:6.6, peakPressureKpa:1250, color:'#ff5f48', branches:['Warhead','Barrage']},
   railgun: {id:'railgun', name:'Railgun', description:'Penetrates and hurls targets along a long firing lane.', cost:2_500, range:48, cooldown:.78, damage:38, force:26, radius:1.1, peakPressureKpa:900, color:'#73f5d2', branches:['Slug','Accelerator']},
-  incinerator: {id:'incinerator', name:'Incinerator', description:'Bathes a short cone in heat that burns enemies over time.', cost:145, range:16, cooldown:.55, damage:13, force:0, radius:4.8, peakPressureKpa:80, color:'#ff7848', branches:['Furnace','Wildfire']},
+  incinerator: {id:'incinerator', name:'Incinerator', description:'Bathes a short cone in heat that burns enemies over time.', cost:800, range:16, cooldown:.55, damage:13, force:0, radius:4.8, peakPressureKpa:80, color:'#ff7848', branches:['Furnace','Wildfire']},
 };
 
 export const MAX_TOWER_LEVEL=50;
