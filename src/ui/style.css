@@ -57,10 +57,10 @@ header, footer { flex: none; display: flex; align-items: center; padding: 0 20px
 .status #adapter { grid-column: 2; color: var(--term-faint); font-size: var(--text-caption); }
 .led { width: 5px; height: 12px; background: var(--term-ok); grid-row: 1 / span 2; }
 .metrics { display: flex; gap: 10px; color: var(--term-warn); font-size: var(--text-caption); white-space: nowrap; }
-.view-actions { display: flex; gap: 5px; }
+.view-actions { display: flex; align-items: center; flex-shrink: 0; gap: 5px; margin-left: auto; }
 .view-actions button { padding: 6px 7px; font-size: var(--text-caption); }
-.start-wave-top { min-width: 118px; min-height: 54px; border-color: var(--term-accent); background: var(--term-accent); color: #000; font-weight: 700; }
-.start-wave-top:hover:not(:disabled) { border-color: #fff; background: #fff; color: #000; }
+.view-actions .start-wave-top { min-width: 156px; min-height: 54px; padding: 12px 18px; border-color: var(--term-accent); background: var(--term-accent); color: #000; font-size: var(--text-title); font-weight: 700; white-space: nowrap; }
+.view-actions .start-wave-top:hover:not(:disabled) { border-color: #fff; background: #fff; color: #000; }
 
 .difficulty { margin: 0; color: var(--term-faint); font-size: var(--text-caption); letter-spacing: .06em; white-space: nowrap; }
 .difficulty b { color: var(--term-accent); }
@@ -165,14 +165,18 @@ footer { height: 50px; gap: 12px; border-width: 1px 0 0; background: var(--term-
 .spacer { flex: 1; }
 footer button:first-of-type { border-color: var(--term-accent); background: var(--term-accent); color: #000; font-weight: 700; }
 
-@media (max-width: 1400px) {
+@media (max-width: 1700px) {
   .hud { grid-template-columns: repeat(3, 1fr); max-width: 330px; }
   .hud div:nth-child(n + 4), .difficulty, .metrics { display: none; }
 }
 
+@media (max-width: 1100px) {
+  .status, .view-actions > :not(.start-wave-top) { display: none; }
+}
+
 @media (max-width: 820px) {
   .pf { height: auto; min-height: 100dvh; overflow: visible; }
-  .pf header { height: 68px; padding: 0 12px; }
+  .pf header { min-height: 68px; height: auto; flex-wrap: wrap; gap: 8px 12px; padding: 7px 12px; }
   .body { grid-template-columns: 1fr; }
   .arena { height: min(58vw, 52vh); min-height: 300px; }
   aside { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; border-top: 1px solid var(--term-border); border-left: 0; }
@@ -182,7 +186,6 @@ footer button:first-of-type { border-color: var(--term-accent); background: var(
   .run-summary { display: none; }
   .hud { max-width: 260px; margin-left: auto; }
   .hud div:nth-child(3) { display: none; }
-  .view-actions button:not(:first-child) { display: none; }
 }
 
 @media (max-width: 520px) {
@@ -190,12 +193,12 @@ footer button:first-of-type { border-color: var(--term-accent); background: var(
   .tabs { grid-column: span 1; }
   .brand { min-width: auto; font-size: var(--text-title); }
   .brand::before, .brand small, .status { display: none; }
-  .hud { grid-template-columns: repeat(2, 1fr); max-width: 190px; }
+  .hud { order: 1; flex-basis: 100%; grid-template-columns: repeat(2, 1fr); max-width: none; }
   .hud div:nth-child(n + 3) { display: none; }
   .arena-label { justify-content: flex-end; text-align: right; }
   .arena-label span:first-child { display: none; }
   .help { right: 28px; }
-  .view-actions { display: none; }
+  .view-actions .start-wave-top { min-width: 140px; min-height: 48px; padding: 10px 12px; }
 }
 
 /* Preparation forecast stays visible in both Build and Research. */
