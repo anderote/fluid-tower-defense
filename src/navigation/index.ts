@@ -5,6 +5,14 @@ let version = 0;
 const inside = (map:WorldMap,x:number,y:number) => x >= 0 && y >= 0 && x < map.width && y < map.height;
 const blocked = (map:WorldMap,x:number,y:number) => map.obstacles.some(rect => x >= rect.x && x < rect.x+rect.width && y >= rect.y && y < rect.y+rect.height);
 
+/** Snaps to a player-built wall center or keeps the footprint flush inside the map edge. */
+export function resolvePlacement(map:WorldMap,position:Vec2,footprint:number,mounts:readonly {x:number;y:number;width:number;height:number}[]=[]):Vec2 {
+  if(!Number.isFinite(position.x)||!Number.isFinite(position.y)||!Number.isFinite(footprint)||footprint<=0)return position;
+  const mount=mounts.filter(rect=>footprint<=Math.min(rect.width,rect.height)/2&&position.x>=rect.x&&position.x<=rect.x+rect.width&&position.y>=rect.y&&position.y<=rect.y+rect.height).sort((left,right)=>Math.hypot(position.x-left.x-left.width/2,position.y-left.y-left.height/2)-Math.hypot(position.x-right.x-right.width/2,position.y-right.y-right.height/2))[0];
+  if(mount)return {x:mount.x+mount.width/2,y:mount.y+mount.height/2};
+  return {x:Math.max(footprint,Math.min(map.width-footprint,position.x)),y:Math.max(footprint,Math.min(map.height-footprint,position.y))};
+}
+
 export function snapToMount(position:Vec2,mounts:readonly {x:number;y:number;width:number;height:number}[]):Vec2 {
   const mount=mounts.find(rect=>position.x>=rect.x&&position.x<rect.x+rect.width&&position.y>=rect.y&&position.y<rect.y+rect.height);
   return mount?{x:mount.x+mount.width/2,y:mount.y+mount.height/2}:position;

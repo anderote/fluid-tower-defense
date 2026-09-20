@@ -1,5 +1,5 @@
 import {COMMAND_UPGRADES, DEFAULT_MAP, MAX_TOWER_LEVEL, TOWERS, towerUpgradeCost, veterancyLevel} from '../content/index.ts';
-import {canPlace} from '../navigation/index.ts';
+import {canPlace, resolvePlacement} from '../navigation/index.ts';
 import type {BonusChoice, MetaUpgrade, Rect, RunModel, Settlement, SpawnBatch, Tower, TowerKind, TowerUnlock, Vec2, WorldMap} from '../contracts/index.ts';
 
 export type ActionResult = {ok:true; xp?:number} | {ok:false; reason:string};
