@@ -67,3 +67,9 @@ Validation: 55 CPU tests, production build, and 9/9 browser E2E scenarios passed
 Persist original saves before browser tests change them, recover interrupted runs on the next visit, and retain backups when restoration fails. Frame navigation now has a timeout. The suite refuses to overwrite a pending backup.
 
 Validation: 57 CPU tests, production build, and 9/9 browser E2E checks passed. A deliberate reload during a run displayed successful original-save recovery before the next full run.
+
+## Stationary placement preview performance
+
+Cache the last wall-placement validation by geometry, pointer cell, and tower positions. Unchanged previews avoid rebuilding the navigation field; terrain edits, goal/spawn changes, and tower placement still invalidate the result. Actual construction always validates afresh.
+
+Validation: 58 CPU tests, production build, and 9/9 browser scenarios passed. A local 120-preview microbenchmark measured 201.25 ms without caching and 1.68 ms with caching; this measures validation cost, not whole-game FPS.
