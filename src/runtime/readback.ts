@@ -1,4 +1,4 @@
-import { COUNTER_WORDS, type Settlement } from '../contracts/index.ts';
+import { COUNTER_WORDS, MAX_OBSTACLES, MAX_TOWERS, OBSTACLE_CONTACT_COUNTER_OFFSET, OBSTACLE_PACKING_COUNTER_OFFSET, OBSTACLE_PRESSURE_COUNTER_OFFSET, TOWER_KILL_COUNTER_OFFSET, type Settlement } from '../contracts/index.ts';
 /** One staging read at a time. Epoch captured at encoding prevents stale reset results. */
 export class SettlementReader {
   private buffer: GPUBuffer;
@@ -15,7 +15,7 @@ export class SettlementReader {
       const values = new Uint32Array(this.buffer.getMappedRange()).slice();
       this.buffer.unmap();
       this.busy=false;
-      this.onResult({epoch,tick,kills:values[0],crushKills:values[1],leaks:values[2],earned:values[3],live:values[4],invalid:values[5],maxPacking:values[6]/1000,towerKills:Array.from(values.slice(16,80)),boss:{x:values[10]/100,y:values[11]/100,health:values[7]/100,maxHealth:values[8]/100,phase:values[9],active:values[12]===1}});
+      this.onResult({epoch,tick,kills:values[0],crushKills:values[1],leaks:values[2],earned:values[3],live:values[4],invalid:values[5],maxPacking:values[6]/1000,towerKills:Array.from(values.slice(TOWER_KILL_COUNTER_OFFSET,TOWER_KILL_COUNTER_OFFSET+MAX_TOWERS)),obstacleContacts:Array.from(values.slice(OBSTACLE_CONTACT_COUNTER_OFFSET,OBSTACLE_CONTACT_COUNTER_OFFSET+MAX_OBSTACLES)),obstaclePacking:Array.from(values.slice(OBSTACLE_PACKING_COUNTER_OFFSET,OBSTACLE_PACKING_COUNTER_OFFSET+MAX_OBSTACLES),value=>value/1000),obstaclePressure:Array.from(values.slice(OBSTACLE_PRESSURE_COUNTER_OFFSET,OBSTACLE_PRESSURE_COUNTER_OFFSET+MAX_OBSTACLES),value=>value/100),boss:{x:values[10]/100,y:values[11]/100,health:values[7]/100,maxHealth:values[8]/100,phase:values[9],active:values[12]===1}});
     }).catch(error=>{this.busy=false;this.onError(error);});};
   }
   destroy(){this.buffer.destroy();}
