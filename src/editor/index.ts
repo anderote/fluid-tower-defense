@@ -4,11 +4,12 @@ import type {Rect, Vec2, WorldMap} from '../contracts/index.ts';
 
 const GRID=4, SAVE_KEY='pressure-front.customlevel.v1';
 const clone=(map:WorldMap):WorldMap=>({...map,spawn:{...map.spawn},goal:{...map.goal},obstacles:map.obstacles.map(rect=>({...rect}))});
-export const wallAtPoint=(map:WorldMap,point:Vec2):Rect=>({
-  x:Math.max(0,Math.min(map.width-GRID,Math.floor(point.x/GRID)*GRID)),
-  y:Math.max(0,Math.min(map.height-GRID,Math.floor(point.y/GRID)*GRID)),
-  width:GRID,height:GRID,
+export const gridRectAtPoint=(map:WorldMap,point:Vec2,size:number):Rect=>({
+  x:Math.max(0,Math.min(map.width-size,Math.floor(point.x/size)*size)),
+  y:Math.max(0,Math.min(map.height-size,Math.floor(point.y/size)*size)),
+  width:size,height:size,
 });
+export const wallAtPoint=(map:WorldMap,point:Vec2):Rect=>gridRectAtPoint(map,point,GRID);
 function customId(map:WorldMap):string {
   let hash=2166136261;
   for (const wall of [...map.obstacles].sort((a,b)=>a.x-b.x||a.y-b.y)) for (const value of [wall.x,wall.y,wall.width,wall.height]) { hash^=Math.round(value*100);hash=Math.imul(hash,16777619); }

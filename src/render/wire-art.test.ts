@@ -15,6 +15,12 @@ test('horizontal and vertical runs connect without rotating the sprite lighting'
   assert.deepEqual(wireTiles([wire(0,0),wire(4,0),wire(8,0)]).map(t=>t.mask),[2,10,8]);
   assert.deepEqual(wireTiles([wire(0,0),wire(0,4),wire(0,8)]).map(t=>t.mask),[4,5,1]);
 });
+test('half-tile wire segments connect on the dense 2 x 2 grid',()=>{
+  const half=(x:number,y:number)=>wire(x,y,{width:2,height:2});
+  assert.deepEqual(wireTiles([half(0,0),half(2,0),half(4,0)]).map(tile=>({x:tile.x,width:tile.width,mask:tile.mask})),[
+    {x:0,width:2,mask:2},{x:2,width:2,mask:10},{x:4,width:2,mask:8},
+  ]);
+});
 test('a breach disconnects live neighbors while preserving debris orientation',()=>{
   const source=[wire(0,0),wire(4,0,{health:0,breached:true}),wire(8,0)];
   const snapshot=JSON.stringify(source),tiles=wireTiles(source);
