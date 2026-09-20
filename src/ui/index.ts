@@ -61,7 +61,7 @@ export function createUI(
   upgradeCard.setAttribute("aria-live", "polite");
   arena.append(upgradeCard);
   const upgradeContent=document.createElement("div");upgradeCard.append(upgradeContent);
-  makeGameWindow(selectedCard,"TOWER INSPECTOR");makeGameWindow(upgradeCard,"TOWER UPGRADES");
+  const selectedWindow=makeGameWindow(selectedCard,"TOWER INSPECTOR");makeGameWindow(upgradeCard,"TOWER UPGRADES");
   makeGameWindow(root.querySelector<HTMLElement>("#settings-gate > section")!,"AUDIO SETTINGS");
   makeGameWindow(root.querySelector<HTMLElement>("#reset-gate > section")!,"RESTART LEVEL");
   const difficulty = document.createElement("label");
@@ -163,6 +163,7 @@ export function createUI(
   let hoveredUpgrade: number | null = null;
   let hoveredQuickBranch: number | null = null;
   let lastQuickTowerId: number | null = null;
+  let lastSelectedTowerId: number | null = null;
   let latestState: UIState | null = null;
   const statDelta = (value: number, precision: number) => {
     const rounded = Number(value.toFixed(precision));
@@ -201,7 +202,7 @@ export function createUI(
           .map((id) => COMMAND_UPGRADES.find((x) => x.id)?.name ?? id),
       ];
     const row = (label:string,value:string) => `<div class="stat-row"><span>${label}</span><b>${value}</b></div>`;
-    stats.innerHTML = `<div class="rank-banner">${rankInsignia(rank)}<div><span>COMBAT RECORD</span><b>RANK ${rank} / ${MAX_VETERANCY}</b></div></div><div class="stat-grid">${row("KILLS",(t.kills ?? 0).toLocaleString())}${row("VETERANCY",`RANK ${rank}`)}${row("NEXT",next)}${row(`PEAK${preview ? " · NEXT" : ""}`,`${formatPressure(d.peakPressureKpa)}${preview ? statDelta(preview.peakPressureKpa-d.peakPressureKpa,0) : ""}`)}${row("RANGE",`${d.range.toFixed(0)}${preview ? statDelta(preview.range-d.range,0) : ""}`)}${row("IMPULSE",`${d.force.toFixed(0)}${preview ? statDelta(preview.force-d.force,0) : ""}`)}${row("RATE",`${(1/d.cooldown).toFixed(1)} /S${preview ? statDelta(1/preview.cooldown-1/d.cooldown,1) : ""}`)}${row("RADIUS",`${d.radius.toFixed(1)}${preview ? statDelta(preview.radius-d.radius,1) : ""}`)}</div><div class="tower-config"><span>CONFIG</span><small>${mods.join(" · ")}</small></div>`;
+    stats.innerHTML = `<div class="rank-banner">${rankInsignia(rank)}<div><span>COMBAT RECORD</span><b>RANK ${rank} / ${MAX_VETERANCY}</b></div></div><div class="stat-grid">${row("KILLS",(t.kills ?? 0).toLocaleString())}${row("VETERANCY",`RANK ${rank}`)}${row("NEXT",next)}${row(`PEAK${preview ? " · NEXT" : ""}`,`${formatPressure(d.peakPressureKpa)}${preview ? statDelta(preview.peakPressureKpa-d.peakPressureKpa,0) : ""}`)}${row("RANGE",`${d.range.toFixed(1)}${preview ? statDelta(preview.range-d.range,1) : ""}`)}${row("IMPULSE",`${d.force.toFixed(2)}${preview ? statDelta(preview.force-d.force,2) : ""}`)}${row("RATE",`${(1/d.cooldown).toFixed(2)} /S${preview ? statDelta(1/preview.cooldown-1/d.cooldown,2) : ""}`)}${row("RADIUS",`${d.radius.toFixed(3)}${preview ? statDelta(preview.radius-d.radius,3) : ""}`)}</div><div class="tower-config"><span>CONFIG</span><small>${mods.join(" · ")}</small></div>`;
   };
   const renderUpgradeCard = (s:UIState) => {
     const tower=s.upgradeMode?s.upgradeTarget:null;
@@ -211,9 +212,9 @@ export function createUI(
     const chosen=TOWERS[tower.kind],branch=tower.branch>=0?tower.branch:hoveredQuickBranch??0,cost=towerUpgradeCost(tower.level),maxed=tower.level>=MAX_TOWER_LEVEL,
       statUpgrades=s.statUpgrades.flatMap(upgrade=>Array(upgrade.rank).fill(upgrade.id)),current=compileTower(tower,s.bonuses,s.commandUpgrades,statUpgrades),next=maxed?null:compileTower({...tower,level:tower.level+1,branch},s.bonuses,s.commandUpgrades,statUpgrades),
       blocked=maxed||s.phase==="won"||s.phase==="lost"||s.metal<cost;
-    const value=(before:string,after:string)=>`<b><span>${before}</span><i>→</i><strong>${after}</strong></b>`,
-      row=(label:string,before:number,after:number,format:(value:number)=>string,threshold=.001)=>Math.abs(after-before)<=threshold?"":`<div><span>${label}</span>${value(format(before),format(after))}</div>`,
-      stats=next?[row("DAMAGE",current.damage,next.damage,value=>value.toFixed(1)),row("PRESSURE",current.peakPressureKpa,next.peakPressureKpa,formatPressure,.5),row("RANGE",current.range,next.range,value=>value.toFixed(1)),row("RATE",1/current.cooldown,1/next.cooldown,value=>`${value.toFixed(1)}/s`),row("IMPULSE",current.force,next.force,value=>value.toFixed(1)),row("RADIUS",current.radius,next.radius,value=>value.toFixed(1))].join(""):"<p>MAXIMUM OUTPUT</p>",
+    const value=(before:string,after:string,changed:boolean)=>`<b><span>${before}</span><i>→</i><strong class="${changed?'':'unchanged'}">${after}</strong></b>`,
+      row=(label:string,before:number,after:number,format:(value:number)=>string,threshold=.001)=>`<div><span>${label}</span>${value(format(before),format(after),Math.abs(after-before)>threshold)}</div>`,
+      stats=next?[row("DAMAGE",current.damage,next.damage,value=>value.toFixed(1)),row("PRESSURE",current.peakPressureKpa,next.peakPressureKpa,formatPressure,.5),row("RANGE",current.range,next.range,value=>value.toFixed(1)),row("RATE",1/current.cooldown,1/next.cooldown,value=>`${value.toFixed(2)}/s`),row("IMPULSE",current.force,next.force,value=>value.toFixed(2)),row("RADIUS",current.radius,next.radius,value=>value.toFixed(3))].join(""):"<p>MAXIMUM OUTPUT</p>",
       button=(candidate:number,label:string)=>`<button data-quick-upgrade="${tower.id}" data-quick-branch="${candidate}" ${blocked?"disabled":""}><b>${label} <em>[${candidate===0?'Q':'E'}]</em></b><span>${maxed?"MAX":`${cost.toLocaleString()} M`}</span></button>`;
     renderMarkup(upgradeContent,`<header><span>${chosen.name.toUpperCase()}</span><b>LV ${tower.level}${maxed?" · MAX":` → ${tower.level+1}`}</b></header><div class="quick-stats">${stats}</div><div class="quick-upgrade-actions">${tower.branch<0?chosen.branches.map((name,index)=>button(index,name.toUpperCase())).join(""):button(tower.branch,"UPGRADE")}</div>`);
   };
@@ -244,7 +245,7 @@ export function createUI(
     researchTab.classList.toggle("active", next);
     $(".tower").toggleAttribute("hidden", next||buildings);
     selectedCard.hidden =
-      next || buildings || latestState?.upgradeMode === true || !selectedCard.classList.contains("has-selection");
+      next || buildings || latestState?.upgradeMode === true || !latestState?.selected;
     root
       .querySelector<HTMLElement>(".command")
       ?.toggleAttribute("hidden", !next);
@@ -338,6 +339,8 @@ export function createUI(
     canvas,
     update(s: UIState) {
       latestState = s;
+      selectedCard.classList.toggle("has-selection",!!s.selected);
+      if(s.selected?.id!==lastSelectedTowerId){lastSelectedTowerId=s.selected?.id??null;if(s.selected)selectedWindow.expand();}
       const chosen = s.selected ? TOWERS[s.selected.kind] : undefined,
         upgrade = 45 + (s.selected?.level ?? 0) * 35;
       $("#phase").textContent = s.phase === "checkpoint" ? "EXTRACTION READY" : s.phase.toUpperCase();
