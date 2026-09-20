@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {DEFAULT_MAP, TOWERS} from '../content/index.ts';
 import {createRun, STARTING_METAL} from '../game/index.ts';
+import {wallMountCells} from '../game/terrain.ts';
 import {AUTOSAVE_KEY, CHECKPOINT_KEY, decodeDefense, loadDefense, saveDefense, type Defense} from './defense.ts';
 
 function fixture() {
@@ -11,8 +12,8 @@ function fixture() {
   const map={...structuredClone(DEFAULT_MAP),id:'checkpoint-map'};
   map.obstacles.push(wall,wire);
   const defense:Defense={map,spawnBaseline:{...map.spawn},builtWalls:[wall],builtWires:[wire,breached],difficulty:7};
-  const run=createRun(map);run.setBuildMounts([wall]);
-  assert.equal(run.place('repulsor',{x:22,y:22}).ok,true);
+  const run=createRun(map);run.setBuildMounts(wallMountCells([wall]));
+  assert.equal(run.place('repulsor',{x:21.2,y:21.5}).ok,true);
   run.model.wave=3;
   const data=new Map<string,string>();
   const storage={getItem:(key:string)=>data.get(key)??null,setItem:(key:string,value:string)=>{data.set(key,value);}};

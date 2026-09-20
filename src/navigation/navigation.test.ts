@@ -32,16 +32,18 @@ test('placement resolves flush inside every map edge',()=>{
   assert.deepEqual(resolvePlacement(DEFAULT_MAP,{x:40,y:0},1.25),{x:40,y:1.25});
   assert.deepEqual(resolvePlacement(DEFAULT_MAP,{x:40,y:100},1.25),{x:40,y:98.75});
 });
-test('player-built wall mounts snap and allow exactly centered tower placement',()=>{
-  const mount={x:32,y:20,width:4,height:4},map={...DEFAULT_MAP,obstacles:[...DEFAULT_MAP.obstacles,mount]};
-  assert.deepEqual(snapToMount({x:33.2,y:23.7},[mount]),{x:34,y:22});
-  assert.equal(canPlace(map,[],{x:34,y:22},1.25),false);
-  assert.equal(canPlace(map,[],{x:34,y:22},1.25,[mount]),true);
-  assert.equal(canPlace(map,[],{x:33.5,y:22},1.25,[mount]),false);
+test('wall-cap hardpoints lift turrets toward the top and allow a compact pair',()=>{
+  const wall={x:32,y:20,width:4,height:4},mounts=wallMountCells([wall]),map={...DEFAULT_MAP,obstacles:[...DEFAULT_MAP.obstacles,wall]};
+  assert.equal(mounts.length,2);
+  assert.deepEqual(mounts.map(mount=>({x:mount.x+mount.width/2,y:mount.y+mount.height/2})),[{x:33.25,y:21.35},{x:34.75,y:21.35}]);
+  assert.deepEqual(snapToMount({x:33.2,y:21.5},mounts),{x:33.25,y:21.35});
+  assert.equal(canPlace(map,[],{x:33.25,y:21.35},1.25),false);
+  assert.equal(canPlace(map,[],{x:33.25,y:21.35},1.25,mounts),true);
+  assert.equal(canPlace(map,[{id:1,kind:'repulsor',x:33.25,y:21.35,level:0,branch:-1,angle:0,cooldown:0,spent:120}],{x:34.75,y:21.35},1.25,mounts),true);
 });
-test('starting walls support one centered tower per wall cell',()=>{
+test('starting walls use the same compact top-cap hardpoints',()=>{
   const mounts=wallMountCells(DEFAULT_MAP.obstacles);
-  assert.deepEqual(resolvePlacement(DEFAULT_MAP,{x:50.8,y:22.9},1.25,mounts),{x:50,y:22});
-  assert.equal(canPlace(DEFAULT_MAP,[],{x:50,y:22},1.25,mounts),true);
-  assert.equal(canPlace(DEFAULT_MAP,[{id:1,kind:'repulsor',x:50,y:22,level:0,branch:-1,angle:0,cooldown:0,spent:120}],{x:54,y:22},1.25,mounts),true);
+  assert.deepEqual(resolvePlacement(DEFAULT_MAP,{x:50.8,y:21.5},1.25,mounts),{x:50.75,y:21.35});
+  assert.equal(canPlace(DEFAULT_MAP,[],{x:50.75,y:21.35},1.25,mounts),true);
+  assert.equal(canPlace(DEFAULT_MAP,[{id:1,kind:'repulsor',x:50.75,y:21.35,level:0,branch:-1,angle:0,cooldown:0,spent:120}],{x:49.25,y:21.35},1.25,mounts),true);
 });
