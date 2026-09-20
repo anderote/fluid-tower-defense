@@ -49,3 +49,9 @@ Validation: 53 CPU tests, production build, and 6/6 browser E2E scenarios passed
 Kept unchanged research, Command XP, boon, and wave-preview markup intact across telemetry updates. Research buttons retain keyboard focus rather than being replaced every refresh, while purchases and combat still update their availability.
 
 Validation: the new browser focus check failed before the fix; 53 CPU tests, production build, and all 7 browser E2E scenarios pass after it.
+
+## Command profile recovery
+
+Validate saved Command XP, upgrade ranks, and unlocked tiers before using them. Known ranks recover as bounded integers; unknown or malformed values cannot create invalid arrays or poison gameplay. Valid progress survives recovery and subsequent purchases persist normally.
+
+Validation: malformed-profile unit test reproduced the issue; 55 CPU tests, production build, and 8/8 browser E2E scenarios passed, including damaged-profile startup, purchase, and reload.

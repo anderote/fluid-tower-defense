@@ -24,7 +24,17 @@ type ProfileState={version:1;xp:number;ranks:Record<string,number>;unlockedTier:
 const emptyProfile=():ProfileState=>({version:1,xp:0,ranks:{},unlockedTier:1});
 export class CommandProgression {
   private state:ProfileState=emptyProfile();
-  constructor(){try{const saved=JSON.parse(typeof window==='undefined'?'':window.localStorage.getItem(PROFILE_KEY)??'') as ProfileState;if(saved?.version===1&&Number.isFinite(saved.xp)&&saved.xp>=0&&saved.ranks&&typeof saved.ranks==='object'){this.state={...emptyProfile(),...saved,xp:Math.floor(saved.xp),unlockedTier:Math.max(1,Math.floor(saved.unlockedTier||1))};}}catch{/* Fresh local profile. */}}
+  constructor(){
+    try {
+      const saved=JSON.parse(typeof window==='undefined'?'':window.localStorage.getItem(PROFILE_KEY)??'');
+      if(!saved || saved.version!==1) return;
+      const integer=(value:unknown,fallback:number,max=Number.MAX_SAFE_INTEGER)=>
+        typeof value==='number'&&Number.isFinite(value)?Math.min(max,Math.max(fallback,Math.floor(value))):fallback;
+      const ranks:Record<string,number>={};
+      for(const def of META_DEFS) ranks[def.id]=integer(saved.ranks?.[def.id],0,def.maxRank);
+      this.state={version:1,xp:integer(saved.xp,0),ranks,unlockedTier:integer(saved.unlockedTier,1)};
+    } catch {/* Fresh local profile when storage is unavailable or JSON is invalid. */}
+  }
   get xp():number{return this.state.xp;}
   get unlockedTier():number{return this.state.unlockedTier;}
   upgrades():MetaUpgrade[]{return META_DEFS.map(def=>({...def,rank:Math.min(def.maxRank,Math.max(0,this.state.ranks[def.id]??0))}));}
