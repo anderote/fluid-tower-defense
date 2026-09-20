@@ -6,6 +6,9 @@ const ROLES: Record<EnemyKind, string> = {
   shambler: 'Baseline crowd; vulnerable to compression.',
   runner: 'Fast and fragile; cover gaps with precise fire.',
   brute: 'Heavy and crush-resistant; focus sustained damage.',
+  husk: 'Dense and slow; make room before the inlet backs up.',
+  rager: 'Fast pressure fighter; repel it before it reaches your line.',
+  softbody: 'Flexible mass; use area control to keep it from slipping through.',
 };
 
 type PreviewState = Pick<UIState, 'mode' | 'phase' | 'level' | 'wave' | 'difficulty'>;

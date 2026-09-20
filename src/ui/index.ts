@@ -184,7 +184,7 @@ export function createUI(
           const maxed = upgrade.rank >= upgrade.maxRank;
           return `<button data-meta="${upgrade.id}" ${maxed || s.commandXp < cost ? "disabled" : ""}><b>${upgrade.name.toUpperCase()} · ${upgrade.rank}/${upgrade.maxRank}</b><span class="cost">${maxed ? "MAX" : `${cost} XP`}</span><small>${upgrade.description}</small></button>`;
         })
-        .join(""));
+        .join("");
       $("#selected-name").textContent = chosen
         ? `${chosen.name.toUpperCase()} / LV ${s.selected!.level}`
         : "TOWER INSPECTOR";
@@ -262,7 +262,7 @@ export function createUI(
           (choice) =>
             `<button data-bonus="${choice.id}"><b>${choice.name.toUpperCase()}</b><small>${choice.description}</small></button>`,
         )
-        .join("");
+        .join(""));
       const extraction=$("#extraction");
       extraction.hidden=s.phase!=="checkpoint";
       $("#finish-run").textContent=`FINISH · +${s.extractionXp} XP`;

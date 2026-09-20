@@ -1,5 +1,6 @@
 import { ENEMY_WGSL, towerBehavior } from '../content/index.ts';
 import { PARTICLE_WGSL, type RenderScene, type Renderer, type SharedGPU, type Vec2 } from '../contracts/index.ts';
+import {screenToWorld as unproject, worldToScreen as project} from './camera.ts';
 
 const W = 160, H = 100, MAX_OVERLAY_VERTICES = 24000, MAX_TOWERS = 64;
 type V = { x:number; y:number; r:number; g:number; b:number; a:number };

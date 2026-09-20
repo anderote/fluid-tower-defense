@@ -50,7 +50,7 @@ test('autosaving and resetting cannot overwrite an explicit checkpoint',()=>{
   assert.equal(data.size,2);
   loadDefense(storage,CHECKPOINT_KEY,run);
   assert.equal(run.model.wave,3);
-  assert.equal(run.model.metal,560);
+  assert.equal(run.model.metal,1_110);
 });
 
 test('corrupt saves reject atomically without changing the current run, map, or epoch',()=>{

@@ -6,6 +6,8 @@ import {previewNextWave} from './wave-preview.ts';
 test('forecast matches queued enemies, completion payout, and boss at every level transition', () => {
   const run = createRun();
   for (let tick = 1; tick <= WAVES_PER_LEVEL * 2 + 1; tick++) {
+    if (run.model.phase === 'checkpoint') assert.equal(run.continueRun().ok, true);
+    if (run.model.bonusChoices.length) assert.equal(run.chooseBonus(run.model.bonusChoices[0].id).ok, true);
     const before = run.save();
     const preview = previewNextWave({...run.model, mode:'game', difficulty:1});
     assert.ok(preview);
@@ -22,7 +24,7 @@ test('forecast matches queued enemies, completion payout, and boss at every leve
     run.applySettlement({epoch:run.epoch, tick, kills:0, crushKills:0, leaks:0, earned:0, live:0, invalid:0, maxPacking:0});
     assert.equal(run.finishSettling().ok, true);
     if (!preview.boss) assert.equal(run.model.metal, metal + preview.payment);
-    else assert.equal(run.model.wave, 0);
+    else assert.equal(run.model.phase, 'checkpoint');
   }
 });
 
