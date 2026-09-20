@@ -40,6 +40,8 @@ export function createUI(
     selectedCard = root.querySelector<HTMLElement>(".selected")!,
     $ = <T extends HTMLElement = HTMLElement>(s: string) =>
       root.querySelector<T>(s)!;
+  // Required between-wave choices must precede the scrollable build inventory.
+  root.querySelector("aside")!.insertBefore($("#bonuses"), $(".controls"));
   arena.append(selectedCard);
   selectedCard.classList.add("selected-popup");
   const difficulty = document.createElement("label");
@@ -236,9 +238,23 @@ export function createUI(
       $("#ms").textContent = `${s.frameMs.toFixed(1)} MS`;
       $("#message").textContent = s.message || "SYSTEM READY";
       $("#live").textContent = s.population.toLocaleString();
-      $("#help").textContent = s.bonusChoices.length
-        ? "Choose a command boon before deploying the next wave."
-        : "Build during preparation. Click a deployed tower to inspect its combat record and upgrades.";
+      const waveControl = s.mode === "lab"
+        ? {label: "LAB MODE", reason: "Lab mode runs continuously and has no waves."}
+        : s.phase === "preparation"
+          ? s.bonusChoices.length
+            ? {label: "CHOOSE BOON", reason: "Choose a command boon at the top of the sidebar to unlock the next wave."}
+            : {label: "START WAVE", reason: ""}
+          : s.phase === "checkpoint"
+            ? {label: "EXTRACTION READY", reason: "Choose Continue in the sidebar to prepare the next wave, or Finish Run to extract."}
+            : s.phase === "won"
+              ? {label: "RUN COMPLETE", reason: "Run complete. Use Reset in the Build controls to begin another defense."}
+              : s.phase === "lost"
+                ? {label: "BASE LOST", reason: "The base was lost. Use Restart in the Build controls to retry with your defenses."}
+                : s.paused
+                  ? {label: "WAVE PAUSED", reason: "This wave is paused. Use Resume in the Build controls or press Space to continue."}
+                  : {label: "WAVE ACTIVE", reason: "A wave is already running. Clear the remaining horde before starting the next wave."};
+      $("#help").textContent = waveControl.reason ||
+        "Build during preparation. Click a deployed tower to inspect its combat record and upgrades.";
       $("#metal").textContent = String(s.metal).padStart(3, "0");
       $("#base").textContent = `${s.baseHealth}%`;
       $("#level").textContent = String(s.level).padStart(2, "0");
@@ -306,11 +322,12 @@ export function createUI(
         !chosen;
       root
         .querySelectorAll<HTMLButtonElement>('[data-action="start-wave"]')
-        .forEach(
-          (button) =>
-            (button.disabled =
-              s.phase !== "preparation" || s.bonusChoices.length > 0),
-        );
+        .forEach(button => {
+          button.disabled = !!waveControl.reason;
+          button.textContent = waveControl.label;
+          button.title = waveControl.reason || "Start the next wave.";
+          button.setAttribute("aria-describedby", "help");
+        });
       const bonusCard = $("#bonuses");
       bonusCard.hidden = !s.bonusChoices.length;
       renderMarkup($("#bonus-choices"), s.bonusChoices
