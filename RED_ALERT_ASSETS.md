@@ -1,5 +1,9 @@
 # Original Red Alert artwork — local prototype
 
+The default turret presentation has since moved to the original Soldat-inspired
+study described in `SOLDAT_ART.md`. The floor/wall assets below remain active;
+`?turretArt=red-alert` restores this document's turret mapping for comparison.
+
 The floor, concrete walls, Autocannon, Tesla Coil and Incinerator use original
 1996 Red Alert artwork from the freeware asset package distributed for OpenRA.
 This is actual indexed-palette game art converted losslessly to an RGBA atlas,
