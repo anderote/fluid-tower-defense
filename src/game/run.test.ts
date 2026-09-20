@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {DEFAULT_MAP, MAX_TOWER_LEVEL, TOWERS, towerUpgradeCost} from '../content/index.ts';
 import {createRun, STARTING_METAL, WAVES_PER_LEVEL, waveFor} from './index.ts';
+import {wallMountCells} from './terrain.ts';
 
 test('fresh runs start with 3,000 Metal',()=>{
   assert.equal(STARTING_METAL,3_000);
@@ -107,6 +108,13 @@ test('player-built walls support one centered tower and preserve it in saves',()
   assert.equal(run.place('autocannon',{x:34,y:22}).ok,false);
   const restored=createRun(map);restored.setBuildMounts([mount]);
   assert.equal(restored.load(run.save()).ok,true);assert.deepEqual({x:restored.model.towers[0].x,y:restored.model.towers[0].y},{x:34,y:22});
+});
+test('starting indestructible walls support mounted towers and preserve them in saves',()=>{
+  const mounts=wallMountCells(DEFAULT_MAP.obstacles),run=createRun();run.setBuildMounts(mounts);
+  const placed=run.place('repulsor',{x:50.7,y:21.4});
+  assert.ok(placed.ok&&placed.tower);assert.deepEqual({x:placed.tower.x,y:placed.tower.y},{x:50,y:22});
+  const restored=createRun();restored.setBuildMounts(mounts);
+  assert.equal(restored.load(run.save()).ok,true);assert.deepEqual({x:restored.model.towers[0].x,y:restored.model.towers[0].y},{x:50,y:22});
 });
 test('difficulty multiplier scales continuous zombie production and clamps to 1–40',()=>{
   const baseline=createRun(), intense=createRun();
