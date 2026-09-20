@@ -49,6 +49,12 @@ test('placing a tower leaves the inspector closed',()=>{
   assert.equal(run.place('repulsor',{x:84,y:50}).ok,true);
   assert.equal(run.model.selected,null);
 });
+test('tower placement sits flush with the top and bottom map edges',()=>{
+  const top=createRun(),bottom=createRun();
+  const topTower=top.place('repulsor',{x:32,y:0}),bottomTower=bottom.place('repulsor',{x:32,y:100});
+  assert.ok(topTower.ok&&topTower.tower);assert.equal(topTower.tower.y,1.25);
+  assert.ok(bottomTower.ok&&bottomTower.tower);assert.equal(bottomTower.tower.y,98.75);
+});
 test('restarting a wave restores its enemy queue and base while retaining defenses',()=>{
   const run=createRun();const placed=run.place('repulsor',{x:84,y:50});assert.ok(placed.ok);
   assert.equal(run.startWave().ok,true);run.takeSpawns(50);

@@ -11,7 +11,7 @@ import {createBoss} from '../sim/bosses/index.ts';
 import { createPhysics } from '../sim/physics/index.ts';
 import { createCombat, type CombatFrame } from '../sim/combat/index.ts';
 import { barbedWireStats, createParticles, DEFAULT_MAP, compileTower, TOWERS } from '../content/index.ts';
-import { buildNavigation, canPlace } from '../navigation/index.ts';
+import { buildNavigation, canPlace, resolvePlacement } from '../navigation/index.ts';
 import { createCommandProgression, createRun } from '../game/index.ts';
 import {defensePlacementIssue,WALL_COST,WALL_REFUND,WIRE_COST,WIRE_REFUND} from '../defenses/index.ts';
 import {wallCapacity,wallHealthAfterPressure} from '../sim/walls/model.ts';
@@ -241,6 +241,7 @@ try {
      for(let i=0;i<steps;i++)tick();
      if(!state.paused){for(const effect of visuals)effect.duration-=elapsed;visuals=visuals.filter(e=>e.duration>0);for(const particle of visualParticles)particle.age+=elapsed;visualParticles=visualParticles.filter(particle=>particle.age<particle.life);}
      const encoder=gpu.device.createCommandEncoder({label:'Present'});
+/* Legacy placement preview implementation retained in history.
      const ghost=state.mode==='game'&&state.selectedKind&&pointer?{...pointer,kind:state.selectedKind,range:compileTower({id:0,kind:state.selectedKind,x:pointer.x,y:pointer.y,level:0,branch:-1,angle:0,cooldown:0,spent:0},run.model.bonuses,run.model.commandUpgrades,progression.ranks()).range,valid:canPlace(map,run.model.towers,pointer,1.25,builtWalls)&&run.model.phase!=='won'&&run.model.phase!=='lost'}:undefined;
      const placementKind:'wall'|'wire'|undefined=state.mode==='game'?(wallTool?'wall':wireTool?'wire':undefined):undefined,segment=placementKind&&pointer?wallAt(pointer):undefined;
      const placementGhost=segment&&placementKind?{...segment,kind:placementKind,valid:run.model.phase!=='won'&&run.model.phase!=='lost'&&!defensePlacementIssue(map,run.model.towers,segment,run.model.metal,placementKind==='wall'?WALL_COST:WIRE_COST)}:undefined;
@@ -250,6 +251,11 @@ try {
      const demolitionHover=state.mode==='game'&&state.buildTool==='demolish'&&pointer?demolitionTargetAt(pointer):undefined;
      renderer.encode(encoder,{count:editor.active?0:count,time:simulatedTime,map:editor.active?editor.map:map,towers:!editor.active&&state.mode==='game'?run.model.towers:[],effects:editor.active?[]:visuals,visualParticles:editor.active?[]:visualParticles,wires:editor.active?[]:builtWires,heatmap:state.heatmap,selection:run.model.selected,ghost:editor.active?undefined:ghost,wallGhost,demolitionHover,boss:!editor.active&&latest.boss?.active?latest.boss:undefined});
 */
+*/
+     const placement=pointer?resolvePlacement(map,pointer,1.25,builtWalls):undefined;
+     const ghost=state.mode==='game'&&state.selectedKind&&placement?{...placement,kind:state.selectedKind,range:compileTower({id:0,kind:state.selectedKind,x:placement.x,y:placement.y,level:0,branch:-1,angle:0,cooldown:0,spent:0},run.model.bonuses,run.model.commandUpgrades,progression.ranks()).range,valid:canPlace(map,run.model.towers,placement,1.25,builtWalls)&&run.model.phase!=='won'&&run.model.phase!=='lost'}:undefined;
+     const wallGhost=state.mode==='game'&&wallTool&&pointer?{...wallAt(pointer),valid:!validateEditorMap({...map,obstacles:[...map.obstacles,wallAt(pointer)]})}:undefined;
+     renderer.encode(encoder,{count:editor.active?0:count,time:simulatedTime,map:editor.active?editor.map:map,towers:!editor.active&&state.mode==='game'?run.model.towers:[],effects:editor.active?[]:visuals,visualParticles:editor.active?[]:visualParticles,wires:editor.active?[]:builtWires,heatmap:state.heatmap,selection:run.model.selected,ghost:editor.active?undefined:ghost,wallGhost,boss:!editor.active&&latest.boss?.active?latest.boss:undefined});
      gpu.device.queue.submit([encoder.finish()]);
      if(now-lastUI>100)updateUI(now);else positionInspector();
      requestAnimationFrame(frame);
