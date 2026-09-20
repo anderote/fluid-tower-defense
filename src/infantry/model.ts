@@ -8,7 +8,7 @@ export const INFANTRY={
  rifle:{building:'Rifle Barracks',name:'Riflemen',cost:120,interval:1,health:40,damage:12,range:14,cooldown:1.05,armor:0,speed:4,role:'Mass rifle infantry · free continuous recruitment'},
  rocket:{building:'Rocket Academy',name:'Rocket troops',cost:200,interval:2,health:55,damage:32,range:19,cooldown:2.5,armor:.1,speed:3.5,role:'Explosive splash against dense hordes'},
  flame:{building:'Flame Depot',name:'Flamethrowers',cost:160,interval:1.5,health:80,damage:8,range:7,cooldown:.3,armor:.2,speed:4,role:'Close-range cones of fire'},
- samurai:{building:'Samurai Dojo',name:'Samurai',cost:240,interval:2.5,health:150,damage:30,range:3.5,cooldown:.65,armor:.35,speed:6,role:'Armored melee fighters with sweeping sword slashes'},
+ samurai:{building:'Samurai Dojo',name:'Samurai',cost:240,interval:3,health:95,damage:18,range:2.6,cooldown:.9,armor:.2,speed:4.8,role:'Close-range shock troops with a focused sword sweep'},
  dog:{building:'Dog Kennel',name:'Attack dogs',cost:60,interval:.75,health:25,damage:24,range:1.8,cooldown:.6,armor:0,speed:8,role:'Fast packs that chase and bite nearby zombies'},
 } as const;
 export const infantryStats=(kind:InfantryKind='rifle',quality=0,defense=0,veterancy=0,research:readonly string[]=[] )=>{const v=INFANTRY[kind],ranks=(id:string)=>research.filter(upgrade=>upgrade===id).length,experience=veterancyMultiplier(veterancy);return {...v,health:v.health+quality*12+defense*20,damage:v.damage*(1+quality/3)*experience*(1+ranks('damage')*.04),range:v.range*(1+ranks('range')*.03),cooldown:v.cooldown/(1+quality*.08)/(1+ranks('rate')*.035),armor:Math.min(.7,v.armor+defense*.06)};};

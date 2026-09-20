@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {createInfantryAnimator,classicInfantryFacing,classicDogFrame,infantryFacing,infantryMuzzle,INFANTRY_ATTACK,INFANTRY_DEATH} from './infantry-animation.ts';
+import {createInfantryAnimator,classicInfantryFacing,classicDogFrame,infantryFacing,infantryMuzzle,attackFrames,samuraiSlashPhase,SAMURAI_ATTACK_DURATION,INFANTRY_ATTACK,INFANTRY_DEATH} from './infantry-animation.ts';
 import {readFileSync} from 'node:fs';
 import {infantryStats,type Soldier} from '../infantry/model.ts';
 const soldier=():Soldier=>({id:1,home:1,x:10,y:10,quality:0,health:40,cooldown:0,angle:0,flash:0,walk:0,dead:0});
@@ -21,6 +21,16 @@ test('rifle firing animates past the short muzzle flash and returns to idle duri
   assert.equal(animate.prepare([s],0)[0].frame,INFANTRY_ATTACK);
   s.cooldown=.6;s.flash=0;assert.ok(animate.prepare([s],.2)[0].frame>INFANTRY_ATTACK);
   s.cooldown=.1;assert.equal(animate.prepare([s],.7)[0].frame,0);
+});
+test('samurai sword animation uses all attack slots with anticipation, cut, and follow-through',()=>{
+  assert.equal(attackFrames('samurai'),16);
+  assert.deepEqual(samuraiSlashPhase(0),{progress:0,anticipation:0,cut:0,followThrough:0});
+  const cut=samuraiSlashPhase(SAMURAI_ATTACK_DURATION*.4);assert.equal(cut.anticipation,1);assert.ok(cut.cut>0&&cut.cut<1);assert.equal(cut.followThrough,0);
+  const follow=samuraiSlashPhase(SAMURAI_ATTACK_DURATION*.8);assert.equal(follow.cut,1);assert.ok(follow.followThrough>0);
+  const animate=createInfantryAnimator(),s={...soldier(),kind:'samurai' as const,cooldown:.9,flash:.28};
+  assert.equal(animate.prepare([s],0)[0].frame,INFANTRY_ATTACK);
+  s.flash=0;s.cooldown=.5;assert.ok(animate.prepare([s],.4)[0].frame>=INFANTRY_ATTACK+7);
+  s.cooldown=.1;assert.equal(animate.prepare([s],.8)[0].frame,0);
 });
 test('all troop roles collapse to a held final frame and fade without looping',()=>{
   for(const kind of ['rifle','rocket','flame','samurai','dog'] as const){

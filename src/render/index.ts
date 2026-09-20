@@ -1,5 +1,5 @@
 import {createInfantrySprites} from './infantry-sprites.ts';
-import {infantryMuzzle} from './infantry-animation.ts';
+import {infantryMuzzle,samuraiSlashPhase,SAMURAI_ATTACK_DURATION} from './infantry-animation.ts';
 import {createBloodRenderer} from './blood.ts';
 import {createFireEffects} from './fire.ts';
 import {infantryBuildingPixels,BUILDING_PIXEL,BUILDING_ANCHOR} from './infantry-building-art.ts';
@@ -318,9 +318,15 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
       if(dead)continue;
       if(scene.selectedInfantry?.has(s.id))ring(a,x,y+.15,1.05,[.43,1,.36,.95],.11);
       const muzzle=infantryMuzzle(s),{dx,dy}=muzzle,mx=muzzle.x,my=muzzle.y;
-      if(s.flash>0&&kind!=='dog'){
-        if(kind==='samurai'){const phase=1-s.flash/.28;for(let layer=0;layer<3;layer++)for(let j=0;j<18;j++){const angle=s.angle-1.9+phase*2.5+j*.09,r=2.1+layer*.18,fade=(j/18)*(s.flash/.28)*(1-layer*.24);streak(a,x+Math.cos(angle)*r,y-.65+Math.sin(angle)*r,-Math.sin(angle),Math.cos(angle),.27,.08,[.7,.89,1,fade]);}}
-        else if(kind==='flame'){for(let j=0;j<12;j++){const spread=s.angle+Math.sin(j*13)*.42,reach=1+j*.42;disc(a,x+Math.cos(spread)*reach,y-.65+Math.sin(spread)*reach,.2+j*.04,[1,.2+j*.035,.04,(1-j/15)*s.flash*4],5);}}
+      if(kind==='samurai'&&s.attackAge!==undefined&&s.attackAge<SAMURAI_ATTACK_DURATION){
+        const slash=samuraiSlashPhase(s.attackAge);
+        if(slash.cut>0&&slash.cut<1){
+          const reveal=Math.min(1,slash.cut*2.8),fade=Math.min(1,(1-slash.cut)*2.4),segments=Math.max(2,Math.floor(12*reveal));
+          for(let j=0;j<segments;j++){const t=j/11,angle=s.angle-1.2+t*2.35,r=1.15+Math.sin(t*Math.PI)*.48;const sx=x+Math.cos(angle)*r,sy=y-.58+Math.sin(angle)*r*.68;streak(a,sx,sy,-Math.sin(angle),Math.cos(angle),.32,.13,[.62,.82,1,.52*fade]);streak(a,sx,sy,-Math.sin(angle),Math.cos(angle),.23,.055,[1,.97,.78,.92*fade]);}
+          if(slash.cut>.68){const hit=s.angle+1.12,hx=x+Math.cos(hit)*1.48,hy=y-.58+Math.sin(hit)*1.02;for(const turn of [0,Math.PI/2])streak(a,hx,hy,Math.cos(hit+turn),Math.sin(hit+turn),.48,.055,[1,.88,.45,.8*fade]);}
+        }
+      }else if(s.flash>0&&kind!=='dog'){
+        if(kind==='flame'){for(let j=0;j<12;j++){const spread=s.angle+Math.sin(j*13)*.42,reach=1+j*.42;disc(a,x+Math.cos(spread)*reach,y-.65+Math.sin(spread)*reach,.2+j*.04,[1,.2+j*.035,.04,(1-j/15)*s.flash*4],5);}}
         else if(kind==='rocket'){streak(a,mx+dx*4,my+dy*4,dx,dy,4,.14,[.88,.84,.65,s.flash*5]);disc(a,mx,my,.4,[1,.6,.15,.8],6);}
         else {disc(a,mx,my,.24,[1,.86,.29,.95],5);streak(a,mx+dx*2,my+dy*2,dx,dy,2,.025,[1,.89,.43,s.flash*6]);}
       }
