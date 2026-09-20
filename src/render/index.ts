@@ -3,6 +3,7 @@ import { PARTICLE_WGSL, type RenderScene, type Renderer, type SharedGPU, type To
 import {screenToWorld as unproject, worldToScreen as project} from './camera.ts';
 import {TURRET_GRID, turretPixelRects, type TurretInk} from './turret-art.ts';
 import {createRedAlertArt,hasRedAlertSprite,type TurretArtStyle} from './red-alert.ts';
+import {SHOT_GEOMETRY_WGSL} from './shot-geometry.ts';
 
 const MAX_TOWERS = 64;
 type V = { x:number; y:number; r:number; g:number; b:number; a:number };
@@ -55,6 +56,7 @@ struct I { @location(0) pos:vec2<f32>, @location(1) color:vec4<f32> }; struct O 
 @vertex fn vs(i:I)->O { let aspect=camera.viewport.x/max(1.,camera.viewport.y);let targetAspect=camera.world.z/camera.world.w;let sx=min(1.,targetAspect/aspect);let sy=min(1.,aspect/targetAspect);var o:O; o.pos=vec4((((i.pos.x-camera.world.x)/camera.world.z)*2.-1.)*sx,(1.-((i.pos.y-camera.world.y)/camera.world.w)*2.)*sy,0,1);o.color=i.color;return o; }
 @fragment fn fs(i:O)->@location(0) vec4<f32>{return i.color;}`});
   const cueModule=device.createShaderModule({code:`
+${SHOT_GEOMETRY_WGSL}
 struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> };
 struct TowerState { timing:vec4<f32>, shot:vec4<f32>, flags:vec4<f32> };
 @group(0) @binding(0) var<uniform> camera:Camera;
@@ -75,7 +77,7 @@ fn muzzleDistance(weapon:f32)->f32{if(weapon<.5){return 1.55;}if(weapon<1.5){ret
   if(shard==0u){let travel=min(1.,age*1.55);let arc=sin(travel*3.14159);let center=mix(t.xy,aim,travel)+side*arc*1.4;p=center+q*(.5+arc*.42);}else{let impactAge=max(0.,(age-.52)/.48);let distance=impactAge*(1.4+f32(shard)*.32);p=aim+burst*distance+q*(.18+.035*f32(shard));}
  }else if(weapon==2.){
   if(shard==0u){p=muzzle+forward*q.x*(1.4-2.8*elapsed)+side*q.y*(.58-1.05*elapsed);}
-  else if(shard==1u){let travel=clamp(elapsed/.058,0.,1.);let head=mix(muzzle,aim,travel);p=head-forward*((q.x+1.)*.5*min(10.5,len))+side*q.y*.13;}
+  else if(shard==1u){p=autocannonTracer(q,muzzle,forward,len-muzzleDistance(weapon),elapsed);}
   else if(shard<8u){let impactAge=clamp((elapsed-.04)/.24,0.,1.);let ricochet=normalize(burst-forward*(.65+.2*fract(seed)));p=aim+ricochet*impactAge*(1.3+f32(shard)*.3)+q*(.18-.08*impactAge);}
   else{let smokeAge=clamp(elapsed/.32,0.,1.);let drift=side*(f32(shard)-9.5)*.22-forward*smokeAge*.8;p=muzzle+drift+q*(.16+smokeAge*.38);}
  }else if(weapon==3.){

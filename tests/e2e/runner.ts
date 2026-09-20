@@ -68,6 +68,11 @@ const cases:{name:string;run:()=>Promise<void>}[]=[
   const saved=snapshot(),run=JSON.parse(saved.runState);assert(run.model.towers[0].x===22&&run.model.towers[0].y===22,'Mounted tower is not centered');
   click('[data-action="demolish-tool"]');point(22,22);await until(()=>text('#message').includes('Sell the mounted tower'),'Mounted wall demolition was not blocked');
  }},
+ {name:'Starting indestructible walls accept turret mounts',run:async()=>{
+  await fresh();click('[data-tower="repulsor"]');point(50.8,22.9);
+  await until(()=>text('#metal')==='2910','Starting wall did not accept the turret');
+  const saved=snapshot(),run=JSON.parse(saved.runState);assert(run.model.towers[0].x===50&&run.model.towers[0].y===22,'Starting-wall turret did not snap to its wall cell');
+ }},
  {name:'Turrets placed at map edges sit flush inside every boundary',run:async()=>{
   await fresh();click('[data-tower="repulsor"]');
   for(const [x,y] of [[0,10],[160,20],[40,0],[40,100]])point(x,y);

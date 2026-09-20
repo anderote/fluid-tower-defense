@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {DEFAULT_MAP} from '../content/index.ts';
 import {createRun} from './index.ts';
-import {createStructurePreview,clearPlayerTerrain,restoreSessionTerrain,snapToMount,structurePlacementIssue} from './terrain.ts';
+import {createStructurePreview,clearPlayerTerrain,restoreSessionTerrain,snapToMount,structurePlacementIssue,wallMountCells} from './terrain.ts';
 
 test('reset clears player collisions while preserving authored terrain',()=>{
  const wall={x:20,y:20,width:4,height:4},wire={x:28,y:20,width:4,height:4};
@@ -28,6 +28,16 @@ test('mount snapping centers nearby clicks without moving clear-ground placement
  const wall={x:20,y:20,width:4,height:4};
  assert.deepEqual(snapToMount({x:21.7,y:22.3},[wall]),{x:22,y:22});
  assert.deepEqual(snapToMount({x:24,y:22},[wall]),{x:24,y:22});
+});
+test('authored wall rectangles become unique 4 x 4 turret mounts',()=>{
+ const mounts=wallMountCells([
+  {x:48,y:0,width:8,height:8},
+  {x:48,y:4,width:8,height:4},
+ ]);
+ assert.deepEqual(mounts,[
+  {x:48,y:0,width:4,height:4},{x:52,y:0,width:4,height:4},
+  {x:48,y:4,width:4,height:4},{x:52,y:4,width:4,height:4},
+ ]);
 });
 test('structures reject overlaps and tower footprints before spending Metal',()=>{
  const map={...DEFAULT_MAP,obstacles:[...DEFAULT_MAP.obstacles,{x:20,y:20,width:4,height:4}]};

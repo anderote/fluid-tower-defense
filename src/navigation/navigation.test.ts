@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {DEFAULT_MAP} from '../content/index.ts';
 import {buildNavigation,canPlace,resolvePlacement,snapToMount} from './index.ts';
+import {wallMountCells} from '../game/terrain.ts';
 
 test('staged default map provides a route through every gate',()=>{
   const field=buildNavigation(DEFAULT_MAP);
@@ -30,4 +31,10 @@ test('player-built wall mounts snap and allow exactly centered tower placement',
   assert.equal(canPlace(map,[],{x:34,y:22},1.25),false);
   assert.equal(canPlace(map,[],{x:34,y:22},1.25,[mount]),true);
   assert.equal(canPlace(map,[],{x:33.5,y:22},1.25,[mount]),false);
+});
+test('starting walls support one centered tower per wall cell',()=>{
+  const mounts=wallMountCells(DEFAULT_MAP.obstacles);
+  assert.deepEqual(resolvePlacement(DEFAULT_MAP,{x:50.8,y:22.9},1.25,mounts),{x:50,y:22});
+  assert.equal(canPlace(DEFAULT_MAP,[],{x:50,y:22},1.25,mounts),true);
+  assert.equal(canPlace(DEFAULT_MAP,[{id:1,kind:'repulsor',x:50,y:22,level:0,branch:-1,angle:0,cooldown:0,spent:90}],{x:54,y:22},1.25,mounts),true);
 });
