@@ -1,5 +1,6 @@
 import {audioSettings,onAudioSettingsChange,setAudioSetting} from './settings.ts';
 
+const assetBase=(import.meta as ImportMeta&{env?:{BASE_URL?:string}}).env?.BASE_URL??'/';
 const STATE_KEY='pressure-front.red-alert-soundtrack.v1';
 
 const FILES=[
@@ -13,7 +14,7 @@ export const redAlertTracks=FILES.map((file,index)=>({
   file,
   number:index+1,
   title:file.replace(/^\d+[_ ]/,'').replace(/\.mp3$/,'').replace(/ \(Rare Track\)$/,' — Rare Track'),
-  url:`/audio/red-alert/${encodeURIComponent(file)}`,
+  url:`${assetBase}audio/red-alert/${encodeURIComponent(file)}`,
 }));
 
 type SavedPlayback={track:number;time:number;volume:number;wasPlaying:boolean};

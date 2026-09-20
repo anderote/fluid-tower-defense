@@ -1,4 +1,6 @@
 import type {TowerKind} from '../contracts/index.ts';
+
+const assetBase=(import.meta as ImportMeta&{env?:{BASE_URL?:string}}).env?.BASE_URL??'/';
 import {audioSettings,onAudioSettingsChange} from './settings.ts';
 
 /** Dry synthesized weapon layers plus attributed OpenSoldat heavy-weapon samples. */
@@ -10,7 +12,7 @@ export function createAudio(){
 
   const loadSamples=()=>{
     if(!ctx||samplesLoading)return;samplesLoading=true;
-    const files={m79Fire:'/audio/soldat/m79-fire.wav',m79Explosion:'/audio/soldat/m79-explosion.wav',law:'/audio/soldat/law.wav'} as const;
+    const files={m79Fire:`${assetBase}audio/soldat/m79-fire.wav`,m79Explosion:`${assetBase}audio/soldat/m79-explosion.wav`,law:`${assetBase}audio/soldat/law.wav`} as const;
     for(const [name,url] of Object.entries(files) as [keyof typeof files,string][]){
       void fetch(url).then(response=>{if(!response.ok)throw new Error(`${response.status} ${url}`);return response.arrayBuffer();}).then(data=>ctx?.decodeAudioData(data)).then(buffer=>{if(buffer)samples[name]=buffer;}).catch(error=>console.warn('OpenSoldat sound unavailable; using synthesized fallback.',error));
     }
