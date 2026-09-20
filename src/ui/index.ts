@@ -278,7 +278,7 @@ export function createUI(
       $("#wave-status").hidden=s.mode!=='game';
       $("#wave-status-title").textContent=preview?`NEXT WAVE · ${preview.wave}`:`WAVE ${s.wave}`;
       $("#wave-status-count").textContent=preview?`${preview.total.toLocaleString()} enemies${preview.boss?' + boss':''}`:active&&progress?`${(progress.queued+progress.live).toLocaleString()} remaining`:s.phase==='lost'?'BASE LOST':'WAVE CLEARED';
-      $("#wave-status-detail").textContent=preview?'Build your defense, then start the wave.':active&&progress?`${progress.live.toLocaleString()} on the field · ${progress.queued.toLocaleString()} still arriving${s.boss?.active?' · boss active':''}`:s.phase==='lost'?'Restart the wave to try again.':'Ready for your next decision.';
+      $("#wave-status-detail").textContent=preview?`${preview.enemies.map(enemy=>`${enemy.count.toLocaleString()} ${enemy.name}`).join(' · ')} · Clear reward: ${preview.payment} Metal. ${preview.enemies.at(-1)?.role??''}`:active&&progress?`${progress.live.toLocaleString()} on the field · ${progress.queued.toLocaleString()} still arriving${s.boss?.active?' · boss active':''}`:s.phase==='lost'?'Restart the wave to try again.':'Ready for your next decision.';
 
       const waveControl = s.mode === "lab"
         ? {label: "LAB MODE", reason: "Lab mode runs continuously and has no waves."}

@@ -58,10 +58,15 @@ export function waveFor(level:number,wave:number):Wave {
   const threat=globalWave-1,phase=(globalWave-1)%WAVES_PER_LEVEL,cycle=Math.floor((globalWave-1)/WAVES_PER_LEVEL);
   // Short opening encounters; later difficulty grows through composition and health,
   // not an unbounded backlog multiplied by the physical inlet width.
-  const total=Math.min(12_000,1_200+threat*600);
+  // Introducing brutes slows the physical front and adds much tougher bodies.
+  // Trade numbers for that new threat instead of tripling the arrival window.
+  const openingTotals=[1_200,1_800,2_400,1_700,1_800];
+  const total=openingTotals[globalWave-1]??Math.min(12_000,1_200+threat*600);
   const healthScale=1+Math.max(0,globalWave-WAVES_PER_LEVEL)*.035;
   const seed=(globalWave*10_000+globalWave*977)>>>0;
   const weights=new Map(PHASE_WEIGHTS[phase]);
+  if(globalWave===4){weights.set('shambler',.68);weights.set('brute',.12);}
+  if(globalWave===5){weights.set('shambler',.5);weights.set('brute',.12);}
   if(cycle>0){for(const kind of ['runner','brute','rager','softbody','husk'] as const)weights.set(kind,(weights.get(kind)??0)+.025);}
   const weightTotal=[...weights.values()].reduce((sum,value)=>sum+value,0);
   const arrivalRate=Math.min(180,90+threat*6);
