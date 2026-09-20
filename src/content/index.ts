@@ -51,6 +51,9 @@ export const ENEMIES: Record<EnemyKind, EnemyDef> = {
   husk: {id:'husk',index:5,name:'Husk',radius:.475,mass:.85,health:34,speed:2.9,drive:1,pressureLimit:10,crushResistance:.5,bounty:4,leak:1,color:'#9edce8'},
 };
 
+/** Enemy bounties are accumulated as points; 100 points pay one Metal. */
+export const ENEMY_BOUNTY_DIVISOR=100;
+
 const wgslNumber=(value:number):string=>Number.isInteger(value)?`${value}.0`:String(value);
 const hexRgb=(hex:string):readonly number[]=>[1,3,5].map(offset=>parseInt(hex.slice(offset,offset+2),16)/255);
 const enemyCases=(field:keyof EnemyDef,format:(value:never)=>string=wgslNumber):string=>Object.values(ENEMIES).map(enemy=>`case ${enemy.index}u: { return ${format(enemy[field] as never)}; }`).join('\n');
@@ -60,7 +63,7 @@ fn enemySpeed(kind:u32)->f32 { switch kind { ${enemyCases('speed')} default: { r
 fn enemyDrive(kind:u32)->f32 { switch kind { ${enemyCases('drive')} default: { return ${wgslNumber(ENEMIES.shambler.drive)}; } } }
 fn enemyPressureLimit(kind:u32)->f32 { switch kind { ${enemyCases('pressureLimit')} default: { return ${wgslNumber(ENEMIES.shambler.pressureLimit)}; } } }
 fn enemyCrushResistance(kind:u32)->f32 { switch kind { ${enemyCases('crushResistance')} default: { return ${wgslNumber(ENEMIES.shambler.crushResistance)}; } } }
-fn enemyBounty(kind:u32)->u32 { switch kind { ${enemyCases('bounty',value=>`${value}u`)} default: { return ${ENEMIES.shambler.bounty}u; } } }
+fn enemyBountyPoints(kind:u32)->u32 { switch kind { ${enemyCases('bounty',value=>`${value}u`)} default: { return ${ENEMIES.shambler.bounty}u; } } }
 fn enemyLeak(kind:u32)->u32 { switch kind { ${enemyCases('leak',value=>`${value}u`)} default: { return ${ENEMIES.shambler.leak}u; } } }
 fn enemyColor(kind:u32)->vec3f { switch kind { ${enemyCases('color',value=>`vec3f(${hexRgb(String(value)).map(wgslNumber).join(',')})`)} default: { return vec3f(${hexRgb(ENEMIES.shambler.color).map(wgslNumber).join(',')}); } } }
 `;
