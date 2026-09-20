@@ -13,7 +13,7 @@ import { createCombat, type CombatFrame } from '../sim/combat/index.ts';
 import { barbedWireStats, createParticles, DEFAULT_MAP, compileTower, TOWERS } from '../content/index.ts';
 import { buildNavigation, canPlace } from '../navigation/index.ts';
 import { createRun } from '../game/index.ts';
-import { DEFAULT_TUNING, PARTICLE_FLOATS, type UIState, type GameAction, type Effect, type Vec2, type Rect, type Settlement, type VisualParticle } from '../contracts/index.ts';
+import { DEFAULT_TUNING, PARTICLE_FLOATS, type UIState, type GameAction, type Effect, type Vec2, type Rect, type Settlement, type VisualParticle, type WorldMap } from '../contracts/index.ts';
 
 const root=document.querySelector<HTMLElement>('#app')!;
 const params=new URLSearchParams(location.search);
@@ -51,7 +51,10 @@ try {
  const diagnosticText=diagnostics.querySelector('pre')!;
  const errors:string[]=[];
  let previousPaused=false;
+ const AUTOSAVE_KEY='pressure-front.autosave.v1';let lastAutosave=0;
  const resizeSpawn=()=>{const scale=Math.sqrt(state.difficulty);const width=Math.min(70,spawnBaseline.width*scale),height=Math.min(96,spawnBaseline.height*scale);map={...map,spawn:{x:spawnBaseline.x,y:Math.max(2,Math.min(map.height-height-2,spawnBaseline.y+spawnBaseline.height/2-height/2)),width,height}};};
+ const saveSession=()=>{if(state.mode!=='game'||run.model.phase!=='preparation')return;try{const runState=run.save();localStorage.setItem(AUTOSAVE_KEY,JSON.stringify({runState,map,spawnBaseline,builtWalls,builtWires,difficulty:state.difficulty}));}catch{/* Local persistence is optional. */}};
+ const restoreSession=()=>{try{const saved=JSON.parse(localStorage.getItem(AUTOSAVE_KEY)??'null') as {runState?:string;map?:WorldMap;spawnBaseline?:Rect;builtWalls?:Rect[];builtWires?:(Rect & {health:number;maxHealth:number;breached:boolean})[];difficulty?:number}|null;if(!saved?.runState||!saved.map)return false;builtWalls=(saved.builtWalls??[]).filter(w=>Number.isFinite(w.x)&&Number.isFinite(w.y));builtWires=(saved.builtWires??[]).filter(w=>Number.isFinite(w.x)&&Number.isFinite(w.y)&&Number.isFinite(w.health));const dynamic=[...builtWalls,...builtWires];const same=(a:Rect,b:Rect)=>a.x===b.x&&a.y===b.y&&a.width===b.width&&a.height===b.height;map={...saved.map,obstacles:[...saved.map.obstacles.filter(obstacle=>!dynamic.some(segment=>same(obstacle,segment))),...builtWalls,...builtWires.filter(wire=>!wire.breached)]};spawnBaseline=saved.spawnBaseline??saved.map.spawn;state.difficulty=run.setSpawnMultiplier(saved.difficulty??1);resizeSpawn();navigation=buildNavigation(map);run.setMap(map);return run.load(saved.runState).ok;}catch{return false;}};
  const editor=createLevelEditor(root.querySelector<HTMLElement>('.view-actions')!,map,newMap=>{
    map=newMap;spawnBaseline=newMap.spawn;resizeSpawn();navigation=buildNavigation(map);run.setMap(map);state.mode='game';resetWorld();previousPaused=false;
    state.message='Custom level ready. Build your defense, then start a wave.';
@@ -104,7 +107,7 @@ try {
      case 'sell':if(run.model.selected!==null)actionResult(run.sell(run.model.selected),'Tower sold.');break;
      case 'difficulty':state.difficulty=run.setSpawnMultiplier(action.value);resizeSpawn();state.message=`Zombie production set to ${state.difficulty}×. Inlet expanded to protect spawn density.`;break;
      case 'bonus':actionResult(run.chooseBonus(action.id),'Bonus installed for this run.');break;
-     case 'save':try{run.save();state.message='Saved between waves on this browser.';}catch(error){state.message=String(error);}break;
+     case 'save':try{saveSession();state.message='Saved between waves on this browser.';}catch(error){state.message=String(error);}break;
      case 'load':{const result=run.load();if(result.ok){state.mode='game';resetWorld(false);}actionResult(result,'Saved defense restored.');break;}
    }
    updateUI(performance.now());
@@ -150,7 +153,7 @@ try {
    state.metal=run.model.metal;state.baseHealth=run.model.baseHealth/20*100;state.wave=run.model.wave;state.waveCount=run.model.waveCount;state.phase=state.mode==='lab'?'combat':run.model.phase;
    state.selected=run.model.towers.find(t=>t.id===run.model.selected)??null;state.bonusChoices=state.mode==='game'?run.model.bonusChoices:[];
    state.bossHealth=latest.boss?.active?latest.boss.health/latest.boss.maxHealth*100:undefined;state.commandUpgrades=state.mode==='game'?run.model.commandUpgrades:[];
-   ui.update(state);lastUI=now;
+   ui.update(state);if(now-lastAutosave>1500){saveSession();lastAutosave=now;}lastUI=now;
    diagnosticText.textContent=JSON.stringify({adapter:gpu.adapter,abi:'passed',epoch,tick:clock.tick,simulationSeconds:simulatedTime,slots:count,live:latest.live,requested:requestedPopulation,invalid:latest.invalid,peakPacking:latest.maxPacking,crushKills:latest.crushKills,kills:latest.kills,medianMs:report.medianMs,p95Ms:report.p95Ms,frameSamples:report.samples,canvas:[ui.canvas.width,ui.canvas.height],readbackErrors:errors,boss:latest.boss},null,2);
  }
  function tick(){
@@ -189,7 +192,7 @@ try {
      requestAnimationFrame(frame);
    }catch(error){fail(error);}
  }
- resetWorld();updateUI(performance.now());requestAnimationFrame(frame);
+ const restored=restoreSession();resetWorld(!restored);if(restored)state.message='Autosave restored. Build state recovered.';updateUI(performance.now());requestAnimationFrame(frame);
 } catch(error){state.message=String(error);state.paused=true;ui.update(state);console.error(error);}
 
 }

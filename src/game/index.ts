@@ -62,7 +62,7 @@ export class RunController {
 
   get epoch():number { return this.runEpoch; }
   get isBossWave():boolean { return this.model.wave===this.model.waveCount; }
-  setSpawnMultiplier(value:number):number { this.spawnMultiplier=Math.max(1,Math.min(100,Math.round(value)||1)); return this.spawnMultiplier; }
+  setSpawnMultiplier(value:number):number { this.spawnMultiplier=Math.max(1,Math.min(40,Math.round(value)||1)); return this.spawnMultiplier; }
 
   place(kind:TowerKind, position:Vec2):PlaceResult {
     if (this.model.phase==='won' || this.model.phase==='lost') return {ok:false,reason:'The run is over.'};
