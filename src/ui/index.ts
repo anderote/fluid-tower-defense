@@ -1,4 +1,4 @@
-import type { GameAction, GameUI, UIState, Vec2 } from '../contracts/index.ts';
+import type { GameAction, GameUI, UIState } from '../contracts/index.ts';
 import { COMMAND_UPGRADES, compileTower, MAX_VETERANCY, TOWERS, veterancyLevel } from '../content/index.ts';
 import './style.css';
 

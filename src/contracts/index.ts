@@ -37,6 +37,6 @@ export type GameAction = {type:'mode';mode:'lab'|'game'} | {type:'pause'} | {typ
 export interface BonusChoice { id:string; name:string; description:string }
 export interface CommandUpgrade { id:string; name:string; description:string; cost:number }
 export interface UIState { mode:'lab'|'game'; phase:'preparation'|'combat'|'settling'|'won'|'lost'; paused:boolean; fps:number; frameMs:number; population:number; capacity:number; kills:number; crushKills:number; leaks:number; earned:number; maxPressure:number; metal:number; baseHealth:number; wave:number; waveCount:number; difficulty:number; selected:Tower|null; selectedKind:TowerKind|null; heatmap:boolean; tool:'blast'|'push'|'inspect'; message:string; adapter:string; bonusChoices:readonly BonusChoice[]; commandUpgrades:readonly string[]; bossHealth?:number; }
-export interface GameUI { canvas:HTMLCanvasElement; update(state:UIState):void; setInspectorPosition(position:Vec2|null):void; destroy():void }
+export interface GameUI { canvas:HTMLCanvasElement; update(state:UIState):void; destroy():void }
 export interface SpawnBatch { count:number; kind:EnemyKind; seed:number }
 export interface RunModel { phase:UIState['phase']; metal:number; baseHealth:number; wave:number; waveCount:number; towers:Tower[]; selected:number|null; pending:SpawnBatch[]; bonusChoices:BonusChoice[]; bonuses:string[]; commandUpgrades:string[] }
