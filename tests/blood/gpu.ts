@@ -10,7 +10,7 @@ try{
  const buffer=(size:number)=>device.createBuffer({size,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST|GPUBufferUsage.COPY_SRC});
  const count=700,shared:SharedGPU={capacity:count,particles:buffer(count*64),counters:buffer(512)};
  const uniforms=device.createBuffer({size:64,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST});
- const events=await createAftermathEvents(device,shared,{uniforms,towers:buffer(48),states:buffer(48),owners:buffer(count*4),effects:buffer(48),tesla:buffer(TESLA_HEADER_BYTES+count*TESLA_PARTICLE_BYTES)});
+ const events=await createAftermathEvents(device,shared,{uniforms,towers:buffer(64),states:buffer(48),owners:buffer(count*4),effects:buffer(48),tesla:buffer(TESLA_HEADER_BYTES+count*TESLA_PARTICLE_BYTES)});
  const camera=device.createBuffer({size:64,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST});
  const canvas=document.querySelector('canvas')!,context=canvas.getContext('webgpu')!,format=navigator.gpu.getPreferredCanvasFormat();context.configure({device,format});
  const blood=await createBloodRenderer(device,format,camera,shared);
