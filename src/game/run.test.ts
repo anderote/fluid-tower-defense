@@ -127,13 +127,16 @@ test('wave director uses a shared continuous inlet and introduces every enemy by
   assert.ok(waveFor(1,30).healthScale>waveFor(1,10).healthScale);
 });
 
-test('wave director sustains dense overlapping streams rather than isolated bursts',()=>{
+test('wave director sustains dense overlapping streams for a 30–60 second window',()=>{
   const wave=waveFor(1,10);
   assert.ok(wave.total>waveFor(1,1).total);
   assert.ok(wave.spawns.some(batch=>(batch.burst??Infinity)<=10));
-  for(let second=4;second<=18;second+=2){
+  for(let second=4;second<=46;second+=2){
     assert.ok(wave.spawns.some(batch=>{const start=batch.start??0, end=start+batch.count/(batch.rate??1);return start<=second&&end>=second;}),`expected an active stream at ${second}s`);
   }
+  const opening=waveFor(1,1).spawns[0], late=waveFor(3,10).spawns[0];
+  assert.ok(opening.count/(opening.rate??1)>=30);
+  assert.ok(late.count/(late.rate??1)<=60);
 });
 
 test('extracting after the checkpoint ends the run and returns a milestone payout',()=>{
