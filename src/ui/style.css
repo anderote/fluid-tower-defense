@@ -177,3 +177,23 @@ footer button:first-of-type { border-color: var(--term-accent); background: var(
   .help { right: 28px; }
   .view-actions { display: none; }
 }
+
+/* Preparation forecast stays visible in both Build and Research. */
+.wave-preview ul { list-style: none; margin: 8px 0; padding: 0; }
+.wave-preview li { padding: 5px 0; border-bottom: 1px solid var(--term-border); }
+.wave-preview li div { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; }
+.wave-preview small { display: block; margin-top: 3px; color: var(--term-muted); font-size: 9px; line-height: 1.5; }
+.wave-preview p { margin: 8px 0 0; }
+.wave-total { color: var(--term-accent); font-size: 13px; }
+.wave-boss { padding: 8px; border-left: 2px solid var(--term-error); background: var(--term-field); font-size: 10px; color: var(--term-error); }
+.wave-reward { font-size: 10px; }
+.wave-reward b { color: var(--term-accent); }
+.wave-flow { color: var(--term-muted); font-size: 9px; line-height: 1.5; }
+
+.boss-status { position: absolute; z-index: 3; top: 55px; right: 28px; width: 280px; max-width: calc(100% - 56px); padding: 12px; border: 1px solid var(--term-error); background: rgba(10,10,10,.94); pointer-events: none; font-size: 11px; }
+.boss-status > b { color: var(--term-error); }
+#boss-health-text { float: right; color: var(--term-muted); }
+.boss-status progress { display: block; width: 100%; height: 8px; margin: 9px 0; accent-color: var(--term-error); }
+.boss-status strong { display: block; color: var(--term-accent); }
+.boss-status small { display: block; margin-top: 5px; line-height: 1.5; color: var(--term-fg); }
+#commands .research-lock { color: var(--term-warn); }

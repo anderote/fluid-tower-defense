@@ -1,3 +1,5 @@
+import {commandUpgradeAvailability} from "../game/research.ts";
+import {bossStatus} from "./boss-status.ts";
 import type { GameAction, GameUI, UIState } from "../contracts/index.ts";
 import {
   COMMAND_UPGRADES,
@@ -8,6 +10,7 @@ import {
   towerUpgradeCost,
   veterancyLevel,
 } from "../content/index.ts";
+import { previewNextWave } from "../game/wave-preview.ts";
 import "./style.css";
 import "./popup.css";
 import "./tower-identity.css";
@@ -16,6 +19,13 @@ export function createUI(
   root: HTMLElement,
   onAction: (action: GameAction) => void,
 ): GameUI {
+  // Telemetry refreshes frequently; keep unchanged controls alive for keyboard focus.
+  const markup = new WeakMap<HTMLElement, string>();
+  const renderMarkup = (element: HTMLElement, html: string) => {
+    if (markup.get(element) === html) return;
+    element.innerHTML = html;
+    markup.set(element, html);
+  };
   const tower = (id: keyof typeof TOWERS) => {
     const t = TOWERS[id];
     return `<button data-tower="${id}"><span class="tower-shape" aria-hidden="true"></span><b>${t.name.toUpperCase()} <em></em></b><span class="cost">${t.cost}</span></button>`;
@@ -174,7 +184,7 @@ export function createUI(
           const maxed = upgrade.rank >= upgrade.maxRank;
           return `<button data-meta="${upgrade.id}" ${maxed || s.commandXp < cost ? "disabled" : ""}><b>${upgrade.name.toUpperCase()} · ${upgrade.rank}/${upgrade.maxRank}</b><span class="cost">${maxed ? "MAX" : `${cost} XP`}</span><small>${upgrade.description}</small></button>`;
         })
-        .join("");
+        .join(""));
       $("#selected-name").textContent = chosen
         ? `${chosen.name.toUpperCase()} / LV ${s.selected!.level}`
         : "TOWER INSPECTOR";
@@ -247,7 +257,7 @@ export function createUI(
         );
       const bonusCard = $("#bonuses");
       bonusCard.hidden = !s.bonusChoices.length;
-      $("#bonus-choices").innerHTML = s.bonusChoices
+      renderMarkup($("#bonus-choices"), s.bonusChoices
         .map(
           (choice) =>
             `<button data-bonus="${choice.id}"><b>${choice.name.toUpperCase()}</b><small>${choice.description}</small></button>`,

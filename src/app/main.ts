@@ -1,9 +1,11 @@
+import {createStructurePreview, clearPlayerTerrain, snapToMount, structurePlacementIssue} from '../game/terrain.ts';
+import {AUTOSAVE_KEY, CHECKPOINT_KEY, saveDefense, loadDefense} from '../persistence/defense.ts';
 import { connectGPU } from '../runtime/gpu.ts';
 import { verifyABI } from '../runtime/abi-check.ts';
 import { FixedClock } from '../runtime/clock.ts';
 import { FrameMetrics } from '../runtime/metrics.ts';
 import { SettlementReader } from '../runtime/readback.ts';
-import { createLevelEditor, validateEditorMap, wallAtPoint } from '../editor/index.ts';
+import { createLevelEditor, wallAtPoint } from '../editor/index.ts';
 import '../editor/style.css';
 import { createUI } from '../ui/index.ts';
 import { createRenderer } from '../render/index.ts';
@@ -76,10 +78,14 @@ try {
    }
  },error=>errors.push(String(error)));
  function resetWorld(resetRun=true){
-   if(resetRun)run.reset();epoch=run.epoch;
+   if(resetRun){
+     map=clearPlayerTerrain(map,builtWalls,builtWires);builtWalls=[];builtWires=[];
+     navigation=buildNavigation(map);run.setMap(map);run.setBuildMounts([]);run.reset();
+   }
+   epoch=run.epoch;
    physics.reset();combat.reset();boss.reset(false);clock.reset();metrics.reset();lastTickSample=0;waveStartTick=0;simulatedTime=0;
    gpu.device.queue.writeBuffer(gpu.shared.counters,0,new Uint32Array(COUNTER_WORDS));
-   commands=[];visuals=[];visualParticles=[];count=0;spawnSlot=0;state.kills=state.crushKills=state.leaks=state.earned=state.maxPressure=0;state.selectedKind=null;state.selected=null;state.paused=false;
+   commands=[];visuals=[];visualParticles=[];count=0;spawnSlot=0;state.kills=state.crushKills=state.leaks=state.earned=state.maxPressure=0;state.selectedKind=null;state.selected=null;state.buildTool=null;state.paused=false;
    latest={epoch,tick:0,kills:0,crushKills:0,leaks:0,earned:0,live:0,invalid:0,maxPacking:0};
    if(state.mode==='lab'){
      const batches=requestedPopulation<=10000?[{count:Math.floor(requestedPopulation*.8),kind:'shambler' as const,seed:1},{count:Math.floor(requestedPopulation*.15),kind:'runner' as const,seed:2},{count:requestedPopulation-Math.floor(requestedPopulation*.8)-Math.floor(requestedPopulation*.15),kind:'brute' as const,seed:3}]:[{count:requestedPopulation,kind:'shambler' as const,seed:1}];
@@ -130,6 +136,7 @@ try {
    }
    updateUI(performance.now());
  };
+ const previewStructure=createStructurePreview();
  const wallAt=(point:Vec2):Rect=>wallAtPoint(map,point);
  const towerPlacement=(point:Vec2):Vec2=>snapToMount(point,builtWalls);
  const burst=(point:Vec2, count:number, color:[number,number,number], speed:number, life:number, gravity=0, style:VisualParticleStyle='spark', scale=1)=>{
@@ -174,8 +181,35 @@ try {
    }else state.message=`World position ${point.x.toFixed(1)}, ${point.y.toFixed(1)} · peak packing ${latest.maxPacking.toFixed(2)}`;
  });
  const panKeys=new Set<string>();
- window.addEventListener('keydown',event=>{if((event.target as HTMLElement).matches('input,textarea,select'))return;const key=event.key.toLowerCase();if(['w','a','s','d'].includes(key)){event.preventDefault();panKeys.add(key);return;}const towerIndex=Number(key)-1;if(Number.isInteger(towerIndex)&&towerIndex>=0&&towerIndex<Object.keys(TOWERS).length){event.preventDefault();handleAction({type:'select-tower',kind:Object.keys(TOWERS)[towerIndex] as keyof typeof TOWERS});return;}if(key==='q'){event.preventDefault();handleAction({type:'wall-tool'});return;}if(key==='e'){event.preventDefault();handleAction({type:'wire-tool'});return;}if(key==='r'){event.preventDefault();handleAction({type:'demolish-tool'});return;}if(event.code==='Space'){event.preventDefault();handleAction(state.mode==='game'&&run.model.phase==='preparation'?{type:'start-wave'}:{type:'pause'});}if(event.key==='Escape'){event.preventDefault();state.selectedKind=null;state.buildTool=null;run.model.selected=null;state.message='Placement cancelled.';}if(key==='h')handleAction({type:'heatmap',value:!state.heatmap});if(key==='+'||key==='=')renderer.zoomAt(1.13,ui.canvas.getBoundingClientRect().x+ui.canvas.clientWidth/2,ui.canvas.getBoundingClientRect().y+ui.canvas.clientHeight/2);if(key==='-')renderer.zoomAt(1/1.13,ui.canvas.getBoundingClientRect().x+ui.canvas.clientWidth/2,ui.canvas.getBoundingClientRect().y+ui.canvas.clientHeight/2);});
+ window.addEventListener('keydown',event=>{
+   if(event.defaultPrevented||event.ctrlKey||event.metaKey||event.altKey||event.isComposing)return;
+   const target=event.target;
+   if(target instanceof HTMLElement&&(target.isContentEditable||target.closest('input,textarea,select')))return;
+   if(event.code==='Space'&&target instanceof HTMLElement&&target.closest('button,a[href],[role=button]'))return;
+   const key=event.key.toLowerCase();
+   if(['w','a','s','d'].includes(key)){event.preventDefault();panKeys.add(key);return;}
+   if(event.repeat&&[' ','q','e','r','h','escape','1','2','3','4','5','6','7','8'].includes(key)){event.preventDefault();return;}
+   const towerIndex=Number(key)-1;
+   if(Number.isInteger(towerIndex)&&towerIndex>=0&&towerIndex<Object.keys(TOWERS).length){
+     event.preventDefault();handleAction({type:'select-tower',kind:Object.keys(TOWERS)[towerIndex] as keyof typeof TOWERS});return;
+   }
+   if(key==='q'){event.preventDefault();handleAction({type:'wall-tool'});return;}
+   if(key==='e'){event.preventDefault();handleAction({type:'wire-tool'});return;}
+   if(key==='r'){event.preventDefault();handleAction({type:'demolish-tool'});return;}
+   if(event.code==='Space'){
+     event.preventDefault();handleAction(state.mode==='game'&&run.model.phase==='preparation'?{type:'start-wave'}:{type:'pause'});
+   }
+   if(event.key==='Escape'){
+     event.preventDefault();state.selectedKind=null;state.buildTool=null;run.model.selected=null;state.message='Placement cancelled.';
+   }
+   if(key==='h')handleAction({type:'heatmap',value:!state.heatmap});
+   if(key==='+'||key==='=')renderer.zoomAt(1.13,ui.canvas.getBoundingClientRect().x+ui.canvas.clientWidth/2,ui.canvas.getBoundingClientRect().y+ui.canvas.clientHeight/2);
+   if(key==='-')renderer.zoomAt(1/1.13,ui.canvas.getBoundingClientRect().x+ui.canvas.clientWidth/2,ui.canvas.getBoundingClientRect().y+ui.canvas.clientHeight/2);
+ });
  window.addEventListener('keyup',event=>panKeys.delete(event.key.toLowerCase()));
+ window.addEventListener('blur',()=>panKeys.clear());
+ document.addEventListener('visibilitychange',()=>{if(document.hidden)panKeys.clear();});
+ document.addEventListener('focusin',event=>{const target=event.target;if(target instanceof HTMLElement&&(target.isContentEditable||target.closest('input,textarea,select')))panKeys.clear();});
  function updateUI(now:number){
    const report=metrics.report();state.fps=report.fps;state.frameMs=report.medianMs;
    state.metal=run.model.metal;state.baseHealth=run.model.baseHealth/20*100;state.level=run.model.level;state.wave=run.model.wave;state.waveCount=run.model.waveCount;state.phase=state.mode==='lab'?'combat':run.model.phase;
@@ -244,7 +278,9 @@ try {
      requestAnimationFrame(frame);
    }catch(error){fail(error);}
  }
- const restored=restoreSession();resetWorld(!restored);updateUI(performance.now());requestAnimationFrame(frame);
+ let restored=false;
+ if(state.mode==='game'){try{restoreSession();restored=true;}catch{/* Invalid or absent autosaves leave the fresh defense untouched. */}}
+ resetWorld(!restored);updateUI(performance.now());requestAnimationFrame(frame);
 } catch(error){state.message=String(error);state.paused=true;ui.update(state);console.error(error);}
 
 }

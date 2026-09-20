@@ -46,6 +46,7 @@ export function createLevelEditor(mount:HTMLElement, initial:WorldMap, onApply:(
   button('Apply & Play',()=>{const issue=validateEditorMap(map);if(issue){note(issue);return;}applied=clone(map);onApply(clone(map));setActive(false);});
   button('Cancel',()=>{map=clone(applied);setActive(false);}); panel.append(status); root.append(toggle,panel); mount.append(root); panel.hidden=true; panel.style.display='none';
   return {
+    setMap(next:WorldMap){applied=clone(next);map=clone(next);},
     get active(){return active;}, get map(){return clone(map);},
     resetToDefault(){applied=clone(DEFAULT_MAP);map=clone(DEFAULT_MAP);erase=false;note('Default map restored.');},
     paint(point:Vec2, requestedErase=erase) {
