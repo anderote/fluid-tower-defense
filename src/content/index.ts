@@ -11,6 +11,9 @@ export const TOWERS: Record<TowerKind, TowerDef> = {
   incinerator: {id:'incinerator', name:'Incinerator', description:'Bathes a short cone in heat that burns enemies over time.', cost:145, range:16, cooldown:.55, damage:13, force:0, radius:4.8, color:'#ff7848', branches:['Furnace','Wildfire']},
 };
 
+export const MAX_TOWER_LEVEL=50;
+export const towerUpgradeCost=(level:number):number=>45+Math.max(0,Math.floor(level))*35;
+
 const infrastructureResearch=(prefix:string,name:string,description:string,cost:number):readonly CommandUpgrade[]=>Array.from({length:20},(_,index)=>({id:`${prefix}-${index+1}`,name:`${name} ${index+1}`,description,cost:Math.round(cost+(index*42)+(Math.sqrt(index)*28))}));
 
 export const COMMAND_UPGRADES: readonly CommandUpgrade[] = [
@@ -74,11 +77,11 @@ export function validateContent(): void {
   }
 }
 
-/** Compiles the small, supported progression set into a combat-ready definition. */
+/** Compiles the supported tower progression into a combat-ready definition. */
 export function compileTower(tower: Tower, bonuses: readonly string[] = [], commandUpgrades: readonly string[] = [], metaUpgrades:readonly string[]=[]): TowerDef {
   const base=TOWERS[tower.kind];
   let range=base.range, cooldown=base.cooldown, damage=base.damage, force=base.force, radius=base.radius;
-  const level=Math.max(0,tower.level);
+  const level=Math.min(MAX_TOWER_LEVEL,Math.max(0,tower.level));
   range += level * 1.25; damage *= 1 + level * .12;
   const veteran=veterancyMultiplier(tower.veterancy ?? veterancyLevel(tower.veterancyXp ?? 0));
   range*=1+(veteran-1)*.55; damage*=veteran; cooldown/=1+(veteran-1)*.28;
