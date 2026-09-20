@@ -48,7 +48,7 @@ export const ENEMIES: Record<EnemyKind, EnemyDef> = {
   runner: {id:'runner',index:1,name:'Runner',radius:.31875,mass:.65,health:18,speed:5.4,drive:1.3,pressureLimit:18,crushResistance:.7,bounty:3,leak:1,color:'#e6d45d'},
   brute: {id:'brute',index:2,name:'Brute',radius:.6375,mass:3.4,health:110,speed:2,drive:1.1,pressureLimit:46,crushResistance:2.2,bounty:8,leak:3,color:'#cf6d68'},
   rager: {id:'rager',index:3,name:'Rager',radius:.43125,mass:1.35,health:42,speed:3.6,drive:1.8,pressureLimit:28,crushResistance:1.1,bounty:5,leak:2,color:'#ef8738'},
-  softbody: {id:'softbody',index:4,name:'Softbody',radius:.5625,mass:1.1,health:60,speed:2.25,drive:.8,pressureLimit:62,crushResistance:2.8,bounty:6,leak:2,color:'#a678d4'},
+  softbody: {id:'softbody',index:4,name:'Bloater',radius:.5625,mass:1.1,health:60,speed:2.25,drive:.8,pressureLimit:62,crushResistance:2.8,bounty:6,leak:2,color:'#a678d4'},
   husk: {id:'husk',index:5,name:'Husk',radius:.35625,mass:.85,health:34,speed:2.9,drive:1,pressureLimit:10,crushResistance:.5,bounty:4,leak:1,color:'#9edce8'},
 };
 

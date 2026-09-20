@@ -1,16 +1,17 @@
 import {PARTICLE_WGSL,type RenderScene,type SharedGPU} from '../contracts/index.ts';
-import {createShamblerAtlas,SHAMBLER_PIVOT} from './shambler-art.ts';
+import {createZombieAtlas} from './zombie-art.ts';
+import {ZOMBIE_FRAME,ZOMBIE_PIVOT,ZOMBIE_ROSTER_WGSL} from './zombie-roster.ts';
 import {SHAMBLER_ANIMATION_WGSL,SHAMBLER_STATE_BYTES,SHAMBLER_STATE_WGSL} from './shambler-animation.ts';
 
 export async function createShamblers(device:GPUDevice,format:GPUTextureFormat,camera:GPUBuffer,shared:SharedGPU){
-  const atlas=createShamblerAtlas();
-  const texture=device.createTexture({label:'Original shambler sprite sheet',size:[atlas.width,atlas.height],format:'rgba8unorm',usage:GPUTextureUsage.TEXTURE_BINDING|GPUTextureUsage.COPY_DST|GPUTextureUsage.RENDER_ATTACHMENT});
+  const atlas=createZombieAtlas();
+  const texture=device.createTexture({label:'Original zombie roster sprite sheet',size:[atlas.width,atlas.height],format:'rgba8unorm',usage:GPUTextureUsage.TEXTURE_BINDING|GPUTextureUsage.COPY_DST|GPUTextureUsage.RENDER_ATTACHMENT});
   device.queue.copyExternalImageToTexture({source:atlas},{texture},[atlas.width,atlas.height]);
   const state=device.createBuffer({label:'Shambler visual state',size:shared.capacity*SHAMBLER_STATE_BYTES,usage:GPUBufferUsage.STORAGE});
   const clock=device.createBuffer({label:'Shambler animation clock',size:16,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST});
   const update=await device.createComputePipelineAsync({layout:'auto',compute:{module:device.createShaderModule({label:'Shambler animation',code:SHAMBLER_ANIMATION_WGSL}),entryPoint:'update'}});
   const updateBindings=device.createBindGroup({layout:update.getBindGroupLayout(0),entries:[shared.particles,state,clock].map((buffer,binding)=>({binding,resource:{buffer}}))});
-  const shader=device.createShaderModule({label:'Shambler sprites',code:`${PARTICLE_WGSL}${SHAMBLER_STATE_WGSL}
+  const shader=device.createShaderModule({label:'Zombie roster sprites',code:`${PARTICLE_WGSL}${SHAMBLER_STATE_WGSL}${ZOMBIE_ROSTER_WGSL}
 struct Camera { viewport:vec4<f32>, world:vec4<f32>, time:vec4<f32> };
 @group(0) @binding(0) var<uniform> camera:Camera;
 @group(0) @binding(1) var<storage,read> particles:array<Particle>;
@@ -22,16 +23,17 @@ fn clip(p:vec2<f32>)->vec2<f32>{let aspect=camera.viewport.x/max(1.,camera.viewp
  let corners=array<vec2<f32>,6>(vec2(0.,0.),vec2(1.,0.),vec2(0.,1.),vec2(0.,1.),vec2(1.,0.),vec2(1.,1.));
  let q=corners[vi];let p=particles[i];let a=animation[i];var o:Out;o.pos=vec4(2.,2.,0.,1.);o.tint=vec4(0.);o.uv=vec2(0.);o.pressure=0.;
  let dead=p.state.w<-.5;let deathAge=max(0.,camera.time.x+p.body.w/60.);
- if(p.state.z>.5||abs(p.state.w)<.5||(dead&&deathAge>4.)){return o;}
+ let kind=u32(max(0.,round(p.state.z)));let sprite=zombieAtlas(kind);
+ if(sprite<0.||abs(p.state.w)<.5||(dead&&deathAge>4.)){return o;}
  let facing=f32((i32(round(a.pose.x/0.7853981634))+16)%8);
  var frame=0.;if(a.pose.w>.5){frame=1.+floor(a.pose.y*8.);}if(a.pose.w>1.5){frame=9.;}
- if(dead){frame=10.+floor(min(5.,deathAge/.09));}
- // A 32-pixel tile covers 2.64 world units; the feet keep the collision pivot.
- let size=p.body.x*6.4;let offset=(q-vec2(${SHAMBLER_PIVOT.x/32},${SHAMBLER_PIVOT.y/32}))*size;
+ if(dead){frame=10.+floor(min(5.,deathAge/zombieCollapseStep(kind)));}
+ // Atlas padding allows long limbs and falling bodies without changing their feet.
+ let size=p.body.x*zombieTileScale(kind);let offset=(q-vec2(${ZOMBIE_PIVOT.x/ZOMBIE_FRAME},${ZOMBIE_PIVOT.y/ZOMBIE_FRAME}))*size;
  // Constant depth across each cutout sorts by feet, independent of slot order.
  let depth=clamp(.95-(p.pos.y-camera.world.y)/camera.world.w*.8,.01,.99);
  o.pos=vec4(clip(p.pos.xy+offset),select(depth,.995,dead),1.);
- o.uv=(vec2(frame,facing)+q)*32.;
+ o.uv=(vec2(frame,sprite*8.+facing)+q)*${ZOMBIE_FRAME}.;
  let variation=.88+fract(f32(i)*.381966)*.18;let hp=select(clamp(p.body.z/max(.001,p.body.w),0.,1.),.5,dead);
  o.tint=vec4(vec3(variation*(.7+.3*hp)),select(1.,1.-smoothstep(2.5,4.,deathAge),dead));
  o.pressure=select(0.,clamp(log2(1.+max(0.,p.state.y))/7.,0.,1.),camera.time.y>.5&&!dead);return o;

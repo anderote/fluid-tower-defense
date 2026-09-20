@@ -6,6 +6,7 @@ import {createRedAlertArt,hasRedAlertSprite,type TurretArtStyle,type FloorArtSty
 import type {WireArtStyle} from './wire-art.ts';
 import {SHOT_GEOMETRY_WGSL} from './shot-geometry.ts';
 import {createShamblers} from './shamblers.ts';
+import {ZOMBIE_ROSTER_WGSL} from './zombie-roster.ts';
 
 const MAX_TOWERS = 64;
 type V = { x:number; y:number; r:number; g:number; b:number; a:number };
@@ -26,6 +27,7 @@ export async function createRenderer(device: GPUDevice, context: GPUCanvasContex
   const particleModule = device.createShaderModule({code:`
 ${PARTICLE_WGSL}
 ${ENEMY_WGSL}
+${ZOMBIE_ROSTER_WGSL}
 struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> };
 @group(0) @binding(0) var<uniform> camera: Camera;
 @group(0) @binding(1) var<storage,read> particles: array<Particle>;
@@ -43,7 +45,7 @@ fn pressureColor(value:f32)->vec3<f32>{
   let shard=vi/6u; let c=corners[vi%6u]; let p=particles[ii]; let dead=p.state.w<-.5; var radius=max(.27,p.body.x*1.18);
   var o:Out; o.local=c; o.bloodMode=0.;
   if(dead){ let age=max(0.,camera.time.x-(-p.body.w)/60.);let seed=f32(ii)*17.+f32(shard)*2.4;let flight=clamp(age/.78,0.,1.);let dir=vec2(cos(seed),sin(seed));let stain=shard==0u;let mist=shard>4u;let speed=select(.85+fract(seed*3.1)*2.2,.38+fract(seed)*.8,mist);let center=select(p.pos.xy+dir*(.18+speed*flight)+vec2(0.,age*age*.7),p.pos.xy,stain);radius=select(max(.07,p.body.x*(.36+.72*(1.-flight))*select(1.,.62,mist)),max(.38,p.body.x*3.25),stain);let life=select(max(0.,1.-age/select(.95,.62,mist)),max(0.,1.-age/18.),stain);o.pos=vec4(world(center+c*radius),0,1);o.color=vec4(select(.42+.3*sin(seed),.7+.18*sin(seed*2.),mist),.008,.004,life*select(.9,.42,stain));o.bloodMode=select(2.,1.,stain);return o; }
-  if(shard>0u||p.state.z<.5){o.pos=vec4(2.,2.,0.,1.);o.color=vec4(0.);return o;}
+  if(shard>0u||zombieAtlas(u32(max(0.,round(p.state.z))))>=0.){o.pos=vec4(2.,2.,0.,1.);o.color=vec4(0.);return o;}
   let speed=length(p.pos.zw);let forward=select(vec2(1.,0.),p.pos.zw/max(.001,speed),speed>.02);let side=vec2(-forward.y,forward.x);let breathe=1.+.055*sin(camera.time.x*5.5+f32(ii)*.37);let offset=(forward*c.x*(1.03+min(.28,speed*.035))+side*c.y*.92)*radius*breathe;let q=world(p.pos.xy+offset);o.pos=vec4(q,0,1);
   let k=u32(clamp(p.state.z,0.0,5.0)+0.5); var col=enemyColor(k);
   let hp=clamp(p.body.z/max(0.001,p.body.w),0.0,1.0);let rawPressure=max(0.,p.state.y);let pressure=clamp(log2(1.+rawPressure)/7.,0.,1.);
