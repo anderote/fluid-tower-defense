@@ -26,7 +26,7 @@ fn clip(p:vec2<f32>)->vec2<f32>{let aspect=camera.viewport.x/max(1.,camera.viewp
  let q=corners[vi];let p=particles[i];let a=animation[i];var o:Out;o.pos=vec4(2.,2.,0.,1.);o.tint=vec4(0.);o.uv=vec2(0.);o.pressure=0.;
  let dead=p.state.w<-.5;let deathAge=max(0.,camera.time.x+p.body.w/60.);
  let kind=u32(max(0.,round(p.state.z)));let sprite=zombieAtlas(kind);
- if(sprite<0.||abs(p.state.w)<.5||(dead&&deathAge>4.)){return o;}
+ if(sprite<0.||abs(p.state.w)<.5||(dead&&${shared.aftermath?'true':'false'})||(dead&&deathAge>4.)){return o;}
  let shock=electricity.victims[i].shock;let shockAge=teslaAge(shock,p.status.w,camera.time.x);
  if((dead&&shock.x>0.&&shock.y==p.status.w&&shock.z>.5)||(!dead&&shockAge<.24)){return o;}
  let facing=f32((i32(round(a.pose.x/0.7853981634))+16)%8);
@@ -52,6 +52,7 @@ fn clip(p:vec2<f32>)->vec2<f32>{let aspect=camera.viewport.x/max(1.,camera.viewp
   const bindings=device.createBindGroup({layout:pipeline.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:camera}},{binding:1,resource:{buffer:shared.particles}},{binding:2,resource:{buffer:state}},{binding:3,resource:texture.createView()},{binding:4,resource:{buffer:shared.teslaState!}}]});
   let depth:GPUTexture|undefined,width=0,height=0,lastTime=-1;
   return {
+    texture,
     prepare(encoder:GPUCommandEncoder,scene:RenderScene){
       const reset=lastTime<0||scene.time<lastTime;const dt=reset?0:Math.min(.1,scene.time-lastTime);lastTime=scene.time;
       device.queue.writeBuffer(clock,0,new Float32Array([scene.time,dt,Math.min(scene.count,shared.capacity),reset?1:0]));
