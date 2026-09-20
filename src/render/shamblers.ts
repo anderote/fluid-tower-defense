@@ -64,10 +64,13 @@ fn clip(p:vec2<f32>)->vec2<f32>{let aspect=camera.viewport.x/max(1.,camera.viewp
       if(!scene.count){lastTime=-1;return;}
       const pass=encoder.beginComputePass({label:'Animate shamblers'});pass.setPipeline(update);pass.setBindGroup(0,updateBindings);pass.dispatchWorkgroups(Math.ceil(Math.min(scene.count,shared.capacity)/128));pass.end();
     },
-    draw(encoder:GPUCommandEncoder,target:GPUTextureView,w:number,h:number,count:number){
+    draw(encoder:GPUCommandEncoder,target:GPUTextureView,w:number,h:number,count:number,sceneDepth?:GPUTexture){
       if(!count)return;
-      if(w!==width||h!==height){depth?.destroy();width=w;height=h;depth=device.createTexture({label:'Shambler overlap depth',size:[w,h],format:'depth32float',usage:GPUTextureUsage.RENDER_ATTACHMENT});}
-      const pass=encoder.beginRenderPass({label:'Shambler sprites',colorAttachments:[{view:target,loadOp:'load',storeOp:'store'}],depthStencilAttachment:{view:depth!.createView(),depthClearValue:1,depthLoadOp:'clear',depthStoreOp:'discard'}});
+      if(!sceneDepth&& (w!==width||h!==height)){depth?.destroy();width=w;height=h;depth=device.createTexture({label:'Shambler overlap depth',size:[w,h],format:'depth32float',usage:GPUTextureUsage.RENDER_ATTACHMENT});}
+      // Reuse terrain depth when available: trees, walls, and defenses then
+      // occlude units according to their shared ground-contact depth.
+      const depthTexture=sceneDepth??depth!;
+      const pass=encoder.beginRenderPass({label:'Shambler sprites',colorAttachments:[{view:target,loadOp:'load',storeOp:'store'}],depthStencilAttachment:{view:depthTexture.createView(),depthClearValue:1,depthLoadOp:sceneDepth?'load':'clear',depthStoreOp:'discard'}});
       pass.setPipeline(pipeline);pass.setBindGroup(0,bindings);pass.draw(6,Math.min(count,shared.capacity));pass.end();
     },
     destroy(){texture.destroy();state.destroy();clock.destroy();depth?.destroy();}
