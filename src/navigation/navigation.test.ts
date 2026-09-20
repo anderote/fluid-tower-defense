@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {DEFAULT_MAP} from '../content/index.ts';
-import {buildNavigation,canPlace,resolvePlacement,snapToMount} from './index.ts';
+import {buildNavigation,canPlace,hasSpawnRoute,mapWithTurretObstacles,resolvePlacement,snapToMount} from './index.ts';
 import {wallMountCells} from '../game/terrain.ts';
 
 test('staged default map provides a route through every gate',()=>{
@@ -19,6 +19,13 @@ test('default walls preserve the clear boss corridor',()=>{
   assert.ok(DEFAULT_MAP.obstacles.every(wall=>wall.y+wall.height<=47.5||wall.y>=52.5));
 });
 test('placement allows the corridor and spawn area but rejects walls and overlaps',()=>{ assert.equal(canPlace(DEFAULT_MAP,[],{x:10,y:50},1),true); assert.equal(canPlace(DEFAULT_MAP,[],{x:10,y:40},1),true); assert.equal(canPlace(DEFAULT_MAP,[],{x:86,y:20},1),false); assert.equal(canPlace(DEFAULT_MAP,[],{x:76,y:38},1),false); const towers=[{id:1,kind:'cryo' as const,x:50,y:50,level:0,branch:-1,angle:0,cooldown:0,spent:0}]; assert.equal(canPlace(DEFAULT_MAP,towers,{x:51,y:50},1),false); assert.equal(canPlace(DEFAULT_MAP,towers,{x:72,y:50},1),true); });
+test('deployed turrets become solid route obstacles without sealing the spawn',()=>{
+ const map={id:'turret-route',width:16,height:9,obstacles:[],spawn:{x:0,y:3,width:1,height:3},goal:{x:15,y:4},goalRadius:0};
+ const blocked=mapWithTurretObstacles(map,[{x:8,y:4}]);
+ const field=buildNavigation(blocked);
+ assert.equal(Number.isFinite(field.distances[4*field.width+8]),false);
+ assert.equal(hasSpawnRoute(blocked),true);
+});
 test('placement resolves flush inside every map edge',()=>{
   assert.deepEqual(resolvePlacement(DEFAULT_MAP,{x:0,y:10},1.25),{x:1.25,y:10});
   assert.deepEqual(resolvePlacement(DEFAULT_MAP,{x:160,y:20},1.25),{x:158.75,y:20});
