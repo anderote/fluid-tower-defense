@@ -63,7 +63,7 @@ fn finite1(v: f32) -> bool { return v == v && abs(v) < 1e20; }
 fn finite2(v: vec2<f32>) -> bool { return finite1(v.x) && finite1(v.y); }
 fn safeRadius(v: f32) -> f32 {
   if (!finite1(v)) { return 0.25; }
-  return clamp(abs(v), 0.05, 0.85);
+  return clamp(abs(v), 0.05, 0.6375);
 }
 fn safeMass(v: f32) -> f32 {
   if (!finite1(v)) { return 1.0; }

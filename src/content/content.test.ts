@@ -4,8 +4,8 @@ import {ENEMIES, DEFAULT_MAP, TOWERS, compileTower, createParticles, towerBehavi
 import {P, PARTICLE_FLOATS, type Tower} from '../contracts/index.ts';
 
 test('content registry is valid and has six readable enemy roles',()=>{ validateContent(); assert.equal(Object.keys(TOWERS).length,8);assert.equal(Object.keys(ENEMIES).length,6);assert.ok(ENEMIES.rager.drive>ENEMIES.shambler.drive);assert.ok(ENEMIES.husk.pressureLimit<ENEMIES.brute.pressureLimit); });
-test('enemy bodies use the enlarged physical footprint',()=>{
- assert.deepEqual(Object.values(ENEMIES).map(enemy=>enemy.radius),[.55,.425,.85,.575,.75,.475]);
+test('enemy bodies use the tuned physical footprint',()=>{
+ assert.deepEqual(Object.values(ENEMIES).map(enemy=>enemy.radius),[.4125,.31875,.6375,.43125,.5625,.35625]);
 });
 test('particle generator reports its actual populated prefix and keeps bodies apart',()=>{
  const particles=createParticles([{count:20,kind:'brute',seed:4}],DEFAULT_MAP,10);
