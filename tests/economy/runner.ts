@@ -57,13 +57,15 @@ async function gpuCheck(repulsor:boolean) {
   const adapter=await navigator.gpu.requestAdapter();assert(adapter,'WebGPU adapter unavailable');
   const device=await adapter.requestDevice();
   const errors:string[]=[];device.addEventListener('uncapturederror',event=>errors.push(event.error.message));
+  const count=repulsor?2:34;
   const shared:SharedGPU={
-    particles:device.createBuffer({size:2*PARTICLE_FLOATS*4,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST|GPUBufferUsage.COPY_SRC}),
+    particles:device.createBuffer({size:count*PARTICLE_FLOATS*4,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST|GPUBufferUsage.COPY_SRC}),
     counters:device.createBuffer({size:COUNTER_WORDS*4,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST|GPUBufferUsage.COPY_SRC}),
-    capacity:2,
+    capacity:count,
   };
   const combat=await createCombat(device,shared);
-  const source=createParticles(repulsor?[{kind:'shambler',count:2,seed:1}]:[{kind:'shambler',count:1,seed:1},{kind:'brute',count:1,seed:2}],DEFAULT_MAP,2);
+  const source=createParticles(repulsor?[{kind:'shambler',count:2,seed:1}]:[{kind:'shambler',count,seed:1}],DEFAULT_MAP,count);
+  if(!repulsor)for(let i=0;i<count;i++){source[i*PARTICLE_FLOATS+P.x]=55;source[i*PARTICLE_FLOATS+P.y]=50;}
   source[P.x]=55;source[P.y]=50;source[PARTICLE_FLOATS+P.x]=repulsor?62:56;source[PARTICLE_FLOATS+P.y]=50;
   device.queue.writeBuffer(shared.particles,0,source);
   const tower={id:1,kind:'repulsor' as const,x:50,y:50,level:0,branch:-1,angle:0,cooldown:0,spent:90};
@@ -71,7 +73,7 @@ async function gpuCheck(repulsor:boolean) {
   try {
     for(let tick=1;tick<=2;tick++){
       const encoder=device.createCommandEncoder();
-      const state={dt:1/60,tick,count:2,map:DEFAULT_MAP,tuning:DEFAULT_TUNING,lab:true,
+      const state={dt:1/60,tick,count,map:DEFAULT_MAP,tuning:DEFAULT_TUNING,lab:true,
         effects:repulsor?[]:[{kind:'shot' as const,x:55,y:50,radius:10,strength:0,damage:1000,direction:{x:0,y:0},cone:0,duration:1,source:0}],
         towers:repulsor?[{tower,definition:compileTower(tower)}]:[],
       };
@@ -91,8 +93,8 @@ async function gpuCheck(repulsor:boolean) {
       assert(particles[PARTICLE_FLOATS+P.vx]===0,'Repulsor hit a target outside its new range');
       assert(particles[PARTICLE_FLOATS+P.hp]===particles[PARTICLE_FLOATS+P.maxHp],'Out-of-range target took damage');
     }else{
-      assert(counters[0]===2,'Expected two kills');
-      assert(counters[3]===4,'Shambler + brute should pay 1 + 3 Metal exactly once');
+      assert(counters[0]===34,'Expected 34 kills');
+      assert(counters[3]===1&&counters[15]===102,'34 shamblers should accumulate 102 bounty points and pay one Metal exactly once');
     }
     assert(errors.length===0,errors.join('; '));
   } finally {staging.destroy();combat.destroy();shared.particles.destroy();shared.counters.destroy();device.destroy();}
