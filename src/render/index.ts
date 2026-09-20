@@ -2,6 +2,7 @@ import { ENEMY_WGSL, towerBehavior } from '../content/index.ts';
 import { PARTICLE_WGSL, type RenderScene, type Renderer, type SharedGPU, type TowerKind, type Vec2 } from '../contracts/index.ts';
 import {screenToWorld as unproject, worldToScreen as project} from './camera.ts';
 import {TURRET_GRID, turretPixelRects, type TurretInk} from './turret-art.ts';
+import {createRedAlertArt,hasRedAlertSprite} from './red-alert.ts';
 
 const MAX_TOWERS = 64;
 type V = { x:number; y:number; r:number; g:number; b:number; a:number };
@@ -10,6 +11,7 @@ const sameRect=(left:{x:number;y:number;width:number;height:number},right:{x:num
 /** GPU-only visualizer. Particle bodies remain in the shared simulation buffer. */
 export async function createRenderer(device: GPUDevice, context: GPUCanvasContext, format: GPUTextureFormat, shared: SharedGPU, canvas: HTMLCanvasElement): Promise<Renderer> {
   const uniform = device.createBuffer({ label:'Render camera', size:64, usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST });
+  const redAlert=await createRedAlertArt(device,format,uniform).catch(error=>{console.warn('Original artwork unavailable; using fallback graphics.',error);return null;});
   let overlayCapacity=1;
   let overlays = device.createBuffer({ label:'Tactical overlays', size:24, usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST });
   let foregroundCapacity=1;
@@ -137,6 +139,7 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
   const casing=(a:V[],x:number,y:number,size:number,angle:number,c:[number,number,number,number])=>{const f={x:Math.cos(angle)*size,y:Math.sin(angle)*size},s={x:-Math.sin(angle)*size*.28,y:Math.cos(angle)*size*.28};tri(a,{x:x+f.x,y:y+f.y},{x:x+s.x,y:y+s.y},{x:x-f.x+s.x,y:y-f.y+s.y},c);tri(a,{x:x+f.x,y:y+f.y},{x:x-f.x+s.x,y:y-f.y+s.y},{x:x-f.x-s.x,y:y-f.y-s.y},c);tri(a,{x:x+f.x,y:y+f.y},{x:x-f.x-s.x,y:y-f.y-s.y},{x:x-s.x,y:y-s.y},[Math.min(1,c[0]*1.3),Math.min(1,c[1]*1.35),Math.min(1,c[2]*1.2),c[3]*.85]);};
   const orientedRect=(a:V[],x:number,y:number,halfLength:number,halfWidth:number,angle:number,c:[number,number,number,number])=>{const f={x:Math.cos(angle)*halfLength,y:Math.sin(angle)*halfLength},s={x:-Math.sin(angle)*halfWidth,y:Math.cos(angle)*halfWidth};tri(a,{x:x+f.x+s.x,y:y+f.y+s.y},{x:x-f.x+s.x,y:y-f.y+s.y},{x:x-f.x-s.x,y:y-f.y-s.y},c);tri(a,{x:x+f.x+s.x,y:y+f.y+s.y},{x:x-f.x-s.x,y:y-f.y-s.y},{x:x+f.x-s.x,y:y+f.y-s.y},c);};
   const towerShape=(a:V[],t:Vec2 & {kind:TowerKind;angle?:number},c:[number,number,number,number])=>{
+    if(redAlert&&hasRedAlertSprite(t.kind))return;
     const angle=t.angle??0,cell=4/TURRET_GRID;
     const palette:Record<TurretInk,[number,number,number,number]>={
       shadow:[.008,.01,.014,c[3]*.72],base:[.12,.14,.17,c[3]],dark:[c[0]*.18,c[1]*.2,c[2]*.22,c[3]],
@@ -186,13 +189,15 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
   };
   function geometry(scene:RenderScene): Float32Array { const a:V[]=[];
     const activeWires=(scene.wires??[]).filter(wire=>!wire.breached);
-    for(const o of scene.map.obstacles){if(activeWires.some(wire=>sameRect(wire,o)))continue;rect(a,o.x-.22,o.y-.22,o.width+.44,o.height+.44,[.018,.021,.027,.78]);rect(a,o.x,o.y,o.width,o.height,[.13,.15,.19,.98]);rect(a,o.x+.38,o.y+.38,Math.max(0,o.width-.76),Math.max(0,o.height-.76),[.22,.25,.3,.92]);rect(a,o.x+.38,o.y+.38,Math.max(0,o.width-.76),.34,[.5,.57,.66,.42]);rect(a,o.x+o.width-.58,o.y+.45,.18,Math.max(0,o.height-.9),[.045,.052,.07,.74]);for(let y=o.y+2;y<o.y+o.height-1;y+=5)rect(a,o.x+.08,y,Math.min(.48,o.width*.16),1.5,[.95,.61,.12,.38]);}
+    if(!redAlert)for(const o of scene.map.obstacles){if(activeWires.some(wire=>sameRect(wire,o)))continue;rect(a,o.x-.22,o.y-.22,o.width+.44,o.height+.44,[.018,.021,.027,.78]);rect(a,o.x,o.y,o.width,o.height,[.13,.15,.19,.98]);rect(a,o.x+.38,o.y+.38,Math.max(0,o.width-.76),Math.max(0,o.height-.76),[.22,.25,.3,.92]);rect(a,o.x+.38,o.y+.38,Math.max(0,o.width-.76),.34,[.5,.57,.66,.42]);rect(a,o.x+o.width-.58,o.y+.45,.18,Math.max(0,o.height-.9),[.045,.052,.07,.74]);for(let y=o.y+2;y<o.y+o.height-1;y+=5)rect(a,o.x+.08,y,Math.min(.48,o.width*.16),1.5,[.95,.61,.12,.38]);}
     for(const wall of scene.walls??[]){
       const integrity=Math.max(0,Math.min(1,wall.health/wall.maxHealth)),damage=1-integrity;
       // The structural base is drawn from map obstacles above. These overlays make its condition legible at a glance.
-      rect(a,wall.x+.16,wall.y+.16,wall.width-.32,wall.height-.32,[.012,.015,.019,.13+damage*.68]);
+      rect(a,wall.x+.16,wall.y+.16,wall.width-.32,wall.height-.32,[.012,.015,.019,(redAlert?0:.13)+damage*.68]);
+      if(!redAlert){
       rect(a,wall.x+.48,wall.y+wall.height*.48,wall.width-.96,.14,[.7-damage*.48,.76-damage*.56,.79-damage*.6,.32+damage*.22]);
       for(const x of [wall.x+.62,wall.x+wall.width-.82])for(const y of [wall.y+.62,wall.y+wall.height-.82])disc(a,x,y,.12,[.85-damage*.62,.9-damage*.7,.91-damage*.72,.72]);
+      }
       if(damage>.18){
         const alpha=Math.min(.94,(damage-.14)*1.25), cx=wall.x+wall.width*.53,cy=wall.y+wall.height*.46;
         streak(a,cx,cy,-.72,-1,1.25+damage*1.1,.075,[.008,.007,.006,alpha]);
@@ -277,13 +282,16 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
       device.queue.writeBuffer(uniform,0,new Float32Array([pixelW,pixelH,0,0,camera.x+shakeX,camera.y+shakeY,v.width,v.height,scene.time,scene.heatmap?1:0,0,0,0,0,0,0]));
       const visual=new Float32Array(Math.max(1,Math.min(MAX_TOWERS,scene.towers.length))*4),weaponKinds=['repulsor','mortar','autocannon','cryo','tesla','rocket','railgun','incinerator'];
       scene.towers.slice(0,MAX_TOWERS).forEach((t,i)=>visual.set([t.x,t.y,t.id,towerBehavior(t.kind)+weaponKinds.indexOf(t.kind)/100],i*4));device.queue.writeBuffer(towerVisuals,0,visual);
+      redAlert?.prepare(scene);
       const data=geometry(scene),fx=foregroundGeometry(scene);
       if(data.length/6>overlayCapacity){const previous=overlays;overlayCapacity=2**Math.ceil(Math.log2(data.length/6));overlays=device.createBuffer({label:'Tactical overlays',size:overlayCapacity*24,usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST});previous.destroy();}
       if(fx.length/6>foregroundCapacity){const previous=foreground;foregroundCapacity=2**Math.ceil(Math.log2(fx.length/6));foreground=device.createBuffer({label:'Foreground effects',size:foregroundCapacity*24,usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST});previous.destroy();}
       if(data.byteLength)device.queue.writeBuffer(overlays,0,data.buffer,data.byteOffset,data.byteLength);if(fx.byteLength)device.queue.writeBuffer(foreground,0,fx.buffer,fx.byteOffset,fx.byteLength);
       const pass=encoder.beginRenderPass({colorAttachments:[{view:context.getCurrentTexture().createView(),clearValue:{r:.075,g:.075,b:.078,a:1},loadOp:'clear',storeOp:'store'}]});
       pass.setPipeline(bg);pass.setBindGroup(0,cameraBG);pass.draw(3);
+      redAlert?.drawTerrain(pass);
       pass.setPipeline(overlay);pass.setBindGroup(0,cameraOverlay);pass.setVertexBuffer(0,overlays);pass.draw(data.length/6);
+      redAlert?.drawTowers(pass);
       pass.setPipeline(particles);pass.setBindGroup(0,cameraParticles);pass.draw(48,Math.min(scene.count,shared.capacity));
       pass.setPipeline(overlay);pass.setBindGroup(0,cameraOverlay);pass.setVertexBuffer(0,foreground);pass.draw(fx.length/6);
       if(shared.shotState){pass.setPipeline(cues);pass.setBindGroup(0,cameraCues);pass.draw(72,Math.min(MAX_TOWERS,scene.towers.length));}pass.end();
@@ -292,6 +300,6 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
     worldToScreen,
     pan(dx,dy){camera.x+=dx;camera.y+=dy;clampCamera();},
     zoomAt(factor,clientX,clientY){const before=screenToWorld(clientX,clientY);camera.zoom=Math.max(1,Math.min(5,camera.zoom*factor));const after=screenToWorld(clientX,clientY);camera.x+=before.x-after.x;camera.y+=before.y-after.y;clampCamera();},
-    destroy(){uniform.destroy();overlays.destroy();foreground.destroy();towerVisuals.destroy();emptyShots.destroy();}
+    destroy(){redAlert?.destroy();uniform.destroy();overlays.destroy();foreground.destroy();towerVisuals.destroy();emptyShots.destroy();}
   };
 }
