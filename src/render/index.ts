@@ -114,12 +114,59 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
   const shard=(a:V[],x:number,y:number,size:number,angle:number,c:[number,number,number,number])=>{const f={x:Math.cos(angle)*size,y:Math.sin(angle)*size},s={x:-Math.sin(angle)*size*.55,y:Math.cos(angle)*size*.55};tri(a,{x:x+f.x,y:y+f.y},{x:x+s.x,y:y+s.y},{x:x-f.x-s.x*.25,y:y-f.y-s.y*.25},c);tri(a,{x:x+f.x,y:y+f.y},{x:x-f.x-s.x*.25,y:y-f.y-s.y*.25},{x:x-s.x,y:y-s.y},c)};
   const diamond=(a:V[],x:number,y:number,size:number,c:[number,number,number,number])=>{tri(a,{x,y:y-size},{x:x+size,y},{x,y:y+size},c);tri(a,{x,y:y-size},{x,y:y+size},{x:x-size,y},c)};
   const towerShape=(a:V[],t:Vec2 & {kind:string;level?:number},c:[number,number,number,number])=>{const s=1.65+Math.log1p(Math.max(0,t.level??0))*.35;if(t.kind==='repulsor'||t.kind==='rocket')tri(a,{x:t.x,y:t.y-s},{x:t.x+s,y:t.y+s},{x:t.x-s,y:t.y+s},c);else if(t.kind==='mortar'||t.kind==='tesla')rect(a,t.x-s,t.y-s,s*2,s*2,c);else if(t.kind==='autocannon'||t.kind==='railgun')diamond(a,t.x,t.y,s,c);else if(t.kind==='incinerator'){tri(a,{x:t.x,y:t.y-s},{x:t.x+s,y:t.y+s*.7},{x:t.x-s,y:t.y+s*.7},c);rect(a,t.x-s*.25,t.y-s*.1,s*.5,s*1.1,c);}else{rect(a,t.x-s*.38,t.y-s,s*.76,s*2,c);rect(a,t.x-s,t.y-s*.38,s*2,s*.76,c);}};
-  const wireShape=(a:V[],wire:{x:number;y:number;width:number;height:number},c:[number,number,number,number],integrity:number)=>{for(let x=wire.x+.3;x<wire.x+wire.width;x+=.55){streak(a,x,wire.y+.3,.3,1,wire.height-.6,.07,[c[0],c[1],c[2],c[3]*integrity]);streak(a,x,wire.y+wire.height-.3,-.3,-1,wire.height-.6,.05,[c[0],c[1],c[2],c[3]*integrity*.7]);}};
+  const wireShape=(a:V[],wire:{x:number;y:number;width:number;height:number},c:[number,number,number,number],integrity:number,broken=false)=>{
+    const damage=1-integrity, span=Math.max(.35,wire.height-.6);
+    for(let x=wire.x+.3;x<wire.x+wire.width;x+=.55){
+      const seed=Math.floor((x-wire.x)*10)+Math.floor(wire.y*7), missing=broken||damage>.58&&seed%3===0;
+      if(!missing){
+        const lean=.3+(damage*.34)*(seed%2?1:-1), sag=damage*.38*(seed%3-1);
+        streak(a,x,wire.y+.3,lean,1,span*.5,.07,[c[0],c[1],c[2],c[3]]);
+        streak(a,x+lean*.5+sag,wire.y+wire.height*.5,-lean,-1,span*.5,.06,[c[0]*.7,c[1]*.7,c[2]*.7,c[3]*.82]);
+      } else if(!broken) {
+        // Bent, loose ends communicate that this section is nearly spent.
+        streak(a,x,wire.y+.35,.7,.25,.62,.08,[.12,.07,.035,.85]);
+        streak(a,x+.18,wire.y+wire.height-.35,-.7,-.25,.62,.08,[.12,.07,.035,.85]);
+      }
+    }
+  };
   function geometry(scene:RenderScene): Float32Array { const a:V[]=[];
     const activeWires=(scene.wires??[]).filter(wire=>!wire.breached);
     for(const o of scene.map.obstacles){if(activeWires.some(wire=>sameRect(wire,o)))continue;rect(a,o.x-.22,o.y-.22,o.width+.44,o.height+.44,[.018,.021,.027,.78]);rect(a,o.x,o.y,o.width,o.height,[.13,.15,.19,.98]);rect(a,o.x+.38,o.y+.38,Math.max(0,o.width-.76),Math.max(0,o.height-.76),[.22,.25,.3,.92]);rect(a,o.x+.38,o.y+.38,Math.max(0,o.width-.76),.34,[.5,.57,.66,.42]);rect(a,o.x+o.width-.58,o.y+.45,.18,Math.max(0,o.height-.9),[.045,.052,.07,.74]);for(let y=o.y+2;y<o.y+o.height-1;y+=5)rect(a,o.x+.08,y,Math.min(.48,o.width*.16),1.5,[.95,.61,.12,.38]);}
-    for(const wall of scene.walls??[]){const integrity=Math.max(0,Math.min(1,wall.health/wall.maxHealth));rect(a,wall.x+.16,wall.y+.16,wall.width-.32,wall.height-.32,[.2+.2*(1-integrity),.3*integrity,.34*integrity,.3]);rect(a,wall.x+.48,wall.y+wall.height*.48,wall.width-.96,.14,[.7,.76,.79,.32]);for(const x of [wall.x+.62,wall.x+wall.width-.82])for(const y of [wall.y+.62,wall.y+wall.height-.82])disc(a,x,y,.12,[.85,.9,.91,.72],6);if(integrity<.72){const alpha=(.72-integrity)*1.2;streak(a,wall.x+2.3,wall.y+2.2,-.7,-1,1.4,.09,[.03,.025,.02,alpha]);streak(a,wall.x+2.05,wall.y+2.35,.75,-.55,.8,.07,[.03,.025,.02,alpha]);}}
-    for(const wire of scene.wires??[]){const integrity=Math.max(.08,wire.health/wire.maxHealth),color:[number,number,number,number]=wire.breached?[.72,.12,.045,.62*integrity]:[.95,.47,.08,.88*integrity];wireShape(a,wire,color,integrity);if(wire.breached)streak(a,wire.x+wire.width*.72,wire.y+wire.height*.82,1,-.4,2.8,.14,[.25,.12,.06,.7*integrity]);}
+    for(const wall of scene.walls??[]){
+      const integrity=Math.max(0,Math.min(1,wall.health/wall.maxHealth)),damage=1-integrity;
+      // The structural base is drawn from map obstacles above. These overlays make its condition legible at a glance.
+      rect(a,wall.x+.16,wall.y+.16,wall.width-.32,wall.height-.32,[.012,.015,.019,.13+damage*.68]);
+      rect(a,wall.x+.48,wall.y+wall.height*.48,wall.width-.96,.14,[.7-damage*.48,.76-damage*.56,.79-damage*.6,.32+damage*.22]);
+      for(const x of [wall.x+.62,wall.x+wall.width-.82])for(const y of [wall.y+.62,wall.y+wall.height-.82])disc(a,x,y,.12,[.85-damage*.62,.9-damage*.7,.91-damage*.72,.72]);
+      if(damage>.18){
+        const alpha=Math.min(.94,(damage-.14)*1.25), cx=wall.x+wall.width*.53,cy=wall.y+wall.height*.46;
+        streak(a,cx,cy,-.72,-1,1.25+damage*1.1,.075,[.008,.007,.006,alpha]);
+        streak(a,cx-.52,cy-.68,.8,-.48,.7+damage*.55,.06,[.008,.007,.006,alpha*.9]);
+        if(damage>.46){
+          streak(a,cx+.24,cy+.35,.62,1,.95+damage*.75,.085,[.008,.007,.006,alpha]);
+          streak(a,cx+.57,cy+.94,-.9,.24,.64,.055,[.008,.007,.006,alpha*.84]);
+        }
+        if(damage>.74){
+          streak(a,wall.x+wall.width*.24,wall.y+wall.height*.3,.32,1,1.45,.1,[.005,.004,.003,alpha]);
+          streak(a,wall.x+wall.width*.72,wall.y+wall.height*.68,-.46,-1,1.3,.095,[.005,.004,.003,alpha]);
+          rect(a,wall.x+.3,wall.y+wall.height-.64,wall.width-.6,.22,[.05,.035,.023,.18+damage*.35]);
+        }
+      }
+    }
+    for(const wire of scene.wires??[]){
+      const integrity=Math.max(.03,Math.min(1,wire.health/wire.maxHealth)),damage=1-integrity;
+      const color:[number,number,number,number]=wire.breached?[.16,.055,.022,.86]:[.74-damage*.48,.42-damage*.3,.12-damage*.09,.94];
+      wireShape(a,wire,color,integrity,wire.breached);
+      if(damage>.28&&!wire.breached){
+        // Rust and a dark sagging lower rail appear well before the wire finally parts.
+        streak(a,wire.x+.45,wire.y+wire.height*.72,1,.06,wire.width-.9,.065,[.12,.045,.014,.22+damage*.48]);
+        for(let x=wire.x+.52;x<wire.x+wire.width-.25;x+=1.1)disc(a,x,wire.y+wire.height*(.3+((Math.floor(x*4)%3)*.18)),.09,[.2,.065,.015,.2+damage*.38],5);
+      }
+      if(wire.breached){
+        streak(a,wire.x+wire.width*.2,wire.y+wire.height*.28,-1,.32,1.3,.12,[.1,.045,.02,.88]);
+        streak(a,wire.x+wire.width*.8,wire.y+wire.height*.72,1,-.32,1.3,.12,[.1,.045,.02,.88]);
+      }
+    }
     rect(a,scene.map.spawn.x,scene.map.spawn.y,scene.map.spawn.width,scene.map.spawn.height,[.95,.48,.12,.11]); ring(a,scene.map.goal.x,scene.map.goal.y,scene.map.goalRadius,[.71,.98,.31,.85]);
     for(const t of scene.towers){const c: [number,number,number,number]=t.kind==='repulsor'?[.73,1,.22,.95]:t.kind==='mortar'?[1,.62,.16,.95]:t.kind==='autocannon'?[.28,.85,1,.95]:t.kind==='cryo'?[.4,.85,.95,.95]:t.kind==='tesla'?[.62,.45,1,.95]:t.kind==='rocket'?[1,.25,.15,.95]:t.kind==='incinerator'?[1,.31,.12,.95]:[.35,1,.78,.95];towerShape(a,t,c);if(scene.selection===t.id)ring(a,t.x,t.y,4.2,[1,.88,.4,.9],.35);}
     if(scene.ghost){const c: [number,number,number,number]=scene.ghost.valid?[.65,1,.25,.8]:[1,.18,.12,.8];ring(a,scene.ghost.x,scene.ghost.y,scene.ghost.range,c,.22);towerShape(a,scene.ghost,c);}
