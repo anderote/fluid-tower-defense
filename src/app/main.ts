@@ -192,7 +192,7 @@ try {
      requestAnimationFrame(frame);
    }catch(error){fail(error);}
  }
- const restored=restoreSession();resetWorld(!restored);if(restored)state.message='Autosave restored. Build state recovered.';updateUI(performance.now());requestAnimationFrame(frame);
+ const restored=restoreSession();resetWorld(!restored);updateUI(performance.now());requestAnimationFrame(frame);
 } catch(error){state.message=String(error);state.paused=true;ui.update(state);console.error(error);}
 
 }
