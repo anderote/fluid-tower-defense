@@ -22,7 +22,7 @@ if(params.has('validate')) {
 } else {
 const run=createRun();
 const progression=createCommandProgression();
-const state:UIState={mode:params.get('mode')==='lab'?'lab':'game',phase:'preparation',paused:false,fps:0,frameMs:0,population:10000,capacity:65536,kills:0,crushKills:0,leaks:0,earned:0,maxPressure:0,metal:650,baseHealth:100,level:1,wave:0,waveCount:10,difficulty:1,selected:null,selectedKind:null,heatmap:false,tool:'blast',message:'Connecting to local GPU…',adapter:'WebGPU',bonusChoices:[],commandUpgrades:[],commandXp:progression.xp,metaUpgrades:progression.upgrades()};
+const state:UIState={mode:params.get('mode')==='lab'?'lab':'game',phase:'preparation',paused:false,fps:0,frameMs:0,population:10000,capacity:65536,kills:0,crushKills:0,leaks:0,earned:0,maxPressure:0,metal:650,baseHealth:100,level:1,wave:0,waveCount:10,difficulty:1,selected:null,selectedKind:null,heatmap:false,tool:'blast',message:'Connecting to local GPU…',adapter:'WebGPU',bonusChoices:[],commandUpgrades:[],commandXp:progression.xp,metaUpgrades:progression.upgrades(),extractionXp:0};
 let handleAction:(action:GameAction)=>void=()=>{};
 const ui=createUI(root,action=>handleAction(action));
 try {
@@ -55,7 +55,7 @@ try {
  let previousPaused=false;
  const AUTOSAVE_KEY='pressure-front.autosave.v1';let lastAutosave=0;
  const resizeSpawn=()=>{const scale=Math.sqrt(state.difficulty);const width=Math.min(70,spawnBaseline.width*scale),height=Math.min(96,spawnBaseline.height*scale);map={...map,spawn:{x:spawnBaseline.x,y:Math.max(2,Math.min(map.height-height-2,spawnBaseline.y+spawnBaseline.height/2-height/2)),width,height}};};
- const saveSession=()=>{if(state.mode!=='game'||run.model.phase!=='preparation')return;try{const runState=run.save();localStorage.setItem(AUTOSAVE_KEY,JSON.stringify({runState,map,spawnBaseline,builtWalls,builtWires,difficulty:state.difficulty}));}catch{/* Local persistence is optional. */}};
+ const saveSession=()=>{if(state.mode!=='game'||!['preparation','checkpoint'].includes(run.model.phase))return;try{const runState=run.save();localStorage.setItem(AUTOSAVE_KEY,JSON.stringify({runState,map,spawnBaseline,builtWalls,builtWires,difficulty:state.difficulty}));}catch{/* Local persistence is optional. */}};
  const restoreSession=()=>{try{const saved=JSON.parse(localStorage.getItem(AUTOSAVE_KEY)??'null') as {runState?:string;map?:WorldMap;spawnBaseline?:Rect;builtWalls?:Rect[];builtWires?:(Rect & {health:number;maxHealth:number;breached:boolean})[];difficulty?:number}|null;if(!saved?.runState||!saved.map)return false;builtWalls=(saved.builtWalls??[]).filter(w=>Number.isFinite(w.x)&&Number.isFinite(w.y));builtWires=(saved.builtWires??[]).filter(w=>Number.isFinite(w.x)&&Number.isFinite(w.y)&&Number.isFinite(w.health));const dynamic=[...builtWalls,...builtWires];const same=(a:Rect,b:Rect)=>a.x===b.x&&a.y===b.y&&a.width===b.width&&a.height===b.height;map={...saved.map,obstacles:[...saved.map.obstacles.filter(obstacle=>!dynamic.some(segment=>same(obstacle,segment))),...builtWalls,...builtWires.filter(wire=>!wire.breached)]};spawnBaseline=saved.spawnBaseline??saved.map.spawn;state.difficulty=run.setSpawnMultiplier(saved.difficulty??1);resizeSpawn();navigation=buildNavigation(map);run.setMap(map);run.setBuildMounts(builtWalls);return run.load(saved.runState).ok;}catch{return false;}};
  const editor=createLevelEditor(root.querySelector<HTMLElement>('.view-actions')!,map,newMap=>{
    map=newMap;spawnBaseline=newMap.spawn;resizeSpawn();navigation=buildNavigation(map);run.setMap(map);state.mode='game';resetWorld();previousPaused=false;
@@ -68,7 +68,7 @@ try {
    if(state.mode==='game'){
      run.applySettlement(s);
      if(s.live===0&&count>0&&s.tick>=waveStartTick&&run.model.pending.length===0&&run.model.phase==='combat'){
-       const priorLevel=run.model.level, priorWave=run.model.wave, result=run.finishSettling();if(result.ok){const xp=18+priorLevel*8+priorWave*3;progression.award(xp);const unlocked=run.model.level>priorLevel&&progression.unlockForLevel(run.model.level);if(run.model.level>priorLevel){const oldWalls=builtWalls,oldWires=builtWires;map={...map,obstacles:map.obstacles.filter(obstacle=>!oldWalls.includes(obstacle)&&!oldWires.includes(obstacle as typeof oldWires[number]))};builtWalls=[];builtWires=[];navigation=buildNavigation(map);run.setMap(map);run.setBuildMounts(builtWalls);}state.message=run.model.level>priorLevel?unlocked?`Tier ${progression.unlockedTier} unlocked. Level ${run.model.level} escalation begins.`:`Level ${priorLevel} contained. Defense reset; level ${run.model.level} begins.`:run.model.bonusChoices.length?'Wave cleared. Choose a command boon.':`Wave cleared. +${xp} Command XP.`;count=0;}
+       const clearedWave=run.model.wave,result=run.finishSettling();if(result.ok){const xp=18+run.model.level*8+clearedWave*3,checkpoint=clearedWave>=10;progression.award(xp);state.message=checkpoint?`Wave ${clearedWave} contained. Extract for ${run.extractionXp} XP or keep this defense and continue.`:run.model.bonusChoices.length?'Wave cleared. Choose a command boon.':`Wave cleared. +${xp} Command XP.`;count=0;}
      }
    }
  },error=>errors.push(String(error)));
@@ -110,6 +110,8 @@ try {
        const result=run.startWave();actionResult(result,'Wave incoming. Hold the choke.');if(!result.ok)break;
        count=0;spawnSlot=0;state.population=0;physics.reset();combat.reset();boss.reset(run.isBossWave);waveStartTick=clock.tick+1;state.paused=false;state.selectedKind=null;break;
      }
+     case 'continue-run':{const result=run.continueRun();if(result.ok){const unlocked=progression.unlockForLevel(run.model.level);state.message=unlocked?`Command tier ${progression.unlockedTier} unlocked. Wave ${run.model.wave+1} is ready.`:`Defense retained. Wave ${run.model.wave+1} is ready.`;}else state.message=result.reason;break;}
+     case 'finish-run':{const result=run.finishRun();if(result.ok){progression.award(result.xp??0);state.message=`Sector secured after ${run.model.wave} waves. +${result.xp??0} extraction XP.`;}else state.message=result.reason;break;}
      case 'upgrade':if(run.model.selected!==null)actionResult(run.upgrade(run.model.selected,action.branch),'Tower upgraded.');break;
      case 'buy-command':actionResult(run.buyCommandUpgrade(action.id),'Command upgrade installed.');break;
      case 'buy-meta':actionResult(progression.buy(action.id),'Permanent Command upgrade installed.');break;
@@ -167,7 +169,7 @@ try {
  function updateUI(now:number){
    const report=metrics.report();state.fps=report.fps;state.frameMs=report.medianMs;
    state.metal=run.model.metal;state.baseHealth=run.model.baseHealth/20*100;state.level=run.model.level;state.wave=run.model.wave;state.waveCount=run.model.waveCount;state.phase=state.mode==='lab'?'combat':run.model.phase;
-   state.selected=run.model.towers.find(t=>t.id===run.model.selected)??null;state.bonusChoices=state.mode==='game'?run.model.bonusChoices:[];
+   state.selected=run.model.towers.find(t=>t.id===run.model.selected)??null;state.bonusChoices=state.mode==='game'?run.model.bonusChoices:[];state.extractionXp=run.extractionXp;
    state.bossHealth=latest.boss?.active?latest.boss.health/latest.boss.maxHealth*100:undefined;state.commandUpgrades=state.mode==='game'?run.model.commandUpgrades:[];state.commandXp=progression.xp;state.metaUpgrades=progression.upgrades();
    ui.update(state);positionInspector();if(now-lastAutosave>1500){saveSession();lastAutosave=now;}lastUI=now;
    diagnosticText.textContent=JSON.stringify({adapter:gpu.adapter,abi:'passed',epoch,tick:clock.tick,simulationSeconds:simulatedTime,slots:count,live:latest.live,requested:requestedPopulation,invalid:latest.invalid,peakPacking:latest.maxPacking,crushKills:latest.crushKills,kills:latest.kills,medianMs:report.medianMs,p95Ms:report.p95Ms,frameSamples:report.samples,canvas:[ui.canvas.width,ui.canvas.height],readbackErrors:errors,boss:latest.boss},null,2);

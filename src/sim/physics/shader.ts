@@ -1,7 +1,9 @@
 import { PARTICLE_WGSL } from '../../contracts/index.ts';
+import { ENEMY_WGSL } from '../../content/index.ts';
 
 export const PHYSICS_WGSL = /* wgsl */ `
 ${PARTICLE_WGSL}
+${ENEMY_WGSL}
 
 struct Params {
   count: u32,
@@ -84,14 +86,6 @@ fn validCell(cell: vec2<i32>) -> bool {
 
 fn cellIndex(cell: vec2<i32>) -> u32 {
   return u32(cell.y) * params.gridWidth + u32(cell.x);
-}
-
-fn bodySpeed(kindValue: f32) -> f32 {
-  var kind = 0u;
-  if (finite1(kindValue)) { kind = u32(clamp(kindValue, 0.0, 2.0) + 0.5); }
-  if (kind == 1u) { return 5.2; }
-  if (kind == 2u) { return 2.1; }
-  return 3.1;
 }
 
 fn routeHash(index: u32, generation: f32, cell: vec2<i32>) -> u32 {
@@ -244,8 +238,9 @@ fn computeMotion(@builtin(global_invocation_id) gid: vec3<u32>) {
   let velocity = particle.pos.zw;
   let radius = safeRadius(particle.body.x);
   let mass = safeMass(particle.body.y);
-  let desiredVelocity = flowDirection(position, index, particle.status.w) * bodySpeed(particle.state.z) * slowMultiplier(position, particle.status.x);
-  var acceleration = (desiredVelocity - velocity) * max(0.0, params.drive) - velocity * 0.12;
+  let kind = u32(clamp(particle.state.z, 0.0, 5.0) + 0.5);
+  let desiredVelocity = flowDirection(position, index, particle.status.w) * enemySpeed(kind) * slowMultiplier(position, particle.status.x);
+  var acceleration = (desiredVelocity - velocity) * max(0.0, params.drive) * enemyDrive(kind) - velocity * 0.12;
   let centerCell = cellFor(position);
 
   for (var oy = -1; oy <= 1; oy += 1) {
@@ -415,8 +410,9 @@ fn integrateParticles(@builtin(global_invocation_id) gid: vec3<u32>) {
 
   particles[index].pos = vec4<f32>(position, velocity);
   particles[index].status.x = slowDuration(position, previousSlow);
-  let damageStart = max(0.0, params.damagePressure);
-  let damageEnd = max(damageStart + 0.001, params.crushPressure);
+  let kind = u32(clamp(particle.state.z, 0.0, 5.0) + 0.5);
+  let damageStart = enemyPressureLimit(kind) * max(0.0, params.damagePressure) / 24.0;
+  let damageEnd = damageStart + max(0.001, params.crushPressure - params.damagePressure);
   let ramp = clamp((max(0.0, particle.state.y) - damageStart) / (damageEnd - damageStart), 0.0, 1.0);
   let smoothRamp = ramp * ramp * (3.0 - 2.0 * ramp);
   particles[index].status.z = max(0.0, previousExposure) + params.dt * max(0.0, params.crushDamage) * smoothRamp;

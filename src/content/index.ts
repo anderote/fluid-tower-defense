@@ -40,10 +40,27 @@ export const veterancyLevel=(xp:number):number=>Math.min(MAX_VETERANCY,Math.floo
 export const veterancyMultiplier=(level:number):number=>1+.115*Math.log1p(Math.min(MAX_VETERANCY,Math.max(0,level)));
 
 export const ENEMIES: Record<EnemyKind, EnemyDef> = {
-  shambler: {id:'shambler', index:0, name:'Shambler', radius:.22, mass:1, health:30, speed:2.5, crushTolerance:1, bounty:3, leak:1, color:'#76c66e'},
-  runner: {id:'runner', index:1, name:'Runner', radius:.18, mass:.7, health:18, speed:4.7, crushTolerance:.72, bounty:3, leak:1, color:'#e6d45d'},
-  brute: {id:'brute', index:2, name:'Brute', radius:.32, mass:3, health:100, speed:1.55, crushTolerance:2.1, bounty:8, leak:3, color:'#cf6d68'},
+  shambler: {id:'shambler',index:0,name:'Shambler',radius:.22,mass:1,health:30,speed:3.1,drive:1,pressureLimit:24,crushResistance:1,bounty:3,leak:1,color:'#76c66e'},
+  runner: {id:'runner',index:1,name:'Runner',radius:.17,mass:.65,health:18,speed:5.4,drive:1.3,pressureLimit:18,crushResistance:.7,bounty:3,leak:1,color:'#e6d45d'},
+  brute: {id:'brute',index:2,name:'Brute',radius:.34,mass:3.4,health:110,speed:2,drive:1.1,pressureLimit:46,crushResistance:2.2,bounty:8,leak:3,color:'#cf6d68'},
+  rager: {id:'rager',index:3,name:'Rager',radius:.23,mass:1.35,health:42,speed:3.6,drive:1.8,pressureLimit:28,crushResistance:1.1,bounty:5,leak:2,color:'#ef8738'},
+  softbody: {id:'softbody',index:4,name:'Softbody',radius:.30,mass:1.1,health:60,speed:2.25,drive:.8,pressureLimit:62,crushResistance:2.8,bounty:6,leak:2,color:'#a678d4'},
+  husk: {id:'husk',index:5,name:'Husk',radius:.19,mass:.85,health:34,speed:2.9,drive:1,pressureLimit:10,crushResistance:.5,bounty:4,leak:1,color:'#9edce8'},
 };
+
+const wgslNumber=(value:number):string=>Number.isInteger(value)?`${value}.0`:String(value);
+const hexRgb=(hex:string):readonly number[]=>[1,3,5].map(offset=>parseInt(hex.slice(offset,offset+2),16)/255);
+const enemyCases=(field:keyof EnemyDef,format:(value:never)=>string=wgslNumber):string=>Object.values(ENEMIES).map(enemy=>`case ${enemy.index}u: { return ${format(enemy[field] as never)}; }`).join('\n');
+/** Generated from ENEMIES so CPU spawning and every GPU stage share one source of truth. */
+export const ENEMY_WGSL=/* wgsl */`
+fn enemySpeed(kind:u32)->f32 { switch kind { ${enemyCases('speed')} default: { return ${wgslNumber(ENEMIES.shambler.speed)}; } } }
+fn enemyDrive(kind:u32)->f32 { switch kind { ${enemyCases('drive')} default: { return ${wgslNumber(ENEMIES.shambler.drive)}; } } }
+fn enemyPressureLimit(kind:u32)->f32 { switch kind { ${enemyCases('pressureLimit')} default: { return ${wgslNumber(ENEMIES.shambler.pressureLimit)}; } } }
+fn enemyCrushResistance(kind:u32)->f32 { switch kind { ${enemyCases('crushResistance')} default: { return ${wgslNumber(ENEMIES.shambler.crushResistance)}; } } }
+fn enemyBounty(kind:u32)->u32 { switch kind { ${enemyCases('bounty',value=>`${value}u`)} default: { return ${ENEMIES.shambler.bounty}u; } } }
+fn enemyLeak(kind:u32)->u32 { switch kind { ${enemyCases('leak',value=>`${value}u`)} default: { return ${ENEMIES.shambler.leak}u; } } }
+fn enemyColor(kind:u32)->vec3f { switch kind { ${enemyCases('color',value=>`vec3f(${hexRgb(String(value)).map(wgslNumber).join(',')})`)} default: { return vec3f(${hexRgb(ENEMIES.shambler.color).map(wgslNumber).join(',')}); } } }
+`;
 
 // Three staged gates form a pressure corridor through the arena.
 export const DEFAULT_MAP: WorldMap = {
@@ -69,8 +86,8 @@ export function validateContent(): void {
   }
   const seen = new Set<number>();
   for (const [key,enemy] of Object.entries(ENEMIES) as [EnemyKind,EnemyDef][]) {
-    if (enemy.id !== key || seen.has(enemy.index) || enemy.radius <= 0 || enemy.mass <= 0 || enemy.health <= 0 || enemy.speed <= 0 || enemy.bounty < 0 || enemy.leak <= 0) throw new Error(`Invalid enemy ${enemy.id}`);
-    seen.add(enemy.index); [enemy.radius,enemy.mass,enemy.health,enemy.speed,enemy.crushTolerance,enemy.bounty,enemy.leak].forEach((value,index)=>finite(value,`${enemy.id}[${index}]`));
+    if (enemy.id !== key || seen.has(enemy.index) || enemy.radius <= 0 || enemy.mass <= 0 || enemy.health <= 0 || enemy.speed <= 0 || enemy.drive <= 0 || enemy.pressureLimit < 0 || enemy.crushResistance <= 0 || enemy.bounty < 0 || enemy.leak <= 0 || !/^#[0-9a-f]{6}$/i.test(enemy.color)) throw new Error(`Invalid enemy ${enemy.id}`);
+    seen.add(enemy.index); [enemy.radius,enemy.mass,enemy.health,enemy.speed,enemy.drive,enemy.pressureLimit,enemy.crushResistance,enemy.bounty,enemy.leak].forEach((value,index)=>finite(value,`${enemy.id}[${index}]`));
   }
 }
 
@@ -153,20 +170,32 @@ export function createParticles(batches: readonly SpawnBatch[], map: WorldMap, c
   // across the whole spawn region instead of visibly sweeping through rows.
   const columns=maxColumns;
   let cursor=0, slot=0;
+  const usedCells=new Set<number>();
+  const cellsFor=(band:SpawnBatch['band']):number[]=>{
+    const [from,to]=band==='upper'?[0,.38]:band==='center'?[.31,.69]:band==='lower'?[.62,1]:[0,1];
+    const first=Math.max(0,Math.floor(maxRows*from)),last=Math.min(maxRows,Math.ceil(maxRows*to));
+    return Array.from({length:Math.max(0,last-first)*columns},(_,index)=>(first+Math.floor(index/columns))*columns+index%columns);
+  };
   for (const batch of batches) {
-    const count=Math.max(0,Math.floor(batch.count)), enemy=ENEMIES[batch.kind], jitter=random(batch.seed);
-    for (let i=0;i<count && slot<actual;i++,slot++) {
-      const cell=shuffledCell(spawnSlot+slot,latticeCapacity),col=cell%columns,row=Math.floor(cell/columns);
+    const count=Math.max(0,Math.floor(batch.count)), enemy=ENEMIES[batch.kind], jitter=random(batch.seed),candidates=cellsFor(batch.band);
+    for (let i=0;i<count && slot<actual;i++) {
+      const first=shuffledCell(spawnSlot+slot+i,candidates.length);let cell=-1;
+      for(let offset=0;offset<candidates.length;offset++){const candidate=candidates[(first+offset)%candidates.length];if(!usedCells.has(candidate)){cell=candidate;break;}}
+      if(cell<0)break;
+      usedCells.add(cell);slot++;
+      const col=cell%columns,row=Math.floor(cell/columns);
       const baseX=map.spawn.x+(col+.5)*spacing, baseY=map.spawn.y+(row+.5)*spacing;
       // A tiny deterministic jitter is safely smaller than the lattice clearance.
       const offset=(jitter()-.5)*.008;
       output[cursor+P.x]=baseX+offset; output[cursor+P.y]=baseY+(jitter()-.5)*.008;
       output[cursor+P.radius]=enemy.radius; output[cursor+P.mass]=enemy.mass;
-      output[cursor+P.hp]=enemy.health; output[cursor+P.maxHp]=enemy.health;
+      const health=enemy.health*Math.max(.1,batch.healthScale??1);
+      output[cursor+P.hp]=health; output[cursor+P.maxHp]=health;
       output[cursor+P.kind]=enemy.index; output[cursor+P.alive]=1; output[cursor+P.generation]=1;
       cursor += PARTICLE_FLOATS;
     }
     if (slot>=actual) break;
   }
-  return output;
+  if(cursor<output.length)console.warn(`Particle spawn bands hold ${cursor/PARTICLE_FLOATS} non-overlapping particles; ${actual-cursor/PARTICLE_FLOATS} remain pending`);
+  return cursor===output.length?output:output.slice(0,cursor);
 }

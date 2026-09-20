@@ -1,4 +1,4 @@
-import { towerBehavior } from '../content/index.ts';
+import { ENEMY_WGSL, towerBehavior } from '../content/index.ts';
 import { PARTICLE_WGSL, type RenderScene, type Renderer, type SharedGPU, type Vec2 } from '../contracts/index.ts';
 
 const W = 160, H = 100, MAX_OVERLAY_VERTICES = 24000, MAX_TOWERS = 64;
@@ -12,6 +12,7 @@ export async function createRenderer(device: GPUDevice, context: GPUCanvasContex
   const emptyShots = device.createBuffer({ label:'Empty firing state', size:MAX_TOWERS * 48, usage:GPUBufferUsage.STORAGE });
   const particleModule = device.createShaderModule({code:`
 ${PARTICLE_WGSL}
+${ENEMY_WGSL}
 struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> };
 @group(0) @binding(0) var<uniform> camera: Camera;
 @group(0) @binding(1) var<storage,read> particles: array<Particle>;
@@ -24,8 +25,7 @@ fn world(p:vec2<f32>)->vec2<f32>{ let aspect=camera.viewport.x/max(1.0,camera.vi
   if(dead){ let age=max(0.,camera.time.x-(-p.body.w)/60.);let seed=f32(ii)*17.+f32(shard)*2.4;let flight=clamp(age/.78,0.,1.);let dir=vec2(cos(seed),sin(seed));let stain=shard==0u;let mist=shard>4u;let speed=select(.85+fract(seed*3.1)*2.2,.38+fract(seed)*.8,mist);let center=select(p.pos.xy+dir*(.18+speed*flight)+vec2(0.,age*age*.7),p.pos.xy,stain);radius=select(max(.07,p.body.x*(.36+.72*(1.-flight))*select(1.,.62,mist)),max(.38,p.body.x*3.25),stain);let life=select(max(0.,1.-age/select(.95,.62,mist)),max(0.,1.-age/18.),stain);o.pos=vec4(world(center+c*radius),0,1);o.color=vec4(select(.42+.3*sin(seed),.7+.18*sin(seed*2.),mist),.008,.004,life*select(.9,.42,stain));o.bloodMode=select(2.,1.,stain);return o; }
   if(shard>0u){o.pos=vec4(2.,2.,0.,1.);o.color=vec4(0.);return o;}
   let speed=length(p.pos.zw);let forward=select(vec2(1.,0.),p.pos.zw/max(.001,speed),speed>.02);let side=vec2(-forward.y,forward.x);let breathe=1.+.055*sin(camera.time.x*5.5+f32(ii)*.37);let offset=(forward*c.x*(1.03+min(.28,speed*.035))+side*c.y*.92)*radius*breathe;let q=world(p.pos.xy+offset);o.pos=vec4(q,0,1);
-  let k=u32(p.state.z + 0.5); var col=vec3(0.77,0.85,0.68);
-  if(k==1u){col=vec3(.96,.72,.25);} if(k==2u){col=vec3(.78,.32,.2);}
+  let k=u32(clamp(p.state.z,0.0,5.0)+0.5); var col=enemyColor(k);
   let hp=clamp(p.body.z/max(0.001,p.body.w),0.0,1.0); let pressure=clamp(max(p.state.y,p.state.x)*.018,0.0,1.0);
   // time.y is the heatmap switch: data comes solely from this particle's pressure/packing fields.
   if(camera.time.y > .5){ col=mix(col,vec3(1.0,0.12,0.03),pressure); }
