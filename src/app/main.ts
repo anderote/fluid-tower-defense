@@ -169,7 +169,7 @@ try {
    const report=metrics.report();state.fps=report.fps;state.frameMs=report.medianMs;
    state.metal=run.model.metal;state.baseHealth=run.model.baseHealth/20*100;state.level=run.model.level;state.wave=run.model.wave;state.waveCount=run.model.waveCount;state.phase=state.mode==='lab'?'combat':run.model.phase;
    state.selected=run.model.towers.find(t=>t.id===run.model.selected)??null;state.bonusChoices=state.mode==='game'?run.model.bonusChoices:[];
-   state.bossHealth=latest.boss?.active?latest.boss.health/latest.boss.maxHealth*100:undefined;state.commandUpgrades=state.mode==='game'?run.model.commandUpgrades:[];state.commandXp=progression.xp;state.metaUpgrades=progression.upgrades();
+   state.boss=state.mode==='game'&&run.isBossWave?latest.boss:undefined;state.commandUpgrades=state.mode==='game'?run.model.commandUpgrades:[];state.commandXp=progression.xp;state.metaUpgrades=progression.upgrades();
    ui.update(state);positionInspector();if(now-lastAutosave>1500){saveSession();lastAutosave=now;}lastUI=now;
    diagnosticText.textContent=JSON.stringify({adapter:gpu.adapter,abi:'passed',epoch,tick:clock.tick,simulationSeconds:simulatedTime,slots:count,live:latest.live,requested:requestedPopulation,invalid:latest.invalid,peakPacking:latest.maxPacking,crushKills:latest.crushKills,kills:latest.kills,medianMs:report.medianMs,p95Ms:report.p95Ms,frameSamples:report.samples,canvas:[ui.canvas.width,ui.canvas.height],readbackErrors:errors,boss:latest.boss},null,2);
  }

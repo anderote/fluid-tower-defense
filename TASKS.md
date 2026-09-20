@@ -19,3 +19,9 @@ Validation: 19 CPU tests, production build, and 7 real-GPU checks passed with ze
 Implemented the content plan's pre-wave enemy preview using the same procedural wave definition as gameplay. The preparation card shows composition and roles, a separate boss warning, flow-adjusted peak arrival rate, and completion payout or next-level reset. It remains visible in Build and Research and hides during combat and Lab mode. README play instructions now reflect the eight-tower, ten-wave progression.
 
 Validation: 36 CPU tests and production build pass, including forecast/queue agreement across two complete levels, save restoration, phase visibility, and flow scaling. Chrome/WebGPU smoke checks confirmed preparation rendering, Build/Research visibility, 40× flow updates, and hiding during combat and Lab mode. Boss forecasts and level transitions are covered by CPU tests; a full ten-wave browser playthrough was not performed.
+
+## Combat and research feedback
+
+Added a Bulldozer health/phase HUD driven by existing GPU readback, with bracing/charging/recovery guidance and terminal defeat/breach status. Research prerequisites now live in the content registry, and purchase validation and button availability share one rule with visible lock reasons. The Zombie Flow slider now reflects restored session settings.
+
+Validation: 42 CPU tests, production build, and all 7 real-GPU checks passed on Apple WebGPU with zero validation errors. Browser checks covered boss status layout/transitions using a UI fixture, research prerequisite unlocking after purchase, and a seeded wave-ten game showing live boss health and a restored 7× flow slider. A full campaign balance playthrough was not performed.

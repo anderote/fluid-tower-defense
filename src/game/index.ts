@@ -1,3 +1,4 @@
+import {commandUpgradeAvailability} from './research.ts';
 import {COMMAND_UPGRADES, DEFAULT_MAP, TOWERS, veterancyLevel} from '../content/index.ts';
 import {canPlace} from '../navigation/index.ts';
 import type {BonusChoice, MetaUpgrade, Rect, RunModel, Settlement, SpawnBatch, Tower, TowerKind, Vec2, WorldMap} from '../contracts/index.ts';
@@ -195,15 +196,9 @@ export class RunController {
     return {ok:true};
   }
   buyCommandUpgrade(id:string):ActionResult {
-    if (this.model.phase!=='preparation') return {ok:false,reason:'Command upgrades are only available between waves.'};
-    const upgrade=COMMAND_UPGRADES.find(candidate=>candidate.id===id);
-    if (!upgrade) return {ok:false,reason:'Unknown command upgrade.'};
-    const impactMatch=/^repulsor-impact-(\d+)$/.exec(id);
-    if(impactMatch){const level=Number(impactMatch[1]);if(level>1&&!this.model.commandUpgrades.includes(`repulsor-impact-${level-1}`))return {ok:false,reason:'Research earlier Impact Coil levels first.'};}
-    const infrastructureMatch=/^(barbed-wire|wall-engineering)-(\d+)$/.exec(id);
-    if(infrastructureMatch){const [,prefix,rank]=infrastructureMatch,level=Number(rank);if(level>1&&!this.model.commandUpgrades.includes(`${prefix}-${level-1}`))return {ok:false,reason:`Research ${prefix==='barbed-wire'?'earlier Barbed Wire':'earlier Wall Engineering'} levels first.`};}
-    if (this.model.commandUpgrades.includes(id)) return {ok:false,reason:'That command upgrade is already installed.'};
-    if (this.model.metal<upgrade.cost) return {ok:false,reason:'Insufficient Metal.'};
+    const availability=commandUpgradeAvailability(this.model,id);
+    if (!availability.ok) return availability;
+    const upgrade=COMMAND_UPGRADES.find(candidate=>candidate.id===id)!;
     this.model.metal-=upgrade.cost;this.model.commandUpgrades.push(id);
     if(id==='bulkhead-plating') this.model.baseHealth=Math.min(30,this.model.baseHealth+5);
     return {ok:true};

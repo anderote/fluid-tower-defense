@@ -175,3 +175,11 @@ footer button:first-of-type { border-color: var(--term-accent); background: var(
 .wave-reward { font-size: 10px; }
 .wave-reward b { color: var(--term-accent); }
 .wave-flow { color: var(--term-muted); font-size: 9px; line-height: 1.5; }
+
+.boss-status { position: absolute; z-index: 3; top: 55px; right: 28px; width: 280px; max-width: calc(100% - 56px); padding: 12px; border: 1px solid var(--term-error); background: rgba(10,10,10,.94); pointer-events: none; font-size: 11px; }
+.boss-status > b { color: var(--term-error); }
+#boss-health-text { float: right; color: var(--term-muted); }
+.boss-status progress { display: block; width: 100%; height: 8px; margin: 9px 0; accent-color: var(--term-error); }
+.boss-status strong { display: block; color: var(--term-accent); }
+.boss-status small { display: block; margin-top: 5px; line-height: 1.5; color: var(--term-fg); }
+#commands .research-lock { color: var(--term-warn); }

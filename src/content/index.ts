@@ -11,7 +11,7 @@ export const TOWERS: Record<TowerKind, TowerDef> = {
   incinerator: {id:'incinerator', name:'Incinerator', description:'Bathes a short cone in heat that burns enemies over time.', cost:145, range:16, cooldown:.55, damage:13, force:0, radius:4.8, color:'#ff7848', branches:['Furnace','Wildfire']},
 };
 
-const infrastructureResearch=(prefix:string,name:string,description:string,cost:number):readonly CommandUpgrade[]=>Array.from({length:20},(_,index)=>({id:`${prefix}-${index+1}`,name:`${name} ${index+1}`,description,cost:Math.round(cost+(index*42)+(Math.sqrt(index)*28))}));
+const infrastructureResearch=(prefix:string,name:string,description:string,cost:number):readonly CommandUpgrade[]=>Array.from({length:20},(_,index)=>({id:`${prefix}-${index+1}`,name:`${name} ${index+1}`,description,requires:index>0?`${prefix}-${index}`:undefined,cost:Math.round(cost+(index*42)+(Math.sqrt(index)*28))}));
 
 export const COMMAND_UPGRADES: readonly CommandUpgrade[] = [
   {id:'targeting-grid',name:'Targeting Grid',description:'+18% range to every tower.',cost:260},
@@ -19,10 +19,10 @@ export const COMMAND_UPGRADES: readonly CommandUpgrade[] = [
   {id:'bulkhead-plating',name:'Bulkhead Plating',description:'+5 base integrity immediately.',cost:220},
   {id:'salvage-magnets',name:'Salvage Magnets',description:'+25% Metal recovered from kills.',cost:280},
   {id:'repulsor-impact-1',name:'Impact Coils I',description:'Repulsors deal +3 pulse damage.',cost:90},
-  {id:'repulsor-impact-2',name:'Impact Coils II',description:'Repulsors deal +3 pulse damage.',cost:140},
-  {id:'repulsor-impact-3',name:'Impact Coils III',description:'Repulsors deal +4 pulse damage.',cost:200},
-  {id:'repulsor-impact-4',name:'Impact Coils IV',description:'Repulsors deal +5 pulse damage.',cost:270},
-  {id:'repulsor-impact-5',name:'Impact Coils V',description:'Repulsors deal +6 pulse damage and +8% force.',cost:350},
+  {id:'repulsor-impact-2',requires:'repulsor-impact-1',name:'Impact Coils II',description:'Repulsors deal +3 pulse damage.',cost:140},
+  {id:'repulsor-impact-3',requires:'repulsor-impact-2',name:'Impact Coils III',description:'Repulsors deal +4 pulse damage.',cost:200},
+  {id:'repulsor-impact-4',requires:'repulsor-impact-3',name:'Impact Coils IV',description:'Repulsors deal +5 pulse damage.',cost:270},
+  {id:'repulsor-impact-5',requires:'repulsor-impact-4',name:'Impact Coils V',description:'Repulsors deal +6 pulse damage and +8% force.',cost:350},
   ...infrastructureResearch('wall-engineering','WALL ENGINEERING','Raises Metal Wall pressure capacity and lifespan.',90),
   ...infrastructureResearch('barbed-wire','BARBED WIRE','Raises wire damage, slow duration, resistance, and lifespan.',80),
 ];
