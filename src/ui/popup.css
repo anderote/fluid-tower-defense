@@ -1,0 +1,18 @@
+.selected-popup {
+  position: absolute;
+  z-index: 4;
+  width: min(340px, calc(100% - 24px));
+  margin: 0;
+  padding: 14px;
+  background: linear-gradient(145deg, #172219f5, #0b110cf5);
+  box-shadow: 0 10px 30px #000b;
+  border-color: #caff3c;
+  pointer-events: auto;
+}
+
+.selected-popup:not(.has-selection) { display: none; }
+.selected-popup label { font-size: 11px; color: #caff3c; }
+.selected-popup .tower-stats { font-size: 10px; line-height: 1.6; }
+.selected-popup .tower-stats span { font-size: 8px; }
+.selected-popup .tower-stats b { font-size: 11px; }
+.selected-popup button { min-height: 38px; font-size: 10px; }
