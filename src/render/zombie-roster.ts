@@ -2,7 +2,7 @@ import {ENEMIES} from '../content/index.ts';
 import type {EnemyKind} from '../contracts/index.ts';
 
 /** Visual tuning only. Physical radii, speed, health and mass remain in ENEMIES. */
-export const ZOMBIE_KINDS=['shambler','runner','softbody','brute'] as const satisfies readonly EnemyKind[];
+export const ZOMBIE_KINDS=['shambler','runner','brute','rager','softbody','husk'] as const satisfies readonly EnemyKind[];
 export type ZombieKind=typeof ZOMBIE_KINDS[number];
 export const ZOMBIE_FRAME=48;
 export const ZOMBIE_FACINGS=8;
@@ -11,8 +11,10 @@ export const ZOMBIE_PIVOT={x:24,y:32};
 export const ZOMBIE_PROFILES:Record<ZombieKind,{stride:number;turnRate:number;tileScale:number;collapseStep:number}>={
   shambler:{stride:.95,turnRate:7,tileScale:9.6,collapseStep:.09},
   runner:{stride:1.25,turnRate:11,tileScale:12.3,collapseStep:.065},
-  softbody:{stride:1.3,turnRate:4,tileScale:9.6,collapseStep:.13},
   brute:{stride:1.65,turnRate:3.5,tileScale:9.6,collapseStep:.12},
+  rager:{stride:1.1,turnRate:8.5,tileScale:10.2,collapseStep:.08},
+  softbody:{stride:1.3,turnRate:4,tileScale:9.6,collapseStep:.13},
+  husk:{stride:1.05,turnRate:6,tileScale:10.8,collapseStep:.075},
 };
 const number=(value:number)=>Number.isInteger(value)?`${value}.0`:String(value);
 const cases=(value:(kind:ZombieKind,index:number)=>number)=>ZOMBIE_KINDS.map((kind,index)=>`case ${ENEMIES[kind].index}u: {return ${number(value(kind,index))};}`).join('\n');
