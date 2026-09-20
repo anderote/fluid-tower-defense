@@ -12,7 +12,7 @@ import { createPhysics } from '../sim/physics/index.ts';
 import { createCombat, type CombatFrame } from '../sim/combat/index.ts';
 import { barbedWireStats, createParticles, DEFAULT_MAP, compileTower, TOWERS } from '../content/index.ts';
 import { buildNavigation, canPlace } from '../navigation/index.ts';
-import { createRun } from '../game/index.ts';
+import { createCommandProgression, createRun } from '../game/index.ts';
 import { COUNTER_WORDS, DEFAULT_TUNING, PARTICLE_FLOATS, type UIState, type GameAction, type Effect, type Vec2, type Rect, type Settlement, type VisualParticle, type WorldMap } from '../contracts/index.ts';
 
 const root=document.querySelector<HTMLElement>('#app')!;
@@ -21,7 +21,8 @@ if(params.has('validate')) {
  const {showValidation}=await import('./validation-page.ts');await showValidation(root);
 } else {
 const run=createRun();
-const state:UIState={mode:params.get('mode')==='lab'?'lab':'game',phase:'preparation',paused:false,fps:0,frameMs:0,population:10000,capacity:65536,kills:0,crushKills:0,leaks:0,earned:0,maxPressure:0,metal:650,baseHealth:100,level:1,wave:0,waveCount:10,difficulty:1,selected:null,selectedKind:null,heatmap:false,tool:'blast',message:'Connecting to local GPU…',adapter:'WebGPU',bonusChoices:[],commandUpgrades:[]};
+const progression=createCommandProgression();
+const state:UIState={mode:params.get('mode')==='lab'?'lab':'game',phase:'preparation',paused:false,fps:0,frameMs:0,population:10000,capacity:65536,kills:0,crushKills:0,leaks:0,earned:0,maxPressure:0,metal:650,baseHealth:100,level:1,wave:0,waveCount:10,difficulty:1,selected:null,selectedKind:null,heatmap:false,tool:'blast',message:'Connecting to local GPU…',adapter:'WebGPU',bonusChoices:[],commandUpgrades:[],commandXp:progression.xp,metaUpgrades:progression.upgrades()};
 let handleAction:(action:GameAction)=>void=()=>{};
 const ui=createUI(root,action=>handleAction(action));
 try {
@@ -67,7 +68,7 @@ try {
    if(state.mode==='game'){
      run.applySettlement(s);
      if(s.live===0&&count>0&&s.tick>=waveStartTick&&run.model.pending.length===0&&run.model.phase==='combat'){
-       const priorLevel=run.model.level, result=run.finishSettling();if(result.ok){state.message=run.model.level>priorLevel?`Level ${priorLevel} contained. Level ${run.model.level} escalation begins.`:run.model.bonusChoices.length?'Wave cleared. Choose a command boon.':'Wave cleared. Reinforce your defense.';count=0;}
+       const priorLevel=run.model.level, priorWave=run.model.wave, result=run.finishSettling();if(result.ok){const xp=18+priorLevel*8+priorWave*3;progression.award(xp);const unlocked=run.model.level>priorLevel&&progression.unlockForLevel(run.model.level);if(run.model.level>priorLevel){const oldWalls=builtWalls,oldWires=builtWires;map={...map,obstacles:map.obstacles.filter(obstacle=>!oldWalls.includes(obstacle)&&!oldWires.includes(obstacle as typeof oldWires[number]))};builtWalls=[];builtWires=[];navigation=buildNavigation(map);run.setMap(map);}state.message=run.model.level>priorLevel?unlocked?`Tier ${progression.unlockedTier} unlocked. Level ${run.model.level} escalation begins.`:`Level ${priorLevel} contained. Defense reset; level ${run.model.level} begins.`:run.model.bonusChoices.length?'Wave cleared. Choose a command boon.':`Wave cleared. +${xp} Command XP.`;count=0;}
      }
    }
  },error=>errors.push(String(error)));
@@ -105,6 +106,7 @@ try {
      }
      case 'upgrade':if(run.model.selected!==null)actionResult(run.upgrade(run.model.selected,action.branch),'Tower upgraded.');break;
      case 'buy-command':actionResult(run.buyCommandUpgrade(action.id),'Command upgrade installed.');break;
+     case 'buy-meta':actionResult(progression.buy(action.id),'Permanent Command upgrade installed.');break;
      case 'sell':if(run.model.selected!==null){const result=run.sell(run.model.selected);if(result.ok){combat.resetAttribution();run.resetTowerAttribution();}actionResult(result,'Tower sold.');}break;
      case 'difficulty':state.difficulty=run.setSpawnMultiplier(action.value);resizeSpawn();state.message=`Zombie production set to ${state.difficulty}×. Inlet expanded to protect spawn density.`;break;
      case 'bonus':actionResult(run.chooseBonus(action.id),'Bonus installed for this run.');break;
@@ -153,7 +155,7 @@ try {
    const report=metrics.report();state.fps=report.fps;state.frameMs=report.medianMs;
    state.metal=run.model.metal;state.baseHealth=run.model.baseHealth/20*100;state.level=run.model.level;state.wave=run.model.wave;state.waveCount=run.model.waveCount;state.phase=state.mode==='lab'?'combat':run.model.phase;
    state.selected=run.model.towers.find(t=>t.id===run.model.selected)??null;state.bonusChoices=state.mode==='game'?run.model.bonusChoices:[];
-   state.bossHealth=latest.boss?.active?latest.boss.health/latest.boss.maxHealth*100:undefined;state.commandUpgrades=state.mode==='game'?run.model.commandUpgrades:[];
+   state.bossHealth=latest.boss?.active?latest.boss.health/latest.boss.maxHealth*100:undefined;state.commandUpgrades=state.mode==='game'?run.model.commandUpgrades:[];state.commandXp=progression.xp;state.metaUpgrades=progression.upgrades();
    ui.update(state);positionInspector();if(now-lastAutosave>1500){saveSession();lastAutosave=now;}lastUI=now;
    diagnosticText.textContent=JSON.stringify({adapter:gpu.adapter,abi:'passed',epoch,tick:clock.tick,simulationSeconds:simulatedTime,slots:count,live:latest.live,requested:requestedPopulation,invalid:latest.invalid,peakPacking:latest.maxPacking,crushKills:latest.crushKills,kills:latest.kills,medianMs:report.medianMs,p95Ms:report.p95Ms,frameSamples:report.samples,canvas:[ui.canvas.width,ui.canvas.height],readbackErrors:errors,boss:latest.boss},null,2);
  }
@@ -174,7 +176,7 @@ try {
    const wireStats=barbedWireStats(run.model.commandUpgrades);
    const effects=[...commands,...builtWires.map(wire=>({x:wire.x+wire.width/2,y:wire.y+wire.height/2,kind:'slow' as const,radius:3.2,strength:0,damage:wireStats.damage*clock.step,direction:{x:0,y:0},cone:0,duration:wireStats.slow,source:0}))].slice(0,64);commands=[];
    if(state.mode==='game'&&run.model.phase==='combat'&&builtWires.length){const contact=Math.min(1,latest.live/30),erosion=clock.step*wireStats.damage*contact*(1+Math.max(0,latest.maxPacking-1)*.4);const breached=builtWires.filter(wire=>!wire.breached&&latest.maxPacking>=wireStats.resistance);for(const wire of breached){wire.breached=true;map={...map,obstacles:map.obstacles.filter(obstacle=>obstacle!==wire)};burst({x:wire.x+wire.width/2,y:wire.y+wire.height/2},32,[1,.32,.08],13,.72,11);burst({x:wire.x+wire.width/2,y:wire.y+wire.height/2},16,[.5,.6,.62],8,.95,8);}if(breached.length){navigation=buildNavigation(map);run.setMap(map);state.message=`${breached.length} barbed wire section${breached.length===1?'':'s'} gave way under swarm pressure.`;}const spent=builtWires.filter(wire=>(wire.health-=erosion)<=0);if(spent.length){for(const wire of spent)burst({x:wire.x+wire.width/2,y:wire.y+wire.height/2},18,[.56,.42,.22],7,.8,8);builtWires=builtWires.filter(wire=>wire.health>0);map={...map,obstacles:map.obstacles.filter(obstacle=>!spent.includes(obstacle as typeof spent[number]))};navigation=buildNavigation(map);run.setMap(map);state.message=`${spent.length} barbed wire section${spent.length===1?'':'s'} wore out after cutting through the swarm.`;}}
-   const frame:CombatFrame={dt:clock.step,tick:clock.tick,count,map,effects,tuning:DEFAULT_TUNING,navigation,lab:state.mode==='lab',towers:state.mode==='game'?run.model.towers.map(tower=>({tower,definition:compileTower(tower,run.model.bonuses,run.model.commandUpgrades)})):[]};
+   const frame:CombatFrame={dt:clock.step,tick:clock.tick,count,map,effects,tuning:DEFAULT_TUNING,navigation,lab:state.mode==='lab',towers:state.mode==='game'?run.model.towers.map(tower=>({tower,definition:compileTower(tower,run.model.bonuses,run.model.commandUpgrades,progression.ranks())})):[]};
    const encoder=gpu.device.createCommandEncoder({label:`Simulation tick ${clock.tick}`});
    const bossFrame={dt:clock.step,tick:clock.tick,count,map:{...map,spawn:{x:50,y:35,width:32,height:30}},active:state.mode==='game'&&run.isBossWave};
    combat.encodeBefore(encoder,frame);boss.encode(encoder,bossFrame);physics.encode(encoder,frame);combat.encodeAfter(encoder,frame);boss.encodeResolve(encoder,bossFrame);
@@ -192,7 +194,7 @@ try {
      for(let i=0;i<steps;i++)tick();stepRequested=false;
      if(!state.paused){for(const effect of visuals)effect.duration-=elapsed;visuals=visuals.filter(e=>e.duration>0);for(const particle of visualParticles)particle.age+=elapsed;visualParticles=visualParticles.filter(particle=>particle.age<particle.life);}
      const encoder=gpu.device.createCommandEncoder({label:'Present'});
-     const ghost=state.mode==='game'&&state.selectedKind&&pointer?{...pointer,kind:state.selectedKind,range:compileTower({id:0,kind:state.selectedKind,x:pointer.x,y:pointer.y,level:0,branch:-1,angle:0,cooldown:0,spent:0},run.model.bonuses,run.model.commandUpgrades).range,valid:canPlace(map,run.model.towers,pointer,1.25)&&run.model.phase!=='won'&&run.model.phase!=='lost'}:undefined;
+     const ghost=state.mode==='game'&&state.selectedKind&&pointer?{...pointer,kind:state.selectedKind,range:compileTower({id:0,kind:state.selectedKind,x:pointer.x,y:pointer.y,level:0,branch:-1,angle:0,cooldown:0,spent:0},run.model.bonuses,run.model.commandUpgrades,progression.ranks()).range,valid:canPlace(map,run.model.towers,pointer,1.25)&&run.model.phase!=='won'&&run.model.phase!=='lost'}:undefined;
      const wallGhost=state.mode==='game'&&wallTool&&pointer?{...wallAt(pointer),valid:!validateEditorMap({...map,obstacles:[...map.obstacles,wallAt(pointer)]})}:undefined;
      renderer.encode(encoder,{count:editor.active?0:count,time:simulatedTime,map:editor.active?editor.map:map,towers:!editor.active&&state.mode==='game'?run.model.towers:[],effects:editor.active?[]:visuals,visualParticles:editor.active?[]:visualParticles,wires:editor.active?[]:builtWires,heatmap:state.heatmap,selection:run.model.selected,ghost:editor.active?undefined:ghost,wallGhost,boss:!editor.active&&latest.boss?.active?latest.boss:undefined});
      gpu.device.queue.submit([encoder.finish()]);
