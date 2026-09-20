@@ -11,8 +11,8 @@
 }
 
 .selected-popup:not(.has-selection) { display: none; }
-.selected-popup label { color: var(--term-fg); font-size: 10px; }
-.selected-popup .tower-stats { font-size: 9px; line-height: 1.6; }
-.selected-popup .tower-stats span { font-size: 8px; }
-.selected-popup .tower-stats b { font-size: 10px; }
-.selected-popup button { min-height: 38px; font-size: 9px; }
+.selected-popup label { color: var(--term-fg); font-size: var(--text-small); }
+.selected-popup .tower-stats { font-size: var(--text-small); line-height: 1.6; }
+.selected-popup .tower-stats span { font-size: var(--text-caption); }
+.selected-popup .tower-stats b { font-size: var(--text-body); }
+.selected-popup button { min-height: 38px; font-size: var(--text-small); }
