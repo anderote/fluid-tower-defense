@@ -106,6 +106,7 @@ export class RunController {
   private applied=emptyApplied();
   private live=0;
   private spawnElapsed=0;
+  private spawnAllocation=0;
   private spawnMultiplier=1;
   private hordeScale=1;
   private waveStartBaseHealth=20;
@@ -186,26 +187,35 @@ export class RunController {
   startWave():ActionResult {
     if (this.model.phase!=='preparation') return {ok:false,reason:'The current wave is not ready to start.'};
     if(this.model.bonusChoices.length)return {ok:false,reason:'Choose a command boon before starting the wave.'};
-    const wave=waveFor(this.model.level,this.model.wave+1,this.hordeScale); this.waveStartBaseHealth=this.model.baseHealth;this.model.wave++; this.model.pending=wave.spawns.map(batch=>({...batch,credit:0})); this.model.phase='combat'; this.live=0;this.spawnElapsed=0;
+    const wave=waveFor(this.model.level,this.model.wave+1,this.hordeScale); this.waveStartBaseHealth=this.model.baseHealth;this.model.wave++; this.model.pending=wave.spawns.map(batch=>({...batch,credit:0})); this.model.phase='combat'; this.live=0;this.spawnElapsed=0;this.spawnAllocation=0;
     return {ok:true};
   }
   restartWave():ActionResult {
     if(this.model.wave<1||!['combat','settling','lost'].includes(this.model.phase))return {ok:false,reason:'There is no active wave to restart.'};
     const wave=waveFor(this.model.level,this.model.wave,this.hordeScale);this.model.pending=wave.spawns.map(batch=>({...batch,credit:0}));this.model.phase='combat';this.model.baseHealth=this.waveStartBaseHealth;this.model.selected=null;
-    this.live=0;this.spawnElapsed=0;this.runEpoch++;this.applied=emptyApplied();
+    this.live=0;this.spawnElapsed=0;this.spawnAllocation=0;this.runEpoch++;this.applied=emptyApplied();
     return {ok:true};
   }
   takeSpawns(capacity:number, seconds=0):SpawnBatch[] {
-    if (this.model.phase!=='combat' || !isFiniteInteger(capacity) || capacity<=0) return [];
-    const previous=this.spawnElapsed;this.spawnElapsed+=Math.max(0,seconds);let available=capacity;const accepted:SpawnBatch[]=[];
-    for(const batch of this.model.pending){
-      if(seconds!==0&&available<=0)break;
-      if(seconds===0)batch.credit=batch.count;
-      else{const active=Math.max(0,this.spawnElapsed-Math.max(previous,batch.start??0));batch.credit=(batch.credit??0)+active*(batch.rate??1)*this.spawnMultiplier;}
-      const burst=Math.max(1,Math.floor(batch.burst??1)),earned=Math.floor(batch.credit??0);
-      const spawnable=seconds===0?batch.count:batch.count<=burst?(earned>=batch.count?batch.count:0):Math.floor(earned/burst)*burst;
-      const count=seconds===0?Math.min(batch.count,spawnable):Math.min(batch.count,available,spawnable);if(count<=0)continue;
-      accepted.push({...batch,count,credit:undefined});available-=count;this.live+=count;batch.count-=count;batch.credit=Math.max(0,(batch.credit??0)-count);batch.seed=(batch.seed+count)>>>0;
+    if (this.model.phase!=='combat' || !isFiniteInteger(capacity) || capacity<0) return [];
+    const previous=this.spawnElapsed;this.spawnElapsed+=Math.max(0,seconds);
+    const accepted:SpawnBatch[]=[];
+    const earned=this.model.pending.map(batch=>{
+      const active=Math.max(0,this.spawnElapsed-Math.max(previous,batch.start??0));
+      // Credit is bounded: a blocked entrance cannot accumulate a catch-up explosion.
+      batch.credit=seconds===0?batch.count:Math.min((batch.credit??0)+active*(batch.rate??1)*this.spawnMultiplier,Math.max(1,(batch.rate??1)*this.spawnMultiplier*.5));
+      return Math.min(batch.count,Math.floor(batch.credit));
+    });
+    const total=earned.reduce((sum,value)=>sum+value,0), budget=seconds===0?total:Math.min(capacity,total);
+    let allocated=0,cumulative=0;
+    const phase=budget>0?(this.spawnAllocation++*.61803398875)%1:0;
+    for(let index=0;index<this.model.pending.length;index++){
+      const batch=this.model.pending[index];
+      // Rotate rounding so even a one-body-wide front retains every species.
+      cumulative+=earned[index];
+      const target=Math.floor(cumulative*budget/Math.max(1,total)+phase);
+      const count=Math.min(earned[index],target-allocated);allocated+=count;if(count<=0)continue;
+      accepted.push({...batch,count,credit:undefined});this.live+=count;batch.count-=count;batch.credit=Math.max(0,(batch.credit??0)-count);batch.seed=(batch.seed+count)>>>0;
     }
     this.model.pending=this.model.pending.filter(batch=>batch.count>0);
     return accepted;

@@ -1,4 +1,4 @@
-import {DEFAULT_TUNING, P, PARTICLE_FLOATS, type Effect, type PhysicsFrame, type SharedGPU, type WorldMap} from '../contracts/index.ts';
+import {COUNTER_WORDS, DEFAULT_TUNING, P, PARTICLE_FLOATS, type Effect, type PhysicsFrame, type SharedGPU, type WorldMap} from '../contracts/index.ts';
 import {createCombat} from '../sim/combat/index.ts';
 import {createPhysics} from '../sim/physics/index.ts';
 
@@ -30,7 +30,7 @@ async function scenario(device:GPUDevice, initial:number[][], frames:readonly {e
   const capacity=Math.max(1,initial.length);
   const shared:SharedGPU={
     particles:device.createBuffer({size:capacity*PARTICLE_FLOATS*4,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST|GPUBufferUsage.COPY_SRC}),
-    counters:device.createBuffer({size:64,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST|GPUBufferUsage.COPY_SRC}),capacity,
+    counters:device.createBuffer({size:COUNTER_WORDS*4,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST|GPUBufferUsage.COPY_SRC}),capacity,
   };
   const physics=await createPhysics(device,shared), combat=await createCombat(device,shared);
   try {

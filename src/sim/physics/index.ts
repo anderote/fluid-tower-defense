@@ -1,5 +1,6 @@
 import {
   MAX_EFFECTS,
+  HORDE_APPROACH,
   type Effect,
   type NavigationField,
   type PhysicsFrame,
@@ -121,6 +122,7 @@ function packParams(
   u32[24] = substepIndex;
   u32[25] = PHYSICS_SUBSTEPS;
   u32[26] = frame.map.obstacles.length;
+  f32[27] = frame.lab ? 0 : HORDE_APPROACH;
   return storage;
 }
 
@@ -282,7 +284,7 @@ export async function createPhysics(device: GPUDevice, shared: SharedGPU): Promi
     encode(encoder: GPUCommandEncoder, frame: PhysicsFrame): void {
       if (destroyed) throw new Error('Cannot encode with a destroyed physics module.');
       validateFrame(frame, shared);
-      const gridWidth = Math.ceil(frame.map.width / PHYSICS_CELL_SIZE);
+      const gridWidth = Math.ceil((frame.map.width + (frame.lab ? 0 : HORDE_APPROACH)) / PHYSICS_CELL_SIZE);
       const gridHeight = Math.ceil(frame.map.height / PHYSICS_CELL_SIZE);
       const gridCells = gridWidth * gridHeight;
       ensureGridCapacity(gridCells);

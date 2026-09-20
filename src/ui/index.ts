@@ -43,7 +43,7 @@ export function createUI(
   const difficulty = document.createElement("label");
   difficulty.className = "difficulty";
   difficulty.innerHTML =
-    'ZOMBIE FLOW <b id="difficulty-value">1×</b><input id="difficulty" type="range" min="1" max="40" value="1" aria-label="Zombie production multiplier">';
+    'HORDE INTENSITY <b id="difficulty-value">1×</b><input id="difficulty" type="range" min="1" max="40" value="1" aria-label="Horde packing intensity">';
   shell
     .querySelector("header")!
     .insertBefore(difficulty, shell.querySelector(".status"));
