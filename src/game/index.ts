@@ -56,6 +56,7 @@ export class RunController {
   private spawnElapsed=0;
   private spawnCredit=0;
   private spawnMultiplier=1;
+  private waveStartBaseHealth=20;
   private map:WorldMap;
 
   constructor(initialMap:WorldMap=DEFAULT_MAP) { this.map=initialMap; }
@@ -98,7 +99,13 @@ export class RunController {
   startWave():ActionResult {
     if (this.model.phase!=='preparation') return {ok:false,reason:'The current wave is not ready to start.'};
     if (this.model.wave>=WAVES.length) return {ok:false,reason:'All waves are complete.'};
-    const wave=WAVES[this.model.wave++]; this.model.pending=wave.spawns.map(batch=>({...batch})); this.model.phase='combat'; this.live=0;this.spawnElapsed=0;this.spawnCredit=0;
+    const wave=WAVES[this.model.wave++]; this.waveStartBaseHealth=this.model.baseHealth;this.model.pending=wave.spawns.map(batch=>({...batch})); this.model.phase='combat'; this.live=0;this.spawnElapsed=0;this.spawnCredit=0;
+    return {ok:true};
+  }
+  restartWave():ActionResult {
+    if(this.model.wave<1||!['combat','settling','lost'].includes(this.model.phase))return {ok:false,reason:'There is no active wave to restart.'};
+    const wave=WAVES[this.model.wave-1];this.model.pending=wave.spawns.map(batch=>({...batch}));this.model.phase='combat';this.model.baseHealth=this.waveStartBaseHealth;this.model.selected=null;
+    this.live=0;this.spawnElapsed=0;this.spawnCredit=0;this.runEpoch++;this.applied=emptyApplied();
     return {ok:true};
   }
   takeSpawns(capacity:number, seconds=0):SpawnBatch[] {
@@ -164,7 +171,7 @@ export class RunController {
     if(this.model.phase!=='combat'||!Number.isFinite(seconds)||seconds<=0)return;
     for(const tower of this.model.towers){tower.veterancyXp=(tower.veterancyXp??0)+seconds*1.8;tower.veterancy=veterancyLevel(tower.veterancyXp);}
   }
-  reset():void { Object.assign(this.model,fresh()); this.nextTowerId=1; this.runEpoch++; this.applied=emptyApplied(); this.live=0; }
+  reset():void { Object.assign(this.model,fresh()); this.nextTowerId=1; this.runEpoch++; this.applied=emptyApplied(); this.live=0;this.waveStartBaseHealth=this.model.baseHealth; }
   setMap(map:WorldMap):void { this.map=map; }
   save():string {
     if (this.model.phase!=='preparation') throw new Error('Runs can only be saved between waves.');
@@ -181,7 +188,7 @@ export class RunController {
       if (!this.validSave(saved)) return {ok:false,reason:'Invalid saved run.'};
       const next=copy(saved.model);
       Object.assign(this.model,next); this.nextTowerId=Math.max(0,...next.towers.map(t=>t.id))+1;
-      this.runEpoch=Math.max(this.runEpoch+1,saved.epoch+1); this.applied=emptyApplied(); this.live=0;
+      this.runEpoch=Math.max(this.runEpoch+1,saved.epoch+1); this.applied=emptyApplied(); this.live=0;this.waveStartBaseHealth=this.model.baseHealth;
       return {ok:true};
     } catch { return {ok:false,reason:'Invalid saved run.'}; }
   }
