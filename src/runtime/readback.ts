@@ -15,7 +15,7 @@ export class SettlementReader {
       const values = new Uint32Array(this.buffer.getMappedRange()).slice();
       this.buffer.unmap();
       this.busy=false;
-      this.onResult({epoch,tick,kills:values[0],crushKills:values[1],leaks:values[2],earned:values[3],live:values[4],invalid:values[5],maxPacking:values[6]/1000,boss:{x:values[10]/100,y:values[11]/100,health:values[7]/100,maxHealth:values[8]/100,phase:values[9],active:values[12]===1}});
+      this.onResult({epoch,tick,kills:values[0],crushKills:values[1],leaks:values[2],earned:values[3],live:values[4],invalid:values[5],maxPacking:values[6]/1000,towerKills:Array.from(values.slice(16,80)),boss:{x:values[10]/100,y:values[11]/100,health:values[7]/100,maxHealth:values[8]/100,phase:values[9],active:values[12]===1}});
     }).catch(error=>{this.busy=false;this.onError(error);});};
   }
   destroy(){this.buffer.destroy();}

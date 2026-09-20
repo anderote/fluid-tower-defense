@@ -93,6 +93,8 @@ export function compileTower(tower: Tower, bonuses: readonly string[] = [], comm
   for (const bonus of bonuses) {
     if (bonus === 'hydraulic-advantage' && tower.kind === 'repulsor') { force *= 1.3; cooldown *= 1.12; }
     if (bonus === 'cold-field' && tower.kind === 'cryo') radius *= 1.2;
+    if (bonus === 'kinetic-feed' && tower.kind === 'autocannon') cooldown *= .85;
+    if (bonus === 'blast-casing' && (tower.kind === 'mortar' || tower.kind === 'rocket')) damage *= 1.15;
   }
   if (commandUpgrades.includes('targeting-grid')) range *= 1.18;
   if (commandUpgrades.includes('ammunition-forge')) damage *= 1.25;
