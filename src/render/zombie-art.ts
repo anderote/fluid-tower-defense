@@ -8,11 +8,11 @@ export function drawZombieFrame(ctx:CanvasRenderingContext2D,kind:ZombieKind,fac
   ctx.clearRect(0,0,ZOMBIE_FRAME,ZOMBIE_FRAME);ctx.imageSmoothingEnabled=false;
   const runner=kind==='runner',bloater=kind==='softbody',brute=kind==='brute';
   const angle=facing*Math.PI/4,f=[Math.cos(angle),Math.sin(angle)],s=[-f[1],f[0]];
-  const walking=frame>=1&&frame<=8,phase=(frame-1)*Math.PI/4,stride=walking?Math.sin(phase):0;
-  const fall=frame>=10?(frame-9)/6:0,stagger=frame===9;
+  const burning=frame>=16;const walking=burning||frame>=1&&frame<=8,phase=(burning?frame-16:frame-1)*Math.PI/4,stride=walking?Math.sin(phase):0;
+  const fall=frame>=10&&frame<16?(frame-9)/6:0,stagger=frame===9;
   const sway=walking&&bloater?Math.sin(phase-.65)*.095:0;
   const bob=walking?(runner?Math.abs(Math.sin(phase))*.09:brute?Math.abs(Math.sin(phase))*.025:Math.cos(phase*2)*.025):0;
-  const lean=stagger?-.18:runner?.32:bloater?.06:.08;
+  const lean=burning?.16+stride*.12:stagger?-.18:runner?.32:bloater?.06:.08;
   const hip=runner?.84:bloater?.56:.73,shoulder=runner?1.25:bloater?1.18:1.3;
   const width=runner?.17:bloater?.39:.55,stance=runner?.13:bloater?.3:.29;
   const skin=runner?'#b7b18d':bloater?'#b0b08a':'#929e76';
@@ -30,7 +30,7 @@ export function drawZombieFrame(ctx:CanvasRenderingContext2D,kind:ZombieKind,fac
   };
   const spot=(p:Point,w:number,h:number,color:string)=>{const q=project(p);ctx.fillStyle=color;ctx.fillRect(q[0]-Math.floor(w/2),q[1]-Math.floor(h/2),w,h);};
   const leg=(side:number)=>{
-    const step=stride*side*(runner?.42:bloater?.13:.2),lift=Math.max(0,-stride*side)*(runner?.24:bloater?.05:.08);
+    const step=stride*side*(burning?.42:runner?.42:bloater?.13:.2),lift=Math.max(0,-stride*side)*(burning?.28:runner?.24:bloater?.05:.08);
     const knee:Point=[step*.5,side*stance,.35+lift*.4],foot:Point=[step,side*(stance+.02),.04+lift];
     line([lean*.3,side*stance,hip],knee,runner?2:4,runner?'#70634f':'#484f45');
     line(knee,foot,runner?1:bloater?3:4,runner?skin:'#555b4d');
@@ -40,6 +40,7 @@ export function drawZombieFrame(ctx:CanvasRenderingContext2D,kind:ZombieKind,fac
     const swing=stride*side;
     const upper:Point=[lean,side*width,shoulder+bob],elbow:Point=[lean+(runner?-swing*.3:.12),side*(width+.08),runner?.94:bloater?.85:.77];
     const hand:Point=[lean+(runner?.26-swing*.32:bloater?.27:.22),side*(width+.06),runner?.91:bloater?.67:.44];
+    if(burning){elbow[1]=side*(width+.2);elbow[2]=shoulder+.17+swing*.14;hand[0]=lean-.12;hand[1]=side*(width+.22);hand[2]=shoulder+.52+swing*.2;}
     line(upper,elbow,runner?2:bloater?4:5,runner?cloth:brute?'#7c8670':skin);
     line(elbow,hand,runner?1:bloater?3:5,skin);if(brute)spot(hand,5,4,'#8b9570');
   };

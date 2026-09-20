@@ -5,6 +5,7 @@ const SHOT_STATE_FLOATS=12;
 export interface ShotEvent {
   towerId:number;
   serial:number;
+  launchTick:number;
   target:Vec2;
   angle:number;
 }
@@ -14,7 +15,7 @@ export function decodeShotStates(values:Float32Array,count:number):ShotEvent[]{
   for(let index=0;index<Math.min(MAX_TOWERS,count);index++){
     const offset=index*SHOT_STATE_FLOATS,towerId=Math.round(values[offset+8]??0),serial=Math.round(values[offset+9]??0);
     if(towerId<=0||serial<=0)continue;
-    events.push({towerId,serial,target:{x:values[offset+2],y:values[offset+3]},angle:values[offset+7]});
+    events.push({towerId,serial,launchTick:values[offset+11],target:{x:values[offset+2],y:values[offset+3]},angle:values[offset+7]});
   }
   return events;
 }

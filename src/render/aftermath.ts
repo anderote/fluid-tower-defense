@@ -51,7 +51,7 @@ fn piece(e:Remnant,part:u32,age:f32)->vec4f{
  let q=(corner(vi)+1.)*.5;let frame=10.+floor(min(5.,age/zombieCollapseStep(u32(e.body.w))));let facing=f32((i32(round(e.force.z/.7853981634))+16)%8);
  let slide=e.force.xy*e.body.z*.45*(1.-exp(-age*7.));
  let p=e.body.xy+slide+(q-vec2f(${ZOMBIE_PIVOT.x/ZOMBIE_FRAME},${ZOMBIE_PIVOT.y/ZOMBIE_FRAME}))*e.body.z*zombieTileScale(u32(e.body.w));
- var o=place(p,corner(vi),vec4f(.66,.6,.56,1.-smoothstep(30.,45.,age)),1.,e.life.y);o.uv=(vec2f(frame,sprite*8.+facing)+q)*${ZOMBIE_FRAME}.;return o;
+ var o=place(p,corner(vi),vec4f(select(vec3f(.66,.6,.56),vec3f(.2,.14,.09),e.force.w==3.),1.-smoothstep(30.,45.,age)),1.,e.life.y);o.uv=(vec2f(frame,sprite*8.+facing)+q)*${ZOMBIE_FRAME}.;return o;
 }
 fn partVertex(vi:u32,i:u32,air:bool)->Out{
  let e=aftermath.deaths[i];let age=camera.time.x-e.life.x;
@@ -101,7 +101,8 @@ fn partVertex(vi:u32,i:u32,air:bool)->Out{
       const next=new Map<string,number>();for(const e of scene.heavyExplosions??[]){const key=[e.kind,e.serial,e.x,e.y].join(':');const age=seen.get(key);if(age===undefined||e.age<age){device.queue.writeBuffer(scorches,(cursor++%SCORCH_CAPACITY)*16,new Float32Array([e.x,e.y,e.scale,scene.time-e.age]));}next.set(key,e.age);}seen=next;
     },
     ground(pass:GPURenderPassEncoder){draw(pass,0,6,SCORCH_CAPACITY);draw(pass,1,30,CORPSE_CAPACITY+HIT_CAPACITY);draw(pass,2,24,CORPSE_CAPACITY);draw(pass,3,6,CORPSE_CAPACITY);draw(pass,4,24,CORPSE_CAPACITY);},
-    air(pass:GPURenderPassEncoder){draw(pass,5,24,CORPSE_CAPACITY);draw(pass,6,36,CORPSE_CAPACITY+HIT_CAPACITY);},
+    fragments(pass:GPURenderPassEncoder){draw(pass,5,24,CORPSE_CAPACITY);},
+    spray(pass:GPURenderPassEncoder){draw(pass,6,36,CORPSE_CAPACITY+HIT_CAPACITY);},
     destroy(){parts.destroy();scorches.destroy();}
   };
 }

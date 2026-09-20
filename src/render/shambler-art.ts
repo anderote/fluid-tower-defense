@@ -8,10 +8,10 @@ type Point=[number,number,number];
 export function drawShamblerFrame(ctx:CanvasRenderingContext2D,facing:number,frame:number,pivot=SHAMBLER_PIVOT){
   ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height);ctx.imageSmoothingEnabled=false;
   const angle=facing*Math.PI/4,forward=[Math.cos(angle),Math.sin(angle)],side=[-forward[1],forward[0]];
-  const walking=frame>=1&&frame<=8,phase=(frame-1)*Math.PI/4;
+  const burning=frame>=16;const walking=burning||frame>=1&&frame<=8,phase=(burning?frame-16:frame-1)*Math.PI/4;
   const stride=walking?Math.sin(phase):0,bob=walking?Math.abs(Math.cos(phase))*.045:0;
-  const falling=frame>=10,fall=falling?(frame-9)/6:0,stagger=frame===9;
-  const lean=stagger?-.2:.1;
+  const falling=frame>=10&&frame<16,fall=falling?(frame-9)/6:0,stagger=frame===9;
+  const lean=burning?.15+Math.sin(phase)*.13:stagger?-.2:.1;
   const project=([x,y,z]:Point):[number,number]=>{
     const zz=z*(1-fall*.91),xx=x+z*fall*.72;
     return [Math.round(pivot.x+(forward[0]*xx+side[0]*y)*10),Math.round(pivot.y+(forward[1]*xx+side[1]*y)*6-zz*11)];
@@ -25,12 +25,13 @@ export function drawShamblerFrame(ctx:CanvasRenderingContext2D,facing:number,fra
     ctx.strokeStyle='#20251e';ctx.lineWidth=2;ctx.stroke();ctx.fillStyle=color;ctx.fill();
   };
   const limb=(s:number)=>{
-    const step=stride*s*.25,hip:Point=[lean,s*.14,.76+bob],knee:Point=[step*.45,s*.16,.4],foot:Point=[step,s*.2,.05+Math.max(0,-stride*s)*.1];
+    const step=stride*s*(burning?.42:.25),hip:Point=[lean,s*.14,.76+bob],knee:Point=[step*.45,s*.16,.4],foot:Point=[step,s*.2,.05+Math.max(0,-stride*s)*(burning?.28:.1)];
     line(hip,knee,3,s*side[1]<0?'#444b43':'#596052');line(knee,foot,2,'#454c43');
     line([foot[0]-.06,foot[1],foot[2]],[foot[0]+.15,foot[1],foot[2]],3,'#292e29');
   };
   const arm=(s:number)=>{
     const shoulder:Point=[lean,s*.29,1.16+bob],elbow:Point=[.21+lean-stride*s*.08,s*.34,.91+bob],hand:Point=[.48+lean-stride*s*.12,s*.28,.89+bob];
+    if(burning){elbow[1]=s*.47;elbow[2]=1.38+stride*s*.14;hand[0]=lean-.12;hand[1]=s*(.42+stride*s*.12);hand[2]=1.8+stride*s*.18;}
     line(shoulder,elbow,3,s*side[1]<0?'#5d6450':'#818267');line(elbow,hand,2,'#9caa79');
   };
   const far=side[1]>0?-1:1;
