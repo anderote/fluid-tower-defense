@@ -51,7 +51,7 @@ header, footer { flex: none; display: flex; align-items: center; padding: 0 20px
 
 .header-stack { flex: 1; min-width: 0; }
 .header-telemetry { display: flex; align-items: center; min-width: 0; gap: 8px; }
-.hud { display: grid; grid-template-columns: repeat(3, minmax(54px, auto)) auto repeat(3, minmax(54px, auto)); align-self: stretch; flex: none; border-left: 1px solid var(--term-border); }
+.hud { display: grid; grid-template-columns: repeat(3, minmax(54px, auto)) auto auto repeat(3, minmax(54px, auto)); align-self: stretch; flex: none; border-left: 1px solid var(--term-border); }
 .hud div { display: flex; flex-direction: column; justify-content: center; padding: 0 9px; border-right: 1px solid var(--term-border); }
 .hud span, .run-summary span { display: block; color: var(--term-faint); font-size: var(--text-caption); letter-spacing: .08em; }
 .hud b { display: block; margin-top: 2px; color: var(--term-fg); font-size: var(--text-title); font-weight: 600; }

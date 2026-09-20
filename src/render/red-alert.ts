@@ -89,6 +89,8 @@ struct Out{@builtin(position) pos:vec4<f32>,@location(0) uv:vec2<f32>,@location(
   const defensePipeline=device.createRenderPipeline({label:'Elevated Red Alert defenses',layout,vertex:{module:shader,entryPoint:'vs',buffers:[{arrayStride:48,stepMode:'instance',attributes:[{shaderLocation:0,offset:0,format:'float32x4'},{shaderLocation:1,offset:16,format:'float32x4'},{shaderLocation:2,offset:32,format:'float32x4'}]}]},fragment:{module:shader,entryPoint:'fs',targets:[{format,blend:{color:{srcFactor:'src-alpha',dstFactor:'one-minus-src-alpha',operation:'add'},alpha:{srcFactor:'one',dstFactor:'one-minus-src-alpha',operation:'add'}}}]},primitive:{topology:'triangle-list'},depthStencil:{format:'depth32float',depthWriteEnabled:true,depthCompare:'always'}});
   const bindings=device.createBindGroup({layout:bindLayout,entries:[{binding:0,resource:{buffer:camera}},{binding:1,resource:texture.createView()}]});
   const createBatch=(label:string)=>({buffer:device.createBuffer({label,size:48,usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST}),capacity:1,count:0});
+  const infantryBatch=createBatch('Original Red Alert infantry and kennels');
+  const hasInfantrySprites=['e1','e3','e4','dog','dogbullt','kenn','tent'].every(name=>atlas.sprites[name]?.length);
   const terrain=createBatch('Facility floor'),walls=createBatch('Facility walls'),sceneryProps=createBatch('Landscape trees and buildings'),towers=createBatch('Original defense sprites'),mountedTowers=createBatch('Wall-mounted defense sprites'),wireBatch=createBatch('Connected Red Alert wire'),wireGhost=createBatch('Wire placement preview');
   const upload=(batch:ReturnType<typeof createBatch>,data:number[])=>{
     batch.count=data.length/12;if(batch.count>batch.capacity){batch.buffer.destroy();batch.capacity=2**Math.ceil(Math.log2(batch.count));batch.buffer=device.createBuffer({size:batch.capacity*48,usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST});}
@@ -99,6 +101,15 @@ struct Out{@builtin(position) pos:vec4<f32>,@location(0) uv:vec2<f32>,@location(
   }
   let terrainKey='',wireKey='',previousScenery:RenderScene['map']['scenery'],sceneryVersion=0;
   function prepare(scene:RenderScene){
+    const friendly:number[]=[];
+    if(hasInfantrySprites){
+      for(const b of scene.infantry?.buildings??[]){
+        if(b.kind!=='dog'&&(b.kind??'rifle')!=='rifle')continue;
+        const id=atlas.sprites[b.kind==='dog'?'kenn':'tent'][0],f=atlas.frames[id];
+        sprite(friendly,id,b.x-f.width/12,b.y+2-f.height/6,f.width/6,f.height/6);
+      }
+    }
+    upload(infantryBatch,friendly);
     const scenery=scene.map.scenery,biome=scenery?.biome;
     if(previousScenery!==scenery){previousScenery=scenery;sceneryVersion++;}
     const landscapeAvailable=biome&&biome!=='interior'&&atlas.sprites[`${biome}:clear1`]?.length;
@@ -188,5 +199,5 @@ struct Out{@builtin(position) pos:vec4<f32>,@location(0) uv:vec2<f32>,@location(
     draw(pass,towers,true);
     if(!mountedTowers.count)return;pass.setPipeline(defensePipeline);pass.setBindGroup(0,bindings);pass.setVertexBuffer(0,mountedTowers.buffer);pass.draw(6,mountedTowers.count);
   }
-  return {prepare,hasWireSprites,drawFloor:(pass:GPURenderPassEncoder)=>draw(pass,terrain),drawWires:(pass:GPURenderPassEncoder)=>{draw(pass,wireBatch);draw(pass,wireGhost);},drawOccluders:(pass:GPURenderPassEncoder)=>{draw(pass,walls,true);draw(pass,sceneryProps,true);},drawTowers:drawDefenses,destroy(){terrain.buffer.destroy();walls.buffer.destroy();sceneryProps.buffer.destroy();towers.buffer.destroy();mountedTowers.buffer.destroy();wireBatch.buffer.destroy();wireGhost.buffer.destroy();texture.destroy();}};
+  return {prepare,hasWireSprites,hasInfantrySprites,drawInfantry:(pass:GPURenderPassEncoder)=>draw(pass,infantryBatch,true),drawFloor:(pass:GPURenderPassEncoder)=>draw(pass,terrain),drawWires:(pass:GPURenderPassEncoder)=>{draw(pass,wireBatch);draw(pass,wireGhost);},drawOccluders:(pass:GPURenderPassEncoder)=>{draw(pass,walls,true);draw(pass,sceneryProps,true);},drawTowers:drawDefenses,destroy(){infantryBatch.buffer.destroy();terrain.buffer.destroy();walls.buffer.destroy();sceneryProps.buffer.destroy();towers.buffer.destroy();mountedTowers.buffer.destroy();wireBatch.buffer.destroy();wireGhost.buffer.destroy();texture.destroy();}};
 }

@@ -9,7 +9,7 @@ const status=document.querySelector<HTMLElement>('#status')!,canvas=document.que
 try{
   const atlas=await createInfantryAtlas(),pixels=atlas.getContext('2d')!.getImageData(0,0,atlas.width,atlas.height).data;
   let checked=0;
-  for(let row=0;row<32;row++)for(let frame=0;frame<INFANTRY_FRAMES;frame++){
+  for(let row=0;row<INFANTRY_KINDS.length*8;row++)for(let frame=0;frame<INFANTRY_FRAMES;frame++){
     let visible=0;
     for(let y=0;y<48;y++)for(let x=0;x<48;x++){
       const alpha=pixels[((row*48+y)*atlas.width+frame*48+x)*4+3];

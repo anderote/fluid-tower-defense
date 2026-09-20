@@ -79,6 +79,7 @@ export function createAudio(){
     tone(at,kind==='rocket'?58:72,24,kind==='rocket'?.34:.25,kind==='rocket'?.16:.11,pan,'sine');
   };
   const slash=(x:number,serial=0)=>{if(!ctx)return;const at=ctx.currentTime+.008,pan=stereo(x);hiss(at,.16,.12,1200,8000,pan,serial*.13);tone(at,1800,350,.11,.035,pan,'triangle');};
+  const bark=(x:number,serial=0)=>{if(!ctx)return;const at=ctx.currentTime+.008,pan=stereo(x);hiss(at,.09,.1,180,1700,pan,serial*.17);tone(at,210,105,.1,.065,pan,'sawtooth');};
   const beep=(hz:number,duration=.07)=>{arm();if(ctx)tone(ctx.currentTime+.004,hz,hz*.82,duration,.045,0,'sine');};
-  return {arm,fire,shell,explode,slash,click:()=>beep(420,.04),blast:()=>beep(90,.16),alert:()=>beep(760,.12),destroy:()=>{stopListening();void ctx?.close();ctx=undefined;master=undefined;noise=undefined;}};
+  return {arm,fire,shell,explode,slash,bark,click:()=>beep(420,.04),blast:()=>beep(90,.16),alert:()=>beep(760,.12),destroy:()=>{stopListening();void ctx?.close();ctx=undefined;master=undefined;noise=undefined;}};
 }

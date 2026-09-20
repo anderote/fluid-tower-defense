@@ -309,22 +309,22 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
     if(scene.infantrySelectionBox){const box=scene.infantrySelectionBox;rect(a,box.x,box.y,box.width,box.height,[.33,.94,.38,.09]);rectOutline(a,box.x,box.y,box.width,box.height,[.45,1,.48,.9],.08);}
     if(scene.infantryCommandTarget){const p=scene.infantryCommandTarget;ring(a,p.x,p.y,1.1,[.4,1,.38,.8],.12);rect(a,p.x-.08,p.y-.7,.16,1.4,[.48,1,.42,.75]);rect(a,p.x-.7,p.y-.08,1.4,.16,[.48,1,.42,.75]);}
     for(const b of scene.infantry?.buildings??[]){
-      for(const p of infantryBuildingPixels(b.kind??'rifle'))rect(a,b.x+(p.x-BUILDING_ANCHOR.x)*BUILDING_PIXEL,b.y+(p.y-BUILDING_ANCHOR.y)*BUILDING_PIXEL,p.width*BUILDING_PIXEL,p.height*BUILDING_PIXEL,p.color);
+      if(!redAlert?.hasInfantrySprites||(b.kind!=='dog'&&(b.kind??'rifle')!=='rifle'))for(const p of infantryBuildingPixels(b.kind??'rifle'))rect(a,b.x+(p.x-BUILDING_ANCHOR.x)*BUILDING_PIXEL,b.y+(p.y-BUILDING_ANCHOR.y)*BUILDING_PIXEL,p.width*BUILDING_PIXEL,p.height*BUILDING_PIXEL,p.color);
       if(b.id===scene.selectedBarracks){const distance=Math.hypot(b.rally.x-b.x,b.rally.y-b.y);for(let d=3;d<distance-1;d+=1.2){const t=d/distance;rect(a,b.x+(b.rally.x-b.x)*t-.08,b.y+(b.rally.y-b.y)*t-.08,.16,.16,[.85,.77,.3,.6]);}rectOutline(a,b.x-2.35,b.y-2.35,4.7,4.7,[.72,.93,.35,.95],.1);ring(a,b.rally.x,b.rally.y,2.5,[.65,.93,.35,.8],.12);rect(a,b.rally.x,b.rally.y-2,.1,2,[.8,.9,.5,1]);rect(a,b.rally.x+.1,b.rally.y-2,1,.6,[.85,.77,.19,1]);}
     }
     for(const s of scene.infantry?.soldiers??[]){
       const kind=s.kind??'rifle',stats=infantryStats(s.kind,s.quality,s.defense,s.veterancy);
       const x=s.x,y=s.y,dead=s.health<=0;
       if(dead)continue;
-      if(scene.selectedInfantry?.includes(s.id))ring(a,x,y+.15,1.05,[.43,1,.36,.95],.11);
+      if(scene.selectedInfantry?.has(s.id))ring(a,x,y+.15,1.05,[.43,1,.36,.95],.11);
       const muzzle=infantryMuzzle(s),{dx,dy}=muzzle,mx=muzzle.x,my=muzzle.y;
-      if(s.flash>0){
+      if(s.flash>0&&kind!=='dog'){
         if(kind==='samurai'){const phase=1-s.flash/.28;for(let layer=0;layer<3;layer++)for(let j=0;j<18;j++){const angle=s.angle-1.9+phase*2.5+j*.09,r=2.1+layer*.18,fade=(j/18)*(s.flash/.28)*(1-layer*.24);streak(a,x+Math.cos(angle)*r,y-.65+Math.sin(angle)*r,-Math.sin(angle),Math.cos(angle),.27,.08,[.7,.89,1,fade]);}}
         else if(kind==='flame'){for(let j=0;j<12;j++){const spread=s.angle+Math.sin(j*13)*.42,reach=1+j*.42;disc(a,x+Math.cos(spread)*reach,y-.65+Math.sin(spread)*reach,.2+j*.04,[1,.2+j*.035,.04,(1-j/15)*s.flash*4],5);}}
         else if(kind==='rocket'){streak(a,mx+dx*4,my+dy*4,dx,dy,4,.14,[.88,.84,.65,s.flash*5]);disc(a,mx,my,.4,[1,.6,.15,.8],6);}
         else {disc(a,mx,my,.24,[1,.86,.29,.95],5);streak(a,mx+dx*2,my+dy*2,dx,dy,2,.025,[1,.89,.43,s.flash*6]);}
       }
-      if(s.health<stats.health||scene.selectedBarracks===s.home||scene.selectedInfantry?.includes(s.id)){rect(a,x-.65,y-2.1,1.3,.13,[.12,.13,.1,1]);rect(a,x-.65,y-2.1,1.3*s.health/stats.health,.13,[.5,.85,.22,1]);}
+      if(s.health<stats.health||scene.selectedBarracks===s.home||scene.selectedInfantry?.has(s.id)){rect(a,x-.65,y-2.1,1.3,.13,[.12,.13,.1,1]);rect(a,x-.65,y-2.1,1.3*s.health/stats.health,.13,[.5,.85,.22,1]);}
       for(let rank=0;rank<Math.min(5,Math.floor((s.veterancy??0)/20));rank++)rect(a,x-.4+rank*.18,y-1.02,.1,.1,[.95,.84,.3,1]);
     }
     for(const projectile of scene.heavyProjectiles??[]){
@@ -383,7 +383,7 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
         pass.end();pass=encoder.beginRenderPass({colorAttachments:[{view:target,loadOp:'load',storeOp:'store'}]});blood.walls(pass);pass.end();
         pass=encoder.beginRenderPass({colorAttachments:[{view:target,loadOp:'load',storeOp:'store'}],depthStencilAttachment:{view:sceneDepth!.createView(),depthLoadOp:'load',depthStoreOp:'store'}});
       }
-      redAlert?.drawTowers(pass);
+      redAlert?.drawTowers(pass);redAlert?.drawInfantry(pass);
       pass.end();shamblers.draw(encoder,target,pixelW,pixelH,scene.count,sceneDepth);
       pass=encoder.beginRenderPass({label:'Infantry in world depth',colorAttachments:[{view:target,loadOp:'load',storeOp:'store'}],depthStencilAttachment:{view:sceneDepth!.createView(),depthLoadOp:'load',depthStoreOp:'discard'}});
       infantrySprites.draw(pass);pass.end();
