@@ -110,6 +110,7 @@ button small { margin-top: 5px; color: var(--term-faint); font-size: 8px; line-h
 .tower-grid button.locked .cost { color: var(--term-warn); font-size: 7px; }
 
 .tower-shape { grid-row: 1 / span 2; display: block; width: 19px; height: 19px; background: var(--term-accent); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+[data-tower="repulsor"] .tower-shape { background: #baff38; clip-path: none; border-radius: 50%; }
 [data-tower="mortar"] .tower-shape, [data-tower="tesla"] .tower-shape { background: #ff9d36; clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); }
 [data-tower="autocannon"] .tower-shape, [data-tower="railgun"] .tower-shape { background: #4fd7ff; transform: rotate(45deg) scale(.78); }
 [data-tower="cryo"] .tower-shape { background: #a995ff; clip-path: polygon(38% 0, 62% 0, 62% 38%, 100% 38%, 100% 62%, 62% 62%, 62% 100%, 38% 100%, 38% 62%, 0 62%, 0 38%, 38% 38%); }
