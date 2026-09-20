@@ -68,7 +68,7 @@ struct Out{@builtin(position) pos:vec4<f32>,@location(0) uv:vec2<f32>,@location(
   const pipeline=device.createRenderPipeline({label:'Red Alert sprites',layout:'auto',vertex:{module:shader,entryPoint:'vs',buffers:[{arrayStride:48,stepMode:'instance',attributes:[{shaderLocation:0,offset:0,format:'float32x4'},{shaderLocation:1,offset:16,format:'float32x4'},{shaderLocation:2,offset:32,format:'float32x4'}]}]},fragment:{module:shader,entryPoint:'fs',targets:[{format,blend:{color:{srcFactor:'src-alpha',dstFactor:'one-minus-src-alpha',operation:'add'},alpha:{srcFactor:'one',dstFactor:'one-minus-src-alpha',operation:'add'}}}]},primitive:{topology:'triangle-list'}});
   const bindings=device.createBindGroup({layout:pipeline.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:camera}},{binding:1,resource:texture.createView()}]});
   const createBatch=(label:string)=>({buffer:device.createBuffer({label,size:48,usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST}),capacity:1,count:0});
-  const terrain=createBatch('Facility tiles'),sceneryProps=createBatch('Landscape trees and buildings'),towers=createBatch('Original defense sprites'),wireBatch=createBatch('Connected Red Alert wire'),wireGhost=createBatch('Wire placement preview');
+  const terrain=createBatch('Facility floor'),walls=createBatch('Facility walls'),sceneryProps=createBatch('Landscape trees and buildings'),towers=createBatch('Original defense sprites'),wireBatch=createBatch('Connected Red Alert wire'),wireGhost=createBatch('Wire placement preview');
   const upload=(batch:ReturnType<typeof createBatch>,data:number[])=>{
     batch.count=data.length/12;if(batch.count>batch.capacity){batch.buffer.destroy();batch.capacity=2**Math.ceil(Math.log2(batch.count));batch.buffer=device.createBuffer({size:batch.capacity*48,usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST});}
     if(data.length)device.queue.writeBuffer(batch.buffer,0,new Float32Array(data));
@@ -99,13 +99,15 @@ struct Out{@builtin(position) pos:vec4<f32>,@location(0) uv:vec2<f32>,@location(
         const ids=atlas.sprites[stamp.sprite];if(!ids)continue;
         for(let i=0;i<Math.min(ids.length,stamp.columns*stamp.rows);i++)sprite(data,ids[i],stamp.x+(i%stamp.columns)*4,stamp.y+Math.floor(i/stamp.columns)*4,4,4);
       }
+      upload(terrain,data);
+      const wallData:number[]=[];
       for(const tile of wallTiles(obstacles)){
         // The original vertical cap tile connects continuously. South-facing ends
         // use the original cap + shaded wall face instead of rotating a texture.
         const name=tile.south?'wall2':tile.east?'wall12':tile.west?'wall13':'wall14',id=atlas.sprites[name][0],frame=atlas.frames[id];
-        sprite(data,id,tile.x,tile.y,tile.width,tile.height,[1,1,1,1],{...frame,width:tile.width*6,height:tile.height*6});
+        sprite(wallData,id,tile.x,tile.y,tile.width,tile.height,[1,1,1,1],{...frame,width:tile.width*6,height:tile.height*6});
       }
-      upload(terrain,data);terrainKey=key;
+      upload(walls,wallData);terrainKey=key;
       const props:number[]=[];
       for(const prop of [...scenery?.props??[]].sort((a,b)=>a.y-b.y)){
         const id=atlas.sprites[prop.sprite]?.[0];if(id===undefined)continue;const f=atlas.frames[id];
@@ -159,5 +161,5 @@ struct Out{@builtin(position) pos:vec4<f32>,@location(0) uv:vec2<f32>,@location(
     upload(towers,data);
   }
   function draw(pass:GPURenderPassEncoder,batch:ReturnType<typeof createBatch>){if(!batch.count)return;pass.setPipeline(pipeline);pass.setBindGroup(0,bindings);pass.setVertexBuffer(0,batch.buffer);pass.draw(6,batch.count);}
-  return {prepare,hasWireSprites,drawTerrain:(pass:GPURenderPassEncoder)=>{draw(pass,terrain);draw(pass,wireBatch);draw(pass,sceneryProps);},drawTowers:(pass:GPURenderPassEncoder)=>{draw(pass,towers);draw(pass,wireGhost);},destroy(){terrain.buffer.destroy();sceneryProps.buffer.destroy();towers.buffer.destroy();wireBatch.buffer.destroy();wireGhost.buffer.destroy();texture.destroy();}};
+  return {prepare,hasWireSprites,drawFloor:(pass:GPURenderPassEncoder)=>draw(pass,terrain),drawStructures:(pass:GPURenderPassEncoder)=>{draw(pass,walls);draw(pass,wireBatch);draw(pass,sceneryProps);},drawTowers:(pass:GPURenderPassEncoder)=>{draw(pass,towers);draw(pass,wireGhost);},destroy(){terrain.buffer.destroy();walls.buffer.destroy();sceneryProps.buffer.destroy();towers.buffer.destroy();wireBatch.buffer.destroy();wireGhost.buffer.destroy();texture.destroy();}};
 }

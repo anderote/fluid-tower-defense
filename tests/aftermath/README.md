@@ -1,5 +1,7 @@
 # Battlefield aftermath
 
+`/tests/aftermath/occlusion.html` checks actual framebuffer pixels with debris deliberately overlapping a wall and turret. Ground remains and airborne fragments draw above the floor but below structures and living units; spray, explosions and Tesla retain their foreground layers.
+
 Run the development server and open `/tests/aftermath/`. The fixture uses real GPU combat, reads back the bounded aftermath buffers, and exercises bullet/blast/crush deaths, slot recycling, directional nonlethal hits, lethal and nonlethal Tesla exclusion, leaks, overflow, and reset. The timeline controls allow inspection of spray, flight, landing, drying blood and corpse fading. `Reuse dead slots` demonstrates that living replacements do not erase casualties.
 
 The effect observer never writes simulation particles, damage, attribution or Tesla state. It retains at most 2,048 death records and 1,024 hit records, with a maximum 512 writes to each ring per tick; overflow is intentionally dropped. Four original pixel fragments are derived per explosive casualty. Their altitude, tumble, bounce and slide are visual animation, not colliding rigid bodies.

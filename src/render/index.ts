@@ -331,14 +331,16 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
       const target=context.getCurrentTexture().createView();
       let pass=encoder.beginRenderPass({colorAttachments:[{view:target,clearValue:{r:.075,g:.075,b:.078,a:1},loadOp:'clear',storeOp:'store'}]});
       pass.setPipeline(bg);pass.setBindGroup(0,cameraBG);pass.draw(3);
-      redAlert?.drawTerrain(pass);
-      if(scene.aftermathVisible!==false)aftermath?.ground(pass);
+      redAlert?.drawFloor(pass);
+      // Gore never covers defenses: altitude changes fragment motion, not its layer.
+      if(scene.aftermathVisible!==false){aftermath?.ground(pass);aftermath?.fragments(pass);}
+      redAlert?.drawStructures(pass);
       pass.setPipeline(overlay);pass.setBindGroup(0,cameraOverlay);pass.setVertexBuffer(0,overlays);pass.draw(data.length/6);
       redAlert?.drawTowers(pass);
       pass.setPipeline(particles);pass.setBindGroup(0,cameraParticles);pass.draw(48,Math.min(scene.count,shared.capacity));
       pass.end();shamblers.draw(encoder,target,pixelW,pixelH,scene.count);
       pass=encoder.beginRenderPass({colorAttachments:[{view:target,loadOp:'load',storeOp:'store'}]});
-      if(scene.aftermathVisible!==false)aftermath?.air(pass);
+      if(scene.aftermathVisible!==false)aftermath?.spray(pass);
       pass.setPipeline(overlay);pass.setBindGroup(0,cameraOverlay);pass.setVertexBuffer(0,foreground);pass.draw(fx.length/6);
       if(shared.shotState){pass.setPipeline(cues);pass.setBindGroup(0,cameraCues);pass.draw(72,Math.min(MAX_TOWERS,scene.towers.length));}tesla?.draw(pass,scene.count,scene.towers.length);pass.end();
     },
