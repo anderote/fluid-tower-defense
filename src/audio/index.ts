@@ -1,14 +1,18 @@
 import type {TowerKind} from '../contracts/index.ts';
 
+const assetBase=(import.meta as ImportMeta&{env?:{BASE_URL?:string}}).env?.BASE_URL??'/';
+import {audioSettings,onAudioSettingsChange} from './settings.ts';
+
 /** Dry synthesized weapon layers plus attributed OpenSoldat heavy-weapon samples. */
 export function createAudio(){
   let ctx:AudioContext|undefined,master:GainNode|undefined,noise:AudioBuffer|undefined;
+  const stopListening=onAudioSettingsChange(settings=>{if(master)master.gain.value=settings.effects;});
   const samples:Partial<Record<'m79Fire'|'m79Explosion'|'law',AudioBuffer>>={};
   let samplesLoading=false;
 
   const loadSamples=()=>{
     if(!ctx||samplesLoading)return;samplesLoading=true;
-    const files={m79Fire:'/audio/soldat/m79-fire.wav',m79Explosion:'/audio/soldat/m79-explosion.wav',law:'/audio/soldat/law.wav'} as const;
+    const files={m79Fire:`${assetBase}audio/soldat/m79-fire.wav`,m79Explosion:`${assetBase}audio/soldat/m79-explosion.wav`,law:`${assetBase}audio/soldat/law.wav`} as const;
     for(const [name,url] of Object.entries(files) as [keyof typeof files,string][]){
       void fetch(url).then(response=>{if(!response.ok)throw new Error(`${response.status} ${url}`);return response.arrayBuffer();}).then(data=>ctx?.decodeAudioData(data)).then(buffer=>{if(buffer)samples[name]=buffer;}).catch(error=>console.warn('OpenSoldat sound unavailable; using synthesized fallback.',error));
     }
@@ -17,7 +21,7 @@ export function createAudio(){
   const arm=()=>{
     if(!ctx){
       ctx=new AudioContext();
-      master=ctx.createGain();master.gain.value=.48;
+      master=ctx.createGain();master.gain.value=audioSettings().effects;
       const limiter=ctx.createDynamicsCompressor();
       limiter.threshold.value=-16;limiter.knee.value=8;limiter.ratio.value=10;limiter.attack.value=.002;limiter.release.value=.12;
       master.connect(limiter).connect(ctx.destination);
@@ -75,5 +79,5 @@ export function createAudio(){
     tone(at,kind==='rocket'?58:72,24,kind==='rocket'?.34:.25,kind==='rocket'?.16:.11,pan,'sine');
   };
   const beep=(hz:number,duration=.07)=>{arm();if(ctx)tone(ctx.currentTime+.004,hz,hz*.82,duration,.045,0,'sine');};
-  return {arm,fire,shell,explode,click:()=>beep(420,.04),blast:()=>beep(90,.16),alert:()=>beep(760,.12),destroy:()=>{void ctx?.close();ctx=undefined;master=undefined;noise=undefined;}};
+  return {arm,fire,shell,explode,click:()=>beep(420,.04),blast:()=>beep(90,.16),alert:()=>beep(760,.12),destroy:()=>{stopListening();void ctx?.close();ctx=undefined;master=undefined;noise=undefined;}};
 }

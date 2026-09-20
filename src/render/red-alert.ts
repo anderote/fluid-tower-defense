@@ -8,9 +8,17 @@ export const floorSprites=(sprites:Record<string,number[]>,style:FloorArtStyle='
 type Frame={x:number;y:number;width:number;height:number};
 type Atlas={size:number;frames:Frame[];sprites:Record<string,number[]>};
 export const RA_TILE_WORLD=4;
+const assetBase=(import.meta as ImportMeta&{env?:{BASE_URL?:string}}).env?.BASE_URL??'/';
 const DEFENSES:Partial<Record<TowerKind,string>>={autocannon:'gun',tesla:'tsla',incinerator:'ftur'};
 export const redAlertFacing=(angle:number)=>((24-Math.round(angle*16/Math.PI))%32+32)%32;
 export const hasRedAlertSprite=(kind:TowerKind,style:TurretArtStyle='soldat')=>style==='soldat'||kind in DEFENSES;
+/**
+ * These are the two fixed defenses whose original Red Alert silhouettes are
+ * part of their identity.  Keep the project's directional artwork for every
+ * other weapon in the default view, but do not replace the Coil or Flame
+ * Tower with a merely similar-looking model.
+ */
+export const usesClassicDefenseSprite=(kind:TowerKind)=>kind==='tesla'||kind==='incinerator';
 const same=(a:Rect,b:Rect)=>a.x===b.x&&a.y===b.y&&a.width===b.width&&a.height===b.height;
 
 /** Split authored rectangles at the tile grid, retaining exact collision bounds. */
@@ -31,12 +39,12 @@ export function wallTiles(obstacles:readonly Rect[]){
 
 /** Original palette sprites, drawn with nearest texel access and fixed pivots. */
 export async function createRedAlertArt(device:GPUDevice,format:GPUTextureFormat,camera:GPUBuffer,style:TurretArtStyle='soldat',wireStyle:WireArtStyle='barb',floorStyle:FloorArtStyle='panels'){
-  const response=await fetch('/assets/red-alert/atlas.json');
+  const response=await fetch(`${assetBase}assets/red-alert/atlas.json`);
   if(!response.ok)throw Error('Red Alert atlas is missing. Run npm run assets:red-alert.');
   const atlas:Atlas=await response.json();
   if(!atlas.frames?.length||!atlas.sprites?.floor?.length)throw Error('Invalid Red Alert atlas');
   const wireFrames=atlas.sprites[wireStyle],hasWireSprites=wireFrames?.length>=32;
-  const imageResponse=await fetch('/assets/red-alert/atlas.png');
+  const imageResponse=await fetch(`${assetBase}assets/red-alert/atlas.png`);
   if(!imageResponse.ok)throw Error('Red Alert texture is missing');
   const bitmap=await createImageBitmap(await imageResponse.blob(),{premultiplyAlpha:'none',colorSpaceConversion:'none'});
   let customSprites:Record<string,number[]>|undefined;
@@ -148,7 +156,7 @@ struct Out{@builtin(position) pos:vec4<f32>,@location(0) uv:vec2<f32>,@location(
     upload(wireGhost,preview);
     const data:number[]=[];
     const draw=(t:{kind:TowerKind;x:number;y:number;angle?:number;level?:number},tint?:number[])=>{
-      if(customSprites){
+      if(customSprites&&!usesClassicDefenseSprite(t.kind)){
         sprite(data,customSprites[soldatSpriteKey(t.kind,t.level)][soldatFacing(t.angle??0)],t.x-SOLDAT_WORLD_SIZE/2,t.y-SOLDAT_WORLD_SIZE/2,SOLDAT_WORLD_SIZE,SOLDAT_WORLD_SIZE,tint);return;
       }
       const name=DEFENSES[t.kind];if(!name)return;
