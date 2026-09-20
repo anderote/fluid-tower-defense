@@ -20,5 +20,18 @@ try{
  await device.queue.onSubmittedWorkDone();for(let i=0;i<100&&!infantry.threats.has(1);i++)await new Promise(r=>setTimeout(r,10));assert(infantry.threats.get(1)?.generation===7,'GPU sensing returns a live generation-stamped target');
  infantry.reset();assert(infantry.threats.size===0,'reset discards old sensing state');
  writeEnemy();await shoot(7,[],100);const settle=device.createCommandEncoder();combat.encodeBefore(settle,{dt:1/60,tick:1,count:1,map,effects:[],tuning:DEFAULT_TUNING,lab:false,towers:[]});combat.encodeAfter(settle,{dt:1/60,tick:1,count:1,map,effects:[],tuning:DEFAULT_TUNING,lab:false,towers:[]});device.queue.submit([settle.finish()]);const counters=new Uint32Array(await read(shared.counters,COUNTER_WORDS*4));assert(counters[0]===1,'rifle kills enter global kill and salvage settlement');assert(counters.slice(16,80).every(v=>v===0),'rifle kills do not grant turret veterancy');
+ for(const kind of ['rocket','flame','samurai'] as const){
+  soldier.kind=kind;
+  device.queue.writeBuffer(shared.particles,0,new Float32Array([
+   12,10,0,0,.5,1,100,100,1,0,0,1,0,0,0,7,
+   12,11,0,0,.5,1,100,100,1,0,0,1,0,0,0,8,
+   8,10,0,0,.5,1,100,100,1,0,0,1,0,0,0,9,
+   19,10,0,0,.5,1,100,100,1,0,0,1,0,0,0,10]));
+  const blast=device.createCommandEncoder();infantry.encode(blast,[soldier],[{soldier:1,target:0,generation:7,damage:20,x:12,y:10}],map,4,false);device.queue.submit([blast.finish()]);
+  const result=new Float32Array(await read(shared.particles,256));
+  assert(result[6]===80&&result[22]===80,kind+' hits multiple zombies in its attack footprint');
+  assert(result[38]===100&&result[54]===100,kind+' spares zombies outside its attack footprint');
+  writeEnemy();assert((await shoot(7,[{x:11,y:9,width:.5,height:3}]))[6]===20,kind+' cannot attack through a wall');
+ }
  assert(gpuErrors.length===0,'no GPU validation errors');infantry.destroy();combat.destroy();shared.particles.destroy();shared.counters.destroy();device.destroy();output.textContent+='\nALL CHECKS PASSED';
 }catch(error){output.textContent+='\nFAIL '+String(error);console.error(error);}
