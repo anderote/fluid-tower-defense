@@ -1,4 +1,7 @@
 export const MAX_WALL_ENGINEERING = 20;
+export const BASE_WALL_DURABILITY = 960;
+export const BASE_WALL_PRESSURE_RESISTANCE = 72;
+const WALL_FATIGUE_RATE = 0.006;
 
 /** Diminishing-return global wall technology: early ranks matter, late ranks refine. */
 export function wallEngineeringMultiplier(level: number): number {
@@ -7,15 +10,15 @@ export function wallEngineeringMultiplier(level: number): number {
 }
 
 export function wallCapacity(level: number): number {
-  return 240 * wallEngineeringMultiplier(level);
+  return BASE_WALL_DURABILITY * wallEngineeringMultiplier(level);
 }
 
 /** Pressure below the operating threshold creates no structural fatigue. */
 export function wallFatigueIncrement(pressure: number, contact: number, dt: number, level: number): number {
-  const overload = Math.max(0, pressure - 34);
+  const overload = Math.max(0, pressure - BASE_WALL_PRESSURE_RESISTANCE);
   const normalizedContact = Math.max(0, Math.min(1, contact));
   const engineering = wallEngineeringMultiplier(level);
-  return Math.max(0, dt) * overload * overload * normalizedContact * 0.018 / engineering;
+  return Math.max(0, dt) * overload * overload * normalizedContact * WALL_FATIGUE_RATE / engineering;
 }
 
 export function wallHealthAfterPressure(health: number, pressure: number, contact: number, dt: number, level: number): number {
