@@ -34,12 +34,12 @@ export function decodeDefense(raw:string):SavedDefense {
   if (!rect(saved.spawnBaseline) || !Array.isArray(saved.builtWalls) || !saved.builtWalls.every(rect) || !Array.isArray(saved.builtWires) || !saved.builtWires.every(wire => object(wire) && finite(wire.health) && finite(wire.maxHealth) && wire.health > 0 && wire.maxHealth > 0 && wire.health <= wire.maxHealth && typeof wire.breached === 'boolean' && rect(wire)) || !finite(saved.difficulty) || !Number.isInteger(saved.difficulty) || saved.difficulty < 1 || saved.difficulty > 40 || (saved.streamWidth !== undefined && (!finite(saved.streamWidth) || !Number.isInteger(saved.streamWidth) || saved.streamWidth < 1 || saved.streamWidth > 100))) throw new Error('Invalid saved structures or flow setting.');
   const defense = saved as unknown as SavedDefense;
   const dynamic = [...defense.builtWalls, ...defense.builtWires];
-  // Collision/removal code uses object identity. Reconnect structures to map obstacles,
-  // and keep breached wire out of collision even in older autosave snapshots.
+  // Collision/removal code uses object identity. Reconnect walls to map obstacles;
+  // wire intentionally remains outside the collision/navigation map, including for
+  // legacy snapshots that serialized intact wire as an obstacle.
   defense.map.obstacles = [
     ...defense.map.obstacles.filter(obstacle => !dynamic.some(segment => same(obstacle,segment))),
     ...defense.builtWalls,
-    ...defense.builtWires.filter(wire => !wire.breached),
   ];
   const issue = validateEditorMap(defense.map);
   if (issue) throw new Error(issue);

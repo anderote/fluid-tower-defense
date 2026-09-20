@@ -13,11 +13,11 @@ test('reset clears player collisions while preserving authored terrain',()=>{
  assert.deepEqual(cleared.obstacles,DEFAULT_MAP.obstacles);
  assert.equal(map.obstacles.length,DEFAULT_MAP.obstacles.length+2);
 });
-test('saved default sessions adopt current authored terrain and retain player structures',()=>{
+test('saved default sessions adopt current authored terrain and retain only player walls as terrain',()=>{
  const wall={x:20,y:20,width:4,height:4},wire={x:28,y:20,width:4,height:4,breached:false},breached={x:36,y:20,width:4,height:4,breached:true};
  const stale={...DEFAULT_MAP,obstacles:[{x:12,y:0,width:4,height:24}]};
  const restored=restoreSessionTerrain(stale,DEFAULT_MAP,[wall],[wire,breached]);
- assert.deepEqual(restored.obstacles,[...DEFAULT_MAP.obstacles,wall,wire]);
+ assert.deepEqual(restored.obstacles,[...DEFAULT_MAP.obstacles,wall]);
  assert.equal(restored.spawn,DEFAULT_MAP.spawn);
 });
 test('saved custom sessions retain their authored terrain',()=>{

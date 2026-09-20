@@ -15,7 +15,10 @@ export function restoreSessionTerrain(
   wires:readonly (Rect & Partial<{breached:boolean}>)[],
 ):WorldMap {
   const base=savedMap.id===authoredMap.id?authoredMap:clearPlayerTerrain(savedMap,walls,wires);
-  return {...base,obstacles:[...base.obstacles,...walls,...wires.filter(wire=>!wire.breached)]};
+  // Wire is a damaging ground hazard, not solid terrain.  Older saves can
+  // contain it in `obstacles`, but restored sessions deliberately keep only
+  // walls in the collision/navigation map.
+  return {...base,obstacles:[...base.obstacles,...walls]};
 }
 
 /**
