@@ -2,7 +2,7 @@ import { ENEMY_WGSL, towerBehavior } from '../content/index.ts';
 import { PARTICLE_WGSL, type RenderScene, type Renderer, type SharedGPU, type TowerKind, type Vec2 } from '../contracts/index.ts';
 import {screenToWorld as unproject, worldToScreen as project} from './camera.ts';
 import {TURRET_GRID, turretPixelRects, type TurretInk} from './turret-art.ts';
-import {createRedAlertArt,hasRedAlertSprite,type TurretArtStyle} from './red-alert.ts';
+import {createRedAlertArt,hasRedAlertSprite,type TurretArtStyle,type FloorArtStyle} from './red-alert.ts';
 import type {WireArtStyle} from './wire-art.ts';
 import {SHOT_GEOMETRY_WGSL} from './shot-geometry.ts';
 
@@ -11,10 +11,10 @@ type V = { x:number; y:number; r:number; g:number; b:number; a:number };
 const sameRect=(left:{x:number;y:number;width:number;height:number},right:{x:number;y:number;width:number;height:number})=>left.x===right.x&&left.y===right.y&&left.width===right.width&&left.height===right.height;
 
 /** GPU-only visualizer. Particle bodies remain in the shared simulation buffer. */
-export async function createRenderer(device: GPUDevice, context: GPUCanvasContext, format: GPUTextureFormat, shared: SharedGPU, canvas: HTMLCanvasElement,options:{turretArt?:TurretArtStyle;wireArt?:WireArtStyle}={}): Promise<Renderer> {
+export async function createRenderer(device: GPUDevice, context: GPUCanvasContext, format: GPUTextureFormat, shared: SharedGPU, canvas: HTMLCanvasElement,options:{turretArt?:TurretArtStyle;wireArt?:WireArtStyle;floorArt?:FloorArtStyle}={}): Promise<Renderer> {
   const uniform = device.createBuffer({ label:'Render camera', size:64, usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST });
   const turretArt=options.turretArt??'soldat';
-  const redAlert=await createRedAlertArt(device,format,uniform,turretArt,options.wireArt).catch(error=>{console.warn('Facility artwork unavailable; using fallback graphics.',error);return null;});
+  const redAlert=await createRedAlertArt(device,format,uniform,turretArt,options.wireArt,options.floorArt).catch(error=>{console.warn('Facility artwork unavailable; using fallback graphics.',error);return null;});
   let overlayCapacity=1;
   let overlays = device.createBuffer({ label:'Tactical overlays', size:24, usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST });
   let foregroundCapacity=1;

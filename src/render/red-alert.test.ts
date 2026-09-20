@@ -1,6 +1,20 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {redAlertFacing,wallTiles} from './red-alert.ts';
+import {redAlertFacing,wallTiles,floorSprites} from './red-alert.ts';
+import {readFileSync} from 'node:fs';
+
+test('grating is opt-in and an older atlas safely retains the panel floor',()=>{
+  const floor=[0,1],grating=[2,3];
+  assert.equal(floorSprites({floor,grating}),floor);
+  assert.equal(floorSprites({floor,grating},'grating'),grating);
+  assert.equal(floorSprites({floor},'grating'),floor);
+  assert.equal(floorSprites({floor,grating:[]},'grating'),floor);
+});
+test('the steel grating preview contains all thirteen original floor frames at native scale',()=>{
+  const atlas=JSON.parse(readFileSync(new URL('../../public/assets/red-alert/atlas.json',import.meta.url),'utf8'));
+  assert.equal(atlas.sprites.grating.length,13);
+  for(const id of atlas.sprites.grating){const f=atlas.frames[id];assert.equal(f.width,24);assert.equal(f.height,24);assert.ok(f.x+24<=atlas.size&&f.y+24<=atlas.size);}
+});
 
 test('original gun facings point toward the target in all four quadrants and wrap',()=>{
   assert.equal(redAlertFacing(0),24);
