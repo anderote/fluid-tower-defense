@@ -229,8 +229,7 @@ try {
      const shotDefinition=compileTower(tower,run.model.bonuses,run.model.commandUpgrades,run.statModifiers());
      audio.fire(tower.kind,tower.x,event.serial);
      if(tower.kind==='mortar'||tower.kind==='rocket'){
-       heavyProjectiles.push(...createHeavyProjectiles(tower.kind,turretMuzzlePoints(tower.kind,tower,event.angle),event.target,event.serial,shotDefinition.peakPressureKpa));
-       if(heavyProjectiles.length>48)heavyProjectiles.splice(0,heavyProjectiles.length-48);
+       heavyProjectiles.push(...createHeavyProjectiles(tower.kind,turretMuzzlePoints(tower.kind,tower,event.angle),event.target,event.serial,shotDefinition.peakPressureKpa,shotDefinition.radius,event.angle).map(projectile=>({...projectile,launchTick:event.launchTick})));
        continue;
      }
      if(simulatedTime-(lastTowerPressurePopup.get(tower.id)??-1)>=.36){showPressure(event.target,shotDefinition.peakPressureKpa,event.serial);lastTowerPressurePopup.set(tower.id,simulatedTime);}
@@ -388,7 +387,7 @@ try {
      if(!editor.active&&panKeys.size){const speed=52*elapsed;renderer.pan((panKeys.has('d')?speed:0)-(panKeys.has('a')?speed:0),(panKeys.has('s')?speed:0)-(panKeys.has('w')?speed:0));}
      const steps=editor.active?0:clock.advance(elapsed,state.paused||!active);
      for(let i=0;i<steps;i++)tick();
-     if(!state.paused){for(const effect of visuals)effect.duration-=elapsed;visuals=visuals.filter(e=>e.duration>0);for(const particle of visualParticles)particle.age+=elapsed;visualParticles=visualParticles.filter(particle=>particle.age<particle.life);const advanced=advanceHeavyProjectiles(heavyProjectiles,elapsed);heavyProjectiles=advanced.active;for(const impact of advanced.impacts)detonateHeavy(impact);for(const explosion of heavyExplosions)explosion.age+=elapsed;heavyExplosions=heavyExplosions.filter(explosion=>explosion.age<explosion.life);for(const popup of pressurePopups)popup.age+=elapsed;for(const popup of pressurePopups.filter(popup=>popup.age>=popup.life))popup.element.remove();pressurePopups=pressurePopups.filter(popup=>popup.age<popup.life);cameraShake*=Math.exp(-8.5*elapsed);}
+     if(!state.paused){for(const effect of visuals)effect.duration-=elapsed;visuals=visuals.filter(e=>e.duration>0);for(const particle of visualParticles)particle.age+=elapsed;visualParticles=visualParticles.filter(particle=>particle.age<particle.life);for(const explosion of heavyExplosions)explosion.age+=elapsed;heavyExplosions=heavyExplosions.filter(explosion=>explosion.age<explosion.life);const advanced=advanceHeavyProjectiles(heavyProjectiles,0,clock.tick);heavyProjectiles=advanced.active;for(const impact of advanced.impacts)detonateHeavy(impact);for(const popup of pressurePopups)popup.age+=elapsed;for(const popup of pressurePopups.filter(popup=>popup.age>=popup.life))popup.element.remove();pressurePopups=pressurePopups.filter(popup=>popup.age<popup.life);cameraShake*=Math.exp(-8.5*elapsed);}
      const encoder=gpu.device.createCommandEncoder({label:'Present'});
      const placement=pointer?towerPlacement(pointer):undefined;
      const structurePlacement=pointer?wallAt(pointer):undefined;
