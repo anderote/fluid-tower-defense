@@ -35,6 +35,9 @@ The alternating capstone requires a supported firing pattern, not a special case
 | Shambler | Baseline body, low armor, ordinary crush tolerance | Establishes the core crowd behavior |
 | Runner | Fast drive, low mass, low health | Precision coverage catches dispersed runners; slows create pileups |
 | Brute | Larger occupied area, high mass, strong drive, higher crush tolerance | Weakens displacement strategies but can transmit pressure into weaker neighbors |
+| Rager | Ordinary body with unusually strong forward drive | Kill or redirect it before it compresses the crowd ahead |
+| Softbody | Large occupied area, low mass, and a high pressure limit | Direct damage clears a pressure-resistant obstruction |
+| Husk | Small pale body with a very low pressure limit | Deliberately jam it to trigger cascading crush kills |
 | Plated | Kinetic armor, ordinary or only modestly increased crush tolerance | Crush and non-kinetic damage exploit its specialization |
 | Bloater | Limited, telegraphed death burst with explicit team damage rules | Timing its death can disrupt or damage a crowd; chain depth is bounded |
 | Gelatinous | High contact compliance and crush tolerance, low heat resistance | Tests damage diversity without simply inflating health |
@@ -42,7 +45,7 @@ The alternating capstone requires a supported firing pattern, not a special case
 | Regenerator | Capped recovery after a damage-free interval | Sustained damage counters recovery; cannot create extra bounties |
 | Brood carrier | Releases a fixed reserve of small enemies | Tests target saturation; children inherit explicit reward budgets |
 
-First playable enemy roster: **shambler, runner, brute**. Their initial size ratios must remain within the tested solver range. Add other kinds only as their required status, aura, or spawn primitives are ready.
+First playable enemy roster: **shambler, runner, brute, rager, softbody, and husk**. Hue communicates role while radius, mass, drive, health, pressure-damage onset, and crush resistance remain independent authored stats.
 
 Enemy traits such as plated or conductive can later appear on compatible kinds, but combinations are curated. Spawn visuals and previews should identify the combination. An unconstrained random trait generator would create unreadable or unwinnable waves.
 
@@ -80,7 +83,7 @@ These are hypotheses to playtest. Compare each against a plain damage-focused de
 
 ## Wave composition
 
-Author introductions and boss encounters. Describe ordinary waves as groups with kind/traits, count, lane, onset, cadence, and reward allocation. A threat budget is a tuning aid, not a substitute for playtesting interacting compositions.
+Author introductions and boss encounters. Describe ordinary waves as overlapping groups with kind/traits, count, inlet band, onset, cadence, burst size, and reward allocation. A threat budget is a tuning aid, not a substitute for playtesting interacting compositions.
 
 Introduce one new pressure problem at a time: an open shambler flow, runners around the edge, a dense surge, then heavies embedded in the crowd. Preview enemy roles and lanes before preparation ends. Later mixed waves should test an established response before adding another mechanic.
 

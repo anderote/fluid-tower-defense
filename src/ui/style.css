@@ -73,6 +73,10 @@ aside { overflow: auto; padding: 12px; border-left: 1px solid var(--term-border)
 .tabs { display: grid; grid-template-columns: 1fr 1fr; margin-bottom: 10px; }
 .tabs button { font-weight: 600; letter-spacing: .14em; }
 .card { margin-bottom: 10px; padding: 10px; border: 1px solid var(--term-border); background: var(--term-bg); }
+.extraction { border-color: var(--term-accent); }
+.extraction p { margin: 8px 0; color: var(--term-muted); font-size: 9px; line-height: 1.5; }
+.extraction > div { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.extraction button:first-child { border-color: var(--term-accent); color: var(--term-fg); }
 label { display: block; margin-bottom: 9px; color: var(--term-muted); font-size: 9px; font-weight: 600; letter-spacing: .16em; }
 .card > label::before { content: "// "; color: var(--term-accent); letter-spacing: 0; }
 label span { float: right; color: var(--term-faint); font-size: 8px; font-weight: 400; letter-spacing: .06em; }
@@ -99,6 +103,9 @@ button small { margin-top: 5px; color: var(--term-faint); font-size: 8px; line-h
 .tower-grid button b { font-size: 11px; letter-spacing: .06em; }
 .tower-grid button .cost { grid-column: 2; margin-top: 2px; }
 .tower-grid em, .defense-tools em { float: right; color: var(--term-faint); font-size: 8px; font-style: normal; font-weight: 400; }
+.tower-grid button.locked { border-color: color-mix(in srgb, var(--term-warn) 38%, var(--term-border)); opacity: .72; }
+.tower-grid button.locked .tower-shape { filter: grayscale(1); opacity: .45; }
+.tower-grid button.locked .cost { color: var(--term-warn); font-size: 7px; }
 
 .tower-shape { grid-row: 1 / span 2; display: block; width: 19px; height: 19px; background: var(--term-accent); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
 [data-tower="mortar"] .tower-shape, [data-tower="tesla"] .tower-shape { background: #ff9d36; clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); }

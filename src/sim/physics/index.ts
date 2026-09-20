@@ -1,6 +1,8 @@
 import {
   MAX_EFFECTS,
   MAX_OBSTACLES,
+  OBSTACLE_CONTACT_COUNTER_OFFSET,
+  OBSTACLE_PRESSURE_COUNTER_OFFSET,
   WORLD_HEIGHT,
   WORLD_WIDTH,
   type Effect,
@@ -17,7 +19,8 @@ import {
 import { PHYSICS_WGSL } from './shader.ts';
 
 const WORKGROUP_SIZE = 128;
-const PARAM_BYTES = 112;
+// WGSL Params contains 29 scalar words and uniform bindings align the struct to 16 bytes.
+const PARAM_BYTES = 128;
 const OBSTACLE_BYTES = 16;
 const EFFECT_BYTES = 48;
 const NAV_BYTES = 16;
@@ -297,6 +300,8 @@ export async function createPhysics(device: GPUDevice, shared: SharedGPU): Promi
       parameterBuffers.forEach((buffer, index) => {
         device.queue.writeBuffer(buffer, 0, packParams(frame, shared.capacity, gridWidth, gridHeight, index));
       });
+
+      encoder.clearBuffer(shared.counters,OBSTACLE_CONTACT_COUNTER_OFFSET*4,(OBSTACLE_PRESSURE_COUNTER_OFFSET+MAX_OBSTACLES-OBSTACLE_CONTACT_COUNTER_OFFSET)*4);
 
       if (frame.count === 0) return;
       const workgroups = Math.ceil(frame.count / WORKGROUP_SIZE);

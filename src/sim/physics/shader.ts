@@ -1,7 +1,9 @@
 import { PARTICLE_WGSL } from '../../contracts/index.ts';
+import { ENEMY_WGSL } from '../../content/index.ts';
 
 export const PHYSICS_WGSL = /* wgsl */ `
 ${PARTICLE_WGSL}
+${ENEMY_WGSL}
 
 struct Params {
   count: u32,
@@ -55,6 +57,9 @@ const PI: f32 = 3.141592653589793;
 const MAX_FORCE: f32 = 90.0;
 const MAX_SPEED: f32 = 30.0;
 const MAX_DISPLACEMENT: f32 = 0.24;
+const OBSTACLE_CONTACT_COUNTER_OFFSET: u32 = 80u;
+const OBSTACLE_PACKING_COUNTER_OFFSET: u32 = 144u;
+const OBSTACLE_PRESSURE_COUNTER_OFFSET: u32 = 208u;
 
 fn finite1(v: f32) -> bool { return v == v && abs(v) < 1e20; }
 fn finite2(v: vec2<f32>) -> bool { return finite1(v.x) && finite1(v.y); }
@@ -83,14 +88,6 @@ fn validCell(cell: vec2<i32>) -> bool {
 
 fn cellIndex(cell: vec2<i32>) -> u32 {
   return u32(cell.y) * params.gridWidth + u32(cell.x);
-}
-
-fn bodySpeed(kindValue: f32) -> f32 {
-  var kind = 0u;
-  if (finite1(kindValue)) { kind = u32(clamp(kindValue, 0.0, 2.0) + 0.5); }
-  if (kind == 1u) { return 5.2; }
-  if (kind == 2u) { return 2.1; }
-  return 3.1;
 }
 
 fn routeHash(index: u32, generation: f32, cell: vec2<i32>) -> u32 {
@@ -188,6 +185,18 @@ fn measureDensity(@builtin(global_invocation_id) gid: vec3<u32>) {
   particles[index].state.y = pressure;
   atomicMax(&counters[6], u32(packing * 1000.0));
   atomicMax(&counters[14], u32(pressure * 100.0));
+  if (params.substepIndex == 0u) {
+    let radius = safeRadius(particle.body.x);
+    for (var obstacleIndex = 0u; obstacleIndex < params.obstacleCount; obstacleIndex += 1u) {
+      let rect = obstacles[obstacleIndex].rect;
+      let nearest = clamp(particle.pos.xy, rect.xy, rect.xy + rect.zw);
+      if (distance(particle.pos.xy, nearest) <= radius + 0.18) {
+        atomicAdd(&counters[OBSTACLE_CONTACT_COUNTER_OFFSET + obstacleIndex], 1u);
+        atomicMax(&counters[OBSTACLE_PACKING_COUNTER_OFFSET + obstacleIndex], u32(packing * 1000.0));
+        atomicMax(&counters[OBSTACLE_PRESSURE_COUNTER_OFFSET + obstacleIndex], u32(pressure * 100.0));
+      }
+    }
+  }
 }
 
 fn effectImpulse(position: vec2<f32>, mass: f32) -> vec2<f32> {
@@ -243,8 +252,9 @@ fn computeMotion(@builtin(global_invocation_id) gid: vec3<u32>) {
   let velocity = particle.pos.zw;
   let radius = safeRadius(particle.body.x);
   let mass = safeMass(particle.body.y);
-  let desiredVelocity = flowDirection(position, index, particle.status.w) * bodySpeed(particle.state.z) * slowMultiplier(position, particle.status.x);
-  var acceleration = (desiredVelocity - velocity) * max(0.0, params.drive) - velocity * 0.12;
+  let kind = u32(clamp(particle.state.z, 0.0, 5.0) + 0.5);
+  let desiredVelocity = flowDirection(position, index, particle.status.w) * enemySpeed(kind) * slowMultiplier(position, particle.status.x);
+  var acceleration = (desiredVelocity - velocity) * max(0.0, params.drive) * enemyDrive(kind) - velocity * 0.12;
   let centerCell = cellFor(position);
 
   for (var oy = -1; oy <= 1; oy += 1) {
@@ -414,8 +424,9 @@ fn integrateParticles(@builtin(global_invocation_id) gid: vec3<u32>) {
 
   particles[index].pos = vec4<f32>(position, velocity);
   particles[index].status.x = slowDuration(position, previousSlow);
-  let damageStart = max(0.0, params.damagePressure);
-  let damageEnd = max(damageStart + 0.001, params.crushPressure);
+  let kind = u32(clamp(particle.state.z, 0.0, 5.0) + 0.5);
+  let damageStart = enemyPressureLimit(kind) * max(0.0, params.damagePressure) / 24.0;
+  let damageEnd = damageStart + max(0.001, params.crushPressure - params.damagePressure);
   let ramp = clamp((max(0.0, particle.state.y) - damageStart) / (damageEnd - damageStart), 0.0, 1.0);
   let smoothRamp = ramp * ramp * (3.0 - 2.0 * ramp);
   particles[index].status.z = max(0.0, previousExposure) + params.dt * max(0.0, params.crushDamage) * smoothRamp;
