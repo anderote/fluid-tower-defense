@@ -7,7 +7,7 @@ import {createAftermathRenderer} from './aftermath.ts';
 import {TESLA_STATE_WGSL,TESLA_HEADER_BYTES,TESLA_PARTICLE_BYTES} from '../effects/tesla.ts';
 import { ENEMY_WGSL, towerBehavior } from '../content/index.ts';
 import { PARTICLE_WGSL, type RenderScene, type Renderer, type SharedGPU, type TowerKind, type Vec2 } from '../contracts/index.ts';
-import {screenToWorld as unproject, worldToScreen as project} from './camera.ts';
+import {cameraPanBounds,screenToWorld as unproject, worldToScreen as project} from './camera.ts';
 import {TURRET_GRID, turretHardpoints, turretPixelRects, type TurretInk} from './turret-art.ts';
 import {createRedAlertArt,hasRedAlertSprite,type TurretArtStyle,type FloorArtStyle} from './red-alert.ts';
 import type {WireArtStyle} from './wire-art.ts';
@@ -168,7 +168,7 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
   let camera={x:0,y:0,zoom:1};
   let world={width:160,height:100};
   const view=()=>({width:world.width/camera.zoom,height:world.height/camera.zoom});
-  const clampCamera=()=>{const v=view();camera.x=Math.max(0,Math.min(world.width-v.width,camera.x));camera.y=Math.max(0,Math.min(world.height-v.height,camera.y));};
+  const clampCamera=()=>{const bounds=cameraPanBounds(camera,world);camera.x=Math.max(bounds.minX,Math.min(bounds.maxX,camera.x));camera.y=Math.max(bounds.minY,Math.min(bounds.maxY,camera.y));};
   const resize=()=>{const d=Math.min(devicePixelRatio||1,2),max=device.limits.maxTextureDimension2D; const w=Math.max(1,Math.min(max,Math.round(canvas.clientWidth*d))),h=Math.max(1,Math.min(max,Math.round(canvas.clientHeight*d))); if(w!==pixelW||h!==pixelH){pixelW=w;pixelH=h;canvas.width=w;canvas.height=h;sceneDepth?.destroy();sceneDepth=device.createTexture({label:'World object depth order',size:[w,h],format:'depth32float',usage:GPUTextureUsage.RENDER_ATTACHMENT});context.configure({device,format,alphaMode:'opaque'});} };
   const screenToWorld=(clientX:number,clientY:number):Vec2=>unproject({x:clientX,y:clientY},canvas.getBoundingClientRect(),camera,world);
   const worldToScreen=(x:number,y:number):Vec2=>project({x,y},canvas.getBoundingClientRect(),camera,world);

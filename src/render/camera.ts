@@ -7,6 +7,11 @@ function dimensions(viewport:Viewport,camera:Camera,world:WorldSize){
  const aspect=viewport.width/viewport.height,target=world.width/world.height;
  return {sx:Math.min(1,target/aspect),sy:Math.min(1,aspect/target),width:world.width/camera.zoom,height:world.height/camera.zoom};
 }
+/** Top-left camera positions that allow the viewport center to reach every map edge. */
+export function cameraPanBounds(camera:Camera,world:WorldSize=DEFAULT_WORLD){
+ const width=world.width/camera.zoom,height=world.height/camera.zoom;
+ return {minX:-width/2,maxX:world.width-width/2,minY:-height/2,maxY:world.height-height/2};
+}
 /** Inverse of the GPU camera projection, including letterboxing and camera offset. */
 export function screenToWorld(point:Vec2,viewport:Viewport,camera:Camera,world:WorldSize=DEFAULT_WORLD):Vec2 {
  const {sx,sy,width,height}=dimensions(viewport,camera,world);
