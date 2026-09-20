@@ -1,7 +1,7 @@
 import type {Rect, WorldMap} from '../contracts/index.ts';
 import {validateEditorMap} from '../editor/index.ts';
 import {createRun, type RunController} from '../game/index.ts';
-import {terrainMounts} from '../game/terrain.ts';
+import {clearPlayerTerrain,terrainMounts,wallMountCells} from '../game/terrain.ts';
 
 export const AUTOSAVE_KEY = 'pressure-front.autosave.v1';
 export const CHECKPOINT_KEY = 'pressure-front.checkpoint.v1';
@@ -20,6 +20,10 @@ const finite = (value:unknown):value is number => typeof value === 'number' && N
 const object = (value:unknown):value is Record<string, unknown> => !!value && typeof value === 'object';
 const rect = (value:unknown):value is Rect => object(value) && finite(value.x) && finite(value.y) && finite(value.width) && finite(value.height) && value.x >= 0 && value.y >= 0 && value.width > 0 && value.height > 0;
 const same = (a:Rect, b:Rect) => a.x===b.x && a.y===b.y && a.width===b.width && a.height===b.height;
+const defenseMounts=(defense:Pick<Defense,'map'|'builtWalls'|'builtWires'>)=>[
+  ...terrainMounts(clearPlayerTerrain(defense.map,defense.builtWalls,defense.builtWires)),
+  ...wallMountCells(defense.builtWalls),
+];
 
 /** Validate a detached snapshot before any part of the running defense changes. */
 export function decodeDefense(raw:string):SavedDefense {
@@ -40,7 +44,7 @@ export function decodeDefense(raw:string):SavedDefense {
   const issue = validateEditorMap(defense.map);
   if (issue) throw new Error(issue);
   const candidate = createRun(defense.map);
-  candidate.setBuildMounts(terrainMounts(defense.map));
+  candidate.setBuildMounts(defenseMounts(defense));
   if (!candidate.load(defense.runState).ok) throw new Error('Invalid saved run.');
   return defense;
 }
@@ -55,7 +59,7 @@ export function loadDefense(storage:Storage, key:string, run:RunController):Save
   const raw = storage.getItem(key);
   if (!raw) throw new Error('No saved defense found.');
   const saved = decodeDefense(raw);
-  const result = run.load(saved.runState, {map:saved.map, buildMounts:terrainMounts(saved.map)});
+  const result = run.load(saved.runState, {map:saved.map, buildMounts:defenseMounts(saved)});
   if (!result.ok) throw new Error(result.reason);
   run.setSpawnMultiplier(saved.difficulty);
   return saved;
