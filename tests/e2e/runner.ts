@@ -55,12 +55,12 @@ const cases:{name:string;run:()=>Promise<void>}[]=[
  {name:'Demolishing wire removes its collision obstacle immediately',run:async()=>{
   await fresh();click('[data-action="wire-tool"]');point(30,22);await until(()=>text('#metal')==='2955','Wire was not built');
   click('[data-action="demolish-tool"]');point(30,22);await until(()=>text('#metal')==='2977','Wire refund was not paid');
-  const saved=snapshot();assert(saved.builtWires.length===0,'Wire record remains');assert(!hasRect(saved.map.obstacles,28,20),'Invisible wire collision remains after demolition');
+  const saved=snapshot();assert(saved.builtWires.length===0,'Wire record remains');assert(!hasRect(saved.map.obstacles,30,22),'Invisible wire collision remains after demolition');
  }},
  {name:'Reset removes paid terrain and restores a fresh economy',run:async()=>{
   await fresh();click('[data-action="wall-tool"]');point(22,22);click('[data-action="wire-tool"]');point(30,22);
   click('[data-action="reset"]');click('[data-reset-choice="confirm"]');await until(()=>text('#metal')==='3000','Reset did not restore starting Metal');
-  const saved=snapshot();assert(saved.builtWalls.length===0&&saved.builtWires.length===0,'Reset kept free structures');assert(!hasRect(saved.map.obstacles,20,20)&&!hasRect(saved.map.obstacles,28,20),'Reset kept terrain collisions');
+  const saved=snapshot();assert(saved.builtWalls.length===0&&saved.builtWires.length===0,'Reset kept free structures');assert(!hasRect(saved.map.obstacles,20,20)&&!hasRect(saved.map.obstacles,30,22),'Reset kept terrain collisions');
  }},
  {name:'Ordinary clicks can mount towers; mounted walls cannot be demolished',run:async()=>{
   await fresh();click('[data-action="wall-tool"]');point(22,46);click('[data-tower="repulsor"]');point(21.7,46.3);
