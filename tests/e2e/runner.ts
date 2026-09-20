@@ -55,6 +55,17 @@ const cases:{name:string;run:()=>Promise<void>}[]=[
   const saved=snapshot(),run=JSON.parse(saved.runState);assert(run.model.towers[0].x===22&&run.model.towers[0].y===22,'Mounted tower is not centered');
   click('[data-action="demolish-tool"]');point(22,22);await until(()=>text('#message').includes('Sell the mounted tower'),'Mounted wall demolition was not blocked');
  }},
+ {name:'Tower inspector tracks the selected tower and stays inside the arena',run:async()=>{
+  await fresh();click('[data-tower="repulsor"]');point(40,50);await until(()=>text('#metal')==='560','Tower was not placed');
+  click('[data-tower="repulsor"]');point(40,50);
+  await until(()=>element('.selected-popup').classList.contains('has-selection')&&!element('.selected-popup').hidden&&element('.selected-popup').getBoundingClientRect().width>0,'Inspector did not open');
+  const canvas=element('canvas').getBoundingClientRect(),arena=element('.arena').getBoundingClientRect(),popup=element('.selected-popup').getBoundingClientRect();
+  const sx=Math.min(1,1.6/(canvas.width/canvas.height));
+  const expectedX=canvas.left+canvas.width*((40/160*2-1)*sx+1)/2;
+  assert(Math.abs(popup.left+popup.width/2-expectedX)<2,'Inspector is horizontally detached from its tower');
+  assert(Math.abs(popup.top+popup.height/2-(canvas.top+canvas.height/2))<2,'Inspector is vertically detached from its tower');
+  assert(popup.left>=arena.left&&popup.right<=arena.right&&popup.top>=arena.top&&popup.bottom<=arena.bottom,'Inspector escaped the arena');
+ }},
  {name:'Research prerequisites unlock after purchase and remain locked in combat',run:async()=>{
   await fresh();click('#research-tab');assert(element<HTMLButtonElement>('[data-command="repulsor-impact-2"]').disabled,'Rank II should be locked');
   click('[data-command="repulsor-impact-1"]');await until(()=>!element<HTMLButtonElement>('[data-command="repulsor-impact-2"]').disabled,'Rank II did not unlock');

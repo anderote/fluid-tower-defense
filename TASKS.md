@@ -37,3 +37,9 @@ Validation: 47 CPU tests and production build passed. Tests cover mounted towers
 Fixed invisible barbed-wire collisions after demolition/breach, removed player structures on Reset, snapped wall-mounted tower placement to the mount center, and rejected structure overlaps with terrain/towers. Added a repeatable browser-native E2E page covering actual game input and WebGPU. Baseline tests reproduced the wire/removal and Reset bugs before implementation.
 
 Validation: 50 CPU tests, production build, and 5/5 real-browser E2E scenarios passed on Apple WebGPU.
+
+## Camera projection and inspector anchoring
+
+Corrected the CPU world-to-screen projection to match the GPU camera and inverse pointer mapping. The tower inspector now anchors to the selected tower, including letterboxed arenas, zoom, and pan. Added projection round-trip tests and an E2E assertion for inspector position and arena bounds.
+
+Validation: 53 CPU tests, production build, and 6/6 browser E2E scenarios passed on Apple WebGPU.

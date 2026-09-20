@@ -1,3 +1,4 @@
+import {screenToWorld as unproject, worldToScreen as project} from './camera.ts';
 import { towerBehavior } from '../content/index.ts';
 import { PARTICLE_WGSL, type RenderScene, type Renderer, type SharedGPU, type Vec2 } from '../contracts/index.ts';
 
@@ -68,8 +69,8 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
   const view=()=>({width:W/camera.zoom,height:H/camera.zoom});
   const clampCamera=()=>{const v=view();camera.x=Math.max(0,Math.min(W-v.width,camera.x));camera.y=Math.max(0,Math.min(H-v.height,camera.y));};
   const resize=()=>{const d=Math.min(devicePixelRatio||1,2),max=device.limits.maxTextureDimension2D; const w=Math.max(1,Math.min(max,Math.round(canvas.clientWidth*d))),h=Math.max(1,Math.min(max,Math.round(canvas.clientHeight*d))); if(w!==pixelW||h!==pixelH){pixelW=w;pixelH=h;canvas.width=w;canvas.height=h;context.configure({device,format,alphaMode:'opaque'});} };
-  const screenToWorld=(clientX:number,clientY:number):Vec2=>{const r=canvas.getBoundingClientRect(),aspect=r.width/r.height,target=W/H,sx=Math.min(1,target/aspect),sy=Math.min(1,aspect/target),v=view();return{x:Math.max(0,Math.min(W,camera.x+(((clientX-r.left)/r.width*2-1)/sx+1)*v.width/2)),y:Math.max(0,Math.min(H,camera.y+(((clientY-r.top)/r.height*2-1)/sy+1)*v.height/2))}};
-  const worldToScreen=(x:number,y:number):Vec2=>{const r=canvas.getBoundingClientRect(),aspect=r.width/r.height,target=W/H,sx=Math.min(1,target/aspect),sy=Math.min(1,aspect/target),v=view();return{x:r.left+r.width*((((x-camera.x)/v.width)*sx)+1)/2,y:r.top+r.height*(1-(((y-camera.y)/v.height)*sy))/2}};
+  const screenToWorld=(clientX:number,clientY:number):Vec2=>unproject({x:clientX,y:clientY},canvas.getBoundingClientRect(),camera);
+  const worldToScreen=(x:number,y:number):Vec2=>project({x,y},canvas.getBoundingClientRect(),camera);
   const push=(a:V[],x:number,y:number,c:[number,number,number,number])=>a.push({x,y,r:c[0],g:c[1],b:c[2],a:c[3]});
   const tri=(a:V[], p:Vec2,q:Vec2,r:Vec2,c:[number,number,number,number])=>{push(a,p.x,p.y,c);push(a,q.x,q.y,c);push(a,r.x,r.y,c)};
   const rect=(a:V[],x:number,y:number,w:number,h:number,c:[number,number,number,number])=>{tri(a,{x,y},{x:x+w,y},{x,y:y+h},c);tri(a,{x:x+w,y},{x:x+w,y:y+h},{x,y:y+h},c)};
