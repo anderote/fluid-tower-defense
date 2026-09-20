@@ -127,7 +127,7 @@ test('wave director uses a shared continuous inlet and introduces every enemy by
   assert.ok(waveFor(1,30).healthScale>waveFor(1,10).healthScale);
 });
 
-test('wave director sustains dense overlapping streams for a 30–60 second window',()=>{
+test('wave director streams until its large horde quota is defeated',()=>{
   const wave=waveFor(1,10);
   assert.ok(wave.total>waveFor(1,1).total);
   assert.ok(wave.spawns.some(batch=>(batch.burst??Infinity)<=10));
@@ -136,7 +136,22 @@ test('wave director sustains dense overlapping streams for a 30–60 second wind
   }
   const opening=waveFor(1,1).spawns[0], late=waveFor(3,10).spawns[0];
   assert.ok(opening.count/(opening.rate??1)>=40);
-  assert.ok(late.count/(late.rate??1)<=75);
+  assert.ok(late.count/(late.rate??1)>opening.count/(opening.rate??1));
+});
+
+test('horde quota is slider × 100,000 × global wave to the 1.67 power',()=>{
+  const slider=7,globalWave=4;
+  assert.equal(waveFor(1,globalWave,slider).total,Math.round(slider*100_000*Math.pow(globalWave,1.67)));
+  assert.equal(waveFor(2,1,slider).total,Math.round(slider*100_000*Math.pow(11,1.67)));
+});
+
+test('continuous horde arrival pauses at capacity and resumes when space opens',()=>{
+  const run=createRun();run.setHordeScale(1);assert.equal(run.startWave().ok,true);
+  const first=run.takeSpawns(100,1).reduce((sum,batch)=>sum+batch.count,0);
+  assert.equal(first,100);
+  assert.equal(run.takeSpawns(0,1).length,0);
+  const resumed=run.takeSpawns(100,1).reduce((sum,batch)=>sum+batch.count,0);
+  assert.equal(resumed,100);
 });
 
 test('opening waves are a larger continuous stream, never an initial packet dump',()=>{

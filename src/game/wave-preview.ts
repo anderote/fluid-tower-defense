@@ -11,13 +11,13 @@ const ROLES: Record<EnemyKind, string> = {
   softbody: 'Flexible mass; use area control to keep it from slipping through.',
 };
 
-type PreviewState = Pick<UIState, 'mode' | 'phase' | 'level' | 'wave' | 'difficulty'>;
+type PreviewState = Pick<UIState, 'mode' | 'phase' | 'level' | 'wave' | 'difficulty'> & Partial<Pick<UIState, 'streamWidth'>>;
 
 /** Read-only forecast of the same composition startWave queues. Bosses spawn separately. */
 export function previewNextWave(state: PreviewState) {
   if (state.mode !== 'game' || state.phase !== 'preparation') return null;
   const wave = state.wave + 1;
-  const definition = waveFor(state.level, wave);
+  const definition = waveFor(state.level, wave, state.streamWidth??1);
   return {
     level: state.level,
     wave,
