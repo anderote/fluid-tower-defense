@@ -31,3 +31,9 @@ Validation: 42 CPU tests, production build, and all 7 real-GPU checks passed on 
 Separated explicit Save/Load checkpoints from automatic between-wave resume saves. Both capture the map, baseline spawn area, structures and wire condition, run state, and flow setting. Loads validate the complete snapshot before changing the current defense, reconnect obstacle identities for demolition, and synchronize the level editor. Manual storage failures now report an error instead of claiming success. Existing unversioned full autosaves remain readable.
 
 Validation: 47 CPU tests and production build passed. Tests cover mounted towers, wire collision state, independent save slots, flow restoration, corrupt snapshots, missing saves, blocked storage, and legacy autosaves. Chrome/WebGPU smoke checks verified Save → alter defenses/flow → autosave → Load, reload resume, and demolition of a restored wall.
+
+## Terrain lifecycle and browser regression suite
+
+Fixed invisible barbed-wire collisions after demolition/breach, removed player structures on Reset, snapped wall-mounted tower placement to the mount center, and rejected structure overlaps with terrain/towers. Added a repeatable browser-native E2E page covering actual game input and WebGPU. Baseline tests reproduced the wire/removal and Reset bugs before implementation.
+
+Validation: 50 CPU tests, production build, and 5/5 real-browser E2E scenarios passed on Apple WebGPU.

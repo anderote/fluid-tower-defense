@@ -1,0 +1,70 @@
+// Browser-native E2E checks: actual UI events, actual WebGPU, no mocked simulation.
+const frame=document.querySelector<HTMLIFrameElement>('#game')!;
+const results=document.querySelector<HTMLOListElement>('#results')!;
+const summary=document.querySelector<HTMLElement>('#summary')!;
+const button=document.querySelector<HTMLButtonElement>('#run')!;
+const checkpointKey='pressure-front.checkpoint.v1';
+const savePrefix='pressure-front.';
+const sleep=(ms:number)=>new Promise(resolve=>setTimeout(resolve,ms));
+function assert(value:unknown,message:string):asserts value {if(!value)throw new Error(message);}
+async function until(check:()=>boolean,message:string,timeout=12000){const start=performance.now();while(!check()){if(performance.now()-start>timeout)throw new Error(message);await sleep(50);}}
+function doc(){return frame.contentDocument!;}
+function element<T extends HTMLElement=HTMLElement>(selector:string){const found=doc().querySelector<T>(selector);assert(found,`Missing ${selector}`);return found;}
+function click(selector:string){const control=element<HTMLButtonElement>(selector);assert(!control.disabled,`Disabled ${selector}`);control.click();}
+function text(selector:string){return element(selector).textContent??'';}
+function flow(value:number){const input=element<HTMLInputElement>('#difficulty');input.value=String(value);input.dispatchEvent(new Event('input',{bubbles:true}));}
+function point(x:number,y:number){
+ const canvas=element<HTMLCanvasElement>('canvas'),r=canvas.getBoundingClientRect(),aspect=r.width/r.height;
+ const sx=Math.min(1,1.6/aspect),sy=Math.min(1,aspect/1.6);
+ const clientX=r.left+r.width*((x/160*2-1)*sx+1)/2,clientY=r.top+r.height*((y/100*2-1)*sy+1)/2;
+ canvas.dispatchEvent(new PointerEvent('pointermove',{bubbles:true,clientX,clientY}));
+ canvas.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,clientX,clientY,button:0,buttons:1}));
+ canvas.dispatchEvent(new PointerEvent('pointerup',{bubbles:true,clientX,clientY,button:0}));
+}
+function snapshot(){click('[data-action="save"]');assert(text('#message').includes('checkpoint saved'),'Save failed: '+text('#message'));return JSON.parse(localStorage.getItem(checkpointKey)!);}
+function hasRect(rects:{x:number;y:number}[],x:number,y:number){return rects.some(r=>r.x===x&&r.y===y);}
+function freshStorage(){for(const key of Object.keys(localStorage))if(key.startsWith(savePrefix))localStorage.removeItem(key);}
+async function navigate(path='/'){
+ frame.src=path;
+ await new Promise<void>(resolve=>frame.addEventListener('load',()=>resolve(),{once:true}));
+ await until(()=>!!doc().querySelector('#adapter')?.textContent?.includes('/ WEBGPU'),'Game failed to initialize WebGPU');
+ await until(()=>text('#metal')!=='000','Game failed to initialize UI');
+}
+async function fresh(){frame.src='about:blank';await new Promise<void>(resolve=>frame.addEventListener('load',()=>resolve(),{once:true}));freshStorage();await navigate();}
+const cases:{name:string;run:()=>Promise<void>}[]=[
+ {name:'Checkpoint survives later autosaves and restores structures, Metal, and flow',run:async()=>{
+  await fresh();click('[data-action="wall-tool"]');point(22,22);await until(()=>text('#metal')==='590','Wall was not charged');flow(2);snapshot();
+  click('[data-action="wire-tool"]');point(30,22);flow(3);await until(()=>text('#metal')==='545','Wire was not charged');
+  await until(()=>{const raw=localStorage.getItem('pressure-front.autosave.v1');return !!raw&&JSON.parse(raw).difficulty===3;},'Autosave did not capture changes');
+  click('[data-action="load"]');await until(()=>text('#metal')==='590','Checkpoint did not restore Metal');assert(element<HTMLInputElement>('#difficulty').value==='2','Flow was not restored');
+  const restored=snapshot();assert(restored.builtWalls.length===1&&restored.builtWires.length===0,'Wrong structures restored');
+ }},
+ {name:'Demolishing wire removes its collision obstacle immediately',run:async()=>{
+  await fresh();click('[data-action="wire-tool"]');point(30,22);await until(()=>text('#metal')==='605','Wire was not built');
+  click('[data-action="demolish-tool"]');point(30,22);await until(()=>text('#metal')==='627','Wire refund was not paid');
+  const saved=snapshot();assert(saved.builtWires.length===0,'Wire record remains');assert(!hasRect(saved.map.obstacles,28,20),'Invisible wire collision remains after demolition');
+ }},
+ {name:'Reset removes paid terrain and restores a fresh economy',run:async()=>{
+  await fresh();click('[data-action="wall-tool"]');point(22,22);click('[data-action="wire-tool"]');point(30,22);
+  click('[data-action="reset"]');await until(()=>text('#metal')==='650','Reset did not restore starting Metal');
+  const saved=snapshot();assert(saved.builtWalls.length===0&&saved.builtWires.length===0,'Reset kept free structures');assert(!hasRect(saved.map.obstacles,20,20)&&!hasRect(saved.map.obstacles,28,20),'Reset kept terrain collisions');
+ }},
+ {name:'Ordinary clicks can mount towers; mounted walls cannot be demolished',run:async()=>{
+  await fresh();click('[data-action="wall-tool"]');point(22,22);click('[data-tower="repulsor"]');point(21.7,22.3);
+  await until(()=>text('#metal')==='500','Click did not snap onto the player-wall mount');
+  const saved=snapshot(),run=JSON.parse(saved.runState);assert(run.model.towers[0].x===22&&run.model.towers[0].y===22,'Mounted tower is not centered');
+  click('[data-action="demolish-tool"]');point(22,22);await until(()=>text('#message').includes('Sell the mounted tower'),'Mounted wall demolition was not blocked');
+ }},
+ {name:'Research prerequisites unlock after purchase and remain locked in combat',run:async()=>{
+  await fresh();click('#research-tab');assert(element<HTMLButtonElement>('[data-command="repulsor-impact-2"]').disabled,'Rank II should be locked');
+  click('[data-command="repulsor-impact-1"]');await until(()=>!element<HTMLButtonElement>('[data-command="repulsor-impact-2"]').disabled,'Rank II did not unlock');
+  click('[data-action="start-wave"]');await until(()=>text('#phase')==='COMBAT','Wave did not start');assert(element<HTMLButtonElement>('[data-command="repulsor-impact-2"]').disabled,'Research is enabled in combat');
+  click('#build-tab');click('[data-action="pause"]');
+ }},
+];
+button.onclick=async()=>{
+ button.disabled=true;results.replaceChildren();summary.textContent='Running…';
+ const backup=new Map(Object.keys(localStorage).filter(key=>key.startsWith(savePrefix)).map(key=>[key,localStorage.getItem(key)!]));let passed=0;
+ try{for(const item of cases){const row=document.createElement('li');row.textContent=item.name+' — running';results.append(row);try{await item.run();row.className='pass';row.textContent=item.name+' — PASS';passed++;}catch(error){row.className='fail';row.textContent=item.name+' — FAIL: '+String(error);}}}
+ finally{frame.src='about:blank';await new Promise<void>(resolve=>frame.addEventListener('load',()=>resolve(),{once:true}));freshStorage();for(const [key,value] of backup)localStorage.setItem(key,value);summary.textContent=`${passed}/${cases.length} checks passed`;button.disabled=false;}
+};

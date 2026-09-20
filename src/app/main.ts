@@ -1,10 +1,11 @@
+import {clearPlayerTerrain, snapToMount, structurePlacementIssue} from '../game/terrain.ts';
 import {AUTOSAVE_KEY, CHECKPOINT_KEY, saveDefense, loadDefense} from '../persistence/defense.ts';
 import { connectGPU } from '../runtime/gpu.ts';
 import { verifyABI } from '../runtime/abi-check.ts';
 import { FixedClock } from '../runtime/clock.ts';
 import { FrameMetrics } from '../runtime/metrics.ts';
 import { SettlementReader } from '../runtime/readback.ts';
-import { createLevelEditor, validateEditorMap, wallAtPoint } from '../editor/index.ts';
+import { createLevelEditor, wallAtPoint } from '../editor/index.ts';
 import '../editor/style.css';
 import { createUI } from '../ui/index.ts';
 import { createRenderer } from '../render/index.ts';
@@ -80,7 +81,11 @@ try {
    }
  },error=>errors.push(String(error)));
  function resetWorld(resetRun=true){
-   if(resetRun)run.reset();epoch=run.epoch;
+   if(resetRun){
+     map=clearPlayerTerrain(map,builtWalls,builtWires);builtWalls=[];builtWires=[];
+     navigation=buildNavigation(map);run.setMap(map);run.setBuildMounts([]);run.reset();
+   }
+   epoch=run.epoch;
    physics.reset();combat.reset();boss.reset(false);clock.reset();metrics.reset();lastTickSample=0;waveStartTick=0;simulatedTime=0;
    gpu.device.queue.writeBuffer(gpu.shared.counters,0,new Uint32Array(COUNTER_WORDS));
    commands=[];visuals=[];visualParticles=[];count=0;spawnSlot=0;state.kills=state.crushKills=state.leaks=state.earned=state.maxPressure=0;state.selectedKind=null;state.selected=null;state.buildTool=null;state.paused=false;
@@ -139,9 +144,9 @@ try {
      visualParticles.push({x:point.x,y:point.y,vx:Math.cos(angle)*velocity,vy:Math.sin(angle)*velocity,size:(.2+((i*17)%100)/100*.38)*scale,life:life*(.65+((i*29)%100)/100*.45),age:0,color,gravity,drag:style==='smoke'?.55:.32,style,spin:(i%2?1:-1)*(2.4+((i*13)%10)*.35)});
    }
  };
- const placeWall=(wall:Rect)=>{if(builtWalls.some(existing=>existing.x===wall.x&&existing.y===wall.y))return;const candidate={...map,obstacles:[...map.obstacles,wall]};const issue=validateEditorMap(candidate);if(issue){state.message=issue;return;}const result=run.spendMetal(60);if(!result.ok){state.message=result.reason??'Could not build wall.';return;}builtWalls.push(wall);map=candidate;navigation=buildNavigation(map);run.setMap(map);run.setBuildMounts(builtWalls);state.message='Metal wall installed. Towers can mount at its center.';};
+ const placeWall=(wall:Rect)=>{if(builtWalls.some(existing=>existing.x===wall.x&&existing.y===wall.y))return;const candidate={...map,obstacles:[...map.obstacles,wall]};const issue=structurePlacementIssue(map,run.model.towers,wall);if(issue){state.message=issue;return;}const result=run.spendMetal(60);if(!result.ok){state.message=result.reason??'Could not build wall.';return;}builtWalls.push(wall);map=candidate;navigation=buildNavigation(map);run.setMap(map);run.setBuildMounts(builtWalls);state.message='Metal wall installed. Towers can mount at its center.';};
  const removeWall=(point:Vec2)=>{const index=builtWalls.findIndex(w=>point.x>=w.x&&point.x<w.x+w.width&&point.y>=w.y&&point.y<w.y+w.height);if(index<0)return false;const wall=builtWalls[index];if(run.model.towers.some(tower=>Math.abs(tower.x-(wall.x+wall.width/2))<.001&&Math.abs(tower.y-(wall.y+wall.height/2))<.001)){state.message='Sell the mounted tower before recovering this wall.';return true;}builtWalls.splice(index,1);map={...map,obstacles:map.obstacles.filter(existing=>existing!==wall)};navigation=buildNavigation(map);run.setMap(map);run.setBuildMounts(builtWalls);run.refundMetal(30);state.message='Metal wall recovered for 30 Metal.';return true;};
- const placeWire=(wire:Rect)=>{if(builtWires.some(existing=>existing.x===wire.x&&existing.y===wire.y))return;const candidate={...map,obstacles:[...map.obstacles,wire]};const issue=validateEditorMap(candidate);if(issue){state.message=issue;return;}const result=run.spendMetal(45);if(!result.ok){state.message=result.reason??'Could not place wire.';return;}const stats=barbedWireStats(run.model.commandUpgrades),placed={...wire,health:stats.durability,maxHealth:stats.durability,breached:false};builtWires.push(placed);map=candidate;navigation=buildNavigation(map);run.setMap(map);state.message='Barbed wire installed. It restrains until swarm pressure forces a breach.';};
+ const placeWire=(wire:Rect)=>{if(builtWires.some(existing=>existing.x===wire.x&&existing.y===wire.y))return;const issue=structurePlacementIssue(map,run.model.towers,wire);if(issue){state.message=issue;return;}const result=run.spendMetal(45);if(!result.ok){state.message=result.reason??'Could not place wire.';return;}const stats=barbedWireStats(run.model.commandUpgrades),placed={...wire,health:stats.durability,maxHealth:stats.durability,breached:false};builtWires.push(placed);map={...map,obstacles:[...map.obstacles,placed]};navigation=buildNavigation(map);run.setMap(map);state.message='Barbed wire installed. It restrains until swarm pressure forces a breach.';};
  const removeWire=(point:Vec2)=>{const index=builtWires.findIndex(w=>point.x>=w.x&&point.x<w.x+w.width&&point.y>=w.y&&point.y<w.y+w.height);if(index<0)return false;const [wire]=builtWires.splice(index,1);map={...map,obstacles:map.obstacles.filter(existing=>existing!==wire)};navigation=buildNavigation(map);run.setMap(map);run.refundMetal(22);state.message='Barbed wire recovered for 22 Metal.';return true;};
  const demolishAt=(point:Vec2,reportMiss=true)=>{if(removeWall(point)||removeWire(point))return;if(reportMiss)state.message='Only player-built Metal Walls and Barbed Wire can be demolished.';};
  ui.canvas.addEventListener('pointermove',event=>{pointer=renderer.screenToWorld(event.clientX,event.clientY);if(editor.active&&event.buttons)editor.paint(pointer,event.buttons&2?true:undefined);if((state.buildTool==='wall'||state.buildTool==='wire')&&(event.buttons&2))(state.buildTool==='wall'?removeWall:removeWire)(pointer);if(state.buildTool==='demolish'&&(event.buttons&1))demolishAt(pointer,false);if(state.buildTool==='wall'&&(event.buttons&1)){const wall=wallAt(pointer);if(!builtWalls.some(w=>w.x===wall.x&&w.y===wall.y))placeWall(wall);}if(state.buildTool==='wire'&&(event.buttons&1)){const wire=wallAt(pointer);if(!builtWires.some(w=>w.x===wire.x&&w.y===wire.y))placeWire(wire);}});
@@ -155,7 +160,7 @@ try {
      if(state.buildTool==='wall'){if(event.button===2)removeWall(point);else placeWall(wallAt(point));return;}
      if(state.buildTool==='wire'){if(event.button===2)removeWire(point);else placeWire(wallAt(point));return;}
      if(state.buildTool==='demolish'){demolishAt(point);return;}
-     if(state.selectedKind){const result=run.place(state.selectedKind,point);if(result.ok){combat.resetAttribution();run.resetTowerAttribution();}actionResult(result,result.tower?`${TOWERS[result.tower.kind].name} deployed.`:'Tower deployed.');}
+     if(state.selectedKind){const result=run.place(state.selectedKind,snapToMount(point,builtWalls));if(result.ok){combat.resetAttribution();run.resetTowerAttribution();}actionResult(result,result.tower?`${TOWERS[result.tower.kind].name} deployed.`:'Tower deployed.');}
      else{run.model.selected=run.model.towers.find(t=>Math.hypot(t.x-point.x,t.y-point.y)<3.5)?.id??null;}
    }else if(state.tool!=='inspect'){
      if(commands.length>=64){state.message='Effect queue full; advance the simulation.';return;}
@@ -217,8 +222,9 @@ try {
      for(let i=0;i<steps;i++)tick();
      if(!state.paused){for(const effect of visuals)effect.duration-=elapsed;visuals=visuals.filter(e=>e.duration>0);for(const particle of visualParticles)particle.age+=elapsed;visualParticles=visualParticles.filter(particle=>particle.age<particle.life);}
      const encoder=gpu.device.createCommandEncoder({label:'Present'});
-     const ghost=state.mode==='game'&&state.selectedKind&&pointer?{...pointer,kind:state.selectedKind,range:compileTower({id:0,kind:state.selectedKind,x:pointer.x,y:pointer.y,level:0,branch:-1,angle:0,cooldown:0,spent:0},run.model.bonuses,run.model.commandUpgrades,progression.ranks()).range,valid:canPlace(map,run.model.towers,pointer,1.25,builtWalls)&&run.model.phase!=='won'&&run.model.phase!=='lost'}:undefined;
-     const wallGhost=state.mode==='game'&&state.buildTool==='wall'&&pointer?{...wallAt(pointer),valid:!validateEditorMap({...map,obstacles:[...map.obstacles,wallAt(pointer)]})}:undefined;
+     const placement=pointer?snapToMount(pointer,builtWalls):undefined;
+     const ghost=state.mode==='game'&&state.selectedKind&&placement?{...placement,kind:state.selectedKind,range:compileTower({id:0,kind:state.selectedKind,x:placement.x,y:placement.y,level:0,branch:-1,angle:0,cooldown:0,spent:0},run.model.bonuses,run.model.commandUpgrades,progression.ranks()).range,valid:canPlace(map,run.model.towers,placement,1.25,builtWalls)&&run.model.phase!=='won'&&run.model.phase!=='lost'}:undefined;
+     const wallGhost=state.mode==='game'&&state.buildTool==='wall'&&pointer?{...wallAt(pointer),valid:!structurePlacementIssue(map,run.model.towers,wallAt(pointer))}:undefined;
      renderer.encode(encoder,{count:editor.active?0:count,time:simulatedTime,map:editor.active?editor.map:map,towers:!editor.active&&state.mode==='game'?run.model.towers:[],effects:editor.active?[]:visuals,visualParticles:editor.active?[]:visualParticles,wires:editor.active?[]:builtWires,heatmap:state.heatmap,selection:run.model.selected,ghost:editor.active?undefined:ghost,wallGhost,boss:!editor.active&&latest.boss?.active?latest.boss:undefined});
      gpu.device.queue.submit([encoder.finish()]);
      if(now-lastUI>100)updateUI(now);else positionInspector();

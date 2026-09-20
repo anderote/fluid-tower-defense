@@ -18,7 +18,7 @@ Open the localhost URL printed by Vite in a browser with WebGPU enabled (a curre
 - **Level Editor:** paint or drag walls, use Erase (or right-drag), save/load a local level, then **Apply & Play** to start a fresh defense. Walls may enter the spawn area and former central lane as long as a route to the goal remains. Cancel preserves the current run.
 - **View:** Fullscreen fills the display; Hide UI expands the arena. Show UI brings controls back.
 - **Lab:** starts with 10,000 zombies. Click to blast, select Push to shove toward the base, or toggle the actual pressure heatmap. Reset restores the swarm. Large population requests are capped by the non-overlapping spawn area and the actual count is displayed.
-- **Game:** select a tower and click any clear ground, including the shaded spawn zone. Walls still cannot hold towers. Select the same build button again or press Escape to leave placement mode. Use **Demolish** (or press **R**) and click a player-built wall or barbed wire to recover half its Metal cost. Click a deployed tower to inspect, upgrade, or sell it. Start the wave when ready.
+- **Game:** select a tower and click any clear ground, including the shaded spawn zone. Authored walls cannot hold towers; clicking a player-built Metal Wall snaps a tower to its center. Select the same build button again or press Escape to leave placement mode. Use **Demolish** (or press **R**) and click a player-built wall or barbed wire to recover half its Metal cost. Click a deployed tower to inspect, upgrade, or sell it. Start the wave when ready.
 - **Combat feedback:** the Bulldozer HUD shows live health, attack phases, and defeat/breach status. Watch for the bracing warning before a charge and the slower recovery window.
 - **Research:** locked upgrades name their prerequisite or missing Metal. Purchasing a prerequisite unlocks the next rank; research is available between waves. Restored Zombie Flow settings are reflected in the slider.
 - **Next wave:** during preparation, the Build and Research panels show enemy counts and roles, completion reward, and the peak arrival rate at the selected Zombie Flow multiplier. Boss waves warn about the Bulldozer and the next-level reset. Spawn space can limit actual arrival rates; the flow slider does not change the enemy count.
@@ -32,7 +32,10 @@ This is an early playable prototype with simple geometric art and initial balanc
 ```sh
 npm test
 npm run build
+npm run test:e2e
 ```
+
+`test:e2e` opens a repeatable browser suite at `/tests/e2e/` on dedicated port 5180. Click **Run checks** in a WebGPU browser. It drives the actual game through checkpoint/restore, terrain removal/reset, wall-mounted placement, and research purchases. Existing saves on that origin are restored after the run; keep the test page open until it finishes. These are browser-native DOM-event tests with a real GPU, not headless CI or screenshot comparisons.
 
 Open `http://127.0.0.1:5173/?validate=1` while the dev server runs for real GPU compute/readback checks. Seven checks cover compression, impulses, slowing, exactly-once rewards, base arrivals, boss targeting/damage, and boss phase transitions. Developer diagnostics in the game show tick count, live population, invalid values, frame timings, and GPU readback errors. Display FPS is distinct from the fixed 60Hz simulation rate.
 
