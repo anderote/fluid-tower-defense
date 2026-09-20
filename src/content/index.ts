@@ -111,8 +111,15 @@ export function compileTower(tower: Tower, bonuses: readonly string[] = [], comm
   const base=TOWERS[tower.kind];
   let range=base.range, cooldown=base.cooldown, damage=base.damage, force=base.force, radius=base.radius;
   const level=Math.min(MAX_TOWER_LEVEL,Math.max(0,tower.level));
+  const powerPath=tower.branch===0,controlPath=tower.branch===1;
+  // Every purchased level advances the full combat profile. Branch A leans
+  // into damage and impulse; Branch B leans into reach, rate and area.
   // Repulsors remain local crowd-control tools even at high tower levels.
-  range += level * (tower.kind==='repulsor' ? .2 : 1.25); damage *= 1 + level * .12;
+  range += level * (tower.kind==='repulsor' ? .2 : 1.25) * (controlPath?1.15:1);
+  damage *= 1 + level * (powerPath?.14:.12);
+  cooldown /= 1 + level * (controlPath?.018:.012);
+  force *= 1 + (powerPath?.05:.035) * (1-Math.exp(-level/12));
+  radius *= 1 + level * (controlPath?.008:.004);
   const veteran=veterancyMultiplier(tower.veterancy ?? veterancyLevel(tower.veterancyXp ?? 0));
   range*=1+(veteran-1)*.55; damage*=veteran; cooldown/=1+(veteran-1)*.28;
   if (tower.branch === 0) {

@@ -1,7 +1,8 @@
+import {createWallInspector} from '../ui/wall-inspector.ts';
 import {createStructurePreview, clearPlayerTerrain, restoreSessionTerrain, terrainMounts, wallMountCells} from '../game/terrain.ts';
 import {createInfantryController} from '../infantry/controller.ts';
 import {createInfantryGPU} from '../infantry/gpu.ts';
-import {advanceInfantry,infantryMap,freshInfantry} from '../infantry/model.ts';
+import {advanceInfantry,awardInfantryKills,infantryMap,freshInfantry} from '../infantry/model.ts';
 import {campaignMap,isCampaignMap} from '../content/levels.ts';
 import {AUTOSAVE_KEY, CHECKPOINT_KEY, saveDefense, loadDefense} from '../persistence/defense.ts';
 import { connectGPU } from '../runtime/gpu.ts';
@@ -38,7 +39,7 @@ if(params.has('validate')) {
 } else {
 const initialMap=campaignMap(Math.max(1,Math.min(3,Number(params.get('map'))||1)));
 const run=createRun(initialMap);
-const state:UIState={mode:params.get('mode')==='lab'?'lab':'game',phase:'preparation',paused:false,fps:0,frameMs:0,population:10000,capacity:65536,kills:0,crushKills:0,leaks:0,earned:0,maxPressure:0,metal:STARTING_METAL,baseHealth:100,level:1,wave:0,waveCount:10,difficulty:1,streamWidth:60,selected:null,upgradeTarget:null,selectedKind:null,buildTool:null,upgradeMode:false,moveMode:false,heatmap:true,tool:'blast',message:'Connecting to local GPU…',adapter:'WebGPU',bonusChoices:[],bonuses:[],commandUpgrades:[],statUpgrades:run.statUpgrades(),towerUnlocks:run.towerUnlocks()};
+const state:UIState={mode:params.get('mode')==='lab'?'lab':'game',phase:'preparation',paused:false,fps:0,frameMs:0,population:10000,capacity:65536,kills:0,crushKills:0,leaks:0,earned:0,maxPressure:0,metal:STARTING_METAL,baseHealth:100,level:1,wave:0,waveCount:10,difficulty:1,streamWidth:60,selected:null,upgradeTarget:null,selectedKind:null,buildTool:null,upgradeMode:false,moveMode:false,targetMode:false,heatmap:true,tool:'blast',message:'Connecting to local GPU…',adapter:'WebGPU',bonusChoices:[],bonuses:[],commandUpgrades:[],statUpgrades:run.statUpgrades(),towerUnlocks:run.towerUnlocks()};
 run.setHordeScale(state.streamWidth);
 let handleAction:(action:GameAction)=>void=()=>{};
 const ui=createUI(root,action=>handleAction(action));
@@ -66,13 +67,13 @@ try {
  const clock=new FixedClock(), metrics=new FrameMetrics();
  let map=initialMap, navigation=buildNavigation(map), spawnBaseline=initialMap.spawn;
  let epoch=run.epoch,count=0,spawnSlot=0, requestedPopulation=Math.min(50000,Math.max(1,Number(params.get('population'))||10000));
- let builtWalls:(Rect & {health:number;maxHealth:number})[]=[],movingTowerId:number|null=null;
+ let builtWalls:(Rect & {health:number;maxHealth:number})[]=[],movingTowerId:number|null=null,targetingTowerId:number|null=null;
 /* Recycle hover branch variant is superseded here by the placement-preview wall model. */
  let builtWires:(Rect & {health:number;maxHealth:number;breached:boolean})[]=[];
  type PressurePopup={element:HTMLElement;x:number;y:number;age:number;life:number;drift:number};
  let commands:Effect[]=[], visuals:Effect[]=[], visualParticles:VisualParticle[]=[], heavyProjectiles:HeavyProjectile[]=[], heavyExplosions:HeavyExplosion[]=[], pressurePopups:PressurePopup[]=[], cameraShake=0, pointer:Vec2|undefined, hoveredTowerId:number|null=null, hoverClearTimer=0, lastTickSample=0, waveStartTick=0;
  const lastTowerPressurePopup=new Map<number,number>();
- let latest:Settlement={epoch,tick:0,kills:0,crushKills:0,leaks:0,earned:0,live:0,invalid:0,maxPacking:0};
+ let latest:Settlement={epoch,tick:0,kills:0,crushKills:0,leaks:0,earned:0,live:0,invalid:0,maxPacking:0},previousInfantryKills:number[]=[];
  let lastUI=0, previous=performance.now(), simulatedTime=0;
  const diagnostics=document.createElement('details');diagnostics.className='diagnostics';diagnostics.innerHTML='<summary>Developer diagnostics</summary><pre></pre>';root.append(diagnostics);
  const diagnosticText=diagnostics.querySelector('pre')!;
@@ -83,14 +84,15 @@ try {
  const syncTowerMounts=()=>run.setBuildMounts(towerMounts());
  const combatMap=()=>mapWithTurretObstacles(state.mode==='game'?infantryMap(map,run.model.infantry??freshInfantry()):map,state.mode==='game'?run.model.towers:[]);
  const refreshNavigation=()=>{navigation=buildNavigation(combatMap());};
- const infantry=createInfantryController(root,run,()=>map,refreshNavigation,text=>{state.message=text;},()=>{state.selectedKind=null;state.buildTool=null;state.upgradeMode=false;run.model.selected=null;});
+ const wallInspector=createWallInspector(root,gpu.device,gpu.shared);
+ const infantry=createInfantryController(root,run,()=>map,refreshNavigation,text=>{state.message=text;},()=>{state.selectedKind=null;state.buildTool=null;state.upgradeMode=false;state.moveMode=false;state.targetMode=false;movingTowerId=null;targetingTowerId=null;run.model.selected=null;});
  const resizeSpawn=()=>{const width=Math.max(1,Math.min(100,Math.round(state.streamWidth)));map={...map,spawn:{...spawnBaseline,y:(map.height-width)/2,height:width}};};
  const saveSession=()=>{if(params.has('map')||state.mode!=='game'||!['preparation','checkpoint'].includes(run.model.phase))return;try{const runState=run.save();localStorage.setItem(AUTOSAVE_KEY,JSON.stringify({runState,map,spawnBaseline,builtWalls,builtWires,difficulty:state.difficulty,streamWidth:state.streamWidth}));}catch{/* Local persistence is optional. */}};
  const restoreSession=()=>{try{if(params.has('map'))return false;const saved=JSON.parse(localStorage.getItem(AUTOSAVE_KEY)??'null') as {runState?:string;map?:WorldMap;spawnBaseline?:Rect;builtWalls?:(Rect & Partial<{health:number;maxHealth:number}>)[];builtWires?:(Rect & {health:number;maxHealth:number;breached:boolean})[];difficulty?:number;streamWidth?:number}|null;if(!saved?.runState||!saved.map)return false;builtWalls=(saved.builtWalls??[]).filter(w=>Number.isFinite(w.x)&&Number.isFinite(w.y)).map(w=>{const maxHealth=typeof w.maxHealth==='number'&&Number.isFinite(w.maxHealth)?w.maxHealth:wallCapacity(0),health=typeof w.health==='number'&&Number.isFinite(w.health)?w.health:maxHealth;return {...w,health,maxHealth};});builtWires=(saved.builtWires??[]).filter(w=>Number.isFinite(w.x)&&Number.isFinite(w.y)&&Number.isFinite(w.health));const defaultSession=saved.map.id===DEFAULT_MAP.id;map=restoreSessionTerrain(saved.map,DEFAULT_MAP,builtWalls,builtWires);spawnBaseline=defaultSession?DEFAULT_MAP.spawn:saved.spawnBaseline??saved.map.spawn;state.difficulty=run.setSpawnMultiplier(saved.difficulty??1);state.streamWidth=Math.max(1,Math.min(100,Math.round(saved.streamWidth??map.spawn.height)));run.setHordeScale(state.streamWidth);resizeSpawn();run.setMap(map);syncTowerMounts();const loaded=run.load(saved.runState).ok;if(loaded)refreshNavigation();return loaded;}catch{return false;}};
  const editor=createLevelEditor(root.querySelector<HTMLElement>('.view-menu')!,map,newMap=>{
    map=newMap;spawnBaseline=newMap.spawn;builtWalls=[];builtWires=[];resizeSpawn();navigation=buildNavigation(map);run.setMap(map);syncTowerMounts();state.mode='game';resetWorld();previousPaused=false;
    state.message='Custom level ready. Build your defense, then start a wave.';
- },active=>{if(active){previousPaused=state.paused;state.paused=true;state.selectedKind=null;state.buildTool=null;state.upgradeMode=false;state.message='Paint walls on the arena. Right-drag erases. Apply & Play starts a fresh defense.';}else{state.paused=previousPaused;}},root.querySelector<HTMLElement>('.view-actions')!);
+ },active=>{if(active){previousPaused=state.paused;state.paused=true;state.selectedKind=null;state.buildTool=null;state.upgradeMode=false;state.moveMode=false;state.targetMode=false;movingTowerId=null;targetingTowerId=null;state.message='Paint walls on the arena. Right-drag erases. Apply & Play starts a fresh defense.';}else{state.paused=previousPaused;}},root.querySelector<HTMLElement>('.view-actions')!);
  makeGameWindow(root.querySelector<HTMLElement>('.level-editor-panel')!,'LEVEL EDITOR');
  const newGame=()=>{try{localStorage.removeItem(AUTOSAVE_KEY);localStorage.removeItem('pressure-front.customlevel.v1');}catch{/* Persistence is optional. */}run.clearSave();state.mode='game';state.difficulty=1;state.streamWidth=60;run.setHordeScale(state.streamWidth);map=campaignMap(1);spawnBaseline=map.spawn;editor.setMap(map);resizeSpawn();builtWalls=[];builtWires=[];navigation=buildNavigation(map);run.setMap(map);syncTowerMounts();resetWorld();state.message='New game started.';};
 
@@ -101,6 +103,8 @@ try {
    const currentLive=gpu.shared.capacity-hordeCapacity.available(gpu.shared.capacity);
    latest=s;state.population=currentLive;state.kills=s.kills;state.crushKills=s.crushKills;state.leaks=s.leaks;state.earned=s.earned;state.maxPressure=Math.max(state.maxPressure,s.maxPressure??0);
    if(state.mode==='game'){
+     const reported=s.infantryKills??[],earnedBySoldier=reported.map((total,index)=>Math.max(0,total-(previousInfantryKills[index]??0)));
+     awardInfantryKills(infantry.state(),infantryGPU.liveIds,earnedBySoldier);previousInfantryKills=[...reported];
      run.applySettlement({...s,live:currentLive});
      if(currentLive===0&&count>0&&s.tick>=waveStartTick&&run.model.pending.length===0&&run.model.phase==='combat'){
        const clearedWave=run.model.wave,result=run.finishSettling();if(result.ok){const checkpoint=clearedWave>=10;state.message=checkpoint?`Wave ${clearedWave} contained. Extract or continue with your Metal and research.`:run.model.bonusChoices.length?'Wave cleared. Choose a command boon.':'Wave cleared. Spend your Metal on defenses and research.';count=0;}
@@ -108,7 +112,8 @@ try {
    }
  },error=>errors.push(String(error)));
  function resetWorld(resetRun=true,level=1){
-   infantryGPU.reset();infantry.reset();
+   wallInspector.select(undefined);
+   infantryGPU.reset();infantry.reset();previousInfantryKills=[];
    if(resetRun){
      map=clearPlayerTerrain(map,builtWalls,builtWires);builtWalls=[];builtWires=[];
      run.setMap(map);syncTowerMounts();run.reset(level);refreshNavigation();
@@ -116,7 +121,7 @@ try {
    epoch=run.epoch;
    physics.reset();combat.reset();combat.clearAftermath();renderer.clearAftermath?.();resetHorde();shotReader.reset();boss.reset(false);clock.reset();metrics.reset();lastTickSample=0;waveStartTick=0;simulatedTime=0;
    gpu.device.queue.writeBuffer(gpu.shared.counters,0,new Uint32Array(COUNTER_WORDS));
-   commands=[];visuals=[];visualParticles=[];heavyProjectiles=[];heavyExplosions=[];for(const popup of pressurePopups)popup.element.remove();pressurePopups=[];lastTowerPressurePopup.clear();cameraShake=0;count=0;spawnSlot=0;hoveredTowerId=null;movingTowerId=null;state.kills=state.crushKills=state.leaks=state.earned=state.maxPressure=0;state.selectedKind=null;state.selected=null;state.upgradeTarget=null;state.buildTool=null;state.upgradeMode=false;state.moveMode=false;state.paused=false;
+   commands=[];visuals=[];visualParticles=[];heavyProjectiles=[];heavyExplosions=[];for(const popup of pressurePopups)popup.element.remove();pressurePopups=[];lastTowerPressurePopup.clear();cameraShake=0;count=0;spawnSlot=0;hoveredTowerId=null;movingTowerId=null;targetingTowerId=null;state.kills=state.crushKills=state.leaks=state.earned=state.maxPressure=0;state.selectedKind=null;state.selected=null;state.upgradeTarget=null;state.buildTool=null;state.upgradeMode=false;state.moveMode=false;state.targetMode=false;state.paused=false;
    latest={epoch,tick:0,kills:0,crushKills:0,leaks:0,earned:0,live:0,invalid:0,maxPacking:0};
    if(state.mode==='lab'){
      const batches=requestedPopulation<=10000?[{count:Math.floor(requestedPopulation*.8),kind:'shambler' as const,seed:1},{count:Math.floor(requestedPopulation*.15),kind:'runner' as const,seed:2},{count:requestedPopulation-Math.floor(requestedPopulation*.8)-Math.floor(requestedPopulation*.15),kind:'brute' as const,seed:3}]:[{count:requestedPopulation,kind:'shambler' as const,seed:1}];
@@ -136,7 +141,7 @@ try {
  handleAction=action=>{
    if(failed)return;
    if(editor.active){state.message='Apply or cancel your level before using game controls.';return;}
-   if(['select-tower','wall-tool','wire-tool','demolish-tool','upgrade-tool','move','mode','new-game','reset','load','restart-wave'].includes(action.type))infantry.cancel();
+   if(['select-tower','wall-tool','wire-tool','demolish-tool','upgrade-tool','move','set-ground-target','mode','new-game','reset','load','restart-wave'].includes(action.type))infantry.cancel();
    if(['start-wave','restart-wave','continue-run','load'].includes(action.type))infantryGPU.reset();
    switch(action.type){
      case 'mode':state.mode=action.mode;resetWorld();break;
@@ -146,20 +151,22 @@ try {
        const result=run.restartWave();actionResult(result,'Wave restarted. Defenses remain in position.');if(!result.ok)break;
        epoch=run.epoch;count=0;spawnSlot=0;commands=[];visuals=[];visualParticles=[];heavyProjectiles=[];heavyExplosions=[];for(const popup of pressurePopups)popup.element.remove();pressurePopups=[];lastTowerPressurePopup.clear();cameraShake=0;state.population=0;state.kills=state.crushKills=state.leaks=state.earned=state.maxPressure=0;
        latest={epoch,tick:clock.tick,kills:0,crushKills:0,leaks:0,earned:0,live:0,invalid:0,maxPacking:0};
-       gpu.device.queue.writeBuffer(gpu.shared.counters,0,new Uint32Array(COUNTER_WORDS));physics.reset();combat.reset();combat.clearAftermath();renderer.clearAftermath?.();resetHorde();shotReader.reset();boss.reset(run.isBossWave);waveStartTick=clock.tick+1;lastTickSample=clock.tick;state.paused=false;state.selectedKind=null;
+       gpu.device.queue.writeBuffer(gpu.shared.counters,0,new Uint32Array(COUNTER_WORDS));previousInfantryKills=[];physics.reset();combat.reset();combat.clearAftermath();renderer.clearAftermath?.(true);resetHorde();shotReader.reset();boss.reset(run.isBossWave);waveStartTick=clock.tick+1;lastTickSample=clock.tick;state.paused=false;state.selectedKind=null;
        break;
      }
      case 'new-game':newGame();break;
      case 'heatmap':state.heatmap=action.value;break;
      case 'population':if(state.mode==='lab'){requestedPopulation=action.value;resetWorld();}break;
-     case 'tool':state.tool=action.tool;state.selectedKind=null;state.upgradeMode=false;state.moveMode=false;movingTowerId=null;break;
-     case 'select-tower':if(action.kind&&!run.isTowerUnlocked(action.kind)){state.selectedKind=null;state.message=`${TOWERS[action.kind].name} is locked. Unlock it with Metal first.`;break;}state.buildTool=null;state.upgradeMode=false;state.moveMode=false;movingTowerId=null;run.model.selected=null;state.selectedKind=state.selectedKind===action.kind?null:action.kind;state.message=state.selectedKind?`${TOWERS[state.selectedKind].name}: click a clear build location.`:'Click a tower to inspect it.';break;
+     case 'tool':state.tool=action.tool;state.selectedKind=null;state.upgradeMode=false;state.moveMode=false;state.targetMode=false;movingTowerId=null;targetingTowerId=null;break;
+     case 'select-tower':if(action.kind&&!run.isTowerUnlocked(action.kind)){state.selectedKind=null;state.message=`${TOWERS[action.kind].name} is locked. Unlock it with Metal first.`;break;}state.buildTool=null;state.upgradeMode=false;state.moveMode=false;state.targetMode=false;movingTowerId=null;targetingTowerId=null;run.model.selected=null;state.selectedKind=state.selectedKind===action.kind?null:action.kind;state.message=state.selectedKind?`${TOWERS[state.selectedKind].name}: click a clear build location.`:'Click a tower to inspect it.';break;
      case 'unlock-tower':{const result=run.unlockTower(action.kind);actionResult(result,`${TOWERS[action.kind].name} unlocked for this run.`);state.selectedKind=null;break;}
-     case 'wall-tool':state.upgradeMode=false;state.moveMode=false;movingTowerId=null;state.buildTool=state.buildTool==='wall'?null:'wall';state.selectedKind=null;state.message=state.buildTool==='wall'?'Wall tool: click to place a 4 × 4 Metal wall, or reinforce a damaged wall to full integrity.':'Wall tool cancelled.';break;
-     case 'wire-tool':state.upgradeMode=false;state.moveMode=false;movingTowerId=null;state.buildTool=state.buildTool==='wire'?null:'wire';state.selectedKind=null;state.message=state.buildTool==='wire'?'Barbed wire: restrains the swarm until high pressure forces a breach.':'Barbed wire tool cancelled.';break;
-     case 'demolish-tool':state.upgradeMode=false;state.moveMode=false;movingTowerId=null;state.buildTool=state.buildTool==='demolish'?null:'demolish';state.selectedKind=null;state.message=state.buildTool==='demolish'?'Demolish tool: click a player-built wall or barbed wire to recover half its Metal.':'Demolish tool cancelled.';break;
-     case 'upgrade-tool':state.moveMode=false;movingTowerId=null;state.upgradeMode=!state.upgradeMode;state.buildTool=null;state.selectedKind=null;state.message=state.upgradeMode?'Upgrade mode: hover a tower to preview its next upgrade. Press Q or E to choose a branch.':'Upgrade mode cancelled.';break;
-     case 'move':if(run.model.selected===null)break;movingTowerId=state.moveMode?null:run.model.selected;state.moveMode=movingTowerId!==null;state.buildTool=null;state.selectedKind=null;state.upgradeMode=false;state.message=state.moveMode?`Move mode: click a clear location for this tower (${TOWER_MOVE_COST} Metal).`:'Move mode cancelled.';break;
+     case 'wall-tool':state.upgradeMode=false;state.moveMode=false;state.targetMode=false;movingTowerId=null;targetingTowerId=null;state.buildTool=state.buildTool==='wall'?null:'wall';state.selectedKind=null;state.message=state.buildTool==='wall'?'Wall tool: click to place a 4 × 4 Metal wall, or reinforce a damaged wall to full integrity.':'Wall tool cancelled.';break;
+     case 'wire-tool':state.upgradeMode=false;state.moveMode=false;state.targetMode=false;movingTowerId=null;targetingTowerId=null;state.buildTool=state.buildTool==='wire'?null:'wire';state.selectedKind=null;state.message=state.buildTool==='wire'?'Barbed wire: restrains the swarm until high pressure forces a breach.':'Barbed wire tool cancelled.';break;
+     case 'demolish-tool':state.upgradeMode=false;state.moveMode=false;state.targetMode=false;movingTowerId=null;targetingTowerId=null;state.buildTool=state.buildTool==='demolish'?null:'demolish';state.selectedKind=null;state.message=state.buildTool==='demolish'?'Demolish tool: click a player-built wall or barbed wire to recover half its Metal.':'Demolish tool cancelled.';break;
+     case 'upgrade-tool':state.moveMode=false;state.targetMode=false;movingTowerId=null;targetingTowerId=null;state.upgradeMode=!state.upgradeMode;state.buildTool=null;state.selectedKind=null;state.message=state.upgradeMode?'Upgrade mode: hover a tower to preview its next upgrade. Press Q or E to choose a branch.':'Upgrade mode cancelled.';break;
+     case 'move':if(run.model.selected===null)break;movingTowerId=state.moveMode?null:run.model.selected;targetingTowerId=null;state.moveMode=movingTowerId!==null;state.targetMode=false;state.buildTool=null;state.selectedKind=null;state.upgradeMode=false;state.message=state.moveMode?`Move mode: click a clear location for this tower (${TOWER_MOVE_COST} Metal). Its ground target will be cleared.`:'Move mode cancelled.';break;
+     case 'set-ground-target':if(run.model.selected===null)break;targetingTowerId=state.targetMode?null:run.model.selected;movingTowerId=null;state.targetMode=targetingTowerId!==null;state.moveMode=false;state.buildTool=null;state.selectedKind=null;state.upgradeMode=false;state.message=state.targetMode?'Focus ground: click a point inside the highlighted range. This turret will ignore enemies elsewhere.':'Ground targeting cancelled.';break;
+     case 'clear-ground-target':if(run.model.selected!==null){const result=run.setGroundTarget(run.model.selected,null);targetingTowerId=null;state.targetMode=false;actionResult(result,'Ground target cleared. Automatic targeting restored.');}break;
      case 'start-wave':{
        const result=run.startWave();actionResult(result,'Wave incoming. Hold the choke.');if(!result.ok)break;
        latest={...latest,inletBlocked:false};count=0;spawnSlot=0;heavyProjectiles=[];heavyExplosions=[];cameraShake=0;state.population=0;physics.reset();combat.reset();resetHorde();shotReader.reset();boss.reset(run.isBossWave);waveStartTick=clock.tick+1;state.paused=false;state.selectedKind=null;break;
@@ -178,7 +185,7 @@ try {
      case 'upgrade-tower':{const tower=run.model.towers.find(candidate=>candidate.id===action.id),result=run.upgrade(action.id,action.branch);actionResult(result,result.ok&&tower?`${TOWERS[tower.kind].name} upgraded to level ${tower.level}.`:'Tower upgraded.');break;}
      case 'buy-command':actionResult(run.buyCommandUpgrade(action.id),'Command upgrade installed.');break;
      case 'buy-stat':actionResult(run.buyStatUpgrade(action.id),'Stat upgrade installed for this run.');break;
-     case 'sell':if(run.model.selected!==null){const result=run.sell(run.model.selected);if(result.ok){movingTowerId=null;state.moveMode=false;refreshNavigation();combat.resetAttribution();run.resetTowerAttribution();}actionResult(result,'Tower sold.');}break;
+     case 'sell':if(run.model.selected!==null){const result=run.sell(run.model.selected);if(result.ok){movingTowerId=null;targetingTowerId=null;state.moveMode=false;state.targetMode=false;refreshNavigation();combat.resetAttribution();run.resetTowerAttribution();}actionResult(result,'Tower sold.');}break;
      case 'difficulty':state.difficulty=run.setSpawnMultiplier(action.value);resizeSpawn();state.message=`Horde intensity ${state.difficulty}: denser groups approach from the west.`;break;
      case 'stream-width':state.streamWidth=Math.max(1,Math.min(100,Math.round(action.value)));run.setHordeScale(state.streamWidth);resizeSpawn();run.setMap(map);refreshNavigation();state.message=`Stream width ${state.streamWidth}: quota is ${(state.streamWidth*100_000*Math.pow(run.model.wave+1,1.67)).toLocaleString(undefined,{maximumFractionDigits:0})} zombies.`;break;
      case 'bonus':actionResult(run.chooseBonus(action.id),'Bonus installed for this run.');break;
@@ -271,9 +278,11 @@ try {
  ui.canvas.addEventListener('pointerleave',()=>{pointer=undefined;if(state.upgradeMode)scheduleUpgradeTargetClear();});
  ui.canvas.addEventListener('pointerdown',event=>{
    audio.arm();if(failed)return;const point=renderer.screenToWorld(event.clientX,event.clientY);
+   wallInspector.select(undefined);
    if(editor.active){editor.paint(point,event.button===2?true:undefined);return;}
    if(state.mode==='game'){
-     if(infantry.click(point,!state.buildTool&&!state.selectedKind&&!state.upgradeMode&&!state.moveMode)){run.model.selected=null;return;}
+     if(state.targetMode&&targetingTowerId!==null){const tower=run.model.towers.find(candidate=>candidate.id===targetingTowerId),result=run.setGroundTarget(targetingTowerId,point);if(result.ok){targetingTowerId=null;state.targetMode=false;}actionResult(result,tower?`${TOWERS[tower.kind].name} focused on the marked ground.`:'Ground target set.');return;}
+     if(infantry.click(point,!state.buildTool&&!state.selectedKind&&!state.upgradeMode&&!state.moveMode&&!state.targetMode)){run.model.selected=null;return;}
      if(state.buildTool==='wall'){if(event.button===2)removeWall(point);else placeWall(wallAt(point));return;}
      if(state.buildTool==='wire'){if(event.button===2)removeWire(point);else placeWire(wallAt(point));return;}
      if(state.buildTool==='demolish'){demolishAt(point);return;}
@@ -282,7 +291,8 @@ try {
      else{
        const clicked=run.model.towers.find(t=>Math.hypot(t.x-point.x,t.y-point.y)<3.5);
        if(state.upgradeMode){setUpgradeTarget(clicked?.id??null);return;}
-       run.model.selected=clicked?.id??null;
+       run.model.selected=clicked?.id??null;targetingTowerId=null;state.targetMode=false;
+       if(!clicked)wallInspector.select(builtWalls.find(w=>point.x>=w.x&&point.x<=w.x+w.width&&point.y>=w.y&&point.y<=w.y+w.height));
      }
    }else if(state.tool!=='inspect'){
      if(commands.length>=64){state.message='Effect queue full; advance the simulation.';return;}
@@ -324,7 +334,7 @@ try {
    }
    if(event.key==='Escape'){
      infantry.cancel();
-     event.preventDefault();state.selectedKind=null;state.buildTool=null;state.upgradeMode=false;state.moveMode=false;movingTowerId=null;run.model.selected=null;state.message='Placement cancelled.';
+     event.preventDefault();state.selectedKind=null;state.buildTool=null;state.upgradeMode=false;state.moveMode=false;state.targetMode=false;movingTowerId=null;targetingTowerId=null;run.model.selected=null;state.message='Placement cancelled.';
    }
    if(key==='h')handleAction({type:'heatmap',value:!state.heatmap});
    if(key==='+'||key==='=')renderer.zoomAt(1.13,ui.canvas.getBoundingClientRect().x+ui.canvas.clientWidth/2,ui.canvas.getBoundingClientRect().y+ui.canvas.clientHeight/2);
@@ -335,6 +345,7 @@ try {
  document.addEventListener('visibilitychange',()=>{if(document.hidden)panKeys.clear();});
  document.addEventListener('focusin',event=>{const target=event.target;if(target instanceof HTMLElement&&(target.isContentEditable||target.closest('input,textarea,select')))panKeys.clear();});
  function updateUI(now:number){
+   wallInspector.update(now,builtWalls);
    infantry.update();
    const report=metrics.report();state.fps=report.fps;state.frameMs=report.medianMs;
    state.metal=run.model.metal;state.baseHealth=run.model.baseHealth/20*100;state.level=run.model.level;state.wave=run.model.wave;state.waveCount=run.model.waveCount;state.phase=state.mode==='lab'?'combat':run.model.phase;
@@ -401,7 +412,7 @@ try {
    const encoder=gpu.device.createCommandEncoder({label:`Simulation tick ${clock.tick}`});
    const bossFrame={dt:clock.step,tick:clock.tick,count,map:activeMap.scenery?activeMap:{...activeMap,spawn:{x:50,y:35,width:32,height:30}},active:state.mode==='game'&&run.isBossWave};
    horde.encode(encoder,arrivals,count);
-   const infantryShots=advanceInfantry(infantry.state(),infantry.ensureFields(),infantry.fields,infantryGPU.threats,clock.step,state.mode==='game'&&run.model.phase==='combat');
+   const infantryShots=advanceInfantry(infantry.state(),infantry.ensureFields(),infantry.fields,infantryGPU.threats,clock.step,state.mode==='game'&&run.model.phase==='combat',run.statModifiers());
    const finishInfantry=state.mode==='game'?infantryGPU.encode(encoder,infantry.state().soldiers,infantryShots,activeMap,count,clock.tick%6===0):undefined;
    if(infantryShots.length){const shot=infantryShots[0],kind=infantry.state().soldiers.find(s=>s.id===shot.soldier)?.kind;if(kind==='samurai')audio.slash(shot.x,clock.tick);else audio.fire(kind==='rocket'?'rocket':kind==='flame'?'incinerator':'autocannon',shot.x,clock.tick);}
    combat.encodeBefore(encoder,frame);boss.encode(encoder,bossFrame);physics.encode(encoder,frame);combat.encodeAfter(encoder,frame);boss.encodeResolve(encoder,bossFrame);
@@ -424,11 +435,13 @@ try {
      const structurePlacement=pointer?wallAt(pointer):undefined;
      const movingTower=movingTowerId===null?undefined:run.model.towers.find(tower=>tower.id===movingTowerId),ghostKind=state.selectedKind??movingTower?.kind;
      const ghost=state.mode==='game'&&ghostKind&&placement?{...placement,kind:ghostKind,range:compileTower({id:0,kind:ghostKind,x:placement.x,y:placement.y,level:movingTower?.level??0,branch:movingTower?.branch??-1,angle:0,cooldown:0,spent:0},run.model.bonuses,run.model.commandUpgrades,run.statModifiers()).range,valid:canPlace(map,run.model.towers.filter(tower=>tower.id!==movingTowerId),placement,1.25,towerMounts())&&run.model.phase!=='won'&&run.model.phase!=='lost'}:undefined;
+     const targetingTower=targetingTowerId===null?undefined:run.model.towers.find(tower=>tower.id===targetingTowerId),targetRange=targetingTower?compileTower(targetingTower,run.model.bonuses,run.model.commandUpgrades,run.statModifiers()).range:0;
+     const groundTargetGhost=state.targetMode&&targetingTower&&pointer?{...pointer,originX:targetingTower.x,originY:targetingTower.y,range:targetRange,valid:Math.hypot(pointer.x-targetingTower.x,pointer.y-targetingTower.y)<=targetRange}:undefined;
      const placementKind=state.buildTool==='wall'||state.buildTool==='wire'?state.buildTool:undefined;
      const existingWall=placementKind==='wall'&&structurePlacement?builtWalls.find(wall=>wall.x===structurePlacement.x&&wall.y===structurePlacement.y):undefined;
      const placementCost=placementKind==='wall'?60:45;
      const placementGhost=state.mode==='game'&&placementKind&&structurePlacement?{...structurePlacement,kind:placementKind,valid:run.model.phase!=='won'&&run.model.phase!=='lost'&&run.model.metal>=placementCost&&(existingWall?existingWall.health<existingWall.maxHealth:!previewStructure(map,run.model.towers,structurePlacement))}:undefined;
-     renderer.encode(encoder,{barracksGhost:!editor.active&&state.mode==='game'&&infantry.tool==='build'&&pointer?infantry.preview(pointer):undefined,infantry:!editor.active&&state.mode==='game'?infantry.state():undefined,selectedBarracks:infantry.selected,aftermathVisible:!editor.active,count:editor.active?0:count,time:simulatedTime,map:editor.active?editor.map:map,towers:!editor.active&&state.mode==='game'?run.model.towers:[],effects:editor.active?[]:visuals,visualParticles:editor.active?[]:visualParticles,heavyProjectiles:editor.active?[]:heavyProjectiles,heavyExplosions:editor.active?[]:heavyExplosions,cameraShake:editor.active?0:cameraShake,walls:editor.active?[]:builtWalls,wires:editor.active?[]:builtWires,heatmap:state.heatmap,selection:run.model.selected,ghost:editor.active?undefined:ghost,placementGhost,boss:!editor.active&&latest.boss?.active?latest.boss:undefined});
+     renderer.encode(encoder,{barracksGhost:!editor.active&&state.mode==='game'&&infantry.tool==='build'&&pointer?infantry.preview(pointer):undefined,infantry:!editor.active&&state.mode==='game'?infantry.state():undefined,selectedBarracks:infantry.selected,aftermathVisible:!editor.active,count:editor.active?0:count,time:simulatedTime,map:editor.active?editor.map:map,towers:!editor.active&&state.mode==='game'?run.model.towers:[],effects:editor.active?[]:visuals,visualParticles:editor.active?[]:visualParticles,heavyProjectiles:editor.active?[]:heavyProjectiles,heavyExplosions:editor.active?[]:heavyExplosions,cameraShake:editor.active?0:cameraShake,walls:editor.active?[]:builtWalls,wires:editor.active?[]:builtWires,heatmap:state.heatmap,selection:run.model.selected,ghost:editor.active?undefined:ghost,groundTargetGhost,placementGhost,boss:!editor.active&&latest.boss?.active?latest.boss:undefined});
      const arena=ui.canvas.parentElement!.getBoundingClientRect();for(const popup of pressurePopups){const screen=renderer.worldToScreen(popup.x,popup.y),progress=popup.age/popup.life;popup.element.style.left=`${screen.x-arena.left+popup.drift*progress}px`;popup.element.style.top=`${screen.y-arena.top-progress*34}px`;popup.element.style.opacity=String(Math.min(1,(1-progress)*2.8));}
      gpu.device.queue.submit([encoder.finish()]);
      if(now-lastUI>100)updateUI(now);else{positionInspector();positionUpgradeInspector();positionInfantryInspector();}

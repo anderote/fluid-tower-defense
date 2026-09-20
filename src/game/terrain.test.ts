@@ -29,7 +29,7 @@ test('mount snapping selects the nearest top-cap hardpoint without moving clear-
  assert.deepEqual(snapToMount({x:21.8,y:21.5},mounts),{x:22,y:21.35});
  assert.deepEqual(snapToMount({x:24,y:22},mounts),{x:24,y:22});
 });
-test('connected wall cells gain one shared mount per pair without duplicating overlaps',()=>{
+test('connected wall cells gain shared seam mounts without duplicating overlaps',()=>{
  const mounts=wallMountCells([
   {x:48,y:0,width:8,height:8},
   {x:48,y:4,width:8,height:4},
@@ -38,6 +38,13 @@ test('connected wall cells gain one shared mount per pair without duplicating ov
   {x:49.99,y:1.34,width:.02,height:.02},{x:53.99,y:1.34,width:.02,height:.02},
   {x:49.99,y:5.34,width:.02,height:.02},{x:53.99,y:5.34,width:.02,height:.02},
   {x:51.99,y:1.34,width:.02,height:.02},{x:51.99,y:5.34,width:.02,height:.02},
+ ]);
+});
+test('long wall runs expose a hardpoint at every seam without skipped slots',()=>{
+ const mounts=wallMountCells([{x:32,y:20,width:4,height:16}]);
+ assert.deepEqual(mounts.map(mount=>({x:mount.x+mount.width/2,y:mount.y+mount.height/2})),[
+  {x:34,y:21.35},{x:34,y:25.35},{x:34,y:29.35},{x:34,y:33.35},
+  {x:34,y:23.35},{x:34,y:27.35},{x:34,y:31.35},
  ]);
 });
 test('structures reject overlaps and tower footprints before spending Metal',()=>{

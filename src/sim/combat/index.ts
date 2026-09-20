@@ -2,10 +2,11 @@ import {FIRE_STATE_BYTES,FIRE_STATE_WGSL,FIRE_BURN_SECONDS} from '../../effects/
 import {HEAVY_SALVO_SLOTS,impactTickOffset} from '../../effects/heavy-weapons.ts';
 import {TESLA_STATE_WGSL,TESLA_LINKS,TESLA_HEADER_BYTES,TESLA_PARTICLE_BYTES} from '../../effects/tesla.ts';
 import {createAftermathEvents} from '../../effects/aftermath.ts';
-import { PARTICLE_WGSL, HORDE_PRESSURE_COUNTER, MAX_EFFECTS, type SharedGPU, type PhysicsFrame, type Tower, type TowerDef, type TowerKind } from '../../contracts/index.ts';
+import { PARTICLE_WGSL, HORDE_PRESSURE_COUNTER, MAX_EFFECTS, MAX_INFANTRY_KILL_SLOTS, type SharedGPU, type PhysicsFrame, type Tower, type TowerDef, type TowerKind } from '../../contracts/index.ts';
 import { ENEMY_BOUNTY_DIVISOR, ENEMY_WGSL, towerBehavior } from '../../content/index.ts';
 
 const MAX_TOWERS=64;
+const HEAVY_ROUND_BYTES=80;
 /** The largest per-shot reload variance, reserved for Tesla coils. */
 export const RELOAD_JITTER=0.15;
 export const RELOAD_VARIANCE:Record<TowerKind,number>={
@@ -26,9 +27,9 @@ export interface CombatModule { encodeBefore(encoder:GPUCommandEncoder,frame:Com
 /** GPU targeting and damage. Physics receives tower impulses directly in particle velocity. */
 export async function createCombat(device:GPUDevice,shared:SharedGPU):Promise<CombatModule>{
   const uniforms=device.createBuffer({label:'Combat params',size:64,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST});
-  const towers=device.createBuffer({label:'Tower definitions',size:MAX_TOWERS*48,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
+  const towers=device.createBuffer({label:'Tower definitions',size:MAX_TOWERS*64,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
   // Preserve the 48-byte shot-state prefix consumed by rendering/readback; append in-flight salvos.
-  const state=device.createBuffer({label:'Tower firing state',size:MAX_TOWERS*48+MAX_TOWERS*HEAVY_SALVO_SLOTS*64,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST|GPUBufferUsage.COPY_SRC});
+  const state=device.createBuffer({label:'Tower firing state',size:MAX_TOWERS*48+MAX_TOWERS*HEAVY_SALVO_SLOTS*HEAVY_ROUND_BYTES,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST|GPUBufferUsage.COPY_SRC});
   const effects=device.createBuffer({label:'Manual damage effects',size:MAX_EFFECTS*48,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
   const tesla=device.createBuffer({label:'Tesla chain and electrocution state',size:TESLA_HEADER_BYTES+shared.capacity*TESLA_PARTICLE_BYTES,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST|GPUBufferUsage.COPY_SRC});
   shared.teslaState=tesla;
@@ -42,7 +43,7 @@ export async function createCombat(device:GPUDevice,shared:SharedGPU):Promise<Co
 ${ENEMY_WGSL}
 ${TESLA_STATE_WGSL}
 struct Params { clock:vec4f, goal:vec4f, damage:vec4f, reserved:vec4f };
-struct Tower { position:vec4f, weapon:vec4f, flags:vec4f };
+struct Tower { position:vec4f, weapon:vec4f, flags:vec4f, order:vec4f };
 struct TowerState { timing:vec4f, shot:vec4f, flags:vec4f };
 struct Round { definition:Tower, aim:vec4f };
 struct Firing { towers:array<TowerState,64>, rounds:array<Round,${MAX_TOWERS*HEAVY_SALVO_SLOTS}> };
@@ -60,6 +61,7 @@ struct Boss { motion:vec4f, body:vec4f, mode:vec4f, flags:vec4f };
 @group(0) @binding(8) var<storage,read_write> owners:array<atomic<u32>>;
 @group(0) @binding(9) var<storage,read_write> electricity:TeslaState;
 fn safeDir(delta:vec2f)->vec2f { return delta/max(length(delta),0.0001); }
+fn focusRadius(def:Tower)->f32 { return max(1.4,min(3.,def.weapon.w*.5)); }
 fn reloadVariance(kind:u32,rail:bool)->f32 {
  if(kind==13u){return ${RELOAD_VARIANCE.tesla};}
  if(kind==12u){return ${RELOAD_VARIANCE.rocket};}
@@ -108,21 +110,25 @@ fn roundFall(round:Round,point:vec2f,bodyRadius:f32)->vec3f {
  if(s.timing.y>0.0 && s.timing.y!=def.weapon.x){s.timing.x=s.timing.x/s.timing.y*def.weapon.x;}
  s.timing.y=def.weapon.x;s.timing.x=max(0.0,s.timing.x-params.clock.x);s.shot.x=0;
  if(s.timing.x>0.0){firing.towers[t]=s;return;}
+ let order=def.order;let focused=order.z>.5&&distance(order.xy,def.position.xy)<=def.position.z;
  var best=-1e20;var found=false;var selected=0u;
  for(var i=0u;i<u32(params.clock.z);i++){
   let p=particles[i];if(p.state.w<0.5 || p.body.z<=0.0){continue;}
-  let d=distance(p.pos.xy,def.position.xy);if(d>def.position.z){continue;}
+  let d=distance(p.pos.xy,def.position.xy);if(select(d>def.position.z,distance(p.pos.xy,order.xy)>focusRadius(def)+p.body.x,focused)){continue;}
   var score=-distance(p.pos.xy,params.goal.xy);
+  if(focused){score=-distance(p.pos.xy,order.xy);}
   if(u32(def.position.w)==1u){score=p.state.x*12.0-d*.03;}
   if(u32(def.position.w)==0u||u32(def.position.w)==3u){score=-d;}
+  if(focused){score=-distance(p.pos.xy,order.xy);}
   if(score>best){best=score;selected=i;found=true;}
  }
  let b=boss[0];let bossDistance=distance(b.motion.xy,def.position.xy);
- let bossScore=-distance(b.motion.xy,params.goal.xy)+select(0.0,30.0,u32(def.position.w)==2u);
+ let bossAtFocus=distance(b.motion.xy,order.xy)<=focusRadius(def)+b.body.x;
+ let bossScore=select(-distance(b.motion.xy,params.goal.xy)+select(0.0,30.0,u32(def.position.w)==2u),-distance(b.motion.xy,order.xy),focused);
  let reload=def.weapon.x*reloadMultiplier(u32(def.flags.x),u32(s.flags.y+1.),reloadVariance(u32(def.position.w),def.flags.w>.5));
- if(b.mode.z>.5&&b.body.z>0&&bossDistance<=def.position.z&&(!found||bossScore>best)){
-  s.timing=vec4f(reload,def.weapon.x,b.motion.xy);s.shot=vec4f(1,-1,b.flags.x,atan2(b.motion.y-def.position.y,b.motion.x-def.position.x));s.flags.y+=1.;
- }else if(found){let p=particles[selected];s.timing=vec4f(reload,def.weapon.x,p.pos.xy);s.shot=vec4f(1,f32(selected),p.status.w,atan2(p.pos.y-def.position.y,p.pos.x-def.position.x));s.flags.y+=1.;}
+ if(b.mode.z>.5&&b.body.z>0&&select(bossDistance<=def.position.z,bossAtFocus,focused)&&(!found||bossScore>best)){
+  var aim=b.motion.xy;if(focused&&u32(def.position.w)!=13u){aim=order.xy;}s.timing=vec4f(reload,def.weapon.x,aim);s.shot=vec4f(1,-1,b.flags.x,atan2(aim.y-def.position.y,aim.x-def.position.x));s.flags.y+=1.;
+ }else if(found){let p=particles[selected];var aim=p.pos.xy;if(focused&&u32(def.position.w)!=13u){aim=order.xy;}s.timing=vec4f(reload,def.weapon.x,aim);s.shot=vec4f(1,f32(selected),p.status.w,atan2(aim.y-def.position.y,aim.x-def.position.x));s.flags.y+=1.;}
  if(u32(def.position.w)==13u&&s.shot.x>.5){
   s.flags.z=params.clock.y+1.;
   let base=t*${TESLA_LINKS}u;
@@ -135,7 +141,7 @@ fn roundFall(round:Round,point:vec2f,bodyRadius:f32)->vec3f {
    for(var i=0u;i<u32(params.clock.z);i++){
     let p=particles[i];if(p.state.w<.5||p.body.z<=0.){continue;}
     var visited=false;for(var prior=0u;prior<hop;prior++){if(electricity.links[base+prior].z==f32(i)){visited=true;}}
-    if(visited){continue;}let d=distance(origin,p.pos.xy);
+    if(visited||(focused&&distance(p.pos.xy,order.xy)>focusRadius(def)+p.body.x)){continue;}let d=distance(origin,p.pos.xy);
     if(d<nearest){nearest=d;candidate=i32(i);generation=p.status.w;position=p.pos.xy;}
    }
    if(candidate<0){break;}
@@ -156,6 +162,7 @@ fn roundFall(round:Round,point:vec2f,bodyRadius:f32)->vec3f {
  for(var t=0u;t<u32(params.clock.w);t++){
   let s=firing.towers[t];if(s.shot.x<.5){continue;}let def=towers[t];let kind=u32(def.position.w);
   if(kind==1u||kind==12u){continue;}
+  let order=def.order;if(order.z>.5&&distance(p.pos.xy,order.xy)>focusRadius(def)+p.body.x){continue;}
   if(kind==2u){let rail=def.flags.w>.5;let forward=vec2f(cos(s.shot.w),sin(s.shot.w));if(rail){let offset=p.pos.xy-def.position.xy;let along=dot(offset,forward);let across=abs(offset.x*forward.y-offset.y*forward.x);if(along>=0.&&along<=def.position.z&&across<=1.05){let fall=max(.35,1.-along/max(def.position.z,.001));let kick=forward*def.weapon.z*fall/max(.1,p.body.y);p.body.z-=def.weapon.y*fall;atomicStore(&owners[i],t+1u);p.pos.z=p.pos.z+kick.x;p.pos.w=p.pos.w+kick.y;}}else if(s.shot.y>=0&&u32(s.shot.y)==i&&s.shot.z==p.status.w){let kick=forward*def.weapon.z/max(.1,p.body.y);p.body.z-=def.weapon.y;atomicStore(&owners[i],t+1u);p.pos.z=p.pos.z+kick.x;p.pos.w=p.pos.w+kick.y;p.status.x=max(p.status.x,select(.18,.55,def.flags.y==1));}continue;}
   if(kind==13u){
    for(var hop=0u;hop<${TESLA_LINKS}u;hop++){
@@ -222,6 +229,7 @@ fn roundFall(round:Round,point:vec2f,bodyRadius:f32)->vec3f {
  for(var t=0u;t<u32(params.clock.w);t++){
   let s=firing.towers[t];if(s.shot.x<.5){continue;}let def=towers[t];let kind=u32(def.position.w);
   if(kind==1u||kind==12u){continue;}
+  let order=def.order;if(order.z>.5&&distance(b.motion.xy,order.xy)>focusRadius(def)+b.body.x){continue;}
   if(kind==2u){if(s.shot.y<0&&s.shot.z==b.flags.x){b.body.z-=def.weapon.y*vulnerable;}continue;}
   if(kind==13u){if(s.shot.y<0&&s.shot.z==b.flags.x){b.body.z-=def.weapon.y*vulnerable;}continue;}
   let targetedBlast=kind==1u;let origin=select(def.position.xy,s.timing.zw,targetedBlast);let rad=select(def.position.z,def.weapon.w,targetedBlast);let delta=b.motion.xy-origin;let dist=max(0.0,length(delta)-b.body.x);if(dist>rad){continue;}
@@ -249,7 +257,7 @@ fn roundFall(round:Round,point:vec2f,bodyRadius:f32)->vec3f {
  let brittle=select(1.0,1.7,p.status.y>0.0);
  let crush=max(0.0,p.status.z)*brittle/tolerance;
  let wasAlive=p.body.z>0.0;p.body.z-=crush;p.status.z=0;
- if(p.body.z<=0.0){p.body.z=0;p.body.w=-params.clock.y;p.state.w=-1;atomicAdd(&counters[0],1u);if(wasAlive&&crush>0){atomicAdd(&counters[1],1u);}else{let owner=atomicLoad(&owners[i]);if(owner>0u&&owner<=64u){atomicAdd(&counters[16u+owner-1u],1u);}}let bounty=enemyBountyPoints(kind);let prior=atomicAdd(&counters[15],bounty);let payout=(prior+bounty)/${ENEMY_BOUNTY_DIVISOR}u-prior/${ENEMY_BOUNTY_DIVISOR}u;if(payout>0u){atomicAdd(&counters[3],payout);}}
+ if(p.body.z<=0.0){p.body.z=0;p.body.w=-params.clock.y;p.state.w=-1;atomicAdd(&counters[0],1u);if(wasAlive&&crush>0){atomicAdd(&counters[1],1u);}else{let owner=atomicLoad(&owners[i]);if(owner>0u&&owner<=${MAX_TOWERS + MAX_INFANTRY_KILL_SLOTS}u){atomicAdd(&counters[16u+owner-1u],1u);}}let bounty=enemyBountyPoints(kind);let prior=atomicAdd(&counters[15],bounty);let payout=(prior+bounty)/${ENEMY_BOUNTY_DIVISOR}u-prior/${ENEMY_BOUNTY_DIVISOR}u;if(payout>0u){atomicAdd(&counters[3],payout);}}
  else if(params.goal.w<.5&&distance(p.pos.xy,params.goal.xy)<params.goal.z){p.state.w=0;atomicAdd(&counters[2],enemyLeak(kind));}
  else{atomicAdd(&counters[4],1u);atomicMax(&counters[6],u32(clamp(p.state.x,0.0,1000.0)*1000.0));}
  if(p.state.w<.5){if(abs(p.state.w)<.5){heat[i]=Heat(vec4f(0));}atomicStore(&owners[i],0u);}
@@ -279,8 +287,8 @@ fn roundFall(round:Round,point:vec2f,bodyRadius:f32)->vec3f {
     encodeBefore(encoder,frame){
       if(frame.towers.length>MAX_TOWERS||frame.effects.length>MAX_EFFECTS)throw new Error('Combat command capacity exceeded');
       const u=new Float32Array([frame.dt,frame.tick,frame.count,frame.towers.length,frame.map.goal.x,frame.map.goal.y,frame.map.goalRadius,frame.lab?1:0,frame.tuning.crushDamage,0,frame.effects.length,0,0,0,0,0]);device.queue.writeBuffer(uniforms,0,u);
-      const data=new Float32Array(Math.max(1,frame.towers.length)*12);
-      frame.towers.forEach(({tower:t,definition:d},i)=>{data.set([t.x,t.y,d.range,towerBehavior(t.kind),d.cooldown,d.damage,d.force,d.radius,t.id,t.branch,t.kind==='tesla'?1:0,t.kind==='railgun'?1:0],i*12);});device.queue.writeBuffer(towers,0,data);
+      const data=new Float32Array(Math.max(1,frame.towers.length)*16);
+      frame.towers.forEach(({tower:t,definition:d},i)=>{data.set([t.x,t.y,d.range,towerBehavior(t.kind),d.cooldown,d.damage,d.force,d.radius,t.id,t.branch,t.kind==='tesla'?1:0,t.kind==='railgun'?1:0,t.groundTarget?.x??0,t.groundTarget?.y??0,t.groundTarget?1:0,0],i*16);});device.queue.writeBuffer(towers,0,data);
       if(frame.effects.length){const values=new Float32Array(frame.effects.length*12);frame.effects.forEach((e,i)=>values.set([e.x,e.y,e.radius,e.damage,e.direction.x,e.direction.y,e.cone,e.duration,['blast','push','slow','shot'].indexOf(e.kind),e.strength,e.source,0],i*12));device.queue.writeBuffer(effects,0,values);}
       aftermath.before(encoder,frame.count);
       encoder.clearBuffer(shared.counters,14*4,4);dispatch(encoder,0,Math.ceil(frame.towers.length/64));dispatch(encoder,1,Math.ceil(frame.count/128));dispatch(encoder,2,Math.ceil(frame.count/128));dispatch(encoder,4,1);

@@ -98,6 +98,15 @@ const cases:{name:string;run:()=>Promise<void>}[]=[
   assert(Math.abs(popup.top+popup.height/2-(canvas.top+canvas.height/2))<2,'Inspector is vertically detached from its tower');
   assert(popup.left>=arena.left&&popup.right<=arena.right&&popup.top>=arena.top&&popup.bottom<=arena.bottom,'Inspector escaped the arena');
  }},
+ {name:'Turrets can focus a ground point and return to automatic targeting',run:async()=>{
+  await fresh();click('[data-tower="repulsor"]');point(84,50);await until(()=>text('#metal')==='2880','Tower was not placed');
+  click('[data-tower="repulsor"]');point(84,50);await until(()=>element('.selected-popup').classList.contains('has-selection'),'Inspector did not open');
+  click('[data-action="set-ground-target"]');assert(element('.selected-popup').hidden,'Inspector should move out of the targeting surface');point(90,50);
+  await until(()=>text('.tower-config').includes('FOCUS: 90.0, 50.0'),'Ground focus did not appear in the inspector');
+  let saved=snapshot(),model=JSON.parse(saved.runState);assert(model.model.towers[0].groundTarget.x===90&&model.model.towers[0].groundTarget.y===50,'Ground focus did not persist');
+  click('[data-action="clear-ground-target"]');await until(()=>text('.tower-config').includes('TARGETING: AUTO'),'Automatic targeting was not restored');
+  saved=snapshot();model=JSON.parse(saved.runState);assert(model.model.towers[0].groundTarget===undefined,'Cleared ground focus remained in the save');
+ }},
  {name:'Run stat upgrades spend Metal and survive reload',run:async()=>{
   await fresh();click('#research-tab');
   click('[data-stat="damage"]');await until(()=>text('#metal')==='2925','Stat upgrade did not spend Metal');
@@ -123,8 +132,8 @@ const cases:{name:string;run:()=>Promise<void>}[]=[
   await sleep(600);assert(control.isConnected,'Research controls were recreated during telemetry refresh');assert(doc().activeElement===control,'Keyboard focus was lost during telemetry refresh');
  }},
  {name:'Research prerequisites unlock after purchase and remain locked in combat',run:async()=>{
-  await fresh();click('#research-tab');assert(element<HTMLButtonElement>('[data-command="repulsor-impact-2"]').disabled,'Rank II should be locked');
-  click('[data-command="repulsor-impact-1"]');await until(()=>!element<HTMLButtonElement>('[data-command="repulsor-impact-2"]').disabled,'Rank II did not unlock');
+  await fresh();click('#research-tab');assert(!doc().querySelector('[data-command="repulsor-impact-2"]'),'Future ranks should not render as separate controls');
+  click('[data-command="repulsor-impact-1"]');await until(()=>!!doc().querySelector('[data-command="repulsor-impact-2"]'),'Sequential control did not advance to Rank II');
   click('[data-action="start-wave"]');await until(()=>text('#phase')==='COMBAT','Wave did not start');assert(element<HTMLButtonElement>('[data-command="repulsor-impact-2"]').disabled,'Research is enabled in combat');
   click('#build-tab');click('[data-action="pause"]');
  }},

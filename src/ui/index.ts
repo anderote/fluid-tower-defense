@@ -36,13 +36,15 @@ export function createUI(
     const t = TOWERS[id];
     return `<button data-tower="${id}"><span class="tower-shape" aria-hidden="true"></span><b>${t.name.toUpperCase()} <em></em></b><span class="cost">${t.cost}</span></button>`;
   };
-  root.innerHTML = `<main class="pf"><header><div class="brand">PRESSURE <i>FRONT</i><small>FLUID DEFENSE COMMAND</small></div><div class="hud" aria-label="Run telemetry"><div><span>METAL</span><b id="metal">000</b></div><div><span>INTEGRITY</span><b id="base">100%</b></div><div><span>LEVEL</span><b id="level">01</b></div><div class="kill-counts" aria-label="Kill counts"><b><strong id="kills">0000</strong> TOTAL KILLS</b><small><strong id="pressure-kills">0000</strong> PRESSURE KILLS</small></div><div><span>WAVE</span><b id="wave">00 / 10</b></div><div><span>MAX PRESSURE</span><b id="pressure">0 kPa</b></div><div><span>LIVE</span><b id="live">--</b></div></div><div class="status"><span class="led"></span><b id="phase">PREPARATION</b></div><div class="metrics"><b id="fps">-- FPS</b><b id="ms">-- MS</b></div><section class="soundtrack" aria-label="Red Alert music player"></section><div class="view-actions"><button class="view-menu-toggle" aria-label="More options" aria-expanded="false" aria-controls="view-menu" title="More options"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button><div id="view-menu" class="view-menu" hidden><button data-settings-open>SETTINGS</button><button data-action="restart-wave">RESTART WAVE</button><button data-action="reset">RESTART LEVEL</button><button data-action="new-game">NEW GAME</button><button data-view="hide">HIDE UI</button><button data-view="full">FULLSCREEN</button></div></div><button class="start-wave-top" data-action="start-wave">START WAVE</button></header><section class="body"><div class="arena"><canvas aria-label="Pressure Front battle arena"></canvas></div><aside><div class="tabs"><button id="build-tab" class="active">TOWERS</button><button id="buildings-tab">BUILDINGS</button><button id="research-tab">RESEARCH</button></div><section class="card extraction" id="extraction" hidden><label>EXTRACTION WINDOW</label><p>Secure the level now, or retain every defense and push into endless escalation.</p><div><button data-action="finish-run" id="finish-run">FINISH LEVEL</button><button data-action="continue-run">CONTINUE</button></div></section><section class="card tower"><label>DEFENSE BUILD ARRAY <span>1–8 SHORTCUTS</span></label><div class="defense-tools"><button data-action="wall-tool"><b>METAL WALL <em>[Q]</em></b><small>${formatPressure(BASE_WALL_PRESSURE_RESISTANCE)} STRUCTURAL YIELD</small><span class="cost">60</span></button><button data-action="wire-tool"><b>BARBED WIRE <em>[E]</em></b><small>7.0 kPa BREACH RATING</small><span class="cost">45</span></button><button data-action="upgrade-tool"><b>UPGRADE <em>[U]</em></b><small>HOVER TOWERS</small></button><button class="danger" data-action="demolish-tool"><b>DEMOLISH <em>[R]</em></b><small>WALLS + WIRE</small></button></div><div class="build-divider"><span>EMPLACEMENTS</span></div><div class="tower-grid">${(Object.keys(TOWERS) as (keyof typeof TOWERS)[]).map(tower).join("")}</div></section><section class="card bonuses" id="bonuses" hidden><label>COMMAND BOON — CHOOSE ONE</label><div id="bonus-choices"></div></section><section class="card selected"><label id="selected-name">TOWER INSPECTOR</label><div id="tower-stats" class="tower-stats">Select a deployed tower to view its combat record and upgrades.</div><div class="upgrade-buttons"><button data-upgrade="0">BRANCH A</button><button data-upgrade="1">BRANCH B</button></div><button class="danger wide" data-action="sell">SELL / RECOVER</button></section><section class="card command"><label>RUN UPGRADES <span id="research-metal">0 METAL</span></label><p class="research-help">Upgrades use Metal and last for this run.</p><div id="stat-upgrades"></div><label>LOCAL RESEARCH <span id="research-count">0 INSTALLED</span></label><div id="commands"></div></section></aside></section><footer><div class="run-summary"><span>RUN RECORD</span><b id="crush">CRUSH 000</b><b id="leaks">BREACHES 000</b><b id="earned">SALVAGE +000</b></div><div class="spacer"></div><button data-action="save">SAVE</button><button data-action="load">LOAD</button></footer></main>`;
-  const sellButton=root.querySelector<HTMLButtonElement>('[data-action="sell"]')!,towerActions=document.createElement('div'),moveButton=document.createElement('button');
+  root.innerHTML = `<main class="pf"><header><div class="brand">PRESSURE <i>FRONT</i><small>FLUID DEFENSE COMMAND</small></div><div class="hud" aria-label="Run telemetry"><div><span>METAL</span><b id="metal">000</b></div><div><span>INTEGRITY</span><b id="base">100%</b></div><div><span>LEVEL</span><b id="level">01</b></div><div class="kill-counts" aria-label="Kill counts"><b><strong id="kills">0000</strong> TOTAL KILLS</b><small><strong id="pressure-kills">0000</strong> PRESSURE KILLS</small></div><div><span>WAVE</span><b id="wave">00 / 10</b></div><div><span>MAX PRESSURE</span><b id="pressure">0 kPa</b></div><div><span>LIVE</span><b id="live">--</b></div></div><div class="status"><span class="led"></span><b id="phase">PREPARATION</b></div><div class="metrics"><b id="fps">-- FPS</b><b id="ms">-- MS</b></div><section class="soundtrack" aria-label="Red Alert music player"></section><div class="view-actions"><button class="view-menu-toggle" aria-label="More options" aria-expanded="false" aria-controls="view-menu" title="More options"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button><div id="view-menu" class="view-menu" hidden><button data-settings-open>SETTINGS</button><button data-action="restart-wave">RESTART WAVE</button><button data-action="reset">RESTART LEVEL</button><button data-action="new-game">NEW GAME</button><button data-view="hide">HIDE UI</button><button data-view="full">FULLSCREEN</button></div></div><button class="start-wave-top" data-action="start-wave">START WAVE</button></header><section class="body"><div class="arena"><canvas aria-label="Pressure Front battle arena"></canvas></div><aside><div class="tabs"><button id="build-tab" class="active">TOWERS</button><button id="buildings-tab">BUILDINGS</button><button id="research-tab">RESEARCH</button></div><section class="card extraction" id="extraction" hidden><label>EXTRACTION WINDOW</label><p>Secure the level now, or retain every defense and push into endless escalation.</p><div><button data-action="finish-run" id="finish-run">FINISH LEVEL</button><button data-action="continue-run">CONTINUE</button></div></section><section class="card tower"><label>DEFENSE BUILD ARRAY <span>1–8 SHORTCUTS</span></label><div class="defense-tools"><button data-action="wall-tool"><b>METAL WALL <em>[Q]</em></b><small>${formatPressure(BASE_WALL_PRESSURE_RESISTANCE)} STRUCTURAL YIELD</small><span class="cost">60</span></button><button data-action="wire-tool"><b>BARBED WIRE <em>[E]</em></b><small>7.0 kPa BREACH RATING</small><span class="cost">45</span></button><button data-action="upgrade-tool"><b>UPGRADE <em>[U]</em></b><small>HOVER TOWERS</small></button><button class="danger" data-action="demolish-tool"><b>DEMOLISH <em>[R]</em></b><small>WALLS + WIRE</small></button></div><div class="build-divider"><span>EMPLACEMENTS</span></div><div class="tower-grid">${(Object.keys(TOWERS) as (keyof typeof TOWERS)[]).map(tower).join("")}</div></section><section class="card bonuses" id="bonuses" hidden><label>COMMAND BOON — CHOOSE ONE</label><div id="bonus-choices"></div></section><section class="card selected"><label id="selected-name">TOWER INSPECTOR</label><div id="tower-stats" class="tower-stats">Select a deployed tower to view its combat record and upgrades.</div><div class="upgrade-buttons"><button data-upgrade="0">BRANCH A</button><button data-upgrade="1">BRANCH B</button></div><button class="danger wide" data-action="sell">SELL / RECOVER</button></section><section class="card command"><label>RUN UPGRADES <span id="research-metal">0 METAL</span></label><p class="research-help">Spend Metal between waves. Every upgrade lasts for this run.</p><div id="stat-upgrades"></div><label>COMMAND SYSTEMS <span id="research-count">0 INSTALLED</span></label><p class="research-help">Sequential systems advance one rank at a time.</p><div id="commands"></div></section></aside></section><footer><div class="run-summary"><span>RUN RECORD</span><b id="crush">CRUSH 000</b><b id="leaks">BREACHES 000</b><b id="earned">SALVAGE +000</b></div><div class="spacer"></div><button data-action="save">SAVE</button><button data-action="load">LOAD</button></footer></main>`;
+  const sellButton=root.querySelector<HTMLButtonElement>('[data-action="sell"]')!,towerActions=document.createElement('div'),moveButton=document.createElement('button'),targetButton=document.createElement('button'),clearTargetButton=document.createElement('button');
   towerActions.className='tower-actions';
   moveButton.dataset.action='move';
+  targetButton.dataset.action='set-ground-target';
+  clearTargetButton.dataset.action='clear-ground-target';
   // Insert the wrapper before moving its anchor button into it.
   sellButton.before(towerActions);
-  towerActions.append(moveButton,sellButton);
+  towerActions.append(moveButton,targetButton,clearTargetButton,sellButton);
   root.insertAdjacentHTML('beforeend','<div class="settings-gate" id="settings-gate" hidden role="dialog" aria-modal="true" aria-labelledby="settings-title"><section><header><label id="settings-title">AUDIO SETTINGS</label><button data-settings-close aria-label="Close settings">×</button></header><p>Changes are saved on this device.</p><label class="audio-setting">MUSIC <output data-audio-value="music">30%</output><input data-audio-setting="music" type="range" min="0" max="1" step="0.05" aria-label="Music volume"></label><label class="audio-setting">SOUND EFFECTS <output data-audio-value="effects">48%</output><input data-audio-setting="effects" type="range" min="0" max="1" step="0.05" aria-label="Sound effects volume"></label><button data-settings-close>DONE</button></section></div>');
   root.insertAdjacentHTML('beforeend','<div class="reset-gate" id="reset-gate" hidden role="dialog" aria-modal="true" aria-labelledby="reset-title"><section><label id="reset-title">RESTART CURRENT LEVEL?</label><p>Restart this level from wave one with starting Metal. This removes placed towers, Metal Walls, Barbed Wire, and run research upgrades.</p><div><button data-reset-choice="cancel">CANCEL</button><button class="danger" data-reset-choice="confirm">RESTART LEVEL</button></div></section></div>');
   const canvas = root.querySelector("canvas")!,
@@ -54,6 +56,7 @@ export function createUI(
   // Required between-wave choices must precede the scrollable build inventory.
   root.querySelector("aside")!.insertBefore($("#bonuses"), $(".tower"));
   arena.append(selectedCard);
+  const targetHint=document.createElement('div');targetHint.className='turret-target-hint';targetHint.hidden=true;targetHint.textContent='FOCUS GROUND — CLICK WITHIN RANGE · ESC CANCELS';arena.append(targetHint);
   selectedCard.classList.add("selected-popup");
   const upgradeCard = document.createElement("section");
   upgradeCard.className = "upgrade-hover-card";
@@ -61,7 +64,7 @@ export function createUI(
   upgradeCard.setAttribute("aria-live", "polite");
   arena.append(upgradeCard);
   const upgradeContent=document.createElement("div");upgradeCard.append(upgradeContent);
-  makeGameWindow(selectedCard,"TOWER INSPECTOR");makeGameWindow(upgradeCard,"TOWER UPGRADES");
+  const selectedWindow=makeGameWindow(selectedCard,"TOWER INSPECTOR");makeGameWindow(upgradeCard,"TOWER UPGRADES");
   makeGameWindow(root.querySelector<HTMLElement>("#settings-gate > section")!,"AUDIO SETTINGS");
   makeGameWindow(root.querySelector<HTMLElement>("#reset-gate > section")!,"RESTART LEVEL");
   const difficulty = document.createElement("label");
@@ -163,6 +166,7 @@ export function createUI(
   let hoveredUpgrade: number | null = null;
   let hoveredQuickBranch: number | null = null;
   let lastQuickTowerId: number | null = null;
+  let lastSelectedTowerId: number | null = null;
   let latestState: UIState | null = null;
   const statDelta = (value: number, precision: number) => {
     const rounded = Number(value.toFixed(precision));
@@ -186,6 +190,7 @@ export function createUI(
     const t = s.selected,
       statUpgrades = s.statUpgrades.flatMap((upgrade) => Array(upgrade.rank).fill(upgrade.id)),
       d = compileTower(t, s.bonuses, s.commandUpgrades, statUpgrades),
+      upgraded = compileTower({...t,veterancy:0,veterancyXp:0},s.bonuses,s.commandUpgrades,statUpgrades),
       preview = hoveredUpgrade !== null && t.level < MAX_TOWER_LEVEL
         ? compileTower({...t, level:t.level + 1, branch:t.branch < 0 ? hoveredUpgrade : t.branch}, s.bonuses, s.commandUpgrades, statUpgrades)
         : undefined,
@@ -196,12 +201,16 @@ export function createUI(
         : `${Math.max(0,Math.ceil(veterancyXpForLevel(rank + 1) - xp))} KILLS TO RANK ${rank + 1}`,
       mods = [
         t.level ? `BRANCH: ${chosen.branches[t.branch]}` : "BASE CONFIGURATION",
+        t.groundTarget ? `FOCUS: ${t.groundTarget.x.toFixed(1)}, ${t.groundTarget.y.toFixed(1)}` : "TARGETING: AUTO",
         ...s.commandUpgrades
           .filter((id) => id === "targeting-grid" || id === "ammunition-forge" || id.startsWith("repulsor-impact-"))
           .map((id) => COMMAND_UPGRADES.find((x) => x.id)?.name ?? id),
       ];
-    const row = (label:string,value:string) => `<div class="stat-row"><span>${label}</span><b>${value}</b></div>`;
-    stats.innerHTML = `<div class="rank-banner">${rankInsignia(rank)}<div><span>COMBAT RECORD</span><b>RANK ${rank} / ${MAX_VETERANCY}</b></div></div><div class="stat-grid">${row("KILLS",(t.kills ?? 0).toLocaleString())}${row("VETERANCY",`RANK ${rank}`)}${row("NEXT",next)}${row(`PEAK${preview ? " · NEXT" : ""}`,`${formatPressure(d.peakPressureKpa)}${preview ? statDelta(preview.peakPressureKpa-d.peakPressureKpa,0) : ""}`)}${row("RANGE",`${d.range.toFixed(0)}${preview ? statDelta(preview.range-d.range,0) : ""}`)}${row("IMPULSE",`${d.force.toFixed(0)}${preview ? statDelta(preview.force-d.force,0) : ""}`)}${row("RATE",`${(1/d.cooldown).toFixed(1)} /S${preview ? statDelta(1/preview.cooldown-1/d.cooldown,1) : ""}`)}${row("RADIUS",`${d.radius.toFixed(1)}${preview ? statDelta(preview.radius-d.radius,1) : ""}`)}</div><div class="tower-config"><span>CONFIG</span><small>${mods.join(" · ")}</small></div>`;
+    const recordRow = (label:string,value:string) => `<div class="record-row"><span>${label}</span><b>${value}</b></div>`,
+      signed=(value:number,format:(value:number)=>string,threshold=.005)=>Math.abs(value)<threshold?'<em class="stat-zero">—</em>':`<em class="${value>0?'gain':'loss'}">${value>0?'+':'−'}${format(Math.abs(value))}</em>`,
+      statRow=(label:string,base:number,withoutVeterancy:number,total:number,format:(value:number)=>string,nextTotal?:number)=>`<div class="stat-row"><span>${label}</span><b>${format(base)}</b><b>${signed(withoutVeterancy-base,format)}</b><b>${signed(total-withoutVeterancy,format)}</b><b class="stat-total">${format(total)}${nextTotal===undefined?'':statDelta(nextTotal-total,label==='RATE'||label==='RADIUS'?1:0)}</b></div>`,
+      number1=(value:number)=>value.toFixed(1),pressure=(value:number)=>formatPressure(value),rate=(value:number)=>`${value.toFixed(1)}/S`;
+    stats.innerHTML = `<div class="rank-banner">${rankInsignia(rank)}<div><span>COMBAT RECORD</span><b>RANK ${rank} / ${MAX_VETERANCY}</b></div></div><div class="record-grid">${recordRow("KILLS",(t.kills ?? 0).toLocaleString())}${recordRow("VETERANCY",`RANK ${rank}`)}${recordRow("NEXT",next)}</div><div class="stat-table"><div class="stat-head"><span>STAT</span><span>BASE</span><span>UPGRADE</span><span>VET</span><span>TOTAL</span></div>${statRow("DAMAGE",chosen.damage,upgraded.damage,d.damage,number1,preview?.damage)}${statRow("PEAK",chosen.peakPressureKpa,upgraded.peakPressureKpa,d.peakPressureKpa,pressure,preview?.peakPressureKpa)}${statRow("RANGE",chosen.range,upgraded.range,d.range,number1,preview?.range)}${statRow("IMPULSE",chosen.force,upgraded.force,d.force,number1,preview?.force)}${statRow("RATE",1/chosen.cooldown,1/upgraded.cooldown,1/d.cooldown,rate,preview?1/preview.cooldown:undefined)}${statRow("RADIUS",chosen.radius,upgraded.radius,d.radius,number1,preview?.radius)}</div><div class="tower-config"><span>CONFIG</span><small>${mods.join(" · ")}</small></div>`;
   };
   const renderUpgradeCard = (s:UIState) => {
     const tower=s.upgradeMode?s.upgradeTarget:null;
@@ -211,11 +220,30 @@ export function createUI(
     const chosen=TOWERS[tower.kind],branch=tower.branch>=0?tower.branch:hoveredQuickBranch??0,cost=towerUpgradeCost(tower.level),maxed=tower.level>=MAX_TOWER_LEVEL,
       statUpgrades=s.statUpgrades.flatMap(upgrade=>Array(upgrade.rank).fill(upgrade.id)),current=compileTower(tower,s.bonuses,s.commandUpgrades,statUpgrades),next=maxed?null:compileTower({...tower,level:tower.level+1,branch},s.bonuses,s.commandUpgrades,statUpgrades),
       blocked=maxed||s.phase==="won"||s.phase==="lost"||s.metal<cost;
-    const value=(before:string,after:string)=>`<b><span>${before}</span><i>→</i><strong>${after}</strong></b>`,
-      row=(label:string,before:number,after:number,format:(value:number)=>string,threshold=.001)=>Math.abs(after-before)<=threshold?"":`<div><span>${label}</span>${value(format(before),format(after))}</div>`,
-      stats=next?[row("DAMAGE",current.damage,next.damage,value=>value.toFixed(1)),row("PRESSURE",current.peakPressureKpa,next.peakPressureKpa,formatPressure,.5),row("RANGE",current.range,next.range,value=>value.toFixed(1)),row("RATE",1/current.cooldown,1/next.cooldown,value=>`${value.toFixed(1)}/s`),row("IMPULSE",current.force,next.force,value=>value.toFixed(1)),row("RADIUS",current.radius,next.radius,value=>value.toFixed(1))].join(""):"<p>MAXIMUM OUTPUT</p>",
+    const value=(before:string,after:string,changed:boolean)=>`<b><span>${before}</span><i>→</i><strong class="${changed?'':'unchanged'}">${after}</strong></b>`,
+      row=(label:string,before:number,after:number,format:(value:number)=>string,threshold=.001)=>`<div><span>${label}</span>${value(format(before),format(after),Math.abs(after-before)>threshold)}</div>`,
+      stats=next?[row("DAMAGE",current.damage,next.damage,value=>value.toFixed(1)),row("PRESSURE",current.peakPressureKpa,next.peakPressureKpa,formatPressure,.5),row("RANGE",current.range,next.range,value=>value.toFixed(1)),row("RATE",1/current.cooldown,1/next.cooldown,value=>`${value.toFixed(2)}/s`),row("IMPULSE",current.force,next.force,value=>value.toFixed(2)),row("RADIUS",current.radius,next.radius,value=>value.toFixed(3))].join(""):"<p>MAXIMUM OUTPUT</p>",
       button=(candidate:number,label:string)=>`<button data-quick-upgrade="${tower.id}" data-quick-branch="${candidate}" ${blocked?"disabled":""}><b>${label} <em>[${candidate===0?'Q':'E'}]</em></b><span>${maxed?"MAX":`${cost.toLocaleString()} M`}</span></button>`;
     renderMarkup(upgradeContent,`<header><span>${chosen.name.toUpperCase()}</span><b>LV ${tower.level}${maxed?" · MAX":` → ${tower.level+1}`}</b></header><div class="quick-stats">${stats}</div><div class="quick-upgrade-actions">${tower.branch<0?chosen.branches.map((name,index)=>button(index,name.toUpperCase())).join(""):button(tower.branch,"UPGRADE")}</div>`);
+  };
+  const renderCommandSystems = (s: UIState) => {
+    const availability = (id: string) => commandUpgradeAvailability({phase:s.phase,metal:s.metal,commandUpgrades:s.commandUpgrades}, id);
+    const chains = COMMAND_UPGRADES.filter(upgrade => !upgrade.requires).map(rootUpgrade => {
+      const chain = [rootUpgrade];
+      while (true) {
+        const next = COMMAND_UPGRADES.find(upgrade => upgrade.requires === chain.at(-1)!.id);
+        if (!next) break;
+        chain.push(next);
+      }
+      const installed = chain.filter(upgrade => s.commandUpgrades.includes(upgrade.id)).length;
+      const next = chain[installed];
+      const isSequential = chain.length > 1;
+      const ready = next && availability(next.id);
+      const name = isSequential ? rootUpgrade.name.replace(/ I$/, "") : rootUpgrade.name;
+      const summary = next ? next.description : rootUpgrade.description;
+      return `<button class="command-system ${isSequential ? "is-chain" : ""}" ${next ? `data-command="${next.id}" ${!ready!.ok ? "disabled" : ""}` : "disabled"}><b>${name.toUpperCase()}${isSequential ? ` <em>${installed}/${chain.length}</em>` : s.commandUpgrades.includes(rootUpgrade.id) ? " <em>INSTALLED</em>" : ""}</b><span class="cost">${next ? `${next.cost} METAL` : "MAX"}</span><small>${next ? (isSequential ? `NEXT: ${summary}` : summary) : "SYSTEM COMPLETE"}</small>${isSequential ? `<span class="research-progress" aria-label="${installed} of ${chain.length} ranks installed">${chain.map((_, index) => `<i class="${index < installed ? "installed" : ""}"></i>`).join("")}</span>` : ""}</button>`;
+    });
+    return chains.join("");
   };
   const setPanel = (next: boolean) => {
     research = next;
@@ -225,7 +253,7 @@ export function createUI(
     researchTab.classList.toggle("active", next);
     $(".tower").toggleAttribute("hidden", next||buildings);
     selectedCard.hidden =
-      next || buildings || latestState?.upgradeMode === true || !selectedCard.classList.contains("has-selection");
+      next || buildings || latestState?.upgradeMode === true || latestState?.targetMode === true || !latestState?.selected;
     root
       .querySelector<HTMLElement>(".command")
       ?.toggleAttribute("hidden", !next);
@@ -277,7 +305,9 @@ export function createUI(
           | "wire-tool"
           | "demolish-tool"
           | "upgrade-tool"
-          | "move",
+          | "move"
+          | "set-ground-target"
+          | "clear-ground-target",
       });
     if (button.dataset.unlock) {
       onAction({
@@ -319,6 +349,8 @@ export function createUI(
     canvas,
     update(s: UIState) {
       latestState = s;
+      selectedCard.classList.toggle("has-selection",!!s.selected);
+      if(s.selected?.id!==lastSelectedTowerId){lastSelectedTowerId=s.selected?.id??null;if(s.selected)selectedWindow.expand();}
       const chosen = s.selected ? TOWERS[s.selected.kind] : undefined,
         upgrade = 45 + (s.selected?.level ?? 0) * 35;
       $("#phase").textContent = s.phase === "checkpoint" ? "EXTRACTION READY" : s.phase.toUpperCase();
@@ -411,8 +443,15 @@ export function createUI(
       moveButton.disabled=!chosen||s.metal<TOWER_MOVE_COST;
       moveButton.textContent=s.moveMode?`PLACE TOWER · ${TOWER_MOVE_COST} METAL`:`MOVE · ${TOWER_MOVE_COST} METAL`;
       moveButton.classList.toggle('active',s.moveMode);
+      targetButton.disabled=!chosen;
+      targetButton.textContent=s.targetMode?'CLICK TARGET':s.selected?.groundTarget?'CHANGE TARGET':'FOCUS GROUND';
+      targetButton.classList.toggle('active',s.targetMode);
+      clearTargetButton.disabled=!chosen||!s.selected?.groundTarget;
+      clearTargetButton.textContent='CLEAR TARGET';
       sellButton.disabled = !chosen;
       root.classList.toggle("upgrade-mode", s.upgradeMode);
+      root.classList.toggle("target-mode",s.targetMode);
+      targetHint.hidden=!s.targetMode;
       waveButton.dataset.action = waveControl.action ?? "start-wave";
       waveButton.classList.toggle("is-active", waveActive);
       waveButton.disabled = !!waveControl.reason;
@@ -429,10 +468,7 @@ export function createUI(
       const extraction=$("#extraction");
       extraction.hidden=s.phase!=="checkpoint";
       $("#finish-run").textContent="FINISH RUN";
-      renderMarkup($("#commands"), COMMAND_UPGRADES.map(
-        (research) =>
-          `<button data-command="${research.id}" ${!commandUpgradeAvailability({phase:s.phase,metal:s.metal,commandUpgrades:s.commandUpgrades},research.id).ok ? "disabled" : ""}><b>${s.commandUpgrades.includes(research.id) ? "INSTALLED · " : ""}${research.name.toUpperCase()}</b><span class="cost">${research.cost} METAL</span><small>${research.description}</small></button>`,
-      ).join(""));
+      renderMarkup($("#commands"), renderCommandSystems(s));
       setPanel(research);
     },
     destroy() {
