@@ -34,7 +34,7 @@ try{
       const s=soldiers[i],kind=s.kind!,baseX=7+i%4*14,baseY=7+Math.floor(i/4)*15,walk=pose==='walk',travel=(time*infantryStats(kind).speed)%4;
       s.x=baseX+(i<4&&walk?travel:0);s.y=baseY+(i>=4&&walk?travel:0);s.health=pose==='death'?0:infantryStats(kind).health;s.dead=pose==='death'?time%3:0;
       const cadence=infantryStats(kind).cooldown,age=time%cadence;
-      s.cooldown=pose==='attack'?cadence-age:0;s.flash=pose==='attack'?Math.max(0,(kind==='flame'?.2:kind==='samurai'?.28:.1)-age):0;
+      s.cooldown=pose==='attack'?cadence-age:0;s.flash=pose==='attack'?Math.max(0,(kind==='flame'?.2:kind==='samurai'?.28:.1)-age):0;s.attackAge=pose==='attack'?age:undefined;
       const zombieTravel=walk?(time*enemy.speed)%4:0,x=baseX+(i<4?zombieTravel:0),y=baseY+4+(i>=4?zombieTravel:0);
       data.set([x,y,walk&&i<4?enemy.speed:0,walk&&i>=4?enemy.speed:0,enemy.radius,enemy.mass,enemy.health,pose==='death'?-(time-time%3)*60:enemy.health,0,0,0,pose==='death'?-1:1,0,0,0,1],i*16);
     }
