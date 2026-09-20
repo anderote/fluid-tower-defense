@@ -2,6 +2,8 @@ import type {Rect,RenderScene,TowerKind} from '../contracts/index.ts';
 import {createSoldatAtlas,soldatFacing,SOLDAT_WORLD_SIZE} from './soldat-art.ts';
 import {wireTiles,wireDamage,type WireArtStyle} from './wire-art.ts';
 export type TurretArtStyle='soldat'|'red-alert';
+export type FloorArtStyle='panels'|'grating';
+export const floorSprites=(sprites:Record<string,number[]>,style:FloorArtStyle='panels')=>style==='grating'&&sprites.grating?.length?sprites.grating:sprites.floor;
 
 type Frame={x:number;y:number;width:number;height:number};
 type Atlas={size:number;frames:Frame[];sprites:Record<string,number[]>};
@@ -28,7 +30,7 @@ export function wallTiles(obstacles:readonly Rect[]){
 }
 
 /** Original palette sprites, drawn with nearest texel access and fixed pivots. */
-export async function createRedAlertArt(device:GPUDevice,format:GPUTextureFormat,camera:GPUBuffer,style:TurretArtStyle='soldat',wireStyle:WireArtStyle='barb'){
+export async function createRedAlertArt(device:GPUDevice,format:GPUTextureFormat,camera:GPUBuffer,style:TurretArtStyle='soldat',wireStyle:WireArtStyle='barb',floorStyle:FloorArtStyle='panels'){
   const response=await fetch('/assets/red-alert/atlas.json');
   if(!response.ok)throw Error('Red Alert atlas is missing. Run npm run assets:red-alert.');
   const atlas:Atlas=await response.json();
@@ -76,7 +78,7 @@ struct Out{@builtin(position) pos:vec4<f32>,@location(0) uv:vec2<f32>,@location(
     const obstacles=scene.map.obstacles.filter(o=>!(scene.wires??[]).some(w=>!w.breached&&same(o,w)));
     const key=JSON.stringify([scene.map.width,scene.map.height,obstacles]);
     if(key!==terrainKey){
-      const data:number[]=[],floor=atlas.sprites.floor;
+      const data:number[]=[],floor=floorSprites(atlas.sprites,floorStyle);
       for(let y=0;y<scene.map.height;y+=4)for(let x=0;x<scene.map.width;x+=4){
         // Keep most plates clean; the original set's scorched variants are sparse.
         const hash=((Math.imul(x+7,73856093)^Math.imul(y+11,19349663))>>>0),variant=hash%13===0?hash%floor.length:hash%2;

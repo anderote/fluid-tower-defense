@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Floor study / steel grating</title>
+<style>body{margin:24px;background:#181918;color:#d5d4c6;font:14px monospace}h1{font-size:22px;margin-bottom:8px}p{color:#a5a798;line-height:1.5}button,a{background:#30342c;color:inherit;border:1px solid #72765c;padding:10px;display:inline-block;margin:0 8px 8px 0}main{display:grid;grid-template-columns:1fr 1fr;gap:20px}figure{margin:0;min-width:0}h2{font-size:16px;margin:12px 0 6px}canvas{display:block;width:100%;aspect-ratio:64/44;background:#111}#status{color:#b6ce8f}small{display:block;color:#929785;margin-bottom:12px}@media(max-width:800px){main{grid-template-columns:1fr}}</style>
+<h1>Original Red Alert / floor comparison</h1>
+<p>Same room, walls, wire, and Soldat turrets. Only the floor changes. Preview only—the dark floor remains the default.</p>
+<a href="/?floor=grating">Play with steel grating</a><a href="/">Play with current floor</a><button id="scale">Gameplay scale / close-up</button><button id="rotate">Rotate turrets</button>
+<main><figure><h2>Current / dark metal panels</h2><small>FLOR0001 · original interior palette</small><canvas id="panels" aria-label="Current dark panel floor preview"></canvas></figure><figure><h2>Preview / lighter steel grating</h2><small>GFLR0001 · original interior palette, no tint</small><canvas id="grating" aria-label="Lighter steel grating floor preview"></canvas></figure></main>
+<p id="status">Loading WebGPU…</p>
+<script type="module" src="./scene.ts"></script></html>

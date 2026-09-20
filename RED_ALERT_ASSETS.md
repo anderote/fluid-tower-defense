@@ -39,6 +39,9 @@ shows the actual WebGPU renderer with connected walls and multiple gun facings.
 ## Current mapping and limits
 
 - Floor: `flor0001.int`, with restrained variation among its original frames.
+- Optional floor preview: `gflr0001.int`, all 13 original steel-grating frames.
+  `/tests/floor-art/` compares both floors in the same room. `/?floor=grating`
+  previews grating during play; it is not saved and dark panels remain default.
 - Walls: original vertical cap and south-facing wall textures, chosen from
   neighboring collision rectangles. Rendering never changes collision geometry.
 - Autocannon: `gun.shp`, first 32 directional frames, original fixed foundation.
