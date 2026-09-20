@@ -20,12 +20,14 @@ function author(biome:Biome,title:string,briefing:string){
     scenery.props.push({sprite:`${biome}:${sprite}`,x,y});solid({x:x-width/2,y:y-height,width,height});
   };
   const wall=(x:number,y:number,width:number,height:number)=>{const rect={x,y,width,height};map.obstacles.push(rect);scenery.mounts.push(rect);};
-  const road=(x:number,y:number,length:number)=>{for(let xx=x;xx<x+length;xx+=4)tile('d10',4+(Math.floor((xx-x)/4)%4),xx,y);};
-  const verticalRoad=(x:number,y:number,length:number)=>{for(let yy=y;yy<y+length;yy+=4)tile('d03',1,x,yy);};
-  const roadJoin=(x:number,y:number)=>{
-    // D05 is the original broad T-junction transition. The adjoining straight
-    // cells continue through it instead of terminating against a square stamp.
-    stamp('d05',x-4,y-8);
+  // D44/D45 are the full-width straight road cells. D03 is a narrow dirt
+  // track, and cropping D10 loses its shoulder and repeats a curved section.
+  const road=(x:number,y:number,length:number)=>{for(let xx=x;xx<x+length;xx+=4)tile('d45',0,xx,y);};
+  const verticalRoad=(x:number,y:number,length:number)=>{for(let yy=y;yy<y+length;yy+=4)tile('d44',0,x,yy);};
+  const roadJoin=(x:number,y:number,side:'west'|'east')=>{
+    // These two-cell-wide templates carry the vertical road in opposite
+    // columns. Their horizontal arm exits on the bottom row.
+    stamp(side==='west'?'d43':'d42',side==='west'?x-4:x,y-4);
   };
   const grove=(x:number,y:number,columns:number,rows:number,seed:number)=>{
     for(let row=0;row<rows;row++)for(let col=0;col<columns;col++){
@@ -43,9 +45,11 @@ function forest(){
   a.ridge(48,0,40);a.ridge(48,64,36);a.ridge(88,28,48);
   // Tracks pass the village. Use the original straight, vertical, and T-junction
   // frames so every road section joins cleanly rather than repeating a cap.
-  a.road(0,48,80);a.road(112,48,48);
-  a.verticalRoad(76,20,56);a.verticalRoad(108,20,56);
-  a.roadJoin(76,48);a.roadJoin(108,48);
+  a.road(0,48,72);a.road(116,48,44);
+  for(const x of [76,108]){
+    a.verticalRoad(x,20,24);a.verticalRoad(x,52,24);
+  }
+  a.roadJoin(76,48,'west');a.roadJoin(108,48,'east');
   for(const [x,y] of [[16,32],[28,68],[64,12],[68,80],[104,16],[128,76],[136,8]])a.stamp('p07',x,y);
   for(const [sprite,x,y] of [['v01',116,34],['v03',132,34],['v02',116,74],['v07',132,70],['v09',142,30]] as const)a.prop(sprite,x,y,sprite==='v09'?3:6,sprite==='v07'?3:5);
   for(const [x,y] of [[16,12],[28,16],[36,8],[68,12],[76,20],[108,10],[124,12],[144,12],[16,88],[28,96],[38,84],[66,88],[78,96],[106,90],[122,92],[142,88]])a.prop('tc01',x,y,5,3);
