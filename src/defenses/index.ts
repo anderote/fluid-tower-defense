@@ -1,7 +1,8 @@
 import {validateEditorMap} from '../editor/index.ts';
 import type {Rect,Tower,WorldMap} from '../contracts/index.ts';
+import {CHAINLINK_FENCE_COST,METAL_WALL_COST} from '../sim/walls/model.ts';
 
-export const WALL_COST=60, WALL_REFUND=30, WIRE_COST=45, WIRE_REFUND=22;
+export const WALL_COST=METAL_WALL_COST, WALL_REFUND=Math.floor(METAL_WALL_COST/2), FENCE_COST=CHAINLINK_FENCE_COST, FENCE_REFUND=Math.floor(CHAINLINK_FENCE_COST/2), WIRE_COST=45, WIRE_REFUND=22;
 
 const overlaps=(a:Rect,b:Rect)=>a.x<b.x+b.width&&a.x+a.width>b.x&&a.y<b.y+b.height&&a.y+a.height>b.y;
 const coversTower=(rect:Rect,tower:Tower)=>{

@@ -1,8 +1,8 @@
 import type {Rect, Tower, Vec2, WorldMap} from '../contracts/index.ts';
 import {validateEditorMap} from '../editor/index.ts';
 
-export function clearPlayerTerrain(map:WorldMap,walls:readonly Rect[],wires:readonly Rect[]):WorldMap {
-  const playerStructures=[...walls,...wires];
+export function clearPlayerTerrain(map:WorldMap,walls:readonly Rect[],wires:readonly Rect[],fences:readonly Rect[]=[]):WorldMap {
+  const playerStructures=[...walls,...wires,...fences];
   const sameRect=(left:Rect,right:Rect)=>left.x===right.x&&left.y===right.y&&left.width===right.width&&left.height===right.height;
   return {...map,obstacles:map.obstacles.filter(obstacle=>!playerStructures.some(structure=>sameRect(obstacle,structure)))};
 }
@@ -13,12 +13,13 @@ export function restoreSessionTerrain(
   authoredMap:WorldMap,
   walls:readonly Rect[],
   wires:readonly (Rect & Partial<{breached:boolean}>)[],
+  fences:readonly Rect[]=[],
 ):WorldMap {
-  const base=savedMap.id===authoredMap.id?authoredMap:clearPlayerTerrain(savedMap,walls,wires);
+  const base=savedMap.id===authoredMap.id?authoredMap:clearPlayerTerrain(savedMap,walls,wires,fences);
   // Wire is a damaging ground hazard, not solid terrain.  Older saves can
   // contain it in `obstacles`, but restored sessions deliberately keep only
-  // walls in the collision/navigation map.
-  return {...base,obstacles:[...base.obstacles,...walls]};
+  // walls and chain-link fences in the collision/navigation map.
+  return {...base,obstacles:[...base.obstacles,...walls,...fences]};
 }
 
 /**
