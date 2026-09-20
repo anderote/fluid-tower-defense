@@ -68,6 +68,14 @@ const cases:{name:string;run:()=>Promise<void>}[]=[
   const saved=snapshot(),run=JSON.parse(saved.runState);assert(run.model.towers[0].x===22&&run.model.towers[0].y===22,'Mounted tower is not centered');
   click('[data-action="demolish-tool"]');point(22,22);await until(()=>text('#message').includes('Sell the mounted tower'),'Mounted wall demolition was not blocked');
  }},
+ {name:'Turrets placed at map edges sit flush inside every boundary',run:async()=>{
+  await fresh();click('[data-tower="repulsor"]');
+  for(const [x,y] of [[0,10],[160,20],[40,0],[40,100]])point(x,y);
+  await until(()=>text('#metal')==='840','Edge placements did not spend Metal');
+  await until(()=>{const raw=localStorage.getItem('pressure-front.autosave.v1');return !!raw&&JSON.parse(JSON.parse(raw).runState).model.towers.length===4;},'Autosave did not capture edge placements');
+  const saved=JSON.parse(localStorage.getItem('pressure-front.autosave.v1')!),run=JSON.parse(saved.runState),positions=run.model.towers.map((tower:{x:number;y:number})=>[tower.x,tower.y]);
+  for(const expected of [[1.25,10],[158.75,20],[40,1.25],[40,98.75]])assert(positions.some((position:number[])=>Math.abs(position[0]-expected[0])<.01&&Math.abs(position[1]-expected[1])<.01),`Missing edge turret at ${expected}; got ${JSON.stringify(positions)}`);
+ }},
  {name:'Tower inspector tracks the selected tower and stays inside the arena',run:async()=>{
   await fresh();click('[data-tower="repulsor"]');point(40,50);await until(()=>text('#metal')==='560','Tower was not placed');
   click('[data-tower="repulsor"]');point(40,50);
@@ -96,6 +104,8 @@ const cases:{name:string;run:()=>Promise<void>}[]=[
   doc().body.dispatchEvent(new KeyboardEvent('keydown',{key:'q',bubbles:true}));await until(()=>element('[data-action="wall-tool"]').classList.contains('active'),'Wall shortcut did not activate');
   doc().body.dispatchEvent(new KeyboardEvent('keydown',{key:'q',repeat:true,bubbles:true}));await sleep(200);assert(element('[data-action="wall-tool"]').classList.contains('active'),'Held shortcut toggled the tool off');
   doc().body.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));await until(()=>!element('[data-action="wall-tool"]').classList.contains('active'),'Escape did not cancel placement');
+  point(22,22);await sleep(200);assert(text('#metal')==='1200','Wall placement remained active after Escape');
+  click('[data-tower="repulsor"]');doc().body.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));point(30,22);await sleep(200);assert(text('#metal')==='1200','Tower placement remained active after Escape');
  }},
  {name:'Research buttons retain keyboard focus between telemetry updates',run:async()=>{
   await fresh();click('#research-tab');const control=element<HTMLButtonElement>('[data-command="repulsor-impact-1"]');control.focus();
