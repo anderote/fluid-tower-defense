@@ -4,6 +4,7 @@ import {ENEMIES, DEFAULT_MAP, TOWERS, compileTower, createParticles, towerBehavi
 import {P, PARTICLE_FLOATS} from '../contracts/index.ts';
 
 test('content registry is valid and has the expanded roster',()=>{ validateContent(); assert.equal(Object.keys(TOWERS).length,8);assert.equal(Object.keys(ENEMIES).length,3); });
+test('enemy salvage is low relative to build costs',()=>{assert.equal(ENEMIES.shambler.bounty,1);assert.equal(ENEMIES.runner.bounty,1);assert.equal(ENEMIES.brute.bounty,2);});
 test('particle generator reports its actual populated prefix and keeps bodies apart',()=>{
  const particles=createParticles([{count:20,kind:'brute',seed:4}],DEFAULT_MAP,10);
  assert.equal(particles.length,10*PARTICLE_FLOATS);

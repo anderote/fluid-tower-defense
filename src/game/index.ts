@@ -1,6 +1,6 @@
 import {COMMAND_UPGRADES, DEFAULT_MAP, TOWERS, veterancyLevel} from '../content/index.ts';
 import {canPlace} from '../navigation/index.ts';
-import type {BonusChoice, MetaUpgrade, Rect, RunModel, Settlement, SpawnBatch, Tower, TowerKind, Vec2, WorldMap} from '../contracts/index.ts';
+import type {BonusChoice, MetaUpgrade, Rect, RunModel, Settlement, SpawnBatch, Tower, TowerKind, TowerUnlock, Vec2, WorldMap} from '../contracts/index.ts';
 
 export type ActionResult = {ok:true} | {ok:false; reason:string};
 export type PlaceResult = ActionResult & {tower?:Tower};
@@ -13,21 +13,27 @@ const SAVE_KEY = 'pressure-front.run.v1';
 const MAX_TOWERS = 64;
 export const WAVES_PER_LEVEL=10;
 const PROFILE_KEY='pressure-front.command-profile.v1';
+export const STARTING_METAL=1_200;
+const STARTER_TOWERS:readonly TowerKind[]=['repulsor','autocannon'];
+const TOWER_UNLOCK_COSTS:Readonly<Partial<Record<TowerKind,number>>>=Object.freeze({mortar:3_000,cryo:4_000,tesla:6_000,incinerator:7_500,rocket:9_000,railgun:12_000});
 const META_DEFS=Object.freeze([
   {id:'damage',name:'Ballistics Doctrine',description:'+4% tower damage per rank.',cost:75,maxRank:10},
   {id:'rate',name:'Rapid Cycling',description:'+3.5% fire rate per rank.',cost:85,maxRank:10},
   {id:'range',name:'Targeting Uplink',description:'+3% tower range per rank.',cost:70,maxRank:10},
   {id:'force',name:'Hydraulic Overdrive',description:'+5% push force per rank.',cost:80,maxRank:10},
 ] as const);
-type ProfileState={version:1;xp:number;ranks:Record<string,number>;unlockedTier:number};
-const emptyProfile=():ProfileState=>({version:1,xp:0,ranks:{},unlockedTier:1});
+type ProfileState={version:1;xp:number;ranks:Record<string,number>;unlockedTier:number;unlockedTowers:TowerKind[]};
+const emptyProfile=():ProfileState=>({version:1,xp:0,ranks:{},unlockedTier:1,unlockedTowers:[...STARTER_TOWERS]});
 export class CommandProgression {
   private state:ProfileState=emptyProfile();
-  constructor(){try{const saved=JSON.parse(typeof window==='undefined'?'':window.localStorage.getItem(PROFILE_KEY)??'') as ProfileState;if(saved?.version===1&&Number.isFinite(saved.xp)&&saved.xp>=0&&saved.ranks&&typeof saved.ranks==='object'){this.state={...emptyProfile(),...saved,xp:Math.floor(saved.xp),unlockedTier:Math.max(1,Math.floor(saved.unlockedTier||1))};}}catch{/* Fresh local profile. */}}
+  constructor(){try{const saved=JSON.parse(typeof window==='undefined'?'':window.localStorage.getItem(PROFILE_KEY)??'') as ProfileState;if(saved?.version===1&&Number.isFinite(saved.xp)&&saved.xp>=0&&saved.ranks&&typeof saved.ranks==='object'){const unlocked=new Set<TowerKind>(STARTER_TOWERS);if(Array.isArray(saved.unlockedTowers))for(const kind of saved.unlockedTowers)if(typeof kind==='string'&&Object.hasOwn(TOWERS,kind))unlocked.add(kind as TowerKind);this.state={...emptyProfile(),...saved,xp:Math.floor(saved.xp),unlockedTier:Math.max(1,Math.floor(saved.unlockedTier||1)),unlockedTowers:[...unlocked]};}}catch{/* Fresh local profile. */}}
   get xp():number{return this.state.xp;}
   get unlockedTier():number{return this.state.unlockedTier;}
   upgrades():MetaUpgrade[]{return META_DEFS.map(def=>({...def,rank:Math.min(def.maxRank,Math.max(0,this.state.ranks[def.id]??0))}));}
   ranks():readonly string[]{return META_DEFS.flatMap(def=>Array(this.state.ranks[def.id]??0).fill(def.id));}
+  isTowerUnlocked(kind:TowerKind):boolean{return this.state.unlockedTowers.includes(kind);}
+  towerUnlocks():TowerUnlock[]{return (Object.keys(TOWERS) as TowerKind[]).map(kind=>({kind,cost:TOWER_UNLOCK_COSTS[kind]??0,unlocked:this.isTowerUnlocked(kind)}));}
+  unlockTower(kind:TowerKind):ActionResult{if(!Object.hasOwn(TOWERS,kind))return {ok:false,reason:'Unknown tower.'};if(this.isTowerUnlocked(kind))return {ok:false,reason:'That tower is already unlocked.'};const cost=TOWER_UNLOCK_COSTS[kind];if(!cost)return {ok:false,reason:'That tower does not require research.'};if(this.state.xp<cost)return {ok:false,reason:`Requires ${cost.toLocaleString()} Command XP.`};this.state.xp-=cost;this.state.unlockedTowers.push(kind);this.save();return {ok:true};}
   award(amount:number):void{this.state.xp+=Math.max(0,Math.floor(amount));this.save();}
   unlockForLevel(level:number):boolean{const next=Math.floor((Math.max(1,level)-1)/10)+1;if(next<=this.state.unlockedTier)return false;this.state.unlockedTier=next;this.save();return true;}
   buy(id:string):ActionResult{const def=META_DEFS.find(candidate=>candidate.id===id);if(!def)return {ok:false,reason:'Unknown Command upgrade.'};const rank=this.state.ranks[id]??0;if(rank>=def.maxRank)return {ok:false,reason:'This Command upgrade is fully researched.'};const cost=Math.round(def.cost*(1+rank*.55));if(this.state.xp<cost)return {ok:false,reason:`Requires ${cost} Command XP.`};this.state.xp-=cost;this.state.ranks[id]=rank+1;this.save();return {ok:true};}
@@ -46,7 +52,7 @@ const isFiniteInteger = (value:unknown):value is number => typeof value === 'num
 const isNonNegative = (value:unknown):value is number => typeof value === 'number' && Number.isFinite(value) && value >= 0;
 const isTowerKind = (value:unknown):value is TowerKind => typeof value === 'string' && Object.hasOwn(TOWERS,value);
 const copy = (model:RunModel):RunModel => ({...model,towers:model.towers.map(t=>({...t})),pending:model.pending.map(b=>({...b})),bonusChoices:model.bonusChoices.map(b=>({...b})),bonuses:[...model.bonuses],commandUpgrades:[...model.commandUpgrades]});
-const fresh = ():RunModel => ({phase:'preparation',metal:650,baseHealth:20,level:1,wave:0,waveCount:WAVES_PER_LEVEL,towers:[],selected:null,pending:[],bonusChoices:[],bonuses:[],commandUpgrades:[]});
+const fresh = ():RunModel => ({phase:'preparation',metal:STARTING_METAL,baseHealth:20,level:1,wave:0,waveCount:WAVES_PER_LEVEL,towers:[],selected:null,pending:[],bonusChoices:[],bonuses:[],commandUpgrades:[]});
 
 /** Deterministic procedural compositions: each level introduces denser, faster mixed pressure. */
 export function waveFor(level:number,wave:number):Wave {
@@ -181,7 +187,7 @@ export class RunController {
     const completed=waveFor(this.model.level,this.model.wave); this.model.metal+=completed.payment;
     if (this.model.wave===this.model.waveCount) {
       this.model.level++; this.model.wave=0; this.model.towers=[]; this.model.selected=null;
-      this.model.metal=650+(this.model.level-1)*90; this.model.baseHealth=20;
+      this.model.metal=STARTING_METAL+(this.model.level-1)*90; this.model.baseHealth=20;
       this.model.bonuses=[]; this.model.commandUpgrades=[];
     }
     this.model.phase='preparation'; this.model.bonusChoices=[];

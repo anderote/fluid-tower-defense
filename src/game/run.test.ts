@@ -1,15 +1,15 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {CommandProgression, createRun, WAVES_PER_LEVEL, waveFor} from './index.ts';
+import {CommandProgression, createRun, STARTING_METAL, WAVES_PER_LEVEL, waveFor} from './index.ts';
 
 test('cumulative settlements pay only newly reported totals',()=>{
   const run=createRun(); run.startWave(); run.takeSpawns(200);
   run.applySettlement({epoch:1,tick:3,kills:2,crushKills:1,leaks:1,earned:6,live:1,invalid:0,maxPacking:0});
-  assert.equal(run.model.metal,656); assert.equal(run.model.baseHealth,19);
+  assert.equal(run.model.metal,STARTING_METAL+6); assert.equal(run.model.baseHealth,19);
   run.applySettlement({epoch:1,tick:3,kills:2,crushKills:1,leaks:1,earned:6,live:1,invalid:0,maxPacking:0});
-  assert.equal(run.model.metal,656);
+  assert.equal(run.model.metal,STARTING_METAL+6);
   run.applySettlement({epoch:1,tick:4,kills:3,crushKills:1,leaks:1,earned:9,live:0,invalid:0,maxPacking:0});
-  assert.equal(run.model.metal,659);
+  assert.equal(run.model.metal,STARTING_METAL+9);
 });
 test('tower records use reported GPU kill attribution rather than estimated damage output',()=>{
   const run=createRun();
@@ -27,6 +27,15 @@ test('Command XP permanently purchases base stat upgrades and unlocks a new tier
   assert.equal(profile.unlockForLevel(10),false);
   assert.equal(profile.unlockForLevel(11),true);
   assert.equal(profile.unlockedTier,2);
+});
+test('only repulsor and autocannon start unlocked and advanced towers cost substantial Command XP',()=>{
+  assert.equal(createRun().model.metal,1_200);
+  const profile=new CommandProgression(), unlocks=profile.towerUnlocks();
+  assert.deepEqual(unlocks.filter(unlock=>unlock.unlocked).map(unlock=>unlock.kind),['repulsor','autocannon']);
+  assert.equal(unlocks.find(unlock=>unlock.kind==='mortar')?.cost,3_000);
+  assert.equal(unlocks.find(unlock=>unlock.kind==='railgun')?.cost,12_000);
+  profile.award(2_999);assert.equal(profile.unlockTower('mortar').ok,false);
+  profile.award(1);assert.equal(profile.unlockTower('mortar').ok,true);assert.equal(profile.isTowerUnlocked('mortar'),true);assert.equal(profile.xp,0);
 });
 test('branches lock and preparation saves restore',()=>{
   const run=createRun(), result=run.place('repulsor',{x:84,y:50}); assert.ok(result.ok && result.tower); const tower=result.tower;
@@ -74,7 +83,7 @@ test('counter rollback is ignored and settling keeps combat running while enemie
   const run=createRun(); run.startWave(); run.takeSpawns(200);
   run.applySettlement({epoch:1,tick:1,kills:4,crushKills:0,leaks:0,earned:12,live:2,invalid:0,maxPacking:0});
   run.applySettlement({epoch:1,tick:2,kills:1,crushKills:0,leaks:0,earned:3,live:1,invalid:0,maxPacking:0});
-  assert.equal(run.model.metal,662);
+  assert.equal(run.model.metal,STARTING_METAL+12);
   assert.equal(run.finishSettling().ok,false); assert.equal(run.model.phase,'combat');
 });
 test('every level has ten escalating procedural waves without bonus-wave interruptions',()=>{

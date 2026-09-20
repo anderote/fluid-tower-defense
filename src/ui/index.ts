@@ -112,6 +112,13 @@ export function createUI(
           | "wall-tool"
           | "wire-tool",
       });
+    if (button.dataset.unlock) {
+      onAction({
+        type: "unlock-tower",
+        kind: button.dataset.unlock as keyof typeof TOWERS,
+      });
+      return;
+    }
     if (button.dataset.tower)
       onAction({
         type: "select-tower",
@@ -191,13 +198,16 @@ export function createUI(
         stats.textContent =
           "Select a deployed tower to view its combat record and upgrades.";
       root
-        .querySelectorAll("[data-tower]")
-        .forEach((element) =>
-          element.classList.toggle(
-            "active",
-            (element as HTMLElement).dataset.tower === s.selectedKind,
-          ),
-        );
+        .querySelectorAll<HTMLButtonElement>("[data-tower]")
+        .forEach((button, index) => {
+          const kind=button.dataset.tower as keyof typeof TOWERS,
+            unlock=s.towerUnlocks.find(candidate=>candidate.kind===kind),
+            lockedTower=unlock&&!unlock.unlocked;
+          button.classList.toggle("active",kind===s.selectedKind);
+          button.classList.toggle("locked",!!lockedTower);
+          if(lockedTower){button.dataset.unlock=kind;button.querySelector("em")!.textContent="LOCKED";button.querySelector(".cost")!.textContent=`UNLOCK ${unlock.cost.toLocaleString()} XP`;}
+          else{delete button.dataset.unlock;button.querySelector("em")!.textContent=`[${index+1}]`;button.querySelector(".cost")!.textContent=`${TOWERS[kind].cost} METAL`;}
+        });
       root.querySelectorAll("[data-upgrade]").forEach((element, index) => {
         const button = element as HTMLButtonElement,
           bad =
