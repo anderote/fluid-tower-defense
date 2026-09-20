@@ -8,6 +8,9 @@ export interface Effect extends Vec2 { kind: EffectKind; radius: number; strengt
 /** Short-lived render-only fragments. These never enter the simulation or affect gameplay. */
 export type VisualParticleStyle = 'spark' | 'smoke' | 'debris' | 'mist' | 'shell';
 export interface VisualParticle extends Vec2 { vx:number; vy:number; size:number; life:number; age:number; color:[number,number,number]; gravity:number; drag:number; style:VisualParticleStyle; spin:number }
+/** Render-only M79/LAW rounds driven by confirmed GPU shot events. */
+export interface HeavyProjectile extends Vec2 { kind:'mortar'|'rocket'; target:Vec2; age:number; delay:number; flight:number; serial:number; lane:number }
+export interface HeavyExplosion extends Vec2 { kind:'mortar'|'rocket'; age:number; life:number; scale:number; direction:Vec2; serial:number }
 export interface TowerDef { id: TowerKind; name: string; description: string; cost: number; range: number; cooldown: number; damage: number; force: number; radius: number; color: string; branches: readonly [string, string] }
 export interface EnemyDef { id: EnemyKind; index: number; name: string; radius: number; mass: number; health: number; speed: number; drive: number; pressureLimit: number; crushResistance: number; bounty: number; leak: number; color: string }
 export interface Tower extends Vec2 { id: number; kind: TowerKind; level: number; branch: number; angle: number; cooldown: number; spent: number; kills?:number; veterancy?:number; veterancyXp?:number }
@@ -15,6 +18,8 @@ export interface NavigationField { width: number; height: number; cellSize: numb
 export interface Tuning { pressure: number; viscosity: number; drive: number; damagePressure: number; crushPressure: number; crushDamage: number }
 export const DEFAULT_TUNING: Tuning = { pressure: 36, viscosity: 2, drive: 5, damagePressure: 24, crushPressure: 96, crushDamage: 18 };
 export const MAX_PARTICLES = 65536;
+/** Physical approach lane west of the battlefield. */
+export const HORDE_APPROACH = 16;
 export const PARTICLE_FLOATS = 16;
 export const PARTICLE_BYTES = PARTICLE_FLOATS * 4;
 export const MAX_EFFECTS = 64;
@@ -22,7 +27,8 @@ export const MAX_TOWERS = 64;
 export const TOWER_KILL_COUNTER_OFFSET = 16;
 // Global settlement telemetry plus the fixed tower attribution range. Obstacle telemetry
 // lives in a separate buffer that grows with the active map.
-export const COUNTER_WORDS = TOWER_KILL_COUNTER_OFFSET + MAX_TOWERS;
+export const HORDE_PRESSURE_COUNTER = TOWER_KILL_COUNTER_OFFSET + MAX_TOWERS;
+export const COUNTER_WORDS = HORDE_PRESSURE_COUNTER + 1;
 // Shared packed layout: four vec4<f32>. All fields are floats, including kind/alive.
 // pos=(x,y,vx,vy), body=(radius,mass,hp,maxHp), state=(packing,pressure,kind,alive), status=(slowRemaining,brittleRemaining,crushExposure,generation).
 export const PARTICLE_WGSL = `struct Particle { pos: vec4<f32>, body: vec4<f32>, state: vec4<f32>, status: vec4<f32> };`;
@@ -31,9 +37,9 @@ export const P = { x:0,y:1,vx:2,vy:3,radius:4,mass:5,hp:6,maxHp:7,packing:8,pres
 export interface SharedGPU { particles: GPUBuffer; counters: GPUBuffer; capacity: number; obstacleCounters?:GPUBuffer; obstacleCapacity?:number; shotState?: GPUBuffer; bossState?: GPUBuffer }
 export interface PhysicsFrame { dt: number; tick: number; count: number; map: WorldMap; effects: readonly Effect[]; tuning: Tuning; navigation?: NavigationField; lab: boolean }
 export interface PhysicsModule { encode(encoder: GPUCommandEncoder, frame: PhysicsFrame): void; reset(): void; destroy(): void }
-export interface Settlement { epoch: number; tick: number; kills: number; crushKills: number; leaks: number; earned: number; live: number; invalid: number; maxPacking: number; maxPressure?:number; towerKills?:readonly number[]; obstacleContacts?:readonly number[]; obstaclePacking?:readonly number[]; obstaclePressure?:readonly number[]; boss?:{x:number;y:number;health:number;maxHealth:number;phase:number;active:boolean} }
+export interface Settlement { epoch: number; tick: number; kills: number; crushKills: number; leaks: number; earned: number; live: number; invalid: number; maxPacking: number; maxPressure?:number; inletBlocked?:boolean; towerKills?:readonly number[]; obstacleContacts?:readonly number[]; obstaclePacking?:readonly number[]; obstaclePressure?:readonly number[]; boss?:{x:number;y:number;health:number;maxHealth:number;phase:number;active:boolean} }
 // Counters 0..15 hold global and boss telemetry; the remaining ranges hold tower and obstacle telemetry.
-export interface RenderScene { count: number; time: number; map: WorldMap; towers: readonly Tower[]; effects: readonly Effect[]; visualParticles?: readonly VisualParticle[]; walls?: readonly (Rect & {health:number;maxHealth:number})[]; wires?: readonly (Rect & {health:number;maxHealth:number;breached:boolean})[]; heatmap: boolean; selection: number | null; ghost?: Vec2 & {kind: TowerKind; valid: boolean; range:number}; wallGhost?: Rect & {valid:boolean}; placementGhost?: Rect & {kind:'wall'|'wire';valid:boolean}; demolitionHover?:Rect; boss?: Vec2 & {health:number;maxHealth:number;phase:number} }
+export interface RenderScene { count: number; time: number; map: WorldMap; towers: readonly Tower[]; effects: readonly Effect[]; visualParticles?: readonly VisualParticle[]; heavyProjectiles?:readonly HeavyProjectile[]; heavyExplosions?:readonly HeavyExplosion[]; cameraShake?:number; walls?: readonly (Rect & {health:number;maxHealth:number})[]; wires?: readonly (Rect & {health:number;maxHealth:number;breached:boolean})[]; heatmap: boolean; selection: number | null; ghost?: Vec2 & {kind: TowerKind; valid: boolean; range:number}; wallGhost?: Rect & {valid:boolean}; placementGhost?: Rect & {kind:'wall'|'wire';valid:boolean}; demolitionHover?:Rect; boss?: Vec2 & {health:number;maxHealth:number;phase:number} }
 export interface Renderer { encode(encoder: GPUCommandEncoder, scene: RenderScene): void; screenToWorld(clientX:number,clientY:number):Vec2; worldToScreen(x:number,y:number):Vec2; pan(dx:number,dy:number):void; zoomAt(factor:number,clientX:number,clientY:number):void; destroy():void }
 export type GameAction = {type:'mode';mode:'lab'|'game'} | {type:'pause'} | {type:'restart-wave'} | {type:'reset'} | {type:'new-game'} | {type:'start-wave'} | {type:'continue-run'} | {type:'finish-run'} | {type:'select-tower';kind:TowerKind|null} | {type:'unlock-tower';kind:TowerKind} | {type:'wall-tool'} | {type:'wire-tool'} | {type:'demolish-tool'} | {type:'upgrade';branch:number} | {type:'buy-command';id:string} | {type:'buy-stat';id:string} | {type:'sell'} | {type:'difficulty';value:number} | {type:'stream-width';value:number} | {type:'heatmap';value:boolean} | {type:'population';value:number} | {type:'tool';tool:'blast'|'push'|'inspect'} | {type:'bonus';id:string} | {type:'save'} | {type:'load'};
 export interface BonusChoice { id:string; name:string; description:string }

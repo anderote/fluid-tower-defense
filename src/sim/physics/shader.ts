@@ -33,7 +33,7 @@ struct Params {
   substepIndex: u32,
   substepCount: u32,
   obstacleCapacity: u32,
-  _pad1: u32,
+  approach: f32,
 }
 
 struct Obstacle { rect: vec4<f32> }
@@ -63,7 +63,7 @@ fn finite1(v: f32) -> bool { return v == v && abs(v) < 1e20; }
 fn finite2(v: vec2<f32>) -> bool { return finite1(v.x) && finite1(v.y); }
 fn safeRadius(v: f32) -> f32 {
   if (!finite1(v)) { return 0.25; }
-  return clamp(abs(v), 0.05, 0.85);
+  return clamp(abs(v), 0.05, 0.6375);
 }
 fn safeMass(v: f32) -> f32 {
   if (!finite1(v)) { return 1.0; }
@@ -77,7 +77,7 @@ fn kernel(distance: f32) -> f32 {
 }
 
 fn cellFor(position: vec2<f32>) -> vec2<i32> {
-  return vec2<i32>(floor(position / params.cellSize));
+  return vec2<i32>(floor((position + vec2<f32>(params.approach, 0.0)) / params.cellSize));
 }
 
 fn validCell(cell: vec2<i32>) -> bool {
@@ -98,6 +98,7 @@ fn routeHash(index: u32, generation: f32, cell: vec2<i32>) -> u32 {
 }
 
 fn flowDirection(position: vec2<f32>, index: u32, generation: f32) -> vec2<f32> {
+  if (position.x < 0.0 && params.approach > 0.0) { return vec2<f32>(1.0, 0.0); }
   if (params.navWidth > 0u && params.navHeight > 0u && params.navCellSize > 0.0) {
     let cell = vec2<i32>(floor(position / params.navCellSize));
     if (cell.x >= 0 && cell.y >= 0 && cell.x < i32(params.navWidth) && cell.y < i32(params.navHeight)) {
@@ -115,7 +116,7 @@ fn flowDirection(position: vec2<f32>, index: u32, generation: f32) -> vec2<f32> 
 fn boundaryPacking(position: vec2<f32>, radius: f32) -> f32 {
   var result = 0.0;
   let area = occupiedArea(radius);
-  let distances = vec4<f32>(position.x, params.worldWidth - position.x, position.y, params.worldHeight - position.y);
+  let distances = vec4<f32>(position.x + params.approach, params.worldWidth - position.x, position.y, params.worldHeight - position.y);
   for (var side = 0u; side < 4u; side += 1u) {
     let mirroredDistance = 2.0 * max(0.0, distances[side]);
     if (mirroredDistance < params.kernelRadius) { result += area * kernel(mirroredDistance); }
@@ -417,7 +418,7 @@ fn integrateParticles(@builtin(global_invocation_id) gid: vec3<u32>) {
     velocity = resolved.zw;
   }
 
-  let clamped = clamp(position, vec2<f32>(radius), vec2<f32>(params.worldWidth - radius, params.worldHeight - radius));
+  let clamped = clamp(position, vec2<f32>(radius - params.approach, radius), vec2<f32>(params.worldWidth - radius, params.worldHeight - radius));
   if (clamped.x != position.x && velocity.x * (position.x - clamped.x) > 0.0) { velocity.x = 0.0; }
   if (clamped.y != position.y && velocity.y * (position.y - clamped.y) > 0.0) { velocity.y = 0.0; }
   position = clamped;
