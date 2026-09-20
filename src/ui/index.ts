@@ -78,6 +78,7 @@ export function createUI(
     ["start-wave", "START WAVE"],
   ] as const) {
     const button = document.createElement("button");
+    button.className = "start-wave-top";
     button.dataset.action = action;
     button.textContent = label;
     actions.prepend(button);
