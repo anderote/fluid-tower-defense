@@ -67,7 +67,7 @@ fn visible(a:vec2f,b:vec2f)->bool {
   if(unit.shot.z<=0.){continue;}
   var hit=unit.shot.x==f32(i)&&unit.shot.y==p.status.w&&d<=unit.position.z;
   if(kind==1.){hit=distance(p.pos.xy,unit.impact.xy)<=3.5&&visible(unit.impact.xy,p.pos.xy);}
-  if(kind==2.||kind==3.){let alignment=dot(delta/max(d,.001),vec2f(cos(unit.impact.z),sin(unit.impact.z)));hit=d<=unit.position.z&&alignment>=select(.65,-.3,kind==3.);}
+  if(kind==2.||kind==3.){let alignment=dot(delta/max(d,.001),vec2f(cos(unit.impact.z),sin(unit.impact.z)));hit=d<=unit.position.z&&alignment>=select(.65,.35,kind==3.);}
   if(hit&&visible(unit.position.xy,p.pos.xy)){p.body.z-=unit.shot.z;atomicStore(&owners[i],u32(unit.shot.w));}
  }}}particles[i]=p;
 }`});

@@ -6,10 +6,16 @@ export const INFANTRY_PIXEL=.1;
 export const INFANTRY_KINDS=['rifle','rocket','flame','samurai','dog'] as const;
 // Shared atlas layout: idle, six run frames, sixteen attack slots, eight collapse frames.
 export const INFANTRY_ATTACK=7,INFANTRY_DEATH=23;
+export const SAMURAI_ATTACK_DURATION=.64;
 export const infantryFacing=(angle:number)=>((Math.round(angle/(Math.PI/4))%8)+8)%8;
 // Westwood frames start north and turn counterclockwise; our world starts east.
 export const classicInfantryFacing=(facing:number)=>(6-facing+8)%8;
-export const attackFrames=(kind:InfantryKind)=>kind==='dog'?4:kind==='flame'?16:8;
+export const attackFrames=(kind:InfantryKind)=>kind==='dog'?4:kind==='flame'||kind==='samurai'?16:8;
+/** A readable three-beat cut: coil, fast crescent, then a held follow-through. */
+export function samuraiSlashPhase(age:number){
+  const progress=Math.max(0,Math.min(1,age/SAMURAI_ATTACK_DURATION));
+  return {progress,anticipation:Math.min(1,progress/.22),cut:Math.max(0,Math.min(1,(progress-.22)/.38)),followThrough:Math.max(0,(progress-.6)/.4)};
+}
 export interface InfantryPose {facing:number;frame:number;alpha:number;moving:boolean}
 type Motion={x:number;y:number;time:number;phase:number;heading:number;cooldown:number;flash:number;attackTime:number;interval:number;pose:InfantryPose};
 
@@ -33,7 +39,7 @@ export function createInfantryAnimator(){
         const shot=s.flash>0&&(!old||s.flash>old.flash+.0001)||!!old&&s.cooldown>old.cooldown+.0001;
         const attackTime=shot?time:old?.attackTime??(s.cooldown>0?time-Math.max(0,stats.cooldown-s.cooldown):-Infinity);
         const interval=shot&&s.cooldown>0?s.cooldown:old?.interval??stats.cooldown;
-        const duration=Math.min(kind==='dog'?.32:kind==='rocket'?.64:kind==='flame'?.8:.52,interval*.8);
+        const duration=Math.min(kind==='dog'?.32:kind==='rocket'?.64:kind==='flame'?.8:kind==='samurai'?SAMURAI_ATTACK_DURATION:.52,interval*.8);
         const elapsed=time-attackTime;
         const firing=s.health>0&&(s.flash>0||elapsed<duration);
         let heading=s.angle;

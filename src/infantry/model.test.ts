@@ -25,6 +25,13 @@ test('armor reduces zombie damage but even fully armored samurai can be killed',
   for(let i=0;i<100&&s.health>0;i++){threaten();advanceInfantry(f.state,f.active,f.fields,f.threats,.1,true);}
   assert.equal(s.health,0);
 });
+test('samurai trade reach and sustained damage for a focused melee sweep',()=>{
+  const samurai=infantryStats('samurai'),rifle=infantryStats('rifle');
+  assert.deepEqual({health:samurai.health,damage:samurai.damage,range:samurai.range,cooldown:samurai.cooldown,armor:samurai.armor,speed:samurai.speed},
+    {health:95,damage:18,range:2.6,cooldown:.9,armor:.2,speed:4.8});
+  assert.ok(samurai.damage/samurai.cooldown<rifle.damage/rifle.cooldown*1.8);
+  assert.equal(INFANTRY.samurai.interval,3);
+});
 test('samurai close toward nearby zombies and sweep only once within melee range',()=>{
   const f=setup('samurai');f.step(16);const s=f.state.soldiers[0];const x=s.x;
   f.threats.set(s.id,{target:0,generation:1,x:s.x-6,y:s.y,contact:0,age:0});
