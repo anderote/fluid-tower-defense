@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {ENEMIES, DEFAULT_MAP, TOWERS, barbedWireStats, compileTower, createParticles, metalWallStats, towerBehavior, validateContent} from './index.ts';
+import {ENEMIES, DEFAULT_MAP, MAX_VETERANCY, TOWERS, barbedWireStats, compileTower, createParticles, metalWallStats, towerBehavior, validateContent, veterancyLevel, veterancyMultiplier, veterancyXpForLevel} from './index.ts';
 import {P, PARTICLE_FLOATS, type Tower} from '../contracts/index.ts';
 
 test('content registry is valid and has six readable enemy roles',()=>{ validateContent(); assert.equal(Object.keys(TOWERS).length,8);assert.equal(Object.keys(ENEMIES).length,6);assert.ok(ENEMIES.rager.drive>ENEMIES.shambler.drive);assert.ok(ENEMIES.husk.pressureLimit<ENEMIES.brute.pressureLimit); });
@@ -44,10 +44,24 @@ test('tower identities use dedicated combat behaviours where required',()=>{
  assert.notEqual(towerBehavior('rocket'),towerBehavior('mortar'));
  assert.match(TOWERS.autocannon.description,/knocks them back/i);
 });
+test('veterancy compounds small rank bonuses into meaningful late-service performance',()=>{
+ const recruit=veterancyMultiplier(0), firstRank=veterancyMultiplier(1), experienced=veterancyMultiplier(50), legend=veterancyMultiplier(MAX_VETERANCY);
+ assert.equal(recruit,1);
+ assert.ok(firstRank>1&&firstRank<1.1,'one rank should be a slight improvement');
+ assert.ok(experienced>=2&&experienced<2.5,'mid-career units should more than double their base damage');
+ assert.equal(legend,5,'rank cap should reach five times base damage');
+ assert.equal(veterancyLevel(veterancyXpForLevel(10)),10);
+ assert.equal(veterancyXpForLevel(MAX_VETERANCY)/1.8/3600,100,'rank cap should require 100 hours of combat');
+ const base:Tower={id:1,kind:'autocannon',x:50,y:50,level:0,branch:-1,angle:0,cooldown:0,spent:0,veterancy:0};
+ const veteran=compileTower({...base,veterancy:MAX_VETERANCY});
+ assert.equal(veteran.damage,compileTower(base).damage*5);
+ assert.ok(1/veteran.cooldown>=2*(1/compileTower(base).cooldown),'veterans should fire at least twice as fast');
+ assert.ok(veteran.range>=3*compileTower(base).range,'veterans should gain substantial targeting reach');
+});
 test('Repulsor upgrades retain a short-range control role',()=>{
- const tower:Tower={id:1,kind:'repulsor',x:50,y:50,level:50,branch:0,angle:0,cooldown:0,spent:0,veterancy:20};
+ const tower:Tower={id:1,kind:'repulsor',x:50,y:50,level:50,branch:0,angle:0,cooldown:0,spent:0,veterancy:MAX_VETERANCY};
  const boosted=compileTower(tower,['hydraulic-advantage'],['targeting-grid','repulsor-impact-5'],[...Array(10).fill('range'),...Array(10).fill('force')]);
- assert.ok(boosted.range<40,'maximum research must not restore arena-wide Repulsor coverage');
+ assert.ok(boosted.range<100,'maximum research must keep even legendary Repulsor coverage below arena-wide range');
  assert.ok(boosted.force<50,'stacked impulse upgrades must remain bounded');
  const wave=compileTower({...tower,level:0,branch:1,veterancy:0});
  assert.ok(wave.cooldown>=1,'Wave specialization must not restore rapid pulse spam');
