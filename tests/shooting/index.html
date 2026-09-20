@@ -5,5 +5,6 @@
 <p>Every turret type uses a different facing. Firing effects must begin at the authored barrel; autocannon tracers must also remain between muzzle and target.</p>
 <label>Shot age <select id="age"><option value="0">0 ms</option><option value="0.008" selected>8 ms</option><option value="0.03">30 ms</option><option value="0.058">58 ms</option><option value="0.12">120 ms</option></select></label>
 <label>Target distance <select id="range"><option value="12">12 units</option><option value="3">3 units</option><option value="1">Inside muzzle</option></select></label>
+<label>Preview <select id="preview"><option value="mixed">All weapons</option><option value="autocannon">Autogun facings</option></select></label>
 <p id="status">Checking GPU geometry…</p><canvas></canvas>
 <script type="module" src="./runner.ts"></script></html>
