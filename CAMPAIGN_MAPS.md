@@ -63,4 +63,5 @@ https://github.com/OpenRA/OpenRA/blob/bleed/mods/ra/tilesets/temperat.yaml
 and https://github.com/OpenRA/OpenRA/blob/bleed/mods/ra/tilesets/snow.yaml .
 Artwork rights and the verified package checksum remain documented in
 `RED_ALERT_ASSETS.md`. The enlarged source atlas is 2048 square; custom Soldat
-sprites are appended beneath it in a 2048 × 3072 runtime texture.
+sprites are appended beneath it, with runtime texture height sized to include
+the current turret upgrade-frame atlas.

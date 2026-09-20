@@ -31,5 +31,5 @@ side-view rendering.
 
 Custom sprites and Red Alert sprites share the existing GPU texture pipeline.
 The custom atlas is appended below the original source image in the runtime
-texture (currently 2048 × 3072 with campaign scenery). Missing facility assets
+texture, whose height accommodates the current turret upgrade frames. Missing facility assets
 continue to fall back to the earlier geometry renderer.
