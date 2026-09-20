@@ -28,11 +28,30 @@ test('forest, snow and interior offer distinct choke layouts, not palette swaps'
   assert.ok(maps[0].scenery!.props.length>70);assert.ok(maps[1].scenery!.props.length>50);assert.ok(maps[2].scenery!.regions.some(r=>r.sprite==='grating'));
   for(const [map,points] of [[maps[0],[[40,48],[68,44],[108,48]]],[maps[1],[[40,28],[40,68],[112,52]]],[maps[2],[[38,44],[82,58],[112,42]]]] as const)for(const [x,y]of points)assert.ok(canPlace(map,[],{x,y},1.25),`${map.id} needs clear defense site ${x},${y}`);
 });
-test('Pine Valley uses original vertical road cells and junction transitions',()=>{
-  const tiles=campaignMap(1).scenery!.tiles;
-  assert.ok(tiles.filter(tile=>tile.sprite==='forest:d03'&&tile.firstFrame===1).length>=20,'vertical road cells');
-  assert.equal(tiles.filter(tile=>tile.sprite==='forest:d05').length,2,'road junction transitions');
-  assert.equal(tiles.filter(tile=>tile.sprite==='forest:d10'&&tile.firstFrame!==undefined).length,32,'horizontal road cells');
+test('outdoor roads meet matching edges without overlapping template cells',()=>{
+  // Edge connections verified against the original road artwork, in row order.
+  const ports:Record<string,string[]>={d44:['NS'],d45:['EW'],d42:['NS','','NSE','EW'],d43:['','NS','EW','NSW']};
+  const directions={N:[0,-4,'S'],S:[0,4,'N'],E:[4,0,'W'],W:[-4,0,'E']} as const;
+  for(const level of [1,2]){
+    const cells=new Map<string,string>();
+    for(const tile of campaignMap(level).scenery!.tiles){
+      const name=tile.sprite.split(':')[1];if(!name.startsWith('d'))continue;
+      assert.ok(ports[name],`unverified road template ${name}`);
+      ports[name].forEach((edges,i)=>{
+        const key=`${tile.x+i%tile.columns*4},${tile.y+Math.floor(i/tile.columns)*4}`;
+        assert.ok(!cells.has(key),`overlapping road artwork at ${key}`);cells.set(key,edges);
+      });
+    }
+    for(const [key,edges] of cells){
+      const [x,y]=key.split(',').map(Number);
+      for(const edge of edges){
+        const [dx,dy,opposite]=directions[edge as keyof typeof directions];
+        if(x+dx<0||x+dx>=160)continue;
+        if(level===1&&((y===20&&edge==='N')||(y===72&&edge==='S')))continue;
+        assert.ok(cells.get(`${x+dx},${y+dy}`)?.includes(opposite),`level ${level}: broken ${edge} road edge at ${key}`);
+      }
+    }
+  }
 });
 test('trees and rocks reject tower mounting while interior wall cells support it',()=>{
   assert.equal(terrainMounts(campaignMap(1)).length,0);assert.equal(terrainMounts(campaignMap(2)).length,0);
