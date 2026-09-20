@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
+import {DEFAULT_MAP} from '../content/index.ts';
 import {CommandProgression, createRun, WAVES_PER_LEVEL, waveFor} from './index.ts';
 
 test('cumulative settlements pay only newly reported totals',()=>{
@@ -43,6 +44,15 @@ test('placing a tower leaves the inspector closed',()=>{
   const run=createRun();
   assert.equal(run.place('repulsor',{x:84,y:50}).ok,true);
   assert.equal(run.model.selected,null);
+});
+test('player-built walls support one centered tower and preserve it in saves',()=>{
+  const mount={x:32,y:20,width:4,height:4},map={...DEFAULT_MAP,id:'wall-mount-test',obstacles:[...DEFAULT_MAP.obstacles,mount]};
+  const run=createRun(map);run.setBuildMounts([mount]);
+  const placed=run.place('repulsor',{x:34,y:22});
+  assert.ok(placed.ok&&placed.tower);assert.deepEqual({x:placed.tower.x,y:placed.tower.y},{x:34,y:22});
+  assert.equal(run.place('cryo',{x:34,y:22}).ok,false);
+  const restored=createRun(map);restored.setBuildMounts([mount]);
+  assert.equal(restored.load(run.save()).ok,true);assert.deepEqual({x:restored.model.towers[0].x,y:restored.model.towers[0].y},{x:34,y:22});
 });
 test('difficulty multiplier scales continuous zombie production and clamps to 1–40',()=>{
   const baseline=createRun(), intense=createRun();

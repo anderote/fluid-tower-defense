@@ -5,6 +5,11 @@ let version = 0;
 const inside = (map:WorldMap,x:number,y:number) => x >= 0 && y >= 0 && x < map.width && y < map.height;
 const blocked = (map:WorldMap,x:number,y:number) => map.obstacles.some(rect => x >= rect.x && x < rect.x+rect.width && y >= rect.y && y < rect.y+rect.height);
 
+export function snapToMount(position:Vec2,mounts:readonly {x:number;y:number;width:number;height:number}[]):Vec2 {
+  const mount=mounts.find(rect=>position.x>=rect.x&&position.x<rect.x+rect.width&&position.y>=rect.y&&position.y<rect.y+rect.height);
+  return mount?{x:mount.x+mount.width/2,y:mount.y+mount.height/2}:position;
+}
+
 /** A reverse breadth-first field. Distances are in cells and vectors point to the goal. */
 export function buildNavigation(map: WorldMap): NavigationField {
   const width=Math.ceil(map.width/CELL_SIZE), height=Math.ceil(map.height/CELL_SIZE), size=width*height;
