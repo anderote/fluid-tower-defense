@@ -22,9 +22,9 @@ export function restoreSessionTerrain(
 }
 
 /**
- * Give every wall cell one stable cap hardpoint. Connected pairs share one
- * additional hardpoint between them, yielding three mounts per two tiles.
- * Pairing follows the component's main axis so vertical walls mount turrets
+ * Give every wall cell one stable cap hardpoint. Every connected seam adds
+ * an additional hardpoint, yielding evenly spaced mounts along a wall run.
+ * Seam placement follows the component's main axis so vertical walls mount turrets
  * down their centreline instead of squeezing them side by side.
  */
 export function wallMountCells(walls:readonly Rect[],size=4):Rect[] {
@@ -50,19 +50,15 @@ export function wallMountCells(walls:readonly Rect[],size=4):Rect[] {
     }
     const minX=Math.min(...component.map(cell=>cell.x)),maxX=Math.max(...component.map(cell=>cell.x));
     const minY=Math.min(...component.map(cell=>cell.y)),maxY=Math.max(...component.map(cell=>cell.y));
-    const vertical=maxY-minY>maxX-minX,paired=new Set<string>();
+    const vertical=maxY-minY>maxX-minX;
     const ordered=[...component].sort((a,b)=>vertical?a.x-b.x||a.y-b.y:a.y-b.y||a.x-b.x);
     // The base mount never moves when a neighbor is added or removed.
     for(const cell of ordered)point(cell.x+size/2,cell.y+size*.3375);
     if(component.length<2)continue;
     for(const cell of ordered){
-      const cellKey=`${cell.x}:${cell.y}`;
-      if(paired.has(cellKey))continue;
       const next=vertical?cells.get(`${cell.x}:${cell.y+size}`):cells.get(`${cell.x+size}:${cell.y}`);
       if(!next)continue;
-      const nextKey=`${next.x}:${next.y}`;
-      if(paired.has(nextKey)||!component.includes(next))continue;
-      paired.add(cellKey);paired.add(nextKey);
+      if(!component.includes(next))continue;
       point(vertical?cell.x+size/2:cell.x+size,vertical?cell.y+size*.8375:cell.y+size*.3375);
     }
   }
