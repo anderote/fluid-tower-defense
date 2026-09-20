@@ -256,7 +256,7 @@ try {
    const bossFrame={dt:clock.step,tick:clock.tick,count,map:{...map,spawn:{x:50,y:35,width:32,height:30}},active:state.mode==='game'&&run.isBossWave};
    combat.encodeBefore(encoder,frame);boss.encode(encoder,bossFrame);physics.encode(encoder,frame);combat.encodeAfter(encoder,frame);boss.encodeResolve(encoder,bossFrame);
    let finish:(()=>void)|undefined;
-   if(clock.tick-lastTickSample>=6){finish=settlement.encode(encoder,gpu.shared.counters,epoch,clock.tick);if(finish)lastTickSample=clock.tick;}
+   if(clock.tick-lastTickSample>=6){finish=settlement.encode(encoder,gpu.shared.counters,gpu.shared.obstacleCounters!,gpu.shared.obstacleCapacity!,epoch,clock.tick);if(finish)lastTickSample=clock.tick;}
    gpu.device.queue.submit([encoder.finish()]);finish?.();
  }
  function frame(now:number){
