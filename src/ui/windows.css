@@ -1,4 +1,4 @@
-.game-window { max-height: calc(100dvh - 16px); overflow: auto; }
+.game-window { max-height: calc(100dvh - 16px); overflow: auto; user-select:none; -webkit-user-select:none; }
 .game-window > .window-bar { display:flex; align-items:center; gap:4px; position:sticky; top:0; z-index:2; padding:4px; margin-bottom:8px; background:#192019; border-bottom:1px solid #66714a; }
 .window-bar > button { width:auto; margin:0; min-height:28px; padding:5px 8px; color:#dfdfb3; }
 .window-bar > .window-handle { flex:1; text-align:left; font-size:11px; letter-spacing:.08em; cursor:grab; touch-action:none; border:0; }

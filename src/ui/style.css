@@ -29,6 +29,7 @@
 [hidden] { display: none !important; }
 body { margin: 0; background: var(--term-bg); }
 button, input { font: inherit; }
+button { user-select:none; -webkit-user-select:none; }
 button:focus-visible, input:focus-visible { outline: 1px solid var(--term-accent); outline-offset: 2px; }
 
 .pf { height: 100vh; height: 100dvh; overflow: hidden; display: flex; flex-direction: column; background: var(--term-bg); }
