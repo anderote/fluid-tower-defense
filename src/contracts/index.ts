@@ -6,7 +6,8 @@ export type EnemyKind = 'shambler' | 'runner' | 'brute';
 export type EffectKind = 'blast' | 'push' | 'slow' | 'shot';
 export interface Effect extends Vec2 { kind: EffectKind; radius: number; strength: number; damage: number; direction: Vec2; cone: number; duration: number; source: number }
 /** Short-lived render-only fragments. These never enter the simulation or affect gameplay. */
-export interface VisualParticle extends Vec2 { vx:number; vy:number; size:number; life:number; age:number; color:[number,number,number]; gravity:number; drag:number }
+export type VisualParticleStyle = 'spark' | 'smoke' | 'debris' | 'mist';
+export interface VisualParticle extends Vec2 { vx:number; vy:number; size:number; life:number; age:number; color:[number,number,number]; gravity:number; drag:number; style:VisualParticleStyle; spin:number }
 export interface TowerDef { id: TowerKind; name: string; description: string; cost: number; range: number; cooldown: number; damage: number; force: number; radius: number; color: string; branches: readonly [string, string] }
 export interface EnemyDef { id: EnemyKind; index: number; name: string; radius: number; mass: number; health: number; speed: number; crushTolerance: number; bounty: number; leak: number; color: string }
 export interface Tower extends Vec2 { id: number; kind: TowerKind; level: number; branch: number; angle: number; cooldown: number; spent: number; kills?:number; veterancy?:number; veterancyXp?:number }
