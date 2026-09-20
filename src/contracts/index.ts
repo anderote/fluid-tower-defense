@@ -1,7 +1,7 @@
 export type Vec2 = { x: number; y: number };
 export interface RunModel {infantry?:import('../infantry/model.ts').InfantryState}
 export interface SharedGPU {damageOwners?:GPUBuffer;bloodWalls?:GPUBuffer;bloodWallSlots?:Map<string,number>}
-export interface RenderScene {infantry?:import('../infantry/model.ts').InfantryState;selectedBarracks?:number|null}
+export interface RenderScene {infantry?:import('../infantry/model.ts').InfantryState;selectedBarracks?:number|null;selectedInfantry?:readonly number[];infantrySelectionBox?:Rect;infantryCommandTarget?:Vec2|null}
 export interface RenderScene {barracksGhost?:Vec2&{valid:boolean}}
 export type Rect = Vec2 & { width: number; height: number };
 export type Biome='forest'|'winter'|'interior';

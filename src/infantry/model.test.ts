@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {INFANTRY,infantryStats,type InfantryKind,advanceInfantry,awardInfantryKills,freshInfantry,infantryMap,infantryField,rifleStats,recruitInterval,validInfantry,type Threat} from './model.ts';
+import {INFANTRY,infantryStats,type InfantryKind,advanceInfantry,awardInfantryKills,clearForSoldier,clearInfantryPath,freshInfantry,infantryMap,infantryField,rifleStats,recruitInterval,validInfantry,type Threat} from './model.ts';
 import {createRun} from '../game/index.ts';
 import type {WorldMap} from '../contracts/index.ts';
 const map:WorldMap={id:'infantry-test',width:50,height:40,spawn:{x:0,y:10,width:3,height:20},goal:{x:47,y:20},goalRadius:2,obstacles:[]};
@@ -45,6 +45,15 @@ test('rally movement reaches the firing line and stale threats cannot fire or hu
   const f=setup();f.step(8.1);const s=f.state.soldiers[0],rally=f.state.buildings[0].rally;f.step(4);assert.ok(Math.hypot(s.x-rally.x,s.y-rally.y)<3);
   f.threats.set(s.id,{target:0,generation:7,x:s.x-2,y:s.y,contact:120,age:1});const hp=s.health;assert.equal(advanceInfantry(f.state,f.active,f.fields,f.threats,.1,true).length,0);assert.equal(s.health,hp);
   f.threats.set(s.id,{target:0,generation:7,x:s.x-2,y:s.y,contact:10,age:0});const shots=advanceInfantry(f.state,f.active,f.fields,f.threats,.1,true);assert.equal(shots[0].generation,7);assert.ok(s.health<hp);
+});
+test('move orders route infantry around walls and hold the commanded position',()=>{
+  const routeMap:WorldMap={id:'ordered-route',width:26,height:18,spawn:{x:0,y:5,width:2,height:8},goal:{x:24,y:9},goalRadius:1,obstacles:[{x:11,y:0,width:2,height:10}]};
+  const state=freshInfantry(),building={id:1,x:4.5,y:8.5,rally:{x:8.5,y:8.5},production:0,training:0,progress:0,spent:INFANTRY.rifle.cost,kind:'rifle' as const};state.buildings.push(building);state.nextId=3;
+  const soldier={id:2,home:1,kind:'rifle' as const,defense:0,quality:0,x:8.5,y:8.5,health:40,cooldown:0,angle:0,flash:0,walk:0,dead:0,moveTarget:{x:19.5,y:8.5}};state.soldiers.push(soldier);
+  const active=infantryMap(routeMap,state),fields=new Map([[1,infantryField(active,building.rally)]]),orders=new Map([[2,infantryField(active,soldier.moveTarget)]]),threats=new Map<number,Threat>();
+  assert.equal(clearInfantryPath(active,soldier,soldier.moveTarget),false);
+  for(let i=0;i<480;i++){advanceInfantry(state,active,fields,threats,1/60,true,[],orders);assert.ok(clearForSoldier(active,soldier));}
+  assert.ok(Math.hypot(soldier.x-soldier.moveTarget.x,soldier.y-soldier.moveTarget.y)<.6);assert.deepEqual(soldier.moveTarget,{x:19.5,y:8.5});
 });
 test('blocked exits retain completed recruitment without spawning inside walls',()=>{
   const f=setup();const blocked={...f.active,obstacles:[...f.active.obstacles,{x:16,y:16,width:10,height:10}]};for(let i=0;i<600;i++)advanceInfantry(f.state,blocked,f.fields,f.threats,1/60,true);assert.equal(f.state.soldiers.length,0);assert.equal(f.state.buildings[0].progress,1);
