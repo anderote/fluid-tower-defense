@@ -1,7 +1,7 @@
 import {P, PARTICLE_FLOATS, type CommandUpgrade, type EnemyDef, type EnemyKind, type SpawnBatch, type Tower, type TowerDef, type TowerKind, type WorldMap} from '../contracts/index.ts';
 
 export const TOWERS: Record<TowerKind, TowerDef> = {
-  repulsor: {id:'repulsor', name:'Repulsor', description:'Pulses enemies toward the choke walls.', cost:90, range:15, cooldown:1.05, damage:2, force:30, radius:3.4, color:'#50d5ff', branches:['Ram','Wave']},
+  repulsor: {id:'repulsor', name:'Repulsor', description:'Pulses enemies toward the choke walls.', cost:90, range:10, cooldown:1.35, damage:2, force:16, radius:2.7, color:'#50d5ff', branches:['Ram','Wave']},
   mortar: {id:'mortar', name:'Mortar', description:'Lobs a concussive shell into dense crowds.', cost:120, range:38, cooldown:2.25, damage:22, force:18, radius:4.8, color:'#ff9b55', branches:['Siege','Cluster']},
   autocannon: {id:'autocannon', name:'Autocannon', description:'Rapidly picks off runners and knocks them back.', cost:105, range:28, cooldown:.22, damage:5, force:9, radius:.8, color:'#ffe46b', branches:['Piercer','Suppressor']},
   cryo: {id:'cryo', name:'Cryo Emitter', description:'Slows and shoves a cone of incoming enemies.', cost:110, range:13, cooldown:.7, damage:1, force:6, radius:4.1, color:'#a995ff', branches:['Deep Freeze','Cold Front']},
@@ -43,12 +43,12 @@ export const veterancyLevel=(xp:number):number=>Math.min(MAX_VETERANCY,Math.floo
 export const veterancyMultiplier=(level:number):number=>1+.115*Math.log1p(Math.min(MAX_VETERANCY,Math.max(0,level)));
 
 export const ENEMIES: Record<EnemyKind, EnemyDef> = {
-  shambler: {id:'shambler',index:0,name:'Shambler',radius:.22,mass:1,health:30,speed:3.1,drive:1,pressureLimit:24,crushResistance:1,bounty:3,leak:1,color:'#76c66e'},
-  runner: {id:'runner',index:1,name:'Runner',radius:.17,mass:.65,health:18,speed:5.4,drive:1.3,pressureLimit:18,crushResistance:.7,bounty:3,leak:1,color:'#e6d45d'},
-  brute: {id:'brute',index:2,name:'Brute',radius:.34,mass:3.4,health:110,speed:2,drive:1.1,pressureLimit:46,crushResistance:2.2,bounty:8,leak:3,color:'#cf6d68'},
-  rager: {id:'rager',index:3,name:'Rager',radius:.23,mass:1.35,health:42,speed:3.6,drive:1.8,pressureLimit:28,crushResistance:1.1,bounty:5,leak:2,color:'#ef8738'},
-  softbody: {id:'softbody',index:4,name:'Softbody',radius:.30,mass:1.1,health:60,speed:2.25,drive:.8,pressureLimit:62,crushResistance:2.8,bounty:6,leak:2,color:'#a678d4'},
-  husk: {id:'husk',index:5,name:'Husk',radius:.19,mass:.85,health:34,speed:2.9,drive:1,pressureLimit:10,crushResistance:.5,bounty:4,leak:1,color:'#9edce8'},
+  shambler: {id:'shambler',index:0,name:'Shambler',radius:.22,mass:1,health:30,speed:3.1,drive:1,pressureLimit:24,crushResistance:1,bounty:1,leak:1,color:'#76c66e'},
+  runner: {id:'runner',index:1,name:'Runner',radius:.17,mass:.65,health:18,speed:5.4,drive:1.3,pressureLimit:18,crushResistance:.7,bounty:1,leak:1,color:'#e6d45d'},
+  brute: {id:'brute',index:2,name:'Brute',radius:.34,mass:3.4,health:110,speed:2,drive:1.1,pressureLimit:46,crushResistance:2.2,bounty:3,leak:3,color:'#cf6d68'},
+  rager: {id:'rager',index:3,name:'Rager',radius:.23,mass:1.35,health:42,speed:3.6,drive:1.8,pressureLimit:28,crushResistance:1.1,bounty:2,leak:2,color:'#ef8738'},
+  softbody: {id:'softbody',index:4,name:'Softbody',radius:.30,mass:1.1,health:60,speed:2.25,drive:.8,pressureLimit:62,crushResistance:2.8,bounty:2,leak:2,color:'#a678d4'},
+  husk: {id:'husk',index:5,name:'Husk',radius:.19,mass:.85,health:34,speed:2.9,drive:1,pressureLimit:10,crushResistance:.5,bounty:1,leak:1,color:'#9edce8'},
 };
 
 const wgslNumber=(value:number):string=>Number.isInteger(value)?`${value}.0`:String(value);
@@ -96,15 +96,16 @@ export function validateContent(): void {
 }
 
 /** Compiles the supported tower progression into a combat-ready definition. */
-export function compileTower(tower: Tower, bonuses: readonly string[] = [], commandUpgrades: readonly string[] = [], metaUpgrades:readonly string[]=[]): TowerDef {
+export function compileTower(tower: Tower, bonuses: readonly string[] = [], commandUpgrades: readonly string[] = [], statUpgrades:readonly string[]=[]): TowerDef {
   const base=TOWERS[tower.kind];
   let range=base.range, cooldown=base.cooldown, damage=base.damage, force=base.force, radius=base.radius;
   const level=Math.min(MAX_TOWER_LEVEL,Math.max(0,tower.level));
-  range += level * 1.25; damage *= 1 + level * .12;
+  // Repulsors remain local crowd-control tools even at high tower levels.
+  range += level * (tower.kind==='repulsor' ? .2 : 1.25); damage *= 1 + level * .12;
   const veteran=veterancyMultiplier(tower.veterancy ?? veterancyLevel(tower.veterancyXp ?? 0));
   range*=1+(veteran-1)*.55; damage*=veteran; cooldown/=1+(veteran-1)*.28;
   if (tower.branch === 0) {
-    if (tower.kind==='repulsor') { force *= 1.55; radius *= .8; range += 2; }
+    if (tower.kind==='repulsor') { force *= 1.4; radius *= .8; range += 1; }
     if (tower.kind==='mortar') { damage *= 1.6; radius *= .78; cooldown *= 1.12; }
     if (tower.kind==='autocannon') { damage *= 1.5; range *= 1.25; }
     if (tower.kind==='cryo') { range *= 1.3; radius *= 1.2; cooldown *= .85; }
@@ -114,7 +115,7 @@ export function compileTower(tower: Tower, bonuses: readonly string[] = [], comm
     if (tower.kind==='incinerator') { damage *= 1.55; radius *= .82; }
   }
   if (tower.branch === 1) {
-    if (tower.kind==='repulsor') { cooldown *= .7; radius *= 1.5; }
+    if (tower.kind==='repulsor') { cooldown *= .8; radius *= 1.3; }
     if (tower.kind==='mortar') { cooldown *= .68; radius *= 1.45; damage *= .78; }
     if (tower.kind==='autocannon') { cooldown *= .65; radius *= 2; force += 3; }
     if (tower.kind==='cryo') { range *= 1.5; radius *= 1.5; cooldown *= .85; }
@@ -136,7 +137,7 @@ export function compileTower(tower: Tower, bonuses: readonly string[] = [], comm
     for (let i=0;i<impactDamage.length;i++) if(commandUpgrades.includes(`repulsor-impact-${i+1}`)) damage+=impactDamage[i];
     if(commandUpgrades.includes('repulsor-impact-5')) force*=1.08;
   }
-  const ranks=(id:string)=>metaUpgrades.filter(upgrade=>upgrade===id).length;
+  const ranks=(id:string)=>statUpgrades.filter(upgrade=>upgrade===id).length;
   damage*=1+ranks('damage')*.04;
   range*=1+ranks('range')*.03;
   cooldown/=1+ranks('rate')*.035;

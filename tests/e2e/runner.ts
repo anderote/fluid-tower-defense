@@ -79,11 +79,14 @@ const cases:{name:string;run:()=>Promise<void>}[]=[
   assert(Math.abs(popup.top+popup.height/2-(canvas.top+canvas.height/2))<2,'Inspector is vertically detached from its tower');
   assert(popup.left>=arena.left&&popup.right<=arena.right&&popup.top>=arena.top&&popup.bottom<=arena.bottom,'Inspector escaped the arena');
  }},
- {name:'Damaged Command profiles recover and valid upgrades remain purchasable',run:async()=>{
-  await fresh();localStorage.setItem('pressure-front.command-profile.v1',JSON.stringify({version:1,xp:200,ranks:{damage:-1,rate:2.5,range:999999,force:'oops'},unlockedTier:'oops'}));await navigate();click('#research-tab');
-  assert(text('#command-xp')==='200 XP','Recovery discarded valid XP');assert(text('[data-meta="rate"]').includes('2/10'),'Valid rank was not recovered');assert(text('[data-meta="range"]').includes('10/10'),'Rank was not capped');
-  click('[data-meta="damage"]');await until(()=>text('#command-xp')==='125 XP','Recovered profile could not purchase an upgrade');
-  await navigate();click('#research-tab');assert(text('[data-meta="damage"]').includes('1/10'),'Recovered purchase did not persist');
+ {name:'Run stat upgrades spend Metal and survive reload',run:async()=>{
+  await fresh();click('#research-tab');
+  click('[data-stat="damage"]');await until(()=>text('#metal')==='1125','Stat upgrade did not spend Metal');
+  assert(text('[data-stat="damage"]').includes('1/10'),'Stat rank did not advance');
+  await until(()=>{const raw=localStorage.getItem('pressure-front.autosave.v1');return !!raw&&JSON.parse(JSON.parse(raw).runState).model.statRanks.damage===1;},'Autosave did not capture stat research');
+  await navigate();click('#research-tab');
+  assert(text('[data-stat="damage"]').includes('1/10'),'Stat upgrade did not survive reload');
+  assert(text('#metal')==='1125','Reload changed research spending');
  }},
  {name:'Keyboard shortcuts respect controls, browser modifiers, and held keys',run:async()=>{
   await fresh();const research=element('#research-tab');research.focus();

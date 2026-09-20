@@ -30,8 +30,8 @@ export function createUI(
     const t = TOWERS[id];
     return `<button data-tower="${id}"><span class="tower-shape" aria-hidden="true"></span><b>${t.name.toUpperCase()} <em></em></b><span class="cost">${t.cost}</span></button>`;
   };
-  root.innerHTML = `<main class="pf"><header><div class="brand">PRESSURE <i>FRONT</i><small>FLUID DEFENSE COMMAND</small></div><div class="hud" aria-label="Run telemetry"><div><span>METAL</span><b id="metal">000</b></div><div><span>INTEGRITY</span><b id="base">100%</b></div><div><span>LEVEL</span><b id="level">01</b></div><div><span>WAVE</span><b id="wave">00 / 10</b></div><div><span>KILLS</span><b id="kills">0000</b></div><div><span>MAX PRESSURE</span><b id="pressure">0.00</b></div><div><span>LIVE</span><b id="live">--</b></div></div><div class="status"><span class="led"></span><b id="phase">PREPARATION</b><span id="adapter">LOCAL GPU</span></div><div class="metrics"><b id="fps">-- FPS</b><b id="ms">-- MS</b></div><div class="view-actions"><button data-view="hide">HIDE UI</button><button data-view="full">FULLSCREEN</button></div></header><section class="body"><div class="arena"><canvas aria-label="Pressure Front battle arena"></canvas><div class="arena-label"><span>SECTOR 07 / CONTAINMENT GRID</span><span id="message">SYSTEM READY</span></div><p class="help" id="help">Select a tower, then place it on clear ground.</p></div><aside><div class="tabs"><button id="build-tab" class="active">BUILD</button><button id="research-tab">RESEARCH</button></div><section class="card controls"><label>SIMULATION CONTROL</label><div><button data-action="pause">PAUSE</button><button data-action="restart-wave">RESTART</button><button data-action="reset">RESET</button></div></section><section class="card extraction" id="extraction" hidden><label>EXTRACTION WINDOW</label><p>Secure the level now, or retain every defense and push into endless escalation.</p><div><button data-action="finish-run" id="finish-run">FINISH LEVEL</button><button data-action="continue-run">CONTINUE</button></div></section><section class="card tower"><label>DEFENSE BUILD ARRAY <span>1–8 SHORTCUTS</span></label><div class="defense-tools"><button data-action="wall-tool"><b>METAL WALL <em>[Q]</em></b><span class="cost">60</span></button><button data-action="wire-tool"><b>BARBED WIRE <em>[E]</em></b><span class="cost">45</span></button><button class="danger" data-action="demolish-tool"><b>DEMOLISH <em>[R]</em></b><small>WALLS + WIRE</small></button></div><div class="build-divider"><span>EMPLACEMENTS</span></div><div class="tower-grid">${(Object.keys(TOWERS) as (keyof typeof TOWERS)[]).map(tower).join("")}</div></section><section class="card bonuses" id="bonuses" hidden><label>COMMAND BOON — CHOOSE ONE</label><div id="bonus-choices"></div></section><section class="card selected"><label id="selected-name">TOWER INSPECTOR</label><div id="tower-stats" class="tower-stats">Select a deployed tower to view its combat record and upgrades.</div><div class="upgrade-buttons"><button data-upgrade="0">BRANCH A</button><button data-upgrade="1">BRANCH B</button></div><button class="danger wide" data-action="sell">SELL / RECOVER</button></section><section class="card command"><label>COMMAND XP <span id="command-xp">0 XP</span></label><div id="meta-upgrades"></div><label>LOCAL RESEARCH <span id="research-count">0 INSTALLED</span></label><div id="commands"></div></section></aside></section><footer><div class="run-summary"><span>RUN RECORD</span><b id="crush">CRUSH 000</b><b id="leaks">BREACHES 000</b><b id="earned">SALVAGE +000</b></div><div class="spacer"></div><button data-action="start-wave">START WAVE</button><button data-action="save">SAVE</button><button data-action="load">LOAD</button></footer></main>`;
-  root.insertAdjacentHTML('beforeend','<div class="reset-gate" id="reset-gate" hidden role="dialog" aria-modal="true" aria-labelledby="reset-title"><section><label id="reset-title">RESET CURRENT RUN?</label><p>This removes every placed tower, Metal Wall, and Barbed Wire. Your Command XP remains.</p><div><button data-reset-choice="cancel">CANCEL</button><button class="danger" data-reset-choice="confirm">RESET RUN</button></div></section></div>');
+  root.innerHTML = `<main class="pf"><header><div class="brand">PRESSURE <i>FRONT</i><small>FLUID DEFENSE COMMAND</small></div><div class="hud" aria-label="Run telemetry"><div><span>METAL</span><b id="metal">000</b></div><div><span>INTEGRITY</span><b id="base">100%</b></div><div><span>LEVEL</span><b id="level">01</b></div><div><span>WAVE</span><b id="wave">00 / 10</b></div><div><span>KILLS</span><b id="kills">0000</b></div><div><span>MAX PRESSURE</span><b id="pressure">0.00</b></div><div><span>LIVE</span><b id="live">--</b></div></div><div class="status"><span class="led"></span><b id="phase">PREPARATION</b><span id="adapter">LOCAL GPU</span></div><div class="metrics"><b id="fps">-- FPS</b><b id="ms">-- MS</b></div><div class="view-actions"><button data-view="hide">HIDE UI</button><button data-view="full">FULLSCREEN</button></div></header><section class="body"><div class="arena"><canvas aria-label="Pressure Front battle arena"></canvas><div class="arena-label"><span>SECTOR 07 / CONTAINMENT GRID</span><span id="message">SYSTEM READY</span></div><p class="help" id="help">Select a tower, then place it on clear ground.</p></div><aside><div class="tabs"><button id="build-tab" class="active">BUILD</button><button id="research-tab">RESEARCH</button></div><section class="card controls"><label>SIMULATION CONTROL</label><div><button data-action="pause">PAUSE</button><button data-action="restart-wave">RESTART</button><button data-action="reset">RESET</button></div></section><section class="card extraction" id="extraction" hidden><label>EXTRACTION WINDOW</label><p>Secure the level now, or retain every defense and push into endless escalation.</p><div><button data-action="finish-run" id="finish-run">FINISH LEVEL</button><button data-action="continue-run">CONTINUE</button></div></section><section class="card tower"><label>DEFENSE BUILD ARRAY <span>1–8 SHORTCUTS</span></label><div class="defense-tools"><button data-action="wall-tool"><b>METAL WALL <em>[Q]</em></b><span class="cost">60</span></button><button data-action="wire-tool"><b>BARBED WIRE <em>[E]</em></b><span class="cost">45</span></button><button class="danger" data-action="demolish-tool"><b>DEMOLISH <em>[R]</em></b><small>WALLS + WIRE</small></button></div><div class="build-divider"><span>EMPLACEMENTS</span></div><div class="tower-grid">${(Object.keys(TOWERS) as (keyof typeof TOWERS)[]).map(tower).join("")}</div></section><section class="card bonuses" id="bonuses" hidden><label>COMMAND BOON — CHOOSE ONE</label><div id="bonus-choices"></div></section><section class="card selected"><label id="selected-name">TOWER INSPECTOR</label><div id="tower-stats" class="tower-stats">Select a deployed tower to view its combat record and upgrades.</div><div class="upgrade-buttons"><button data-upgrade="0">BRANCH A</button><button data-upgrade="1">BRANCH B</button></div><button class="danger wide" data-action="sell">SELL / RECOVER</button></section><section class="card command"><label>RUN UPGRADES <span id="research-metal">0 METAL</span></label><p class="research-help">Unlocks and upgrades use Metal and last for this run.</p><div id="stat-upgrades"></div><label>LOCAL RESEARCH <span id="research-count">0 INSTALLED</span></label><div id="commands"></div></section></aside></section><footer><div class="run-summary"><span>RUN RECORD</span><b id="crush">CRUSH 000</b><b id="leaks">BREACHES 000</b><b id="earned">SALVAGE +000</b></div><div class="spacer"></div><button data-action="start-wave">START WAVE</button><button data-action="save">SAVE</button><button data-action="load">LOAD</button></footer></main>`;
+  root.insertAdjacentHTML('beforeend','<div class="reset-gate" id="reset-gate" hidden role="dialog" aria-modal="true" aria-labelledby="reset-title"><section><label id="reset-title">RESET CURRENT RUN?</label><p>This removes every placed tower, Metal Wall, Barbed Wire, weapon unlock, and research upgrade in this run.</p><div><button data-reset-choice="cancel">CANCEL</button><button class="danger" data-reset-choice="confirm">RESET RUN</button></div></section></div>');
   const canvas = root.querySelector("canvas")!,
     shell = root.querySelector<HTMLElement>(".pf")!,
     arena = root.querySelector<HTMLElement>(".arena")!,
@@ -98,10 +98,10 @@ export function createUI(
       return;
     }
     const t = s.selected,
-      metaUpgrades = s.metaUpgrades.flatMap((upgrade) => Array(upgrade.rank).fill(upgrade.id)),
-      d = compileTower(t, [], s.commandUpgrades, metaUpgrades),
+      statUpgrades = s.statUpgrades.flatMap((upgrade) => Array(upgrade.rank).fill(upgrade.id)),
+      d = compileTower(t, s.bonuses, s.commandUpgrades, statUpgrades),
       preview = hoveredUpgrade !== null && t.level < MAX_TOWER_LEVEL
-        ? compileTower({...t, level:t.level + 1, branch:t.branch < 0 ? hoveredUpgrade : t.branch}, [], s.commandUpgrades, metaUpgrades)
+        ? compileTower({...t, level:t.level + 1, branch:t.branch < 0 ? hoveredUpgrade : t.branch}, s.bonuses, s.commandUpgrades, statUpgrades)
         : undefined,
       rank = t.veterancy ?? veterancyLevel(t.veterancyXp ?? 0),
       xp = t.veterancyXp ?? 0,
@@ -156,7 +156,7 @@ export function createUI(
     if (action === "reset") { $("#reset-gate").hidden = false; return; }
     const resetChoice=button.dataset.resetChoice;
     if(resetChoice){$("#reset-gate").hidden=true;if(resetChoice==='confirm')onAction({type:'reset'});return;}
-    if (action === "new-game" && !window.confirm("Start a new game? This permanently clears the current run, autosave, custom level, Command XP, and all upgrades.")) return;
+    if (action === "new-game" && !window.confirm("Start a new game? This permanently clears the current run, autosave, custom level, and all run upgrades.")) return;
     if (action)
       onAction({
         type: action as
@@ -187,8 +187,8 @@ export function createUI(
       onAction({ type: "upgrade", branch: +button.dataset.upgrade });
     if (button.dataset.command)
       onAction({ type: "buy-command", id: button.dataset.command });
-    if (button.dataset.meta)
-      onAction({ type: "buy-meta", id: button.dataset.meta });
+    if (button.dataset.stat)
+      onAction({ type: "buy-stat", id: button.dataset.stat });
     if (button.dataset.bonus)
       onAction({ type: "bonus", id: button.dataset.bonus });
   });
@@ -209,8 +209,7 @@ export function createUI(
     canvas,
     update(s: UIState) {
       latestState = s;
-      const locked = s.phase === "settling" || s.phase === "combat",
-        chosen = s.selected ? TOWERS[s.selected.kind] : undefined,
+      const chosen = s.selected ? TOWERS[s.selected.kind] : undefined,
         upgrade = 45 + (s.selected?.level ?? 0) * 35;
       $("#phase").textContent = s.phase === "checkpoint" ? "EXTRACTION READY" : s.phase.toUpperCase();
       $("#adapter").textContent = s.adapter;
@@ -232,18 +231,18 @@ export function createUI(
       $("#earned").textContent = `SALVAGE +${s.earned.toLocaleString()}`;
       $("#research-count").textContent =
         `${s.commandUpgrades.length} INSTALLED`;
-      $("#command-xp").textContent = `${s.commandXp} XP`;
+      $("#research-metal").textContent = `${s.metal.toLocaleString()} METAL`;
       difficulty.querySelector<HTMLInputElement>("input")!.value = String(s.difficulty);
       difficulty.querySelector("b")!.textContent = `${s.difficulty}×`;
       streamWidth.querySelector<HTMLInputElement>("input")!.value = String(s.streamWidth);
       streamWidth.querySelector("b")!.textContent = String(s.streamWidth);
-      $("#meta-upgrades").innerHTML = s.metaUpgrades
+      renderMarkup($("#stat-upgrades"), s.statUpgrades
         .map((upgrade) => {
           const cost = Math.round(upgrade.cost * (1 + upgrade.rank * 0.55));
           const maxed = upgrade.rank >= upgrade.maxRank;
-          return `<button data-meta="${upgrade.id}" ${maxed || s.commandXp < cost ? "disabled" : ""}><b>${upgrade.name.toUpperCase()} · ${upgrade.rank}/${upgrade.maxRank}</b><span class="cost">${maxed ? "MAX" : `${cost} XP`}</span><small>${upgrade.description}</small></button>`;
+          return `<button data-stat="${upgrade.id}" ${maxed || s.phase==="won" || s.phase==="lost" || s.metal < cost ? "disabled" : ""}><b>${upgrade.name.toUpperCase()} · ${upgrade.rank}/${upgrade.maxRank}</b><span class="cost">${maxed ? "MAX" : `${cost} METAL`}</span><small>${upgrade.description}</small></button>`;
         })
-        .join("");
+        .join(""));
       $("#selected-name").textContent = chosen
         ? `${chosen.name.toUpperCase()} / LV ${s.selected!.level}`
         : "TOWER INSPECTOR";
@@ -256,7 +255,8 @@ export function createUI(
             lockedTower=unlock&&!unlock.unlocked;
           button.classList.toggle("active",kind===s.selectedKind);
           button.classList.toggle("locked",!!lockedTower);
-          if(lockedTower){button.dataset.unlock=kind;button.querySelector("em")!.textContent="LOCKED";button.querySelector(".cost")!.textContent=`UNLOCK ${unlock.cost.toLocaleString()} XP`;}
+          button.disabled=s.phase==="won"||s.phase==="lost"||s.metal<(lockedTower?unlock.cost:TOWERS[kind].cost);
+          if(lockedTower){button.dataset.unlock=kind;button.querySelector("em")!.textContent="LOCKED";button.querySelector(".cost")!.textContent=`UNLOCK ${unlock.cost.toLocaleString()} METAL`;}
           else{delete button.dataset.unlock;button.querySelector("em")!.textContent=`[${index+1}]`;button.querySelector(".cost")!.textContent=`${TOWERS[kind].cost} METAL`;}
         });
       root.querySelectorAll("[data-upgrade]").forEach((element, index) => {
@@ -298,11 +298,11 @@ export function createUI(
         .join(""));
       const extraction=$("#extraction");
       extraction.hidden=s.phase!=="checkpoint";
-      $("#finish-run").textContent=`FINISH · +${s.extractionXp} XP`;
-      $("#commands").innerHTML = COMMAND_UPGRADES.map(
+      $("#finish-run").textContent="FINISH RUN";
+      renderMarkup($("#commands"), COMMAND_UPGRADES.map(
         (research) =>
-          `<button data-command="${research.id}" ${locked || s.commandUpgrades.includes(research.id) || s.metal < research.cost ? "disabled" : ""}><b>${s.commandUpgrades.includes(research.id) ? "INSTALLED · " : ""}${research.name.toUpperCase()}</b><span class="cost">${research.cost} METAL</span><small>${research.description}</small></button>`,
-      ).join("");
+          `<button data-command="${research.id}" ${!commandUpgradeAvailability({phase:s.phase,metal:s.metal,commandUpgrades:s.commandUpgrades},research.id).ok ? "disabled" : ""}><b>${s.commandUpgrades.includes(research.id) ? "INSTALLED · " : ""}${research.name.toUpperCase()}</b><span class="cost">${research.cost} METAL</span><small>${research.description}</small></button>`,
+      ).join(""));
       setPanel(research);
     },
     destroy() {

@@ -57,7 +57,7 @@ test('corrupt saves reject atomically without changing the current run, map, or 
   const {run,defense,storage,data}=fixture();
   saveDefense(storage,CHECKPOINT_KEY,run,defense);
   const good=JSON.parse(data.get(CHECKPOINT_KEY)!);
-  const target=createRun();target.place('mortar',{x:80,y:42});
+  const target=createRun();target.place('autocannon',{x:80,y:42});
   const before=target.serialize(),epoch=target.epoch;
   const cases=[
     {...good,version:2}, {...good,difficulty:41}, {...good,spawnBaseline:{x:-1,y:2,width:5,height:5}},

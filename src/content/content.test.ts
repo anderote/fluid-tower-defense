@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {ENEMIES, DEFAULT_MAP, TOWERS, compileTower, createParticles, towerBehavior, validateContent} from './index.ts';
-import {P, PARTICLE_FLOATS} from '../contracts/index.ts';
+import {P, PARTICLE_FLOATS, type Tower} from '../contracts/index.ts';
 
 test('content registry is valid and has six readable enemy roles',()=>{ validateContent(); assert.equal(Object.keys(TOWERS).length,8);assert.equal(Object.keys(ENEMIES).length,6);assert.ok(ENEMIES.rager.drive>ENEMIES.shambler.drive);assert.ok(ENEMIES.husk.pressureLimit<ENEMIES.brute.pressureLimit); });
 test('particle generator reports its actual populated prefix and keeps bodies apart',()=>{
@@ -37,4 +37,13 @@ test('tower identities use dedicated combat behaviours where required',()=>{
  assert.equal(towerBehavior('incinerator'),14);
  assert.notEqual(towerBehavior('rocket'),towerBehavior('mortar'));
  assert.match(TOWERS.autocannon.description,/knocks them back/i);
+});
+test('Repulsor upgrades retain a short-range control role',()=>{
+ const tower:Tower={id:1,kind:'repulsor',x:50,y:50,level:50,branch:0,angle:0,cooldown:0,spent:0,veterancy:20};
+ const boosted=compileTower(tower,['hydraulic-advantage'],['targeting-grid','repulsor-impact-5'],[...Array(10).fill('range'),...Array(10).fill('force')]);
+ assert.ok(boosted.range<40,'maximum research must not restore arena-wide Repulsor coverage');
+ assert.ok(boosted.force<50,'stacked impulse upgrades must remain bounded');
+ const wave=compileTower({...tower,level:0,branch:1,veterancy:0});
+ assert.ok(wave.cooldown>=1,'Wave specialization must not restore rapid pulse spam');
+ assert.ok(wave.radius<4,'Wave specialization must keep a limited cone');
 });
