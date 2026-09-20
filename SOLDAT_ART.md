@@ -30,6 +30,6 @@ side-view rendering.
 - `/tests/art/scene.html`: the prior original Red Alert reference room.
 
 Custom sprites and Red Alert sprites share the existing GPU texture pipeline.
-The custom atlas occupies the lower half of a 2048-square runtime texture;
-the original source image is retained in the upper-left. Missing facility assets
+The custom atlas is appended below the original source image in the runtime
+texture (currently 2048 × 3072 with campaign scenery). Missing facility assets
 continue to fall back to the earlier geometry renderer.

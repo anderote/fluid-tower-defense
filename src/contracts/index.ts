@@ -1,6 +1,8 @@
 export type Vec2 = { x: number; y: number };
 export type Rect = Vec2 & { width: number; height: number };
-export interface WorldMap { id: string; width: number; height: number; obstacles: Rect[]; spawn: Rect; goal: Vec2; goalRadius: number }
+export type Biome='forest'|'winter'|'interior';
+export interface MapScenery { biome:Biome; title:string; briefing:string; solids:Rect[]; mounts:Rect[]; tiles:(Vec2&{sprite:string;columns:number;rows:number})[]; props:(Vec2&{sprite:string})[]; regions:(Rect&{sprite:string})[] }
+export interface WorldMap { id: string; width: number; height: number; obstacles: Rect[]; spawn: Rect; goal: Vec2; goalRadius: number; scenery?:MapScenery }
 export type TowerKind = 'repulsor' | 'mortar' | 'autocannon' | 'cryo' | 'tesla' | 'rocket' | 'railgun' | 'incinerator';
 export type EnemyKind = 'shambler' | 'runner' | 'brute' | 'rager' | 'softbody' | 'husk';
 export type EffectKind = 'blast' | 'push' | 'slow' | 'shot';
@@ -46,7 +48,7 @@ export interface BonusChoice { id:string; name:string; description:string }
 export interface CommandUpgrade { id:string; name:string; description:string; cost:number; requires?:string }
 export interface StatUpgrade {id:string;name:string;description:string;cost:number;rank:number;maxRank:number}
 export interface TowerUnlock {kind:TowerKind;cost:number;unlocked:boolean}
-export interface UIState { mode:'lab'|'game'; phase:'preparation'|'combat'|'settling'|'checkpoint'|'won'|'lost'; paused:boolean; fps:number; frameMs:number; population:number; capacity:number; kills:number; crushKills:number; leaks:number; earned:number; maxPressure:number; metal:number; baseHealth:number; level:number; wave:number; waveCount:number; difficulty:number; streamWidth:number; selected:Tower|null; upgradeTarget:Tower|null; selectedKind:TowerKind|null; buildTool:'wall'|'wire'|'demolish'|null; upgradeMode:boolean; heatmap:boolean; tool:'blast'|'push'|'inspect'; message:string; adapter:string; bonusChoices:readonly BonusChoice[]; bonuses:readonly string[]; commandUpgrades:readonly string[]; statUpgrades:readonly StatUpgrade[]; towerUnlocks:readonly TowerUnlock[]; boss?:Settlement['boss']; bossHealth?:number; }
+export interface UIState { mapTitle?:string;nextMapTitle?:string;mode:'lab'|'game'; phase:'preparation'|'combat'|'settling'|'checkpoint'|'won'|'lost'; paused:boolean; fps:number; frameMs:number; population:number; capacity:number; kills:number; crushKills:number; leaks:number; earned:number; maxPressure:number; metal:number; baseHealth:number; level:number; wave:number; waveCount:number; difficulty:number; streamWidth:number; selected:Tower|null; upgradeTarget:Tower|null; selectedKind:TowerKind|null; buildTool:'wall'|'wire'|'demolish'|null; upgradeMode:boolean; heatmap:boolean; tool:'blast'|'push'|'inspect'; message:string; adapter:string; bonusChoices:readonly BonusChoice[]; bonuses:readonly string[]; commandUpgrades:readonly string[]; statUpgrades:readonly StatUpgrade[]; towerUnlocks:readonly TowerUnlock[]; boss?:Settlement['boss']; bossHealth?:number; }
 export interface GameUI { canvas:HTMLCanvasElement; update(state:UIState):void; destroy():void }
 export type SpawnBand = 'full' | 'upper' | 'center' | 'lower' | 'inlet';
 export interface SpawnBatch { count:number; kind:EnemyKind; seed:number; start?:number; rate?:number; burst?:number; band?:SpawnBand; healthScale?:number; credit?:number }
