@@ -25,7 +25,7 @@ export async function createAftermathEvents(device:GPUDevice,shared:SharedGPU,re
   const snapshots=device.createBuffer({label:'Combat visual snapshots',size:shared.capacity*64,usage:GPUBufferUsage.STORAGE});
   const shader=device.createShaderModule({label:'Capture combat aftermath',code:`${PARTICLE_WGSL}${TESLA_STATE_WGSL}${AFTERMATH_WGSL}${BLOOD_WALL_WGSL}
 struct Params {clock:vec4f,goal:vec4f,damage:vec4f,reserved:vec4f};
-struct Tower {position:vec4f,weapon:vec4f,flags:vec4f};
+struct Tower {position:vec4f,weapon:vec4f,flags:vec4f,order:vec4f};
 struct Shot {timing:vec4f,shot:vec4f,flags:vec4f};
 struct Effect {position:vec4f,direction:vec4f,extra:vec4f};
 struct Snapshot {before:vec4f,velocity:vec4f,hit:vec4f,shape:vec4f};

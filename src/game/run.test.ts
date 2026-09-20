@@ -112,6 +112,20 @@ test('moving a tower does not charge for invalid locations',()=>{
   assert.equal(run.move(first.tower.id,{x:80,y:42}).ok,false);
   assert.equal(run.model.metal,before);
 });
+test('ground focus orders validate range, persist, clear, and reset on redeployment',()=>{
+  const run=createRun(),placed=run.place('repulsor',{x:84,y:50});
+  assert.ok(placed.ok&&placed.tower);
+  assert.equal(run.setGroundTarget(placed.tower.id,{x:90,y:50}).ok,true);
+  assert.deepEqual(placed.tower.groundTarget,{x:90,y:50});
+  assert.equal(run.setGroundTarget(placed.tower.id,{x:100,y:50}).ok,false);
+  assert.deepEqual(placed.tower.groundTarget,{x:90,y:50});
+  const restored=createRun();assert.equal(restored.load(run.save()).ok,true);
+  assert.deepEqual(restored.model.towers[0].groundTarget,{x:90,y:50});
+  assert.equal(restored.setGroundTarget(placed.tower.id,null).ok,true);
+  assert.equal(restored.model.towers[0].groundTarget,undefined);
+  assert.equal(run.move(placed.tower.id,{x:80,y:42}).ok,true);
+  assert.equal(placed.tower.groundTarget,undefined);
+});
 test('linked player-built walls support three turrets per pair and preserve them in saves',()=>{
   const walls=[{x:32,y:20,width:4,height:4},{x:32,y:24,width:4,height:4}],mounts=wallMountCells(walls),map={...DEFAULT_MAP,id:'wall-mount-test',obstacles:[...DEFAULT_MAP.obstacles,...walls]};
   const run=createRun(map);run.setBuildMounts(mounts);
