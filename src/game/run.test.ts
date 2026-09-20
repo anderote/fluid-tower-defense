@@ -120,11 +120,20 @@ test('ten waves unlock extraction while endless continuation retains the defense
   const restored=createRun(); assert.equal(restored.load(run.save()).ok,true);
 });
 
-test('wave director uses overlapping timed bands and introduces every enemy by wave ten',()=>{
+test('wave director uses a shared continuous inlet and introduces every enemy by wave ten',()=>{
   const kinds=new Set(Array.from({length:10},(_,index)=>waveFor(1,index+1).spawns).flat().map(batch=>batch.kind));
   assert.deepEqual([...kinds].sort(),['brute','husk','rager','runner','shambler','softbody']);
-  const mixed=waveFor(1,9);assert.ok(mixed.spawns.some(batch=>(batch.start??0)>0));assert.ok(new Set(mixed.spawns.map(batch=>batch.band)).size>1);
+  const mixed=waveFor(1,9);assert.ok(mixed.spawns.every(batch=>(batch.start??0)===0));assert.ok(mixed.spawns.every(batch=>batch.band==='inlet'));
   assert.ok(waveFor(1,30).healthScale>waveFor(1,10).healthScale);
+});
+
+test('wave director sustains dense overlapping streams rather than isolated bursts',()=>{
+  const wave=waveFor(1,10);
+  assert.ok(wave.total>waveFor(1,1).total);
+  assert.ok(wave.spawns.some(batch=>(batch.burst??Infinity)<=10));
+  for(let second=4;second<=18;second+=2){
+    assert.ok(wave.spawns.some(batch=>{const start=batch.start??0, end=start+batch.count/(batch.rate??1);return start<=second&&end>=second;}),`expected an active stream at ${second}s`);
+  }
 });
 
 test('extracting after the checkpoint ends the run and returns a milestone payout',()=>{
