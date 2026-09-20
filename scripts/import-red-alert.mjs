@@ -7,9 +7,11 @@ import {inflateRawSync,deflateSync} from 'node:zlib';
 import {resolve} from 'node:path';
 
 const EXPECTED='aa022b208a3b45b4a45c00fdae22ccf3c6de3e5c';
-const archive=await readFile(process.argv[2]??'artifacts/red-alert/ra-base.zip');
+const arguments_=process.argv.slice(2).filter(argument=>argument!=='--infantry');
+const archive=await readFile(arguments_[0]??'artifacts/red-alert/ra-base.zip');
 if(createHash('sha1').update(archive).digest('hex')!==EXPECTED)throw Error('Not the verified OpenRA ra-base.zip package');
-const output=resolve(process.argv[3]??'public/assets/red-alert');
+const infantryOnly=process.argv.includes('--infantry');
+const output=resolve(arguments_[1]??(infantryOnly?'public/assets/red-alert/infantry':'public/assets/red-alert'));
 await mkdir(output,{recursive:true});
 function zipFile(name){
   for(let p=0;p<archive.length-46;p++)if(archive.readUInt32LE(p)===0x02014b50){
@@ -95,6 +97,18 @@ function shp(data){
 const palette=asset('interior.pal');
 const sprites={},images=[];
 function add(name,frames,colors=palette){sprites[name]=frames.map((frame,index)=>{const id=images.length;images.push({...frame,name,index,colors});return id;});}
+if(infantryOnly){
+  // Standing (8), alternate stance (8), running (6 × 8), firing (8/16 × 8), collapse (8).
+  // Frame indices follow OpenRA/mods/ra/sequences/infantry.yaml.
+  const colors=Buffer.from(asset('temperat.pal'));
+  // Allied olive-gold remap range; preserve the original shaded cloth ramp.
+  const team=[[63,61,38],[60,57,30],[56,53,24],[51,49,20],[46,45,17],[41,41,15],[36,37,13],[32,33,11],[28,29,10],[24,25,9],[21,22,8],[18,19,7],[15,16,6],[12,13,5],[9,10,4],[6,7,3]];
+  team.forEach((rgb,i)=>rgb.forEach((value,c)=>colors[(80+i)*3+c]=value));
+  for(const [name,file,count,death] of [['rifle','e1',128,288],['rocket','e3',128,304],['flame','e4',192,416]]){
+    const all=shp(asset(`${file}.shp`));
+    add(name,[...all.slice(0,count),...all.slice(death,death+8)],colors);
+  }
+}else{
 add('floor',tiles(asset('flor0001.int')));
 for(let i=1;i<=49;i++)add(`wall${i}`,tiles(asset(`wall${String(i).padStart(4,'0')}.int`)));
 for(const name of ['gun','tsla','ftur','sam','fenc','barb'])add(name,shp(asset(`${name}.shp`)));
@@ -112,8 +126,9 @@ for(const [biome,extension,pal] of [['forest','tem','temperat.pal'],['winter','s
 }
 // OpenRA's die6 uses the original 14-frame temperate electrocution sprite.
 add('electro',shp(asset('electro.tem')),asset('temperat.pal'));
+}
 // Every frame retains its original canvas and pivot; transparent margins matter.
-const size=3072,rgba=Buffer.alloc(size*size*4);let x=0,y=0,row=0;
+const size=infantryOnly?2048:3072,rgba=Buffer.alloc(size*size*4);let x=0,y=0,row=0;
 const frames=images.map(im=>{
   if(x+im.width+2>size){x=0;y+=row+2;row=0;}if(y+im.height+2>size)throw Error('Atlas overflow');
   const entry={x:x+1,y:y+1,width:im.width,height:im.height};
@@ -130,5 +145,5 @@ function chunk(type,data){const tag=Buffer.from(type),body=Buffer.concat([tag,da
 const header=Buffer.alloc(13);header.writeUInt32BE(size);header.writeUInt32BE(size,4);header[8]=8;header[9]=6;
 const scanlines=Buffer.alloc(size*(size*4+1));for(let row=0;row<size;row++)rgba.copy(scanlines,row*(size*4+1)+1,row*size*4,(row+1)*size*4);
 await writeFile(resolve(output,'atlas.png'),Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]),chunk('IHDR',header),chunk('IDAT',deflateSync(scanlines)),chunk('IEND',Buffer.alloc(0))]));
-await writeFile(resolve(output,'atlas.json'),JSON.stringify({size,frames,sprites,source:{package:'OpenRA ra-base.zip',sha1:EXPECTED,palette:'interior.pal (electro: temperat.pal)',copyright:'Original Red Alert artwork © Electronic Arts. Not covered by OpenRA GPL.',notice:'https://www.openra.net/legal/'}},null,2)+'\n');
+await writeFile(resolve(output,'atlas.json'),JSON.stringify({size,frames,sprites,source:{package:'OpenRA ra-base.zip',sha1:EXPECTED,palette:infantryOnly?'temperat.pal with olive-gold player remap':'interior.pal (electro: temperat.pal)',copyright:'Original Red Alert artwork © Electronic Arts. Not covered by OpenRA GPL.',notice:'https://www.openra.net/legal/'}},null,2)+'\n');
 console.log(`Imported ${frames.length} original frames to ${output}`);

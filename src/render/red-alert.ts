@@ -1,7 +1,6 @@
 import type {Rect,RenderScene,TowerKind} from '../contracts/index.ts';
 import {createSoldatAtlas,soldatFacing,soldatSpriteKey,SOLDAT_WORLD_SIZE} from './soldat-art.ts';
 import {wireTiles,wireDamage,type WireArtStyle} from './wire-art.ts';
-import {infantryFrame} from './infantry-animation.ts';
 export type TurretArtStyle='soldat'|'red-alert';
 export type FloorArtStyle='panels'|'grating';
 export const floorSprites=(sprites:Record<string,number[]>,style:FloorArtStyle='panels')=>style==='grating'&&sprites.grating?.length?sprites.grating:sprites.floor;
@@ -108,12 +107,6 @@ struct Out{@builtin(position) pos:vec4<f32>,@location(0) uv:vec2<f32>,@location(
         if(b.kind!=='dog'&&(b.kind??'rifle')!=='rifle')continue;
         const id=atlas.sprites[b.kind==='dog'?'kenn':'tent'][0],f=atlas.frames[id];
         sprite(friendly,id,b.x-f.width/12,b.y+2-f.height/6,f.width/6,f.height/6);
-      }
-      for(const s of scene.infantry?.soldiers??[]){
-        if(s.kind==='samurai')continue;
-        const animation=infantryFrame(s,scene.time),id=atlas.sprites[animation.sprite][animation.frame];if(id===undefined)continue;
-        const f=atlas.frames[id],scale=1/6;
-        sprite(friendly,id,s.x-f.width*scale/2,s.y-f.height*scale*.75,f.width*scale,f.height*scale,[1,1,1,s.health<=0?Math.max(0,1-s.dead/3):1]);
       }
     }
     upload(infantryBatch,friendly);
