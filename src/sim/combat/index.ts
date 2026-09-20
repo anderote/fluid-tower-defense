@@ -34,6 +34,12 @@ struct Boss { motion:vec4f, body:vec4f, mode:vec4f, flags:vec4f };
 @group(0) @binding(7) var<storage,read_write> heat:array<Heat>;
 @group(0) @binding(8) var<storage,read_write> owners:array<atomic<u32>>;
 fn safeDir(delta:vec2f)->vec2f { return delta/max(length(delta),0.0001); }
+fn blastFalloff(distance:f32,radius:f32)->f32 {
+ let safeRadius=max(radius,.0001);if(distance>=safeRadius){return 0.;}
+ let coreRadius=safeRadius*.2;let inverseRadius=coreRadius/max(coreRadius,distance);
+ let edgeTaper=1.-smoothstep(.8,1.,distance/safeRadius);
+ return inverseRadius*edgeTaper;
+}
 `;
   const shader=device.createShaderModule({label:'Combat compute',code:preamble+`
 @compute @workgroup_size(64) fn acquire(@builtin(global_invocation_id) gid:vec3u){
@@ -65,14 +71,14 @@ fn safeDir(delta:vec2f)->vec2f { return delta/max(length(delta),0.0001); }
   if(kind==2u){let rail=def.flags.w>.5;let forward=vec2f(cos(s.shot.w),sin(s.shot.w));if(rail){let offset=p.pos.xy-def.position.xy;let along=dot(offset,forward);let across=abs(offset.x*forward.y-offset.y*forward.x);if(along>=0.&&along<=def.position.z&&across<=1.05){let fall=max(.35,1.-along/max(def.position.z,.001));let kick=forward*def.weapon.z*fall/max(.1,p.body.y);p.body.z-=def.weapon.y*fall;atomicStore(&owners[i],t+1u);p.pos.z=p.pos.z+kick.x;p.pos.w=p.pos.w+kick.y;}}else if(s.shot.y>=0&&u32(s.shot.y)==i&&s.shot.z==p.status.w){let kick=forward*def.weapon.z/max(.1,p.body.y);p.body.z-=def.weapon.y;atomicStore(&owners[i],t+1u);p.pos.z=p.pos.z+kick.x;p.pos.w=p.pos.w+kick.y;p.status.x=max(p.status.x,select(.18,.55,def.flags.y==1));}continue;}
   if(kind==13u){let primary=s.shot.y>=0&&u32(s.shot.y)==i&&s.shot.z==p.status.w;let chainDistance=distance(p.pos.xy,s.timing.zw);let random=fract(sin(f32(i)*12.9898+f32(t)*78.233+params.clock.y*4.37)*43758.5453);let chained=!primary&&chainDistance<=def.weapon.w*1.35&&random<.075;if(primary||chained){let power=select(.52,1.,primary);p.body.z-=def.weapon.y*power;atomicStore(&owners[i],t+1u);p.status.y=max(p.status.y,.8);p.status.x=max(p.status.x,.32);}continue;}
   if(kind==14u){let delta=p.pos.xy-def.position.xy;let dist=length(delta);let forward=vec2f(cos(s.shot.w),sin(s.shot.w));if(dist<=def.position.z&&dot(safeDir(delta),forward)>=cos(clamp(def.weapon.w*.18,.25,1.35))){let fall=max(.2,1.-dist/max(def.position.z,.001));heat[i].burn=vec2f(max(heat[i].burn.x,1.5),max(heat[i].burn.y,def.weapon.y*fall));atomicStore(&owners[i],t+1u);}continue;}
-  if(kind==12u){let side=vec2f(-sin(s.shot.w),cos(s.shot.w));let spread=def.weapon.w*.48;let blastRadius=def.weapon.w*.55;var best=0.;var blastDirection=vec2f(0.);for(var salvo=0u;salvo<3u;salvo++){let center=s.timing.zw+side*(f32(salvo)-1.)*spread;let delta=p.pos.xy-center;let dist=length(delta);let fall=max(0.,1.-dist/max(blastRadius,.001));if(fall>best){best=fall;blastDirection=safeDir(delta);}}if(best>0.){p.body.z-=def.weapon.y*max(.16,best);atomicStore(&owners[i],t+1u);let kick=blastDirection*def.weapon.z*best/max(.1,p.body.y);p.pos.z+=kick.x;p.pos.w+=kick.y;}continue;}
+  if(kind==12u){let side=vec2f(-sin(s.shot.w),cos(s.shot.w));let spread=def.weapon.w*.48;let blastRadius=def.weapon.w*.55;var best=0.;var blastDirection=vec2f(0.);for(var salvo=0u;salvo<3u;salvo++){let center=s.timing.zw+side*(f32(salvo)-1.)*spread;let delta=p.pos.xy-center;let dist=length(delta);let fall=blastFalloff(dist,blastRadius);if(fall>best){best=fall;blastDirection=safeDir(delta);}}if(best>0.){p.body.z-=def.weapon.y*best;atomicStore(&owners[i],t+1u);let kick=blastDirection*def.weapon.z*best/max(.1,p.body.y);p.pos.z+=kick.x;p.pos.w+=kick.y;}continue;}
   var origin=def.position.xy;var rad=def.position.z;
   if(kind==1u){origin=s.timing.zw;rad=def.weapon.w;}
   let delta=p.pos.xy-origin;let dist=length(delta);if(dist>rad){continue;}
   let forward=vec2f(cos(s.shot.w),sin(s.shot.w));
   let coneCos=cos(clamp(def.weapon.w*.18,.25,1.35));
   if(kind!=1u&&dot(safeDir(delta),forward)<coneCos){continue;}
-  let falloff=max(.12,1.0-dist/max(rad,.001));
+  let falloff=select(max(.12,1.0-dist/max(rad,.001)),blastFalloff(dist,rad),kind==1u);
   p.body.z-=def.weapon.y*falloff;
   atomicStore(&owners[i],t+1u);
   if(kind==3u){let kick=forward*def.weapon.z*falloff/max(.1,p.body.y);p.status.x=max(p.status.x,2.2);p.status.y=max(p.status.y,1.6);p.pos.z=p.pos.z+kick.x;p.pos.w=p.pos.w+kick.y;}else{
@@ -82,7 +88,8 @@ fn safeDir(delta:vec2f)->vec2f { return delta/max(length(delta),0.0001); }
  for(var e=0u;e<u32(params.damage.z);e++){
   let f=effects[e];let delta=p.pos.xy-f.position.xy;let dist=length(delta);if(dist>f.position.z){continue;}
   if(f.extra.x==1.0&&f.direction.z>0&&dot(safeDir(delta),f.direction.xy)<cos(f.direction.z*.5)){continue;}
-  p.body.z-=f.position.w*max(0.0,1.0-dist/max(.001,f.position.z));
+  let effectFalloff=select(max(0.0,1.0-dist/max(.001,f.position.z)),blastFalloff(dist,f.position.z),f.extra.x==0.0);
+  p.body.z-=f.position.w*effectFalloff;
   if(f.extra.x==2.0){p.status.x=max(p.status.x,max(.1,f.extra.w));p.status.y=max(p.status.y,1.6);}
  }
  particles[i]=p;
@@ -99,9 +106,11 @@ fn safeDir(delta:vec2f)->vec2f { return delta/max(length(delta),0.0001); }
  for(var t=0u;t<u32(params.clock.w);t++){
   let s=states[t];if(s.shot.x<.5){continue;}let def=towers[t];let kind=u32(def.position.w);
   if(kind==2u){if(s.shot.y<0&&s.shot.z==b.flags.x){b.body.z-=def.weapon.y*vulnerable;}continue;}
-  let targetedBlast=kind==1u||kind==12u;let origin=select(def.position.xy,s.timing.zw,targetedBlast);let rad=select(def.position.z,def.weapon.w,targetedBlast);let delta=b.motion.xy-origin;let dist=max(0.0,length(delta)-b.body.x);if(dist>rad){continue;}
+  if(kind==12u){let side=vec2f(-sin(s.shot.w),cos(s.shot.w));let spread=def.weapon.w*.48;let blastRadius=def.weapon.w*.55;var best=0.;for(var salvo=0u;salvo<3u;salvo++){let center=s.timing.zw+side*(f32(salvo)-1.)*spread;let dist=max(0.,length(b.motion.xy-center)-b.body.x);best=max(best,blastFalloff(dist,blastRadius));}if(best>0.){b.body.z-=def.weapon.y*best*vulnerable;}continue;}
+  let targetedBlast=kind==1u;let origin=select(def.position.xy,s.timing.zw,targetedBlast);let rad=select(def.position.z,def.weapon.w,targetedBlast);let delta=b.motion.xy-origin;let dist=max(0.0,length(delta)-b.body.x);if(dist>rad){continue;}
   let forward=vec2f(cos(s.shot.w),sin(s.shot.w));if(kind!=1u&&dot(safeDir(delta),forward)<cos(clamp(def.weapon.w*.18,.25,1.35))){continue;}
-  b.body.z-=def.weapon.y*max(.25,1.0-dist/max(rad,.001))*vulnerable;
+  let falloff=select(max(.25,1.0-dist/max(rad,.001)),blastFalloff(dist,rad),targetedBlast);
+  b.body.z-=def.weapon.y*falloff*vulnerable;
   if(kind==3u){b.flags.w=max(b.flags.w,1.0);}
  }
  boss[0]=b;
