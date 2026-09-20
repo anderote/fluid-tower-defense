@@ -44,6 +44,14 @@ test('placing a tower leaves the inspector closed',()=>{
   assert.equal(run.place('repulsor',{x:84,y:50}).ok,true);
   assert.equal(run.model.selected,null);
 });
+test('restarting a wave restores its enemy queue and base while retaining defenses',()=>{
+  const run=createRun();const placed=run.place('repulsor',{x:84,y:50});assert.ok(placed.ok);
+  assert.equal(run.startWave().ok,true);run.takeSpawns(50);
+  run.applySettlement({epoch:run.epoch,tick:1,kills:0,crushKills:0,leaks:3,earned:0,live:47,invalid:0,maxPacking:0});
+  const previousEpoch=run.epoch;assert.equal(run.restartWave().ok,true);
+  assert.equal(run.model.phase,'combat');assert.equal(run.model.baseHealth,20);assert.equal(run.model.towers.length,1);
+  assert.equal(run.model.pending.reduce((sum,batch)=>sum+batch.count,0),waveFor(1,1).spawns.reduce((sum,batch)=>sum+batch.count,0));assert.equal(run.epoch,previousEpoch+1);
+});
 test('difficulty multiplier scales continuous zombie production and clamps to 1–40',()=>{
   const baseline=createRun(), intense=createRun();
   baseline.startWave(); intense.startWave();

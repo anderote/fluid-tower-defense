@@ -41,7 +41,7 @@ try {
  const selectedInspector=ui.canvas.parentElement!.querySelector<HTMLElement>('.selected-popup')!;
  const clock=new FixedClock(), metrics=new FrameMetrics();
  let map=DEFAULT_MAP, navigation=buildNavigation(map), spawnBaseline=DEFAULT_MAP.spawn;
- let epoch=run.epoch,count=0,spawnSlot=0, requestedPopulation=Math.min(50000,Math.max(1,Number(params.get('population'))||10000)), stepRequested=false;
+ let epoch=run.epoch,count=0,spawnSlot=0, requestedPopulation=Math.min(50000,Math.max(1,Number(params.get('population'))||10000));
  let wallTool=false;
  let builtWalls:Rect[]=[];
  let wireTool=false;
@@ -60,7 +60,7 @@ try {
  const editor=createLevelEditor(root.querySelector<HTMLElement>('.view-actions')!,map,newMap=>{
    map=newMap;spawnBaseline=newMap.spawn;resizeSpawn();navigation=buildNavigation(map);run.setMap(map);state.mode='game';resetWorld();previousPaused=false;
    state.message='Custom level ready. Build your defense, then start a wave.';
- },active=>{if(active){previousPaused=state.paused;state.paused=true;state.selectedKind=null;stepRequested=false;state.message='Paint walls on the arena. Right-drag erases. Apply & Play starts a fresh defense.';}else{state.paused=previousPaused;}});
+ },active=>{if(active){previousPaused=state.paused;state.paused=true;state.selectedKind=null;state.message='Paint walls on the arena. Right-drag erases. Apply & Play starts a fresh defense.';}else{state.paused=previousPaused;}});
 
  const settlement=new SettlementReader(gpu.device,s=>{
    if(s.epoch!==epoch)return;
@@ -92,7 +92,13 @@ try {
    switch(action.type){
      case 'mode':state.mode=action.mode;resetWorld();break;
      case 'pause':state.paused=!state.paused;break;
-     case 'step':state.paused=true;stepRequested=true;break;
+     case 'restart-wave':{
+       const result=run.restartWave();actionResult(result,'Wave restarted. Defenses remain in position.');if(!result.ok)break;
+       epoch=run.epoch;count=0;spawnSlot=0;commands=[];visuals=[];visualParticles=[];state.population=0;state.kills=state.crushKills=state.leaks=state.earned=state.maxPressure=0;
+       latest={epoch,tick:clock.tick,kills:0,crushKills:0,leaks:0,earned:0,live:0,invalid:0,maxPacking:0};
+       gpu.device.queue.writeBuffer(gpu.shared.counters,0,new Uint32Array(COUNTER_WORDS));physics.reset();combat.reset();boss.reset(run.isBossWave);waveStartTick=clock.tick+1;lastTickSample=clock.tick;state.paused=false;state.selectedKind=null;
+       break;
+     }
      case 'reset':resetWorld();break;
      case 'heatmap':state.heatmap=action.value;break;
      case 'population':if(state.mode==='lab'){requestedPopulation=action.value;resetWorld();}break;
@@ -188,7 +194,7 @@ try {
    const bossFrame={dt:clock.step,tick:clock.tick,count,map:{...map,spawn:{x:50,y:35,width:32,height:30}},active:state.mode==='game'&&run.isBossWave};
    combat.encodeBefore(encoder,frame);boss.encode(encoder,bossFrame);physics.encode(encoder,frame);combat.encodeAfter(encoder,frame);boss.encodeResolve(encoder,bossFrame);
    let finish:(()=>void)|undefined;
-   if(clock.tick-lastTickSample>=6||stepRequested){finish=settlement.encode(encoder,gpu.shared.counters,epoch,clock.tick);if(finish)lastTickSample=clock.tick;}
+   if(clock.tick-lastTickSample>=6){finish=settlement.encode(encoder,gpu.shared.counters,epoch,clock.tick);if(finish)lastTickSample=clock.tick;}
    gpu.device.queue.submit([encoder.finish()]);finish?.();
  }
  function frame(now:number){
@@ -197,8 +203,8 @@ try {
      const elapsed=(now-previous)/1000;previous=now;metrics.push(elapsed*1000);
      const active=state.mode==='lab'||run.model.phase==='combat'||run.model.phase==='settling';
      if(!editor.active&&panKeys.size){const speed=52*elapsed;renderer.pan((panKeys.has('d')?speed:0)-(panKeys.has('a')?speed:0),(panKeys.has('s')?speed:0)-(panKeys.has('w')?speed:0));}
-     const steps=editor.active?0:stepRequested?1:clock.advance(elapsed,state.paused||!active);
-     for(let i=0;i<steps;i++)tick();stepRequested=false;
+     const steps=editor.active?0:clock.advance(elapsed,state.paused||!active);
+     for(let i=0;i<steps;i++)tick();
      if(!state.paused){for(const effect of visuals)effect.duration-=elapsed;visuals=visuals.filter(e=>e.duration>0);for(const particle of visualParticles)particle.age+=elapsed;visualParticles=visualParticles.filter(particle=>particle.age<particle.life);}
      const encoder=gpu.device.createCommandEncoder({label:'Present'});
      const ghost=state.mode==='game'&&state.selectedKind&&pointer?{...pointer,kind:state.selectedKind,range:compileTower({id:0,kind:state.selectedKind,x:pointer.x,y:pointer.y,level:0,branch:-1,angle:0,cooldown:0,spent:0},run.model.bonuses,run.model.commandUpgrades,progression.ranks()).range,valid:canPlace(map,run.model.towers,pointer,1.25)&&run.model.phase!=='won'&&run.model.phase!=='lost'}:undefined;
