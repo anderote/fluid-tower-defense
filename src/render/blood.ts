@@ -24,7 +24,7 @@ export async function createBloodRenderer(device:GPUDevice,format:GPUTextureForm
  // Analytic ballistic motion: no per-droplet CPU state or frame-dependent integration.
  fn trajectory(e:Remnant,j:u32)->vec4f{
   let seed=e.life.y+f32(j)*13.7;let explosive=e.force.w==1.;
-  let angle=atan2(e.force.y,e.force.x)+(hash(seed)-.5)*select(1.8,6.283185,explosive);
+  let angle=select(0.,atan2(e.force.y,e.force.x),length(e.force.xy)>.001)+(hash(seed)-.5)*select(1.8,6.283185,explosive);
   let speed=select(2.5,7.,explosive)+hash(seed+1.)*select(4.,8.,explosive);
   let flight=.35+hash(seed+2.)*.55;return vec4f(vec2f(cos(angle),sin(angle))*speed*flight,flight,.5+hash(seed+3.)*2.);
  }
@@ -52,7 +52,7 @@ export async function createBloodRenderer(device:GPUDevice,format:GPUTextureForm
  @compute @workgroup_size(64) fn accumulate(@builtin(global_invocation_id) gid:vec3u){
   let i=gid.x;if(i>=${total}u){return;}let e=eventAt(i);let age=camera.time.x-e.life.x;
   if(e.life.w<.5||age<0.||age>3.){return;}
-  var previous=seen[i];let fresh=previous.x!=e.life.y||previous.y!=e.life.x;if(fresh){previous=vec4f(e.life.y,e.life.x,0,0);}
+  var previous=seen[i];let fresh=previous.w==0.||previous.x!=e.life.y||previous.y!=e.life.x;if(fresh){previous=vec4f(e.life.y,e.life.x,0,0);}
   var mask=u32(previous.z);
   if((mask&4096u)==0u){
    if(i<${CORPSE_CAPACITY}u){for(var y=-3;y<=3;y++){for(var x=-3;x<=3;x++){let offset=vec2f(f32(x),f32(y));if(length(offset)<3.2){deposit(e.body.xy+offset*e.body.z*.5,u32(65.-length(offset)*12.));}}}}
@@ -64,7 +64,7 @@ export async function createBloodRenderer(device:GPUDevice,format:GPUTextureForm
    deposit(p,select(5u,20u,i<${CORPSE_CAPACITY}u));
    if(hit.y>=0.){atomicAdd(&walls.items[u32(hit.y)].splashes[u32(hit.z)],1u);}
    mask|=1u<<j;
-  }seen[i]=vec4f(e.life.y,e.life.x,f32(mask),0);
+  }seen[i]=vec4f(e.life.y,e.life.x,f32(mask),1);
  }
  `;
  const compute=device.createShaderModule({code:common});

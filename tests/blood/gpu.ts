@@ -34,9 +34,10 @@ try{
  assert(kills.reduce((a,b)=>a+b,0)===700,'all 700 wall crush assists count despite the 512-event visual cap');
  render(2);const first=new Uint32Array(await read(blood.storage.cells,0,blood.storage.cells.size));
  assert(first.some((v,i)=>i%2===0&&v>0),'GPU droplets deposit persistent pools');
- assert(new Uint32Array(await read(shared.bloodWalls!,48,16)).reduce((a,b)=>a+b,0)>5600,'wall impacts accumulate additional GPU blood splashes');
+ const splashCounts=new Uint32Array(await read(shared.bloodWalls!,48,16));assert(splashCounts.reduce((a,b)=>a+b,0)>5600,'wall impacts accumulate additional GPU blood splashes even with zero-direction pressure deaths');
  render(2.1);const second=new Uint32Array(await read(blood.storage.cells,0,blood.storage.cells.size));
  assert(first.every((v,i)=>i%2===1||v===second[i]),'repeated render frames do not duplicate landed droplets');
+ events.reset();render(2.15);const retained=new Uint32Array(await read(blood.storage.cells,0,blood.storage.cells.size));assert(second.every((v,i)=>i%2===1||v===retained[i]),'blood pools survive event-ring clearing between waves');
  scene.map={...scene.map,obstacles:[]};scene.walls=[];render(2.2);
  assert(new Uint32Array(await read(shared.bloodWalls!,64,16))[0]===0,'demolished walls stop colliding with droplets');
  assert(new Uint32Array(await read(shared.bloodWalls!,32,16))[0]===700,'demolition preserves wall blood history');
