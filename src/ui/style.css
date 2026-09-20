@@ -121,6 +121,11 @@ button small { margin-top: 5px; color: var(--term-faint); font-size: 8px; line-h
 [data-tower="rocket"] .tower-shape { background: #ff5f48; clip-path: polygon(50% 0, 100% 100%, 50% 75%, 0 100%); }
 
 .controls > div, .selected > div { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+.music-actions { display: grid; grid-template-columns: 1.7fr 1fr 1fr; gap: 5px; }
+.soundtrack p { min-height: 2.8em; margin: 8px 0; overflow: hidden; color: var(--term-muted); font-size: 8px; line-height: 1.4; text-overflow: ellipsis; }
+.soundtrack p.error { color: var(--term-error); }
+.music-volume { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 10px; margin: 0; color: var(--term-faint); font-size: 8px; }
+.music-volume input { width: 100%; accent-color: var(--term-accent); }
 .selected .upgrade-buttons { grid-template-columns: 1fr 1fr; margin-top: 8px; }
 .tower-stats { display: block !important; padding: 9px; border: 1px solid var(--term-border); background: var(--term-field); color: var(--term-muted); font-size: 8px; line-height: 1.5; }
 .tower-stats div { display: block; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--term-border); }
