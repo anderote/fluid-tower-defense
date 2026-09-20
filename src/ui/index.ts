@@ -85,11 +85,12 @@ export function createUI(
   headerActions.className = "header-actions";
   telemetry.append($(".hud"), difficulty, streamWidth, $(".status"), $(".metrics"));
   $(".simulation-controls [data-action=\"pause\"]").remove();
+  // Preserve the wave control before replacing the header, then dock it by the build tools.
+  const waveButton = $<HTMLButtonElement>(".start-wave-top");
   headerStack.append(telemetry, $(".simulation-controls"));
   headerActions.append($(".view-actions"));
   header.replaceChildren($(".brand"), headerStack, headerActions);
-  const waveButton = $<HTMLButtonElement>(".start-wave-top"),
-    buildDock = root.querySelector<HTMLElement>("aside")!;
+  const buildDock = root.querySelector<HTMLElement>("aside")!;
   waveButton.classList.add("wave-control");
   buildDock.insertBefore(waveButton, buildDock.firstChild);
   root
