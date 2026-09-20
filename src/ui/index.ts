@@ -32,7 +32,7 @@ export function createUI(
     const t = TOWERS[id];
     return `<button data-tower="${id}"><span class="tower-shape" aria-hidden="true"></span><b>${t.name.toUpperCase()} <em></em></b><span class="cost">${t.cost}</span></button>`;
   };
-  root.innerHTML = `<main class="pf"><header><div class="brand">PRESSURE <i>FRONT</i><small>FLUID DEFENSE COMMAND</small></div><div class="hud" aria-label="Run telemetry"><div><span>METAL</span><b id="metal">000</b></div><div><span>INTEGRITY</span><b id="base">100%</b></div><div><span>LEVEL</span><b id="level">01</b></div><div><span>WAVE</span><b id="wave">00 / 10</b></div><div><span>KILLS</span><b id="kills">0000</b></div><div><span>MAX PRESSURE</span><b id="pressure">0 kPa</b></div><div><span>LIVE</span><b id="live">--</b></div></div><div class="status"><span class="led"></span><b id="phase">PREPARATION</b><span id="adapter">LOCAL GPU</span></div><div class="metrics"><b id="fps">-- FPS</b><b id="ms">-- MS</b></div><div class="view-actions"><button data-view="hide">HIDE UI</button><button data-view="full">FULLSCREEN</button></div></header><section class="body"><div class="arena"><canvas aria-label="Pressure Front battle arena"></canvas><div class="arena-label"><span>SECTOR 07 / CONTAINMENT GRID</span><span id="message">SYSTEM READY</span></div><p class="help" id="help">Select a tower, then place it on clear ground.</p></div><aside><div class="tabs"><button id="build-tab" class="active">BUILD</button><button id="research-tab">RESEARCH</button></div><section class="card controls"><label>SIMULATION CONTROL</label><div><button data-action="pause">PAUSE</button><button data-action="restart-wave">RESTART</button><button data-action="reset">RESET</button></div></section><section class="card extraction" id="extraction" hidden><label>EXTRACTION WINDOW</label><p>Secure the level now, or retain every defense and push into endless escalation.</p><div><button data-action="finish-run" id="finish-run">FINISH LEVEL</button><button data-action="continue-run">CONTINUE</button></div></section><section class="card tower"><label>DEFENSE BUILD ARRAY <span>1–8 SHORTCUTS</span></label><div class="defense-tools"><button data-action="wall-tool"><b>METAL WALL <em>[Q]</em></b><small>${formatPressure(BASE_WALL_PRESSURE_RESISTANCE)} STRUCTURAL YIELD</small><span class="cost">60</span></button><button data-action="wire-tool"><b>BARBED WIRE <em>[E]</em></b><small>7.0 kPa BREACH RATING</small><span class="cost">45</span></button><button class="danger" data-action="demolish-tool"><b>DEMOLISH <em>[R]</em></b><small>WALLS + WIRE</small></button></div><div class="build-divider"><span>EMPLACEMENTS</span></div><div class="tower-grid">${(Object.keys(TOWERS) as (keyof typeof TOWERS)[]).map(tower).join("")}</div></section><section class="card bonuses" id="bonuses" hidden><label>COMMAND BOON — CHOOSE ONE</label><div id="bonus-choices"></div></section><section class="card selected"><label id="selected-name">TOWER INSPECTOR</label><div id="tower-stats" class="tower-stats">Select a deployed tower to view its combat record and upgrades.</div><div class="upgrade-buttons"><button data-upgrade="0">BRANCH A</button><button data-upgrade="1">BRANCH B</button></div><button class="danger wide" data-action="sell">SELL / RECOVER</button></section><section class="card command"><label>RUN UPGRADES <span id="research-metal">0 METAL</span></label><p class="research-help">Unlocks and upgrades use Metal and last for this run.</p><div id="stat-upgrades"></div><label>LOCAL RESEARCH <span id="research-count">0 INSTALLED</span></label><div id="commands"></div></section></aside></section><footer><div class="run-summary"><span>RUN RECORD</span><b id="crush">CRUSH 000</b><b id="leaks">BREACHES 000</b><b id="earned">SALVAGE +000</b></div><div class="spacer"></div><button data-action="start-wave">START WAVE</button><button data-action="save">SAVE</button><button data-action="load">LOAD</button></footer></main>`;
+  root.innerHTML = `<main class="pf"><header><div class="brand">PRESSURE <i>FRONT</i><small>FLUID DEFENSE COMMAND</small></div><div class="hud" aria-label="Run telemetry"><div><span>METAL</span><b id="metal">000</b></div><div><span>INTEGRITY</span><b id="base">100%</b></div><div><span>LEVEL</span><b id="level">01</b></div><div><span>WAVE</span><b id="wave">00 / 10</b></div><div><span>KILLS</span><b id="kills">0000</b></div><div><span>MAX PRESSURE</span><b id="pressure">0 kPa</b></div><div><span>LIVE</span><b id="live">--</b></div></div><div class="status"><span class="led"></span><b id="phase">PREPARATION</b><span id="adapter">LOCAL GPU</span></div><div class="metrics"><b id="fps">-- FPS</b><b id="ms">-- MS</b></div><div class="view-actions"><button class="view-menu-toggle" aria-label="More options" aria-expanded="false" aria-controls="view-menu">···</button><div id="view-menu" class="view-menu" hidden><button data-view="hide">HIDE UI</button><button data-view="full">FULLSCREEN</button></div></div><button class="start-wave-top" data-action="start-wave">START WAVE</button></header><section class="body"><div class="arena"><canvas aria-label="Pressure Front battle arena"></canvas><div class="arena-label"><span>SECTOR 07 / CONTAINMENT GRID</span><span id="message">SYSTEM READY</span></div><p class="help" id="help">Select a tower, then place it on clear ground.</p></div><aside><div class="tabs"><button id="build-tab" class="active">BUILD</button><button id="research-tab">RESEARCH</button></div><section class="card controls"><label>SIMULATION CONTROL</label><div><button data-action="pause">PAUSE</button><button data-action="restart-wave">RESTART</button><button data-action="reset">RESET</button></div></section><section class="card extraction" id="extraction" hidden><label>EXTRACTION WINDOW</label><p>Secure the level now, or retain every defense and push into endless escalation.</p><div><button data-action="finish-run" id="finish-run">FINISH LEVEL</button><button data-action="continue-run">CONTINUE</button></div></section><section class="card tower"><label>DEFENSE BUILD ARRAY <span>1–8 SHORTCUTS</span></label><div class="defense-tools"><button data-action="wall-tool"><b>METAL WALL <em>[Q]</em></b><small>${formatPressure(BASE_WALL_PRESSURE_RESISTANCE)} STRUCTURAL YIELD</small><span class="cost">60</span></button><button data-action="wire-tool"><b>BARBED WIRE <em>[E]</em></b><small>7.0 kPa BREACH RATING</small><span class="cost">45</span></button><button class="danger" data-action="demolish-tool"><b>DEMOLISH <em>[R]</em></b><small>WALLS + WIRE</small></button></div><div class="build-divider"><span>EMPLACEMENTS</span></div><div class="tower-grid">${(Object.keys(TOWERS) as (keyof typeof TOWERS)[]).map(tower).join("")}</div></section><section class="card bonuses" id="bonuses" hidden><label>COMMAND BOON — CHOOSE ONE</label><div id="bonus-choices"></div></section><section class="card selected"><label id="selected-name">TOWER INSPECTOR</label><div id="tower-stats" class="tower-stats">Select a deployed tower to view its combat record and upgrades.</div><div class="upgrade-buttons"><button data-upgrade="0">BRANCH A</button><button data-upgrade="1">BRANCH B</button></div><button class="danger wide" data-action="sell">SELL / RECOVER</button></section><section class="card command"><label>RUN UPGRADES <span id="research-metal">0 METAL</span></label><p class="research-help">Unlocks and upgrades use Metal and last for this run.</p><div id="stat-upgrades"></div><label>LOCAL RESEARCH <span id="research-count">0 INSTALLED</span></label><div id="commands"></div></section></aside></section><footer><div class="run-summary"><span>RUN RECORD</span><b id="crush">CRUSH 000</b><b id="leaks">BREACHES 000</b><b id="earned">SALVAGE +000</b></div><div class="spacer"></div><button data-action="save">SAVE</button><button data-action="load">LOAD</button></footer></main>`;
   root.insertAdjacentHTML('beforeend','<div class="reset-gate" id="reset-gate" hidden role="dialog" aria-modal="true" aria-labelledby="reset-title"><section><label id="reset-title">RESET CURRENT RUN?</label><p>This removes every placed tower, Metal Wall, Barbed Wire, weapon unlock, and research upgrade in this run.</p><div><button data-reset-choice="cancel">CANCEL</button><button class="danger" data-reset-choice="confirm">RESET RUN</button></div></section></div>');
   const canvas = root.querySelector("canvas")!,
     shell = root.querySelector<HTMLElement>(".pf")!,
@@ -40,6 +40,8 @@ export function createUI(
     selectedCard = root.querySelector<HTMLElement>(".selected")!,
     $ = <T extends HTMLElement = HTMLElement>(s: string) =>
       root.querySelector<T>(s)!;
+  // Required between-wave choices must precede the scrollable build inventory.
+  root.querySelector("aside")!.insertBefore($("#bonuses"), $(".controls"));
   arena.append(selectedCard);
   selectedCard.classList.add("selected-popup");
   const difficulty = document.createElement("label");
@@ -73,15 +75,32 @@ export function createUI(
         (button.querySelector("em")!.textContent = `[${index + 1}]`),
     );
   root.querySelector<HTMLElement>("footer")!.hidden = true;
-  const actions = root.querySelector(".view-actions")!;
-  for (const [action, label] of [
-    ["start-wave", "START WAVE"],
-  ] as const) {
-    const button = document.createElement("button");
-    button.dataset.action = action;
-    button.textContent = label;
-    actions.prepend(button);
-  }
+  const menuToggle = $<HTMLButtonElement>(".view-menu-toggle");
+  const menu = $("#view-menu");
+  const closeMenu = (restoreFocus = false) => {
+    menu.hidden = true;
+    menuToggle.setAttribute("aria-expanded", "false");
+    if (restoreFocus) menuToggle.focus();
+  };
+  menuToggle.addEventListener("click", () => {
+    menu.hidden = !menu.hidden;
+    menuToggle.setAttribute("aria-expanded", String(!menu.hidden));
+  });
+  menu.addEventListener("click", event => {
+    if ((event.target as HTMLElement).closest("button")) closeMenu(true);
+  });
+  root.addEventListener("pointerdown", event => {
+    if (!(event.target instanceof Node) || !menu.contains(event.target) && !menuToggle.contains(event.target)) closeMenu();
+  });
+  root.addEventListener("focusout", event => {
+    if (event.relatedTarget instanceof Node && !menu.contains(event.relatedTarget) && !menuToggle.contains(event.relatedTarget)) closeMenu();
+  });
+  root.addEventListener("keydown", event => {
+    if (event.key === "Escape" && !menu.hidden) {
+      event.preventDefault();
+      closeMenu(true);
+    }
+  });
   const buildTab = $<HTMLButtonElement>("#build-tab"),
     researchTab = $<HTMLButtonElement>("#research-tab");
   let research = false;
@@ -143,7 +162,7 @@ export function createUI(
     if (button.dataset.view === "hide") {
       const hidden = shell.classList.toggle("controls-hidden");
       root.querySelector<HTMLElement>("aside")!.hidden = hidden;
-      root.querySelector<HTMLElement>("footer")!.hidden = hidden;
+      root.querySelector<HTMLElement>("footer")!.hidden = true;
       root.querySelector<HTMLElement>(".body")!.style.gridTemplateColumns =
         hidden ? "1fr" : "";
       button.textContent = hidden ? "SHOW UI" : "HIDE UI";
@@ -219,9 +238,23 @@ export function createUI(
       $("#ms").textContent = `${s.frameMs.toFixed(1)} MS`;
       $("#message").textContent = s.message || "SYSTEM READY";
       $("#live").textContent = s.population.toLocaleString();
-      $("#help").textContent = s.bonusChoices.length
-        ? "Choose a command boon before deploying the next wave."
-        : "Build during preparation. Click a deployed tower to inspect its combat record and upgrades.";
+      const waveControl = s.mode === "lab"
+        ? {label: "LAB MODE", reason: "Lab mode runs continuously and has no waves."}
+        : s.phase === "preparation"
+          ? s.bonusChoices.length
+            ? {label: "CHOOSE BOON", reason: "Choose a command boon at the top of the sidebar to unlock the next wave."}
+            : {label: "START WAVE", reason: ""}
+          : s.phase === "checkpoint"
+            ? {label: "EXTRACTION READY", reason: "Choose Continue in the sidebar to prepare the next wave, or Finish Run to extract."}
+            : s.phase === "won"
+              ? {label: "RUN COMPLETE", reason: "Run complete. Use Reset in the Build controls to begin another defense."}
+              : s.phase === "lost"
+                ? {label: "BASE LOST", reason: "The base was lost. Use Restart in the Build controls to retry with your defenses."}
+                : s.paused
+                  ? {label: "WAVE PAUSED", reason: "This wave is paused. Use Resume in the Build controls or press Space to continue."}
+                  : {label: "WAVE ACTIVE", reason: "A wave is already running. Clear the remaining horde before starting the next wave."};
+      $("#help").textContent = waveControl.reason ||
+        "Build during preparation. Click a deployed tower to inspect its combat record and upgrades.";
       $("#metal").textContent = String(s.metal).padStart(3, "0");
       $("#base").textContent = `${s.baseHealth}%`;
       $("#level").textContent = String(s.level).padStart(2, "0");
@@ -289,11 +322,12 @@ export function createUI(
         !chosen;
       root
         .querySelectorAll<HTMLButtonElement>('[data-action="start-wave"]')
-        .forEach(
-          (button) =>
-            (button.disabled =
-              s.phase !== "preparation" || s.bonusChoices.length > 0),
-        );
+        .forEach(button => {
+          button.disabled = !!waveControl.reason;
+          button.textContent = waveControl.label;
+          button.title = waveControl.reason || "Start the next wave.";
+          button.setAttribute("aria-describedby", "help");
+        });
       const bonusCard = $("#bonuses");
       bonusCard.hidden = !s.bonusChoices.length;
       renderMarkup($("#bonus-choices"), s.bonusChoices

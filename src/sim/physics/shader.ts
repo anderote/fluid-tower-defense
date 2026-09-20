@@ -211,8 +211,11 @@ fn effectImpulse(position: vec2<f32>, mass: f32) -> vec2<f32> {
     if (distance >= radius) { continue; }
     let falloff = 1.0 - distance / radius;
     if (kind == 0u) {
+      let coreRadius = radius * 0.2;
+      let inverseRadius = coreRadius / max(coreRadius, distance);
+      let edgeTaper = 1.0 - smoothstep(0.8, 1.0, distance / radius);
       let direction = offset / max(distance, 0.02);
-      impulse += direction * effect.data.x * falloff * falloff / mass;
+      impulse += direction * effect.data.x * inverseRadius * edgeTaper / mass;
     } else {
       let directionLength = length(effect.data.zw);
       if (directionLength <= 0.0001) { continue; }
