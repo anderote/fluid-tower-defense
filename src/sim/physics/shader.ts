@@ -32,7 +32,6 @@ struct Params {
   substepCount: u32,
   _pad0: u32,
   _pad1: u32,
-  _pad2: u32,
 }
 
 struct Obstacle { rect: vec4<f32> }
