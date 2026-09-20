@@ -150,18 +150,38 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
     }
   };
   const wireShape=(a:V[],wire:{x:number;y:number;width:number;height:number},c:[number,number,number,number],integrity:number,broken=false)=>{
-    const damage=1-integrity, span=Math.max(.35,wire.height-.6);
-    for(let x=wire.x+.3;x<wire.x+wire.width;x+=.55){
-      const seed=Math.floor((x-wire.x)*10)+Math.floor(wire.y*7), missing=broken||damage>.58&&seed%3===0;
-      if(!missing){
-        const lean=.3+(damage*.34)*(seed%2?1:-1), sag=damage*.38*(seed%3-1);
-        streak(a,x,wire.y+.3,lean,1,span*.5,.07,[c[0],c[1],c[2],c[3]]);
-        streak(a,x+lean*.5+sag,wire.y+wire.height*.5,-lean,-1,span*.5,.06,[c[0]*.7,c[1]*.7,c[2]*.7,c[3]*.82]);
-      } else if(!broken) {
-        // Bent, loose ends communicate that this section is nearly spent.
-        streak(a,x,wire.y+.35,.7,.25,.62,.08,[.12,.07,.035,.85]);
-        streak(a,x+.18,wire.y+wire.height-.35,-.7,-.25,.62,.08,[.12,.07,.035,.85]);
-      }
+    const damage=1-integrity,left=wire.x+.42,right=wire.x+wire.width-.42,top=wire.y+.48,bottom=wire.y+wire.height-.42,mid=wire.y+wire.height*.52;
+    const dark:[number,number,number,number]=[c[0]*.25,c[1]*.27,c[2]*.28,c[3]*.9],shadow:[number,number,number,number]=[.015,.012,.01,.28*c[3]];
+    rect(a,wire.x+.14,bottom-.02,wire.width-.28,.3,shadow);
+    // Heavy end stakes anchor the silhouette and make adjacent cells join cleanly.
+    for(const x of [left,right]){
+      streak(a,x,bottom,damage*(x===left ? .18 : -.18),1,wire.height-.72,.12,dark);
+      streak(a,x-.16,bottom+.12,x===left?-.72:.72,.34,.7,.11,dark);
+      disc(a,x,top,.14,[Math.min(1,c[0]*1.18),Math.min(1,c[1]*1.18),Math.min(1,c[2]*1.18),c[3]],6);
+    }
+    if(broken){
+      streak(a,wire.x+wire.width*.43,mid-.3,1,.16,wire.width*.34,.095,dark);
+      streak(a,wire.x+wire.width*.57,mid+.35,-1,-.18,wire.width*.34,.095,dark);
+      for(const [index,x] of [wire.x+1.05,wire.x+wire.width-1.05].entries())ring(a,x,mid+(index ? .18 : -.16),.58,[c[0],c[1],c[2],c[3]*.78],.1);
+      return;
+    }
+    // Two twisted rails sag as integrity falls.
+    for(const [index,y] of [wire.y+1.18,wire.y+2.78].entries()){
+      const sag=damage*(index?-.34:.28);
+      streak(a,right,y+sag,1,sag*.22,right-left,.085,index?dark:c);
+      streak(a,right,y+.12+sag,1,-sag*.18,right-left,.035,[Math.min(1,c[0]*1.35),Math.min(1,c[1]*1.35),Math.min(1,c[2]*1.35),c[3]*.62]);
+    }
+    // Overlapping concertina loops read clearly as barbed wire at gameplay scale.
+    const loops=Math.max(3,Math.round(wire.width/.92));
+    for(let i=0;i<loops;i++){
+      const x=left+(right-left)*(i+.5)/loops,y=mid+Math.sin(i*2.1)*damage*.18,missing=damage>.62&&i%3===1;
+      if(missing){streak(a,x+.24,y+.15,.72,.26,.58,.07,[.18,.065,.018,.72]);continue;}
+      ring(a,x,y,.61-damage*.08,[c[0],c[1],c[2],c[3]*(i%2 ? .72 : .9)],.075);
+    }
+    // Paired diagonal barbs catch the light without turning into a solid hatch.
+    for(let i=0;i<6;i++){
+      const x=left+.28+i*(right-left-.56)/5,y=i%2?wire.y+2.72:wire.y+1.18,flip=i%2?1:-1;
+      streak(a,x,y,.55,flip,.34,.055,c);streak(a,x,y,-.55,flip,.34,.055,c);
     }
   };
   function geometry(scene:RenderScene): Float32Array { const a:V[]=[];
@@ -190,7 +210,7 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
     }
     for(const wire of scene.wires??[]){
       const integrity=Math.max(.03,Math.min(1,wire.health/wire.maxHealth)),damage=1-integrity;
-      const color:[number,number,number,number]=wire.breached?[.16,.055,.022,.86]:[.74-damage*.48,.42-damage*.3,.12-damage*.09,.94];
+      const color:[number,number,number,number]=wire.breached?[.17,.06,.022,.86]:[.68-damage*.43,.74-damage*.58,.72-damage*.62,.96];
       wireShape(a,wire,color,integrity,wire.breached);
       if(damage>.28&&!wire.breached){
         // Rust and a dark sagging lower rail appear well before the wire finally parts.
@@ -205,7 +225,20 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
     rect(a,scene.map.spawn.x,scene.map.spawn.y,scene.map.spawn.width,scene.map.spawn.height,[.95,.48,.12,.11]); ring(a,scene.map.goal.x,scene.map.goal.y,scene.map.goalRadius,[.71,.98,.31,.85]);
     for(const t of scene.towers){const c: [number,number,number,number]=t.kind==='repulsor'?[.73,1,.22,.95]:t.kind==='mortar'?[1,.62,.16,.95]:t.kind==='autocannon'?[.28,.85,1,.95]:t.kind==='cryo'?[.4,.85,.95,.95]:t.kind==='tesla'?[.62,.45,1,.95]:t.kind==='rocket'?[1,.25,.15,.95]:t.kind==='incinerator'?[1,.31,.12,.95]:[.35,1,.78,.95];towerShape(a,t,c);if(scene.selection===t.id)ring(a,t.x,t.y,4.2,[1,.88,.4,.9],.35);}
     if(scene.ghost){const c: [number,number,number,number]=scene.ghost.valid?[.65,1,.25,.8]:[1,.18,.12,.8];ring(a,scene.ghost.x,scene.ghost.y,scene.ghost.range,c,.22);towerShape(a,scene.ghost,c);}
-    if(scene.placementGhost){const c:[number,number,number,number]=scene.placementGhost.valid?[.28,.9,.88,.72]:[1,.13,.07,.72];rect(a,scene.placementGhost.x-.14,scene.placementGhost.y-.14,scene.placementGhost.width+.28,scene.placementGhost.height+.28,[c[0],c[1],c[2],.16]);if(scene.placementGhost.kind==='wire')wireShape(a,scene.placementGhost,c,.9);else{rect(a,scene.placementGhost.x,scene.placementGhost.y,scene.placementGhost.width,scene.placementGhost.height,[c[0],c[1],c[2],.42]);rect(a,scene.placementGhost.x+.35,scene.placementGhost.y+.35,scene.placementGhost.width-.7,.25,c);rect(a,scene.placementGhost.x+.48,scene.placementGhost.y+scene.placementGhost.height*.48,scene.placementGhost.width-.96,.14,c);}if(!scene.placementGhost.valid){streak(a,scene.placementGhost.x+3.25,scene.placementGhost.y+3.25,1,1,3.45,.15,c);streak(a,scene.placementGhost.x+3.25,scene.placementGhost.y+.75,1,-1,3.45,.15,c);}}
+    if(scene.placementGhost){
+      const pulse=.8+.2*Math.sin(scene.time*7),c:[number,number,number,number]=scene.placementGhost.valid?[.26,1,.78,.72*pulse]:[1,.13,.07,.78];
+      rect(a,scene.placementGhost.x-.14,scene.placementGhost.y-.14,scene.placementGhost.width+.28,scene.placementGhost.height+.28,[c[0],c[1],c[2],.12*pulse]);
+      rectOutline(a,scene.placementGhost.x-.08,scene.placementGhost.y-.08,scene.placementGhost.width+.16,scene.placementGhost.height+.16,[c[0],c[1],c[2],.62*pulse],.11);
+      if(scene.placementGhost.kind==='wire'){
+        wireShape(a,scene.placementGhost,c,1);
+        for(const x of [scene.placementGhost.x+.22,scene.placementGhost.x+scene.placementGhost.width-.22])for(const y of [scene.placementGhost.y+.22,scene.placementGhost.y+scene.placementGhost.height-.22])disc(a,x,y,.09,c,5);
+      }else{
+        rect(a,scene.placementGhost.x,scene.placementGhost.y,scene.placementGhost.width,scene.placementGhost.height,[c[0],c[1],c[2],.42]);
+        rect(a,scene.placementGhost.x+.35,scene.placementGhost.y+.35,scene.placementGhost.width-.7,.25,c);
+        rect(a,scene.placementGhost.x+.48,scene.placementGhost.y+scene.placementGhost.height*.48,scene.placementGhost.width-.96,.14,c);
+      }
+      if(!scene.placementGhost.valid){streak(a,scene.placementGhost.x+3.25,scene.placementGhost.y+3.25,1,1,3.45,.15,c);streak(a,scene.placementGhost.x+3.25,scene.placementGhost.y+.75,1,-1,3.45,.15,c);}
+    }
     if(scene.wallGhost)rect(a,scene.wallGhost.x,scene.wallGhost.y,scene.wallGhost.width,scene.wallGhost.height,scene.wallGhost.valid?[.25,.85,.95,.5]:[1,.15,.08,.5]);
     if(scene.demolitionHover){const alpha=.78+.18*Math.sin(scene.time*8);rectOutline(a,scene.demolitionHover.x,scene.demolitionHover.y,scene.demolitionHover.width,scene.demolitionHover.height,[1,.06,.035,alpha],.42);}
     for(const e of scene.effects){const progress=Math.max(0,Math.min(1,1-e.duration/.55)),ease=1-(1-progress)*(1-progress),alpha=(1-progress)*(1-progress);const c:[number,number,number,number]=e.kind==='blast'?[1,.34,.055,.88*alpha]:e.kind==='slow'?[.25,.8,1,.56*alpha]:[.45,.95,1,.62*alpha];const radius=Math.max(.35,e.radius*(.05+.95*ease));disc(a,e.x,e.y,Math.max(.2,e.radius*.22*(1-progress)),[c[0],c[1],c[2],.16*alpha],12);ring(a,e.x,e.y,radius,c,Math.max(.18,e.radius*.085*(1-progress)));if(progress>.16)ring(a,e.x,e.y,radius*.72,[c[0],c[1],c[2],c[3]*.38],Math.max(.12,e.radius*.035));if(e.kind==='push'){const q={x:e.x+e.direction.x*radius,y:e.y+e.direction.y*radius};tri(a,{x:e.x-.7,y:e.y-.7},{x:e.x+.7,y:e.y+.7},q,[c[0],c[1],c[2],c[3]*.32])}}

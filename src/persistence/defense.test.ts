@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {DEFAULT_MAP} from '../content/index.ts';
-import {createRun} from '../game/index.ts';
+import {createRun, STARTING_METAL} from '../game/index.ts';
 import {AUTOSAVE_KEY, CHECKPOINT_KEY, decodeDefense, loadDefense, saveDefense, type Defense} from './defense.ts';
 
 function fixture() {
@@ -50,7 +50,7 @@ test('autosaving and resetting cannot overwrite an explicit checkpoint',()=>{
   assert.equal(data.size,2);
   loadDefense(storage,CHECKPOINT_KEY,run);
   assert.equal(run.model.wave,3);
-  assert.equal(run.model.metal,1_110);
+  assert.equal(run.model.metal,STARTING_METAL-90);
 });
 
 test('corrupt saves reject atomically without changing the current run, map, or epoch',()=>{

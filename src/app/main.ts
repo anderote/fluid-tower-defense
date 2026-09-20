@@ -1,4 +1,4 @@
-import {createStructurePreview, clearPlayerTerrain, structurePlacementIssue} from '../game/terrain.ts';
+import {createStructurePreview, clearPlayerTerrain, restoreSessionTerrain} from '../game/terrain.ts';
 import {AUTOSAVE_KEY, CHECKPOINT_KEY, saveDefense, loadDefense} from '../persistence/defense.ts';
 import { connectGPU } from '../runtime/gpu.ts';
 import { verifyABI } from '../runtime/abi-check.ts';
@@ -10,6 +10,7 @@ import '../editor/style.css';
 import { createUI } from '../ui/index.ts';
 import { createRenderer } from '../render/index.ts';
 import {createAudio} from '../audio/index.ts';
+import {mountLocalSoundtrack} from '../audio/local-soundtrack.ts';
 import {createBoss} from '../sim/bosses/index.ts';
 import {createHorde} from '../sim/horde/index.ts';
 import {HordeFront,HordeCapacity,encodeHorde} from '../sim/horde/model.ts';
@@ -23,6 +24,7 @@ import { COUNTER_WORDS, DEFAULT_TUNING, PARTICLE_FLOATS, type UIState, type Game
 import {ShotEventReader} from '../runtime/shot-events.ts';
 import {advanceHeavyProjectiles,createHeavyProjectiles,type HeavyImpact} from '../effects/heavy-weapons.ts';
 import {turretMuzzlePoint} from '../render/turret-art.ts';
+import {formatPressure,MANUAL_BLAST_PEAK_KPA,MANUAL_PUSH_PEAK_KPA} from '../sim/pressure/model.ts';
 
 const root=document.querySelector<HTMLElement>('#app')!;
 const params=new URLSearchParams(location.search);
@@ -30,7 +32,7 @@ if(params.has('validate')) {
  const {showValidation}=await import('./validation-page.ts');await showValidation(root);
 } else {
 const run=createRun();
-const state:UIState={mode:params.get('mode')==='lab'?'lab':'game',phase:'preparation',paused:false,fps:0,frameMs:0,population:10000,capacity:65536,kills:0,crushKills:0,leaks:0,earned:0,maxPressure:0,metal:650,baseHealth:100,level:1,wave:0,waveCount:10,difficulty:1,streamWidth:60,selected:null,selectedKind:null,buildTool:null,heatmap:true,tool:'blast',message:'Connecting to local GPU…',adapter:'WebGPU',bonusChoices:[],bonuses:[],commandUpgrades:[],statUpgrades:run.statUpgrades(),towerUnlocks:run.towerUnlocks()};
+const state:UIState={mode:params.get('mode')==='lab'?'lab':'game',phase:'preparation',paused:false,fps:0,frameMs:0,population:10000,capacity:65536,kills:0,crushKills:0,leaks:0,earned:0,maxPressure:0,metal:STARTING_METAL,baseHealth:100,level:1,wave:0,waveCount:10,difficulty:1,streamWidth:60,selected:null,selectedKind:null,buildTool:null,heatmap:true,tool:'blast',message:'Connecting to local GPU…',adapter:'WebGPU',bonusChoices:[],bonuses:[],commandUpgrades:[],statUpgrades:run.statUpgrades(),towerUnlocks:run.towerUnlocks()};
 run.setHordeScale(state.streamWidth);
 let handleAction:(action:GameAction)=>void=()=>{};
 const ui=createUI(root,action=>handleAction(action));
@@ -50,24 +52,28 @@ try {
  gpu.shared.shotState=combat.shotState;
  const renderer=await createRenderer(gpu.device,gpu.context,gpu.format,gpu.shared,ui.canvas);
  const audio=createAudio();
+ mountLocalSoundtrack(root);
  const selectedInspector=ui.canvas.parentElement!.querySelector<HTMLElement>('.selected-popup')!;
+ const pressureLayer=document.createElement('div');pressureLayer.className='pressure-popups';ui.canvas.parentElement!.append(pressureLayer);
  const clock=new FixedClock(), metrics=new FrameMetrics();
  let map=DEFAULT_MAP, navigation=buildNavigation(map), spawnBaseline=DEFAULT_MAP.spawn;
  let epoch=run.epoch,count=0,spawnSlot=0, requestedPopulation=Math.min(50000,Math.max(1,Number(params.get('population'))||10000));
  let builtWalls:(Rect & {health:number;maxHealth:number})[]=[];
 /* Recycle hover branch variant is superseded here by the placement-preview wall model. */
  let builtWires:(Rect & {health:number;maxHealth:number;breached:boolean})[]=[];
- let commands:Effect[]=[], visuals:Effect[]=[], visualParticles:VisualParticle[]=[], heavyProjectiles:HeavyProjectile[]=[], heavyExplosions:HeavyExplosion[]=[], cameraShake=0, pointer:Vec2|undefined, lastTickSample=0, waveStartTick=0;
+ type PressurePopup={element:HTMLElement;x:number;y:number;age:number;life:number;drift:number};
+ let commands:Effect[]=[], visuals:Effect[]=[], visualParticles:VisualParticle[]=[], heavyProjectiles:HeavyProjectile[]=[], heavyExplosions:HeavyExplosion[]=[], pressurePopups:PressurePopup[]=[], cameraShake=0, pointer:Vec2|undefined, lastTickSample=0, waveStartTick=0;
+ const lastTowerPressurePopup=new Map<number,number>();
  let latest:Settlement={epoch,tick:0,kills:0,crushKills:0,leaks:0,earned:0,live:0,invalid:0,maxPacking:0};
  let lastUI=0, previous=performance.now(), simulatedTime=0;
  const diagnostics=document.createElement('details');diagnostics.className='diagnostics';diagnostics.innerHTML='<summary>Developer diagnostics</summary><pre></pre>';root.append(diagnostics);
  const diagnosticText=diagnostics.querySelector('pre')!;
  const errors:string[]=[];
  let previousPaused=false;
- const AUTOSAVE_KEY='pressure-front.autosave.v1';let lastAutosave=0;
+ let lastAutosave=0;
  const resizeSpawn=()=>{const width=Math.max(1,Math.min(100,Math.round(state.streamWidth)));map={...map,spawn:{...spawnBaseline,y:(map.height-width)/2,height:width}};};
  const saveSession=()=>{if(state.mode!=='game'||!['preparation','checkpoint'].includes(run.model.phase))return;try{const runState=run.save();localStorage.setItem(AUTOSAVE_KEY,JSON.stringify({runState,map,spawnBaseline,builtWalls,builtWires,difficulty:state.difficulty,streamWidth:state.streamWidth}));}catch{/* Local persistence is optional. */}};
- const restoreSession=()=>{try{const saved=JSON.parse(localStorage.getItem(AUTOSAVE_KEY)??'null') as {runState?:string;map?:WorldMap;spawnBaseline?:Rect;builtWalls?:(Rect & Partial<{health:number;maxHealth:number}>)[];builtWires?:(Rect & {health:number;maxHealth:number;breached:boolean})[];difficulty?:number;streamWidth?:number}|null;if(!saved?.runState||!saved.map)return false;builtWalls=(saved.builtWalls??[]).filter(w=>Number.isFinite(w.x)&&Number.isFinite(w.y)).map(w=>{const maxHealth=typeof w.maxHealth==='number'&&Number.isFinite(w.maxHealth)?w.maxHealth:wallCapacity(0),health=typeof w.health==='number'&&Number.isFinite(w.health)?w.health:maxHealth;return {...w,health,maxHealth};});builtWires=(saved.builtWires??[]).filter(w=>Number.isFinite(w.x)&&Number.isFinite(w.y)&&Number.isFinite(w.health));const dynamic=[...builtWalls,...builtWires];const same=(a:Rect,b:Rect)=>a.x===b.x&&a.y===b.y&&a.width===b.width&&a.height===b.height;map={...saved.map,obstacles:[...saved.map.obstacles.filter(obstacle=>!dynamic.some(segment=>same(obstacle,segment))),...builtWalls,...builtWires.filter(wire=>!wire.breached)]};spawnBaseline=saved.spawnBaseline??saved.map.spawn;state.difficulty=run.setSpawnMultiplier(saved.difficulty??1);state.streamWidth=Math.max(1,Math.min(100,Math.round(saved.streamWidth??saved.map.spawn.height)));run.setHordeScale(state.streamWidth);resizeSpawn();navigation=buildNavigation(map);run.setMap(map);run.setBuildMounts(builtWalls);return run.load(saved.runState).ok;}catch{return false;}};
+ const restoreSession=()=>{try{const saved=JSON.parse(localStorage.getItem(AUTOSAVE_KEY)??'null') as {runState?:string;map?:WorldMap;spawnBaseline?:Rect;builtWalls?:(Rect & Partial<{health:number;maxHealth:number}>)[];builtWires?:(Rect & {health:number;maxHealth:number;breached:boolean})[];difficulty?:number;streamWidth?:number}|null;if(!saved?.runState||!saved.map)return false;builtWalls=(saved.builtWalls??[]).filter(w=>Number.isFinite(w.x)&&Number.isFinite(w.y)).map(w=>{const maxHealth=typeof w.maxHealth==='number'&&Number.isFinite(w.maxHealth)?w.maxHealth:wallCapacity(0),health=typeof w.health==='number'&&Number.isFinite(w.health)?w.health:maxHealth;return {...w,health,maxHealth};});builtWires=(saved.builtWires??[]).filter(w=>Number.isFinite(w.x)&&Number.isFinite(w.y)&&Number.isFinite(w.health));const defaultSession=saved.map.id===DEFAULT_MAP.id;map=restoreSessionTerrain(saved.map,DEFAULT_MAP,builtWalls,builtWires);spawnBaseline=defaultSession?DEFAULT_MAP.spawn:saved.spawnBaseline??saved.map.spawn;state.difficulty=run.setSpawnMultiplier(saved.difficulty??1);state.streamWidth=Math.max(1,Math.min(100,Math.round(saved.streamWidth??map.spawn.height)));run.setHordeScale(state.streamWidth);resizeSpawn();navigation=buildNavigation(map);run.setMap(map);run.setBuildMounts(builtWalls);return run.load(saved.runState).ok;}catch{return false;}};
  const editor=createLevelEditor(root.querySelector<HTMLElement>('.view-actions')!,map,newMap=>{
    map=newMap;spawnBaseline=newMap.spawn;builtWalls=[];builtWires=[];resizeSpawn();navigation=buildNavigation(map);run.setMap(map);run.setBuildMounts(builtWalls);state.mode='game';resetWorld();previousPaused=false;
    state.message='Custom level ready. Build your defense, then start a wave.';
@@ -95,7 +101,7 @@ try {
    epoch=run.epoch;
    physics.reset();combat.reset();resetHorde();shotReader.reset();boss.reset(false);clock.reset();metrics.reset();lastTickSample=0;waveStartTick=0;simulatedTime=0;
    gpu.device.queue.writeBuffer(gpu.shared.counters,0,new Uint32Array(COUNTER_WORDS));
-   commands=[];visuals=[];visualParticles=[];heavyProjectiles=[];heavyExplosions=[];cameraShake=0;count=0;spawnSlot=0;state.kills=state.crushKills=state.leaks=state.earned=state.maxPressure=0;state.selectedKind=null;state.selected=null;state.buildTool=null;state.paused=false;
+   commands=[];visuals=[];visualParticles=[];heavyProjectiles=[];heavyExplosions=[];for(const popup of pressurePopups)popup.element.remove();pressurePopups=[];lastTowerPressurePopup.clear();cameraShake=0;count=0;spawnSlot=0;state.kills=state.crushKills=state.leaks=state.earned=state.maxPressure=0;state.selectedKind=null;state.selected=null;state.buildTool=null;state.paused=false;
    latest={epoch,tick:0,kills:0,crushKills:0,leaks:0,earned:0,live:0,invalid:0,maxPacking:0};
    if(state.mode==='lab'){
      const batches=requestedPopulation<=10000?[{count:Math.floor(requestedPopulation*.8),kind:'shambler' as const,seed:1},{count:Math.floor(requestedPopulation*.15),kind:'runner' as const,seed:2},{count:requestedPopulation-Math.floor(requestedPopulation*.8)-Math.floor(requestedPopulation*.15),kind:'brute' as const,seed:3}]:[{count:requestedPopulation,kind:'shambler' as const,seed:1}];
@@ -117,7 +123,7 @@ try {
      case 'reset':clearPlayerStructures();resetWorld();state.message='Run reset. Placed walls and wire were removed.';break;
      case 'restart-wave':{
        const result=run.restartWave();actionResult(result,'Wave restarted. Defenses remain in position.');if(!result.ok)break;
-       epoch=run.epoch;count=0;spawnSlot=0;commands=[];visuals=[];visualParticles=[];heavyProjectiles=[];heavyExplosions=[];cameraShake=0;state.population=0;state.kills=state.crushKills=state.leaks=state.earned=state.maxPressure=0;
+       epoch=run.epoch;count=0;spawnSlot=0;commands=[];visuals=[];visualParticles=[];heavyProjectiles=[];heavyExplosions=[];for(const popup of pressurePopups)popup.element.remove();pressurePopups=[];lastTowerPressurePopup.clear();cameraShake=0;state.population=0;state.kills=state.crushKills=state.leaks=state.earned=state.maxPressure=0;
        latest={epoch,tick:clock.tick,kills:0,crushKills:0,leaks:0,earned:0,live:0,invalid:0,maxPacking:0};
        gpu.device.queue.writeBuffer(gpu.shared.counters,0,new Uint32Array(COUNTER_WORDS));physics.reset();combat.reset();resetHorde();shotReader.reset();boss.reset(run.isBossWave);waveStartTick=clock.tick+1;lastTickSample=clock.tick;state.paused=false;state.selectedKind=null;
        break;
@@ -166,6 +172,11 @@ try {
      visualParticles.push({x:point.x,y:point.y,vx:Math.cos(angle)*velocity,vy:Math.sin(angle)*velocity,size:(.22+((i*19)%100)/100*.42)*scale,life:life*(.72+((i*23)%100)/100*.4),age:0,color,gravity,drag:style==='smoke'?.55:.3,style,spin:(i%2?1:-1)*(3.2+((i*11)%9)*.48)});
    }
  };
+ const showPressure=(point:Vec2,kpa:number,serial=0)=>{
+   const element=document.createElement('output');element.className=`pressure-popup${kpa>=1000?' is-mpa':''}`;element.textContent=formatPressure(kpa);pressureLayer.append(element);
+   pressurePopups.push({element,x:point.x,y:point.y,age:0,life:.72,drift:((serial*37)%17-8)*1.15});
+   if(pressurePopups.length>32){pressurePopups.shift()!.element.remove();}
+ };
  const detonateHeavy=(impact:HeavyImpact)=>{
    const rocket=impact.kind==='rocket',scale=rocket ? .88 : 1;
    heavyExplosions.push({x:impact.x,y:impact.y,kind:impact.kind,age:0,life:rocket ? .82 : .9,scale,direction:impact.direction,serial:impact.serial});
@@ -176,17 +187,20 @@ try {
    spray(impact,rocket?7:10,[1,.64,.13],rocket?12:14,.38,impact.direction,1.8,'spark',rocket ? .8 : 1);
    burst(impact,rocket?3:4,[1,.27,.035],rocket?6.5:7.5,.48,-1.2,'spark',rocket?1:1.15);
    cameraShake=Math.min(1.4,Math.max(cameraShake,rocket ? .62 : .86)+.12);
+   showPressure(impact,impact.peakPressureKpa,impact.serial);
  };
  const shotReader=new ShotEventReader(gpu.device,events=>{
    for(const event of events){
      const tower=run.model.towers.find(candidate=>candidate.id===event.towerId);if(!tower)continue;
      tower.angle=(event.angle+Math.PI*2)%(Math.PI*2);
+     const shotDefinition=compileTower(tower,run.model.bonuses,run.model.commandUpgrades,run.statModifiers());
      audio.fire(tower.kind,tower.x,event.serial);
      if(tower.kind==='mortar'||tower.kind==='rocket'){
-       heavyProjectiles.push(...createHeavyProjectiles(tower.kind,turretMuzzlePoint(tower.kind,tower,event.angle),event.target,event.serial));
+       heavyProjectiles.push(...createHeavyProjectiles(tower.kind,turretMuzzlePoint(tower.kind,tower,event.angle),event.target,event.serial,shotDefinition.peakPressureKpa));
        if(heavyProjectiles.length>48)heavyProjectiles.splice(0,heavyProjectiles.length-48);
        continue;
      }
+     if(simulatedTime-(lastTowerPressurePopup.get(tower.id)??-1)>=.36){showPressure(event.target,shotDefinition.peakPressureKpa,event.serial);lastTowerPressurePopup.set(tower.id,simulatedTime);}
      if(tower.kind!=='autocannon'&&tower.kind!=='railgun')continue;
      const forward={x:Math.cos(event.angle),y:Math.sin(event.angle)},side={x:-forward.y,y:forward.x};
      const flip=event.serial%2?1:-1,speed=tower.kind==='railgun'?7.2:5.4,heavy=tower.kind==='railgun';
@@ -217,7 +231,7 @@ try {
      else{run.model.selected=run.model.towers.find(t=>Math.hypot(t.x-point.x,t.y-point.y)<3.5)?.id??null;}
    }else if(state.tool!=='inspect'){
      if(commands.length>=64){state.message='Effect queue full; advance the simulation.';return;}
-     const effect:Effect={...point,kind:state.tool==='blast'?'blast':'push',radius:state.tool==='blast'?10:15,strength:state.tool==='blast'?32:38,damage:state.tool==='blast'?16:0,direction:{x:1,y:0},cone:Math.PI*.7,duration:.55,source:0};commands.push(effect);visuals.push({...effect});
+     const peakPressureKpa=state.tool==='blast'?MANUAL_BLAST_PEAK_KPA:MANUAL_PUSH_PEAK_KPA,effect:Effect={...point,kind:state.tool==='blast'?'blast':'push',radius:state.tool==='blast'?10:15,strength:state.tool==='blast'?32:38,damage:state.tool==='blast'?16:0,direction:{x:1,y:0},cone:Math.PI*.7,duration:.55,source:0,peakPressureKpa};commands.push(effect);visuals.push({...effect});showPressure(point,peakPressureKpa,clock.tick);
      if(effect.kind==='blast'){
        burst(point,34,[1,.3,.035],21,.68,8,'spark',1.25);
        burst(point,16,[1,.78,.16],11,.48,4,'spark',.8);
@@ -323,20 +337,24 @@ try {
      if(!editor.active&&panKeys.size){const speed=52*elapsed;renderer.pan((panKeys.has('d')?speed:0)-(panKeys.has('a')?speed:0),(panKeys.has('s')?speed:0)-(panKeys.has('w')?speed:0));}
      const steps=editor.active?0:clock.advance(elapsed,state.paused||!active);
      for(let i=0;i<steps;i++)tick();
-     if(!state.paused){for(const effect of visuals)effect.duration-=elapsed;visuals=visuals.filter(e=>e.duration>0);for(const particle of visualParticles)particle.age+=elapsed;visualParticles=visualParticles.filter(particle=>particle.age<particle.life);const advanced=advanceHeavyProjectiles(heavyProjectiles,elapsed);heavyProjectiles=advanced.active;for(const impact of advanced.impacts)detonateHeavy(impact);for(const explosion of heavyExplosions)explosion.age+=elapsed;heavyExplosions=heavyExplosions.filter(explosion=>explosion.age<explosion.life);cameraShake*=Math.exp(-8.5*elapsed);}
+     if(!state.paused){for(const effect of visuals)effect.duration-=elapsed;visuals=visuals.filter(e=>e.duration>0);for(const particle of visualParticles)particle.age+=elapsed;visualParticles=visualParticles.filter(particle=>particle.age<particle.life);const advanced=advanceHeavyProjectiles(heavyProjectiles,elapsed);heavyProjectiles=advanced.active;for(const impact of advanced.impacts)detonateHeavy(impact);for(const explosion of heavyExplosions)explosion.age+=elapsed;heavyExplosions=heavyExplosions.filter(explosion=>explosion.age<explosion.life);for(const popup of pressurePopups)popup.age+=elapsed;for(const popup of pressurePopups.filter(popup=>popup.age>=popup.life))popup.element.remove();pressurePopups=pressurePopups.filter(popup=>popup.age<popup.life);cameraShake*=Math.exp(-8.5*elapsed);}
      const encoder=gpu.device.createCommandEncoder({label:'Present'});
      const placement=pointer?towerPlacement(pointer):undefined;
-     const wallPlacement=pointer?wallAt(pointer):undefined;
+     const structurePlacement=pointer?wallAt(pointer):undefined;
      const ghost=state.mode==='game'&&state.selectedKind&&placement?{...placement,kind:state.selectedKind,range:compileTower({id:0,kind:state.selectedKind,x:placement.x,y:placement.y,level:0,branch:-1,angle:0,cooldown:0,spent:0},run.model.bonuses,run.model.commandUpgrades,run.statModifiers()).range,valid:canPlace(map,run.model.towers,placement,1.25,builtWalls)&&run.model.phase!=='won'&&run.model.phase!=='lost'}:undefined;
-     const wallGhost=state.mode==='game'&&state.buildTool==='wall'&&wallPlacement?{...wallPlacement,valid:builtWalls.some(wall=>wall.x===wallPlacement.x&&wall.y===wallPlacement.y&&wall.health<wall.maxHealth)||!validateEditorMap({...map,obstacles:[...map.obstacles,wallPlacement]})}:undefined;
-     renderer.encode(encoder,{count:editor.active?0:count,time:simulatedTime,map:editor.active?editor.map:map,towers:!editor.active&&state.mode==='game'?run.model.towers:[],effects:editor.active?[]:visuals,visualParticles:editor.active?[]:visualParticles,heavyProjectiles:editor.active?[]:heavyProjectiles,heavyExplosions:editor.active?[]:heavyExplosions,cameraShake:editor.active?0:cameraShake,walls:editor.active?[]:builtWalls,wires:editor.active?[]:builtWires,heatmap:state.heatmap,selection:run.model.selected,ghost:editor.active?undefined:ghost,wallGhost,boss:!editor.active&&latest.boss?.active?latest.boss:undefined});
+     const placementKind=state.buildTool==='wall'||state.buildTool==='wire'?state.buildTool:undefined;
+     const existingWall=placementKind==='wall'&&structurePlacement?builtWalls.find(wall=>wall.x===structurePlacement.x&&wall.y===structurePlacement.y):undefined;
+     const placementCost=placementKind==='wall'?60:45;
+     const placementGhost=state.mode==='game'&&placementKind&&structurePlacement?{...structurePlacement,kind:placementKind,valid:run.model.phase!=='won'&&run.model.phase!=='lost'&&run.model.metal>=placementCost&&(existingWall?existingWall.health<existingWall.maxHealth:!previewStructure(map,run.model.towers,structurePlacement))}:undefined;
+     renderer.encode(encoder,{count:editor.active?0:count,time:simulatedTime,map:editor.active?editor.map:map,towers:!editor.active&&state.mode==='game'?run.model.towers:[],effects:editor.active?[]:visuals,visualParticles:editor.active?[]:visualParticles,heavyProjectiles:editor.active?[]:heavyProjectiles,heavyExplosions:editor.active?[]:heavyExplosions,cameraShake:editor.active?0:cameraShake,walls:editor.active?[]:builtWalls,wires:editor.active?[]:builtWires,heatmap:state.heatmap,selection:run.model.selected,ghost:editor.active?undefined:ghost,placementGhost,boss:!editor.active&&latest.boss?.active?latest.boss:undefined});
+     const arena=ui.canvas.parentElement!.getBoundingClientRect();for(const popup of pressurePopups){const screen=renderer.worldToScreen(popup.x,popup.y),progress=popup.age/popup.life;popup.element.style.left=`${screen.x-arena.left+popup.drift*progress}px`;popup.element.style.top=`${screen.y-arena.top-progress*34}px`;popup.element.style.opacity=String(Math.min(1,(1-progress)*2.8));}
      gpu.device.queue.submit([encoder.finish()]);
      if(now-lastUI>100)updateUI(now);else positionInspector();
      requestAnimationFrame(frame);
    }catch(error){fail(error);}
  }
  let restored=false;
- if(state.mode==='game'){try{restoreSession();restored=true;}catch{/* Invalid or absent autosaves leave the fresh defense untouched. */}}
+ if(state.mode==='game')restored=restoreSession();
  resetWorld(!restored);updateUI(performance.now());requestAnimationFrame(frame);
 } catch(error){state.message=String(error);state.paused=true;ui.update(state);console.error(error);}
 

@@ -4,14 +4,14 @@ export interface WorldMap { id: string; width: number; height: number; obstacles
 export type TowerKind = 'repulsor' | 'mortar' | 'autocannon' | 'cryo' | 'tesla' | 'rocket' | 'railgun' | 'incinerator';
 export type EnemyKind = 'shambler' | 'runner' | 'brute' | 'rager' | 'softbody' | 'husk';
 export type EffectKind = 'blast' | 'push' | 'slow' | 'shot';
-export interface Effect extends Vec2 { kind: EffectKind; radius: number; strength: number; damage: number; direction: Vec2; cone: number; duration: number; source: number }
+export interface Effect extends Vec2 { kind: EffectKind; radius: number; strength: number; damage: number; direction: Vec2; cone: number; duration: number; source: number; peakPressureKpa?:number }
 /** Short-lived render-only fragments. These never enter the simulation or affect gameplay. */
 export type VisualParticleStyle = 'spark' | 'smoke' | 'debris' | 'mist' | 'shell';
 export interface VisualParticle extends Vec2 { vx:number; vy:number; size:number; life:number; age:number; color:[number,number,number]; gravity:number; drag:number; style:VisualParticleStyle; spin:number }
 /** Render-only M79/LAW rounds driven by confirmed GPU shot events. */
-export interface HeavyProjectile extends Vec2 { kind:'mortar'|'rocket'; target:Vec2; age:number; delay:number; flight:number; serial:number; lane:number }
+export interface HeavyProjectile extends Vec2 { kind:'mortar'|'rocket'; target:Vec2; age:number; delay:number; flight:number; serial:number; lane:number; peakPressureKpa:number }
 export interface HeavyExplosion extends Vec2 { kind:'mortar'|'rocket'; age:number; life:number; scale:number; direction:Vec2; serial:number }
-export interface TowerDef { id: TowerKind; name: string; description: string; cost: number; range: number; cooldown: number; damage: number; force: number; radius: number; color: string; branches: readonly [string, string] }
+export interface TowerDef { id: TowerKind; name: string; description: string; cost: number; range: number; cooldown: number; damage: number; force: number; radius: number; peakPressureKpa:number; color: string; branches: readonly [string, string] }
 export interface EnemyDef { id: EnemyKind; index: number; name: string; radius: number; mass: number; health: number; speed: number; drive: number; pressureLimit: number; crushResistance: number; bounty: number; leak: number; color: string }
 export interface Tower extends Vec2 { id: number; kind: TowerKind; level: number; branch: number; angle: number; cooldown: number; spent: number; kills?:number; veterancy?:number; veterancyXp?:number }
 export interface NavigationField { width: number; height: number; cellSize: number; vectors: Float32Array; alternateVectors: Float32Array; distances: Float32Array; version: number }
