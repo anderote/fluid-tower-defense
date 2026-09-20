@@ -1,5 +1,6 @@
 import {commandUpgradeAvailability} from "../game/research.ts";
 import {TOWER_MOVE_COST} from "../game/index.ts";
+import {makeGameWindow} from './windows.ts';
 import {bossStatus} from "./boss-status.ts";
 import type { GameAction, GameUI, UIState } from "../contracts/index.ts";
 import {
@@ -59,6 +60,10 @@ export function createUI(
   upgradeCard.hidden = true;
   upgradeCard.setAttribute("aria-live", "polite");
   arena.append(upgradeCard);
+  const upgradeContent=document.createElement("div");upgradeCard.append(upgradeContent);
+  makeGameWindow(selectedCard,"TOWER INSPECTOR");makeGameWindow(upgradeCard,"TOWER UPGRADES");
+  makeGameWindow(root.querySelector<HTMLElement>("#settings-gate > section")!,"AUDIO SETTINGS");
+  makeGameWindow(root.querySelector<HTMLElement>("#reset-gate > section")!,"RESTART LEVEL");
   const difficulty = document.createElement("label");
   difficulty.className = "difficulty";
   difficulty.innerHTML =
@@ -100,6 +105,7 @@ export function createUI(
   waveButton.classList.add("wave-control");
   buildDock.insertBefore(waveButton, buildDock.firstChild);
   header.replaceChildren($(".brand"), headerStack, headerActions);
+  makeGameWindow(buildDock,"BUILD COMMAND");
   root
     .querySelectorAll<HTMLButtonElement>("[data-tower]")
     .forEach(
@@ -209,7 +215,7 @@ export function createUI(
       row=(label:string,before:number,after:number,format:(value:number)=>string,threshold=.001)=>Math.abs(after-before)<=threshold?"":`<div><span>${label}</span>${value(format(before),format(after))}</div>`,
       stats=next?[row("DAMAGE",current.damage,next.damage,value=>value.toFixed(1)),row("PRESSURE",current.peakPressureKpa,next.peakPressureKpa,formatPressure,.5),row("RANGE",current.range,next.range,value=>value.toFixed(1)),row("RATE",1/current.cooldown,1/next.cooldown,value=>`${value.toFixed(1)}/s`),row("IMPULSE",current.force,next.force,value=>value.toFixed(1)),row("RADIUS",current.radius,next.radius,value=>value.toFixed(1))].join(""):"<p>MAXIMUM OUTPUT</p>",
       button=(candidate:number,label:string)=>`<button data-quick-upgrade="${tower.id}" data-quick-branch="${candidate}" ${blocked?"disabled":""}><b>${label} <em>[${candidate===0?'Q':'E'}]</em></b><span>${maxed?"MAX":`${cost.toLocaleString()} M`}</span></button>`;
-    renderMarkup(upgradeCard,`<header><span>${chosen.name.toUpperCase()}</span><b>LV ${tower.level}${maxed?" · MAX":` → ${tower.level+1}`}</b></header><div class="quick-stats">${stats}</div><div class="quick-upgrade-actions">${tower.branch<0?chosen.branches.map((name,index)=>button(index,name.toUpperCase())).join(""):button(tower.branch,"UPGRADE")}</div>`);
+    renderMarkup(upgradeContent,`<header><span>${chosen.name.toUpperCase()}</span><b>LV ${tower.level}${maxed?" · MAX":` → ${tower.level+1}`}</b></header><div class="quick-stats">${stats}</div><div class="quick-upgrade-actions">${tower.branch<0?chosen.branches.map((name,index)=>button(index,name.toUpperCase())).join(""):button(tower.branch,"UPGRADE")}</div>`);
   };
   const setPanel = (next: boolean) => {
     research = next;

@@ -11,6 +11,8 @@ try{
  click('[data-kind="rifle"]');assert(controller.click({x:30,y:25}),'place building');
  assert(controller.tool==='rally','placing a building immediately enters rally mode');
  assert(!root.querySelector<HTMLElement>('[role="status"]')!.hidden,'battlefield instructions are visible');
+ assert(controller.inspector.parentElement?.classList.contains('arena')===true,'building inspector floats in the arena, outside the build menu');
+ assert(!controller.inspector.hidden,'building inspector opens on placement');
  const original={...controller.state().buildings[0].rally};controller.click({x:30,y:25});
  assert(controller.tool==='rally','blocked rally does not dismiss placement mode');
  assert(controller.state().buildings[0].rally.x===original.x,'blocked rally preserves existing flag');
@@ -20,5 +22,9 @@ try{
  click('[data-infantry="rally"]');assert(controller.tool==='rally','prominent button re-enters rally mode');
  controller.cancel();controller.update();assert(!!root.querySelector<HTMLElement>('[role="status"]')!.hidden,'cancel hides rally prompt');
  assert(controller.state().buildings[0].rally.x===20.5,'cancel keeps the current flag');
+ controller.click({x:30,y:25});assert(!controller.inspector.hidden,'clicking barracks opens inspector');
+ click('[aria-label="Minimize BUILDING INSPECTOR"]');assert(controller.inspector.classList.contains('window-collapsed'),'building inspector minimizes');
+ click('[aria-label="Expand BUILDING INSPECTOR"]');click('[data-infantry="production"]');assert(controller.state().buildings[0].production===1,'popup purchases building upgrades');
+ click('[aria-label="Close BUILDING INSPECTOR"]');assert(!!controller.inspector.hidden,'close dismisses building inspector');
  output.textContent+='\nALL CHECKS PASSED';
 }catch(error){output.textContent+='\nFAIL '+String(error);}

@@ -1,0 +1,13 @@
+.game-window { max-height: calc(100dvh - 16px); overflow: auto; }
+.game-window > .window-bar { display:flex; align-items:center; gap:4px; position:sticky; top:0; z-index:2; padding:4px; margin-bottom:8px; background:#192019; border-bottom:1px solid #66714a; }
+.window-bar > button { width:auto; margin:0; min-height:28px; padding:5px 8px; color:#dfdfb3; }
+.window-bar > .window-handle { flex:1; text-align:left; font-size:11px; letter-spacing:.08em; cursor:grab; touch-action:none; border:0; }
+.window-bar > .window-toggle { flex:0 0 30px; text-align:center; }
+.window-dragging .window-handle { cursor:grabbing; }
+.game-window.window-collapsed > :not(.window-bar) { display:none !important; }
+.game-window.window-collapsed { width:220px !important; height:auto !important; min-height:0 !important; padding:5px !important; overflow:hidden; }
+.game-window.window-collapsed > .window-bar { margin:0; }
+.minimized-modal { background:transparent !important; pointer-events:none; }
+.minimized-modal > .game-window { pointer-events:auto; }
+.infantry-inspector { position:absolute; top:80px; left:24px; z-index:12; width:min(310px,calc(100% - 24px)); max-height:calc(100% - 24px); padding:10px; border:1px solid #aab675; background:#10150ff5; box-shadow:8px 8px 0 #0006; }
+.infantry-inspector[hidden] { display:none; }
