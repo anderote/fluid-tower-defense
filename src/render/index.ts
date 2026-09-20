@@ -1,5 +1,5 @@
 import {createFireEffects} from './fire.ts';
-import {rifleStats} from '../infantry/model.ts';
+import {infantryStats} from '../infantry/model.ts';
 import {FIRE_STATE_BYTES} from '../effects/fire.ts';
 import {AUTOCANNON_MUZZLE_LIFT,SOLDAT_FACINGS} from './soldat-art.ts';
 import {createTeslaEffects} from './tesla.ts';
@@ -7,7 +7,7 @@ import {createAftermathRenderer} from './aftermath.ts';
 import {TESLA_STATE_WGSL,TESLA_HEADER_BYTES,TESLA_PARTICLE_BYTES} from '../effects/tesla.ts';
 import { ENEMY_WGSL, towerBehavior } from '../content/index.ts';
 import { PARTICLE_WGSL, type RenderScene, type Renderer, type SharedGPU, type TowerKind, type Vec2 } from '../contracts/index.ts';
-import {screenToWorld as unproject, worldToScreen as project} from './camera.ts';
+import {cameraPanBounds,screenToWorld as unproject, worldToScreen as project} from './camera.ts';
 import {TURRET_GRID, turretHardpoints, turretPixelRects, type TurretInk} from './turret-art.ts';
 import {createRedAlertArt,hasRedAlertSprite,type TurretArtStyle,type FloorArtStyle} from './red-alert.ts';
 import type {WireArtStyle} from './wire-art.ts';
@@ -168,7 +168,7 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
   let camera={x:0,y:0,zoom:1};
   let world={width:160,height:100};
   const view=()=>({width:world.width/camera.zoom,height:world.height/camera.zoom});
-  const clampCamera=()=>{const v=view();camera.x=Math.max(0,Math.min(world.width-v.width,camera.x));camera.y=Math.max(0,Math.min(world.height-v.height,camera.y));};
+  const clampCamera=()=>{const bounds=cameraPanBounds(camera,world);camera.x=Math.max(bounds.minX,Math.min(bounds.maxX,camera.x));camera.y=Math.max(bounds.minY,Math.min(bounds.maxY,camera.y));};
   const resize=()=>{const d=Math.min(devicePixelRatio||1,2),max=device.limits.maxTextureDimension2D; const w=Math.max(1,Math.min(max,Math.round(canvas.clientWidth*d))),h=Math.max(1,Math.min(max,Math.round(canvas.clientHeight*d))); if(w!==pixelW||h!==pixelH){pixelW=w;pixelH=h;canvas.width=w;canvas.height=h;sceneDepth?.destroy();sceneDepth=device.createTexture({label:'World object depth order',size:[w,h],format:'depth32float',usage:GPUTextureUsage.RENDER_ATTACHMENT});context.configure({device,format,alphaMode:'opaque'});} };
   const screenToWorld=(clientX:number,clientY:number):Vec2=>unproject({x:clientX,y:clientY},canvas.getBoundingClientRect(),camera,world);
   const worldToScreen=(x:number,y:number):Vec2=>project({x,y},canvas.getBoundingClientRect(),camera,world);
@@ -298,6 +298,7 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
   function foregroundGeometry(scene:RenderScene):Float32Array {const a:V[]=[];
     if(scene.barracksGhost){const p=scene.barracksGhost,c:[number,number,number,number]=p.valid?[.6,.9,.3,.8]:[1,.2,.1,.8];rect(a,p.x-2,p.y-2,4,4,[...c.slice(0,3),.2] as [number,number,number,number]);rectOutline(a,p.x-2,p.y-2,4,4,c,.15);}
     for(const b of scene.infantry?.buildings??[]){
+      const kind=b.kind??'rifle';
       rect(a,b.x-2.6,b.y-1.6,5.4,4.1,[.02,.025,.018,.55]);
       rect(a,b.x-2,b.y-2,4,4,[.2,.24,.15,1]);
       rect(a,b.x-2.2,b.y-2.8,4.4,3.4,[.36,.4,.24,1]);
@@ -306,21 +307,34 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
       rect(a,b.x-.55,b.y+.6,1.1,1.4,[.035,.047,.032,1]);
       rect(a,b.x-1.65,b.y+.8,.65,.55,[.68,.73,.48,1]);rect(a,b.x+1,b.y+.8,.65,.55,[.68,.73,.48,1]);
       rect(a,b.x+1.7,b.y-4,.12,2.2,[.52,.53,.4,1]);rect(a,b.x+1.82,b.y-4,.95,.6,[.87,.77,.18,1]);
+      if(kind==='rocket'){for(const offset of [-1,1]){rect(a,b.x+offset-.35,b.y-3,.7,2.5,[.38,.43,.4,1]);disc(a,b.x+offset,b.y-3,.35,[.74,.24,.13,1],4);}}
+      if(kind==='flame'){for(const offset of [-1,1]){rect(a,b.x+offset-.4,b.y-2.5,.8,2,[.57,.23,.08,1]);rect(a,b.x+offset-.5,b.y-1.8,1,.25,[.88,.64,.14,1]);}rect(a,b.x-.25,b.y-4,.5,2,[.22,.24,.2,1]);}
+      if(kind==='samurai'){rect(a,b.x-2.5,b.y-2.9,5,.65,[.46,.1,.08,1]);rect(a,b.x-1.8,b.y-3.55,3.6,.65,[.65,.17,.1,1]);orientedRect(a,b.x,b.y-2.2,1.2,.12,.7,[.85,.9,.86,1]);orientedRect(a,b.x,b.y-2.2,1.2,.12,-.7,[.85,.9,.86,1]);}
       if(b.id===scene.selectedBarracks){rectOutline(a,b.x-2.35,b.y-2.35,4.7,4.7,[.72,.93,.35,.95],.1);ring(a,b.rally.x,b.rally.y,2.5,[.65,.93,.35,.8],.12);rect(a,b.rally.x,b.rally.y-2,.1,2,[.8,.9,.5,1]);rect(a,b.rally.x+.1,b.rally.y-2,1,.6,[.85,.77,.19,1]);}
     }
     for(const s of scene.infantry?.soldiers??[]){
+      const kind=s.kind??'rifle',stats=infantryStats(s.kind,s.quality,s.defense);
       const x=s.x,y=s.y,dead=s.health<=0,alpha=dead?Math.max(0,1-s.dead/3):1;
       if(dead){rect(a,x-.65,y-.25,1.3,.5,[.29,.32,.18,alpha]);rect(a,x-.8,y-.2,.35,.35,[.55,.4,.27,alpha]);continue;}
+      if(kind==='samurai'&&s.flash>0){for(let i=1;i<=4;i++){const fade=s.flash/.28*(1-i/5)*.32,tx=x-Math.cos(s.angle)*i*.65,ty=y-Math.sin(s.angle)*i*.65;rect(a,tx-.42,ty-1.25,.84,1.4,[.47,.63,.75,fade]);rect(a,tx-.32,ty-1.7,.64,.4,[.75,.86,.95,fade]);}}
       disc(a,x,y+.16,.6,[.02,.025,.02,.45],8);
       const step=Math.sin(s.walk)*.13;
       rect(a,x-.36,y-.35+step,.25,.55,[.11,.14,.09,1]);rect(a,x+.1,y-.35-step,.25,.55,[.11,.14,.09,1]);
       rect(a,x-.42,y-1.1,.84,.84,[.14,.2,.1,1]);rect(a,x-.29,y-1.06,.58,.65,[.4,.48,.22,1]);
       rect(a,x-.5,y-.95,.18,.55,[.46,.48,.28,1]);rect(a,x+.32,y-.95,.18,.55,[.46,.48,.28,1]);
       rect(a,x-.22,y-1.45,.44,.43,[.69,.52,.32,1]);rect(a,x-.34,y-1.72,.68,.37,[.24,.34,.13,1]);rect(a,x-.22,y-1.73,.4,.13,[.54,.62,.34,1]);
+      if(kind==='samurai'){rect(a,x-.4,y-1.13,.8,.8,[.43,.09,.07,1]);rect(a,x-.42,y-1.75,.84,.19,[.78,.2,.1,1]);for(let j=0;j<3;j++)rect(a,x-.35,y-.95+j*.2,.7,.07,[.7,.43,.19,1]);}
+      if(kind==='flame'){rect(a,x-.62,y-1.3,.3,.9,[.7,.28,.06,1]);rect(a,x+.34,y-1.3,.3,.9,[.7,.28,.06,1]);}
       const dx=Math.cos(s.angle),dy=Math.sin(s.angle),mx=x+dx*.95,my=y-.65+dy*.95;
-      orientedRect(a,x+dx*.5,y-.65+dy*.5,.64,.1,s.angle,[.11,.13,.1,1]);
-      if(s.flash>0){disc(a,mx,my,.24,[1,.86,.29,.95],5);streak(a,mx+dx*2,my+dy*2,dx,dy,2,.025,[1,.89,.43,s.flash*6]);}
-      if(s.health<rifleStats(s.quality).health||scene.selectedBarracks===s.home){rect(a,x-.65,y-2.1,1.3,.13,[.12,.13,.1,1]);rect(a,x-.65,y-2.1,1.3*s.health/rifleStats(s.quality).health,.13,[.5,.85,.22,1]);}
+      orientedRect(a,x+dx*.5,y-.65+dy*.5,kind==='samurai'?1.35:kind==='rocket'?1:.64,kind==='rocket'?.26:.1,s.angle,kind==='samurai'?[.87,.94,1,1]:[.11,.13,.1,1]);
+      if(kind==='rocket')orientedRect(a,x+dx*1.2,y-.65+dy*1.2,.22,.28,s.angle,[.7,.28,.14,1]);
+      if(s.flash>0){
+        if(kind==='samurai'){const phase=1-s.flash/.28;for(let layer=0;layer<3;layer++)for(let j=0;j<18;j++){const angle=s.angle-1.9+phase*2.5+j*.09,r=2.1+layer*.18,fade=(j/18)*(s.flash/.28)*(1-layer*.24);streak(a,x+Math.cos(angle)*r,y-.65+Math.sin(angle)*r,-Math.sin(angle),Math.cos(angle),.27,.08,[.7,.89,1,fade]);}}
+        else if(kind==='flame'){for(let j=0;j<12;j++){const spread=s.angle+Math.sin(j*13)*.42,reach=1+j*.42;disc(a,x+Math.cos(spread)*reach,y-.65+Math.sin(spread)*reach,.2+j*.04,[1,.2+j*.035,.04,(1-j/15)*s.flash*4],5);}}
+        else if(kind==='rocket'){streak(a,mx+dx*4,my+dy*4,dx,dy,4,.14,[.88,.84,.65,s.flash*5]);disc(a,mx,my,.4,[1,.6,.15,.8],6);}
+        else {disc(a,mx,my,.24,[1,.86,.29,.95],5);streak(a,mx+dx*2,my+dy*2,dx,dy,2,.025,[1,.89,.43,s.flash*6]);}
+      }
+      if(s.health<stats.health||scene.selectedBarracks===s.home){rect(a,x-.65,y-2.1,1.3,.13,[.12,.13,.1,1]);rect(a,x-.65,y-2.1,1.3*s.health/stats.health,.13,[.5,.85,.22,1]);}
       for(let rank=0;rank<s.quality;rank++)rect(a,x-.4+rank*.18,y-1.02,.1,.1,[.95,.84,.3,1]);
     }
     for(const projectile of scene.heavyProjectiles??[]){

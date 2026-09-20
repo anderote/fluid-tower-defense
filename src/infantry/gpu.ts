@@ -1,15 +1,15 @@
 import {PARTICLE_WGSL,type SharedGPU,type WorldMap} from '../contracts/index.ts';
-import {MAX_INFANTRY,rifleStats,type Soldier,type Threat,type RifleShot} from './model.ts';
+import {MAX_INFANTRY,infantryStats,type Soldier,type Threat,type RifleShot} from './model.ts';
 
 export async function createInfantryGPU(device:GPUDevice,shared:SharedGPU){
   const params=device.createBuffer({size:16,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST});
-  const units=device.createBuffer({size:MAX_INFANTRY*32,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
+  const units=device.createBuffer({size:MAX_INFANTRY*48,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
   const results=device.createBuffer({size:MAX_INFANTRY*32,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_SRC});
   const read=device.createBuffer({size:MAX_INFANTRY*32,usage:GPUBufferUsage.COPY_DST|GPUBufferUsage.MAP_READ});
   let walls=device.createBuffer({size:16,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST}),wallCapacity=1,busy=false,version=0;
   const threats=new Map<number,Threat>();
   const shader=device.createShaderModule({label:'Rifleman targeting and damage',code:`${PARTICLE_WGSL}
-struct Unit {position:vec4f,shot:vec4f};
+struct Unit {position:vec4f,shot:vec4f,impact:vec4f};
 struct Result {aim:vec4f,contact:vec4f};
 @group(0) @binding(0) var<uniform> params:vec4u;
 @group(0) @binding(1) var<storage,read_write> particles:array<Particle>;
@@ -29,7 +29,7 @@ fn visible(a:vec2f,b:vec2f)->bool {
  }return true;
 }
 @compute @workgroup_size(64) fn sense(@builtin(global_invocation_id) gid:vec3u){
- let u=gid.x;if(u>=params.y){return;}let unit=units[u];var best=unit.position.z;var result=Result(vec4f(-1,0,0,0),vec4f(0));
+ let u=gid.x;if(u>=params.y){return;}let unit=units[u];var best=max(unit.position.z,select(0.,12.,unit.position.w==3.));var result=Result(vec4f(-1,0,0,0),vec4f(0));
  for(var i=0u;i<params.x;i++){
   let p=particles[i];if(p.state.w<.5||p.body.z<=0.){continue;}
   let d=distance(p.pos.xy,unit.position.xy);
@@ -41,8 +41,12 @@ fn visible(a:vec2f,b:vec2f)->bool {
 @compute @workgroup_size(128) fn damage(@builtin(global_invocation_id) gid:vec3u){
  let i=gid.x;if(i>=params.x){return;}var p=particles[i];if(p.state.w<.5||p.body.z<=0.){return;}
  for(var u=0u;u<params.y;u++){
-  let unit=units[u];if(unit.shot.x!=f32(i)||unit.shot.y!=p.status.w||unit.shot.z<=0.){continue;}
-  if(distance(unit.position.xy,p.pos.xy)<=unit.position.z&&visible(unit.position.xy,p.pos.xy)){p.body.z-=unit.shot.z;atomicStore(&owners[i],0u);}
+  let unit=units[u];if(unit.shot.z<=0.){continue;}
+  let delta=p.pos.xy-unit.position.xy;let d=length(delta);let kind=unit.position.w;
+  var hit=unit.shot.x==f32(i)&&unit.shot.y==p.status.w&&d<=unit.position.z;
+  if(kind==1.){hit=distance(p.pos.xy,unit.impact.xy)<=3.5&&visible(unit.impact.xy,p.pos.xy);}
+  if(kind==2.||kind==3.){let alignment=dot(delta/max(d,.001),vec2f(cos(unit.impact.z),sin(unit.impact.z)));hit=d<=unit.position.z&&alignment>=select(.65,-.3,kind==3.);}
+  if(hit&&visible(unit.position.xy,p.pos.xy)){p.body.z-=unit.shot.z;atomicStore(&owners[i],0u);}
  }particles[i]=p;
 }`});
   const errors=(await shader.getCompilationInfo()).messages.filter(m=>m.type==='error');if(errors.length)throw Error(errors.map(m=>m.message).join('\n'));
@@ -54,7 +58,7 @@ fn visible(a:vec2f,b:vec2f)->bool {
     if(map.obstacles.length>wallCapacity){walls.destroy();wallCapacity=2**Math.ceil(Math.log2(map.obstacles.length));walls=device.createBuffer({size:wallCapacity*16,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});}
     if(map.obstacles.length)device.queue.writeBuffer(walls,0,new Float32Array(map.obstacles.flatMap(o=>[o.x,o.y,o.width,o.height])));
     device.queue.writeBuffer(params,0,new Uint32Array([count,live.length,map.obstacles.length,0]));
-    const data=new Float32Array(MAX_INFANTRY*8);live.forEach((s,i)=>{const shot=shots.find(shot=>shot.soldier===s.id);data.set([s.x,s.y,rifleStats(s.quality).range,0,shot?.target??-1,shot?.generation??0,shot?.damage??0,0],i*8);});device.queue.writeBuffer(units,0,data);
+    const data=new Float32Array(MAX_INFANTRY*12);live.forEach((s,i)=>{const shot=shots.find(shot=>shot.soldier===s.id);data.set([s.x,s.y,infantryStats(s.kind,s.quality,s.defense).range,['rifle','rocket','flame','samurai'].indexOf(s.kind??'rifle'),shot?.target??-1,shot?.generation??0,shot?.damage??0,0,shot?.x??0,shot?.y??0,s.angle,0],i*12);});device.queue.writeBuffer(units,0,data);
     const group=device.createBindGroup({layout,entries:[params,shared.particles,units,results,walls,shared.damageOwners!].map((buffer,binding)=>({binding,resource:{buffer}}))});
     if(shots.length&&count){const pass=encoder.beginComputePass();pass.setPipeline(damage);pass.setBindGroup(0,group);pass.dispatchWorkgroups(Math.ceil(count/128));pass.end();}
     if(!sample||busy)return;

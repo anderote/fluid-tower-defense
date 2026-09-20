@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {screenToWorld,worldToScreen} from './camera.ts';
+import {cameraPanBounds,screenToWorld,worldToScreen} from './camera.ts';
 const close=(a:number,b:number)=>assert.ok(Math.abs(a-b)<1e-8,`${a} != ${b}`);
 test('world corners match the rendered rectangle, with y increasing down the screen',()=>{
  const viewport={left:10,top:20,width:1600,height:1000},camera={x:0,y:0,zoom:1};
@@ -23,4 +23,8 @@ test('letterboxing is centered and off-world input clamps to world bounds',()=>{
  close(worldToScreen({x:0,y:0},viewport,camera).y,0);
  assert.deepEqual(screenToWorld({x:-100,y:-100},viewport,camera),{x:0,y:0});
  assert.deepEqual(screenToWorld({x:3000,y:2000},viewport,camera),{x:160,y:100});
+});
+test('pan limits let the viewport center reach every map edge',()=>{
+ assert.deepEqual(cameraPanBounds({x:0,y:0,zoom:2}),{minX:-40,maxX:120,minY:-25,maxY:75});
+ assert.deepEqual(cameraPanBounds({x:0,y:0,zoom:1}),{minX:-80,maxX:80,minY:-50,maxY:50});
 });
