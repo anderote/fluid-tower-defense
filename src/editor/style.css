@@ -1,1 +1,19 @@
-.level-editor{position:relative;z-index:20;font:12px system-ui}.level-editor-panel{display:grid;gap:6px;width:190px;margin-top:6px;padding:10px;background:#101827eF;color:#e8f2ff;border:1px solid #4d6d8f;border-radius:8px}.level-editor button{padding:6px 8px;background:#1d3754;color:#fff;border:1px solid #6095c5;border-radius:4px;cursor:pointer}.level-editor p{margin:4px 0 0;color:#b7d6ef}
+.level-editor { position: relative; z-index: 20; font: 10px "JetBrains Mono", ui-monospace, monospace; }
+.level-editor-panel {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  display: grid;
+  gap: 6px;
+  width: 210px;
+  margin-top: 6px;
+  padding: 10px;
+  border: 1px solid var(--term-border-strong);
+  border-radius: 0;
+  background: var(--term-bg);
+  color: var(--term-fg);
+  box-shadow: 10px 10px 0 rgba(0, 0, 0, .45);
+}
+.level-editor button { padding: 7px 8px; border: 1px solid var(--term-border-strong); border-radius: 0; background: transparent; color: var(--term-muted); cursor: pointer; }
+.level-editor button:hover { border-color: var(--term-accent); color: var(--term-fg); }
+.level-editor p { margin: 4px 0 0; color: var(--term-muted); line-height: 1.5; }
