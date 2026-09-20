@@ -239,8 +239,22 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
       streak(a,x,y,.55,flip,.34,.055,c);streak(a,x,y,-.55,flip,.34,.055,c);
     }
   };
+  const fenceShape=(a:V[],fence:{x:number;y:number;width:number;height:number},integrity:number,c:[number,number,number,number]=[.62,.69,.67,.96])=>{
+    const damage=1-Math.max(0,Math.min(1,integrity)),left=fence.x+.3,right=fence.x+fence.width-.3,top=fence.y+.38,bottom=fence.y+fence.height-.3;
+    const sag=damage*.72,dark:[number,number,number,number]=[.12,.15,.15,c[3]],mesh:[number,number,number,number]=[c[0],c[1],c[2],c[3]*(1-damage*.42)];
+    rect(a,fence.x+.08,bottom-.04,fence.width-.16,.28,[.01,.013,.013,.28]);
+    for(const x of [left,right]){streak(a,x,bottom,damage*(x===left?.2:-.2),1,fence.height-.5,.14,dark);disc(a,x,top,.13,[.82,.86,.8,c[3]],6);}
+    streak(a,right,top+sag,1,sag/(right-left),right-left,.095,mesh);streak(a,right,bottom-.08,1,-sag*.15/(right-left),right-left,.09,dark);
+    for(let x=left+.25,index=0;x<right-.1;x+=.48,index++){
+      if(damage>.58&&index%4===2)continue;
+      streak(a,x,top+.18+sag*(x-left)/(right-left),.72,1,fence.height-.78,.035,mesh);
+      streak(a,x,bottom-.22,-.72,1,fence.height-.78,.035,[mesh[0],mesh[1],mesh[2],mesh[3]*.78]);
+    }
+    if(damage>.25)streak(a,fence.x+fence.width*.5,fence.y+fence.height*.52,.35,1,1+damage*1.3,.075,[.28,.16,.07,.52+damage*.35]);
+  };
   function geometry(scene:RenderScene): Float32Array { const a:V[]=[];
     const activeWires=(scene.wires??[]).filter(wire=>!wire.breached);
+    const activeFences=scene.fences??[];
     const focused=scene.selection===null?undefined:scene.towers.find(tower=>tower.id===scene.selection);
     if(focused&&scene.selectionRange){
       const color:[number,number,number,number]=focused.kind==='incinerator'?[1,.25,.055,.105]:focused.kind==='rocket'?[1,.32,.15,.09]:focused.kind==='railgun'?[.25,1,.74,.09]:focused.kind==='autocannon'?[1,.82,.25,.09]:[.55,.9,1,.075];
@@ -251,7 +265,7 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
       const edge:[number,number,number,number]=[color[0],color[1],color[2],.34];
       for(let index=0;index<points.length;index++){const start=points[index],end=points[(index+1)%points.length];streak(a,end.x,end.y,end.x-start.x,end.y-start.y,Math.hypot(end.x-start.x,end.y-start.y),.055,edge);}
     }
-    if(!redAlert)for(const o of scene.map.obstacles){if(activeWires.some(wire=>sameRect(wire,o)))continue;rect(a,o.x-.22,o.y-.22,o.width+.44,o.height+.44,[.018,.021,.027,.78]);rect(a,o.x,o.y,o.width,o.height,[.13,.15,.19,.98]);rect(a,o.x+.38,o.y+.38,Math.max(0,o.width-.76),Math.max(0,o.height-.76),[.22,.25,.3,.92]);rect(a,o.x+.38,o.y+.38,Math.max(0,o.width-.76),.34,[.5,.57,.66,.42]);rect(a,o.x+o.width-.58,o.y+.45,.18,Math.max(0,o.height-.9),[.045,.052,.07,.74]);for(let y=o.y+2;y<o.y+o.height-1;y+=5)rect(a,o.x+.08,y,Math.min(.48,o.width*.16),1.5,[.95,.61,.12,.38]);}
+    if(!redAlert)for(const o of scene.map.obstacles){if(activeWires.some(wire=>sameRect(wire,o))||activeFences.some(fence=>sameRect(fence,o)))continue;rect(a,o.x-.22,o.y-.22,o.width+.44,o.height+.44,[.018,.021,.027,.78]);rect(a,o.x,o.y,o.width,o.height,[.13,.15,.19,.98]);rect(a,o.x+.38,o.y+.38,Math.max(0,o.width-.76),Math.max(0,o.height-.76),[.22,.25,.3,.92]);rect(a,o.x+.38,o.y+.38,Math.max(0,o.width-.76),.34,[.5,.57,.66,.42]);rect(a,o.x+o.width-.58,o.y+.45,.18,Math.max(0,o.height-.9),[.045,.052,.07,.74]);for(let y=o.y+2;y<o.y+o.height-1;y+=5)rect(a,o.x+.08,y,Math.min(.48,o.width*.16),1.5,[.95,.61,.12,.38]);}
     for(const wall of scene.walls??[]){
       const integrity=Math.max(0,Math.min(1,wall.health/wall.maxHealth)),damage=1-integrity;
       // The structural base is drawn from map obstacles above. These overlays make its condition legible at a glance.
@@ -275,6 +289,7 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
         }
       }
     }
+    for(const fence of activeFences)fenceShape(a,fence,fence.health/fence.maxHealth);
     for(const wire of scene.wires??[]){
       if(redAlert?.hasWireSprites)continue;
       const integrity=Math.max(.03,Math.min(1,wire.health/wire.maxHealth)),damage=1-integrity;
@@ -302,6 +317,8 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
       if(scene.placementGhost.kind==='wire'){
         if(!redAlert?.hasWireSprites)wireShape(a,scene.placementGhost,c,1);
         for(const x of [scene.placementGhost.x+.22,scene.placementGhost.x+scene.placementGhost.width-.22])for(const y of [scene.placementGhost.y+.22,scene.placementGhost.y+scene.placementGhost.height-.22])disc(a,x,y,.09,c,5);
+      }else if(scene.placementGhost.kind==='fence'){
+        fenceShape(a,scene.placementGhost,1,c);
       }else{
         rect(a,scene.placementGhost.x,scene.placementGhost.y,scene.placementGhost.width,scene.placementGhost.height,[c[0],c[1],c[2],.42]);
         rect(a,scene.placementGhost.x+.35,scene.placementGhost.y+.35,scene.placementGhost.width-.7,.25,c);

@@ -40,10 +40,10 @@ async function navigate(path='/'){
 async function fresh(path='/'){await loadFrame('about:blank');freshStorage();await navigate(path);}
 const cases:{name:string;run:()=>Promise<void>}[]=[
  {name:'Checkpoint survives later autosaves and restores structures, Metal, and flow',run:async()=>{
-  await fresh();click('[data-action="wall-tool"]');point(22,22);await until(()=>text('#metal')==='2940','Wall was not charged');flow(2);snapshot();
-  click('[data-action="wire-tool"]');point(30,22);flow(3);await until(()=>text('#metal')==='2895','Wire was not charged');
+  await fresh();click('[data-action="wall-tool"]');point(22,22);await until(()=>text('#metal')==='2800','Wall was not charged');flow(2);snapshot();
+  click('[data-action="wire-tool"]');point(30,22);flow(3);await until(()=>text('#metal')==='2755','Wire was not charged');
   await until(()=>{const raw=localStorage.getItem('pressure-front.autosave.v1');return !!raw&&JSON.parse(raw).difficulty===3;},'Autosave did not capture changes');
-  click('[data-action="load"]');await until(()=>text('#metal')==='2940','Checkpoint did not restore Metal');assert(element<HTMLInputElement>('#difficulty').value==='2','Flow was not restored');
+  click('[data-action="load"]');await until(()=>text('#metal')==='2800','Checkpoint did not restore Metal');assert(element<HTMLInputElement>('#difficulty').value==='2','Flow was not restored');
   const restored=snapshot();assert(restored.builtWalls.length===1&&restored.builtWires.length===0,'Wrong structures restored');
  }},
  {name:'Corrupt tower checkpoints fail without changing the current defense',run:async()=>{
