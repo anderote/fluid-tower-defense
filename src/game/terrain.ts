@@ -7,6 +7,17 @@ export function clearPlayerTerrain(map:WorldMap,walls:readonly Rect[],wires:read
   return {...map,obstacles:map.obstacles.filter(obstacle=>!playerStructures.some(structure=>sameRect(obstacle,structure)))};
 }
 
+/** Keep saved player structures while rebasing default-map sessions onto current authored terrain. */
+export function restoreSessionTerrain(
+  savedMap:WorldMap,
+  authoredMap:WorldMap,
+  walls:readonly Rect[],
+  wires:readonly (Rect & Partial<{breached:boolean}>)[],
+):WorldMap {
+  const base=savedMap.id===authoredMap.id?authoredMap:clearPlayerTerrain(savedMap,walls,wires);
+  return {...base,obstacles:[...base.obstacles,...walls,...wires.filter(wire=>!wire.breached)]};
+}
+
 export function snapToMount(point:Vec2,mounts:readonly Rect[]):Vec2 {
   const wall=mounts.find(rect=>point.x>=rect.x&&point.x<rect.x+rect.width&&point.y>=rect.y&&point.y<rect.y+rect.height);
   return wall?{x:wall.x+wall.width/2,y:wall.y+wall.height/2}:point;
