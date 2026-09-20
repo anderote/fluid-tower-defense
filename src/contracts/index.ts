@@ -11,7 +11,7 @@ export interface VisualParticle extends Vec2 { vx:number; vy:number; size:number
 export interface TowerDef { id: TowerKind; name: string; description: string; cost: number; range: number; cooldown: number; damage: number; force: number; radius: number; color: string; branches: readonly [string, string] }
 export interface EnemyDef { id: EnemyKind; index: number; name: string; radius: number; mass: number; health: number; speed: number; crushTolerance: number; bounty: number; leak: number; color: string }
 export interface Tower extends Vec2 { id: number; kind: TowerKind; level: number; branch: number; angle: number; cooldown: number; spent: number; kills?:number; veterancy?:number; veterancyXp?:number }
-export interface NavigationField { width: number; height: number; cellSize: number; vectors: Float32Array; distances: Float32Array; version: number }
+export interface NavigationField { width: number; height: number; cellSize: number; vectors: Float32Array; alternateVectors: Float32Array; distances: Float32Array; version: number }
 export interface Tuning { pressure: number; viscosity: number; drive: number; crushThreshold: number; crushDamage: number }
 export const DEFAULT_TUNING: Tuning = { pressure: 36, viscosity: 2, drive: 5, crushThreshold: 1.8, crushDamage: 18 };
 export const WORLD_WIDTH = 160;

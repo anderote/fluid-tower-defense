@@ -10,6 +10,7 @@ export function buildNavigation(map: WorldMap): NavigationField {
   const width=Math.ceil(map.width/CELL_SIZE), height=Math.ceil(map.height/CELL_SIZE), size=width*height;
   const distances=new Float32Array(size); distances.fill(Infinity);
   const vectors=new Float32Array(size*2);
+  const alternateVectors=new Float32Array(size*2);
   const index=(x:number,y:number)=>y*width+x;
   const goalX=Math.min(width-1,Math.max(0,Math.floor(map.goal.x/CELL_SIZE))), goalY=Math.min(height-1,Math.max(0,Math.floor(map.goal.y/CELL_SIZE)));
   const queueX=new Int32Array(size), queueY=new Int32Array(size); let head=0,tail=0;
@@ -21,11 +22,12 @@ export function buildNavigation(map: WorldMap): NavigationField {
   }
   for(let y=0;y<height;y++) for(let x=0;x<width;x++) {
     const at=index(x,y), current=distances[at]; if(!Number.isFinite(current) || current===0) continue;
-    let best=current,bx=x,by=y;
-    for(const [dx,dy] of directions) { const nx=x+dx,ny=y+dy; if(nx>=0&&ny>=0&&nx<width&&ny<height&&distances[index(nx,ny)]<best) {best=distances[index(nx,ny)];bx=nx;by=ny;} }
+    let best=current,bx=x,by=y,alternateX=x,alternateY=y;
+    for(const [dx,dy] of directions) { const nx=x+dx,ny=y+dy; if(nx<0||ny<0||nx>=width||ny>=height)continue;const candidate=distances[index(nx,ny)];if(candidate<best){best=candidate;bx=nx;by=ny;alternateX=x;alternateY=y;}else if(candidate===best&&candidate<current){alternateX=nx;alternateY=ny;} }
     const length=Math.hypot(bx-x,by-y); vectors[at*2]=(bx-x)/length;vectors[at*2+1]=(by-y)/length;
+    if(alternateX!==x||alternateY!==y){const alternateLength=Math.hypot(alternateX-x,alternateY-y);alternateVectors[at*2]=(alternateX-x)/alternateLength;alternateVectors[at*2+1]=(alternateY-y)/alternateLength;}
   }
-  return {width,height,cellSize:CELL_SIZE,vectors,distances,version:++version};
+  return {width,height,cellSize:CELL_SIZE,vectors,alternateVectors,distances,version:++version};
 }
 
 /** Checks a circular mounted-emplacement footprint against bounds, static walls, spawn and other towers. */

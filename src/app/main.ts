@@ -3,7 +3,7 @@ import { verifyABI } from '../runtime/abi-check.ts';
 import { FixedClock } from '../runtime/clock.ts';
 import { FrameMetrics } from '../runtime/metrics.ts';
 import { SettlementReader } from '../runtime/readback.ts';
-import { createLevelEditor, validateEditorMap } from '../editor/index.ts';
+import { createLevelEditor, validateEditorMap, wallAtPoint } from '../editor/index.ts';
 import '../editor/style.css';
 import { createUI } from '../ui/index.ts';
 import { createRenderer } from '../render/index.ts';
@@ -115,7 +115,7 @@ try {
    }
    updateUI(performance.now());
  };
- const wallAt=(point:Vec2):Rect=>({x:Math.floor(point.x/4)*4,y:Math.floor(point.y/4)*4,width:4,height:4});
+ const wallAt=(point:Vec2):Rect=>wallAtPoint(map,point);
  const burst=(point:Vec2, count:number, color:[number,number,number], speed:number, life:number, gravity=0, style:VisualParticleStyle='spark', scale=1)=>{
    // Keep the CPU-side flourish bounded: the swarm itself stays entirely GPU simulated.
    const available=Math.max(0,520-visualParticles.length);

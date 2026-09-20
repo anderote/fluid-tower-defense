@@ -7,6 +7,12 @@ test('staged default map provides a route through every gate',()=>{
   const field=buildNavigation(DEFAULT_MAP);
   for(const x of [20,52,88,124,150]) assert.ok(Number.isFinite(field.distances[50*field.width+x]));
 });
+test('navigation offers equivalent alternate steps so enemies can split routes',()=>{
+  const field=buildNavigation({...DEFAULT_MAP,obstacles:[]});
+  const at=40*field.width+20;
+  assert.deepEqual(Array.from(field.vectors.slice(at*2,at*2+2)),[1,0]);
+  assert.deepEqual(Array.from(field.alternateVectors.slice(at*2,at*2+2)),[0,1]);
+});
 test('default walls preserve the clear boss corridor',()=>{
   assert.equal(DEFAULT_MAP.obstacles.length,8);
   assert.ok(DEFAULT_MAP.obstacles.every(wall=>wall.y+wall.height<=47.5||wall.y>=52.5));
