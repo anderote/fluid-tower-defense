@@ -201,36 +201,58 @@ test('wave director streams until its large horde quota is defeated',()=>{
   for(let second=4;second<=62;second+=2){
     assert.ok(wave.spawns.some(batch=>{const start=batch.start??0, end=start+batch.count/(batch.rate??1);return start<=second&&end>=second;}),`expected an active stream at ${second}s`);
   }
-  const opening=waveFor(1,1).spawns[0], late=waveFor(3,10).spawns[0];
-  assert.ok(opening.count/(opening.rate??1)>=40);
-  assert.ok(late.count/(late.rate??1)>opening.count/(opening.rate??1));
+  const opening=waveFor(1,1),late=waveFor(3,10);
+  assert.equal(opening.rampSeconds,110);
+  assert.ok(late.rampSeconds>opening.rampSeconds);
 });
 
-test('horde quota is slider × 100,000 × global wave to the 1.67 power',()=>{
-  const slider=7,globalWave=4;
-  assert.equal(waveFor(1,globalWave,slider).total,Math.round(slider*100_000*Math.pow(globalWave,1.67)));
-  assert.equal(waveFor(2,1,slider).total,Math.round(slider*100_000*Math.pow(11,1.67)));
+test('horde quota starts at 100,000 and scales by global wave independently of frontage',()=>{
+  const globalWave=4;
+  assert.equal(waveFor(1,1).total,100_000);
+  assert.equal(waveFor(1,globalWave).total,Math.round(100_000*Math.pow(globalWave,1.67)));
+  assert.equal(waveFor(2,1).total,Math.round(100_000*Math.pow(11,1.67)));
 });
 
 test('continuous horde arrival pauses at capacity and resumes when space opens',()=>{
-  const run=createRun();run.setHordeScale(1);assert.equal(run.startWave().ok,true);
+  const run=createRun();assert.equal(run.startWave().ok,true);
   const first=run.takeSpawns(100,1).reduce((sum,batch)=>sum+batch.count,0);
-  assert.equal(first,100);
+  assert.equal(first,7);
   assert.equal(run.takeSpawns(0,1).length,0);
   const resumed=run.takeSpawns(100,1).reduce((sum,batch)=>sum+batch.count,0);
-  assert.equal(resumed,100);
+  assert.equal(resumed,60);
 });
 
-test('opening waves are a larger continuous stream, never an initial packet dump',()=>{
+test('opening wave is an authored 100,000-enemy ramp with three enemy types',()=>{
   const wave=waveFor(1,1),run=createRun();
-  assert.ok(wave.total>=12_000,'opening population should be substantially larger');
+  assert.equal(wave.total,100_000);
+  assert.equal(wave.spawns.reduce((sum,batch)=>sum+batch.count,0),100_000);
+  assert.deepEqual([...new Set(wave.spawns.map(batch=>batch.kind))],['shambler','runner','husk']);
+  assert.deepEqual([...new Set(wave.spawns.map(batch=>batch.start))],[0,20,30,40,50,65,75,85,100]);
   assert.ok(wave.spawns.every(batch=>(batch.burst??0)===1));
+  const rateAt=(second:number)=>wave.spawns.reduce((sum,batch)=>{
+    const start=batch.start??0,duration=batch.duration??Infinity;
+    if(second<start||second>=start+duration)return sum;
+    const progress=(second-start)/duration;
+    return sum+(batch.rate??0)+((batch.endRate??batch.rate??0)-(batch.rate??0))*progress;
+  },0);
+  assert.deepEqual([10,25,35,45,57.5,70,80,92.5,105].map(second=>Math.round(rateAt(second))),[150,300,600,1_200,1_500,1_000,800,1_100,1_900]);
   assert.equal(run.startWave().ok,true);
   const firstTick=run.takeSpawns(65_536,1/60).reduce((sum,batch)=>sum+batch.count,0);
   const firstSecond=firstTick+Array.from({length:59},()=>run.takeSpawns(65_536,1/60).reduce((sum,batch)=>sum+batch.count,0)).reduce((sum,count)=>sum+count,0);
   assert.ok(firstTick<wave.total*.02);
   assert.ok(firstSecond<wave.total*.05);
   assert.ok(firstSecond>0);
+  let emitted=firstSecond;
+  for(let tick=60;tick<7_200;tick++)emitted+=run.takeSpawns(65_536,1/60).reduce((sum,batch)=>sum+batch.count,0);
+  assert.equal(emitted,100_000);
+  assert.equal(run.model.pending.length,0);
+});
+
+test('staged wave backlog remains bounded after the inlet is blocked',()=>{
+  const run=createRun();assert.equal(run.startWave().ok,true);
+  assert.equal(run.takeSpawns(0,110).length,0);
+  const resumed=run.takeSpawns(65_536,1/60).reduce((sum,batch)=>sum+batch.count,0);
+  assert.ok(resumed>0&&resumed<=1_350);
 });
 
 test('extracting after the checkpoint ends the run',()=>{
