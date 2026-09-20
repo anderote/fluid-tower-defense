@@ -1,6 +1,6 @@
 import {COMMAND_UPGRADES, DEFAULT_MAP, TOWERS, veterancyLevel} from '../content/index.ts';
 import {canPlace} from '../navigation/index.ts';
-import type {BonusChoice, MetaUpgrade, RunModel, Settlement, SpawnBatch, Tower, TowerKind, Vec2, WorldMap} from '../contracts/index.ts';
+import type {BonusChoice, MetaUpgrade, Rect, RunModel, Settlement, SpawnBatch, Tower, TowerKind, Vec2, WorldMap} from '../contracts/index.ts';
 
 export type ActionResult = {ok:true} | {ok:false; reason:string};
 export type PlaceResult = ActionResult & {tower?:Tower};
@@ -74,11 +74,11 @@ const spentAtLevel = (kind:TowerKind, level:number):number => {
   return spent;
 };
 
-function validTower(map:WorldMap, tower:unknown, prior:readonly Tower[]): tower is Tower {
+function validTower(map:WorldMap, tower:unknown, prior:readonly Tower[], mounts:readonly Rect[]): tower is Tower {
   if (!tower || typeof tower !== 'object') return false;
   const value=tower as Tower;
   if (!isFiniteInteger(value.id) || value.id<=0 || !isTowerKind(value.kind) || !isNonNegative(value.x) || !isNonNegative(value.y) || !isFiniteInteger(value.level) || value.level<0 || value.level>3 || !isFiniteInteger(value.branch) || ![-1,0,1].includes(value.branch) || (value.level===0 && value.branch!==-1) || (value.level>0 && value.branch===-1) || !isNonNegative(value.angle) || !isNonNegative(value.cooldown) || !isFiniteInteger(value.spent) || value.spent!==spentAtLevel(value.kind,value.level) || prior.some(other=>other.id===value.id)) return false;
-  return canPlace(map,prior,value,1.25);
+  return canPlace(map,prior,value,1.25,mounts);
 }
 function validApplied(value:unknown): value is Applied {
   if (!value || typeof value !== 'object') return false;
@@ -96,6 +96,7 @@ export class RunController {
   private spawnCredit=0;
   private spawnMultiplier=1;
   private map:WorldMap;
+  private buildMounts:Rect[]=[];
 
   constructor(initialMap:WorldMap=DEFAULT_MAP) { this.map=initialMap; }
 
@@ -109,7 +110,7 @@ export class RunController {
     if (this.model.towers.length>=MAX_TOWERS) return {ok:false,reason:'The tower limit has been reached.'};
     const def=TOWERS[kind];
     if (this.model.metal<def.cost) return {ok:false,reason:'Insufficient Metal.'};
-    if (!canPlace(this.map,this.model.towers,position,1.25)) return {ok:false,reason:'That position is blocked or too close to another tower.'};
+    if (!canPlace(this.map,this.model.towers,position,1.25,this.buildMounts)) return {ok:false,reason:'That position is blocked or too close to another tower.'};
     const tower:Tower={id:this.nextTowerId++,kind,x:position.x,y:position.y,level:0,branch:-1,angle:0,cooldown:0,spent:def.cost,kills:0,veterancy:0,veterancyXp:0};
     this.model.metal-=def.cost; this.model.towers.push(tower); this.model.selected=null;
     return {ok:true,tower};
@@ -209,6 +210,7 @@ export class RunController {
   reset():void { Object.assign(this.model,fresh()); this.nextTowerId=1; this.runEpoch++; this.applied=emptyApplied(); this.live=0; }
   resetTowerAttribution():void { this.applied.towerKills=Array(MAX_TOWERS).fill(0); }
   setMap(map:WorldMap):void { this.map=map; }
+  setBuildMounts(mounts:readonly Rect[]):void { this.buildMounts=mounts.map(mount=>({...mount})); }
   save():string {
     if (this.model.phase!=='preparation') throw new Error('Runs can only be saved between waves.');
     const text=JSON.stringify({version:1,contentVersion:CONTENT_VERSION,mapId:this.map.id,model:copy(this.model),epoch:this.runEpoch,applied:this.applied} satisfies SavedRun);
@@ -236,7 +238,7 @@ export class RunController {
     const saved=value as SavedRun, model=saved.model;
     if (saved.version!==1 || saved.contentVersion!==CONTENT_VERSION || (saved.mapId!==this.map.id && !(saved.mapId===undefined && this.map.id===DEFAULT_MAP.id)) || !isFiniteInteger(saved.epoch) || saved.epoch<0 || !validApplied(saved.applied) || !model || typeof model!=='object' || model.phase!=='preparation' || !isFiniteInteger(model.metal) || model.metal<0 || !isFiniteInteger(model.baseHealth) || model.baseHealth<0 || model.baseHealth>30 || !isFiniteInteger(model.level) || model.level<1 || !isFiniteInteger(model.wave) || model.wave<0 || model.wave>=WAVES_PER_LEVEL || model.waveCount!==WAVES_PER_LEVEL || !Array.isArray(model.towers) || model.towers.length>MAX_TOWERS || !Array.isArray(model.pending) || model.pending.length!==0 || !Array.isArray(model.bonuses) || !Array.isArray(model.commandUpgrades) || !Array.isArray(model.bonusChoices) || model.bonusChoices.some(choice=>!BONUSES.some(known=>choice.id===known.id))) return false;
     const towers:Tower[]=[];
-    for (const tower of model.towers) { if (!validTower(this.map,tower,towers)) return false; towers.push(tower); }
+    for (const tower of model.towers) { if (!validTower(this.map,tower,towers,this.buildMounts)) return false; towers.push(tower); }
     if (model.selected!==null && (!isFiniteInteger(model.selected) || !towers.some(tower=>tower.id===model.selected))) return false;
     return model.bonuses.every((bonus,index)=>typeof bonus==='string' && BONUSES.some(known=>known.id===bonus) && model.bonuses.indexOf(bonus)===index) && model.commandUpgrades.every((upgrade,index)=>typeof upgrade==='string' && COMMAND_UPGRADES.some(known=>known.id===upgrade) && model.commandUpgrades.indexOf(upgrade)===index);
   }

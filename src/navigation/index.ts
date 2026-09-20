@@ -30,12 +30,14 @@ export function buildNavigation(map: WorldMap): NavigationField {
   return {width,height,cellSize:CELL_SIZE,vectors,alternateVectors,distances,version:++version};
 }
 
-/** Checks a circular mounted-emplacement footprint against bounds, static walls, spawn and other towers. */
-export function canPlace(map: WorldMap, towers: readonly Tower[], position: Vec2, footprint: number): boolean {
+/** Checks a circular emplacement footprint, allowing a centered player-built wall to act as its mount. */
+export function canPlace(map: WorldMap, towers: readonly Tower[], position: Vec2, footprint: number, mounts:readonly {x:number;y:number;width:number;height:number}[]=[]): boolean {
   if (!Number.isFinite(position.x) || !Number.isFinite(position.y) || !Number.isFinite(footprint) || footprint <= 0) return false;
   if (position.x-footprint<0 || position.y-footprint<0 || position.x+footprint>map.width || position.y+footprint>map.height) return false;
   const circleRect=(rect:{x:number;y:number;width:number;height:number})=>{ const x=Math.max(rect.x,Math.min(position.x,rect.x+rect.width)),y=Math.max(rect.y,Math.min(position.y,rect.y+rect.height)); return Math.hypot(position.x-x,position.y-y) < footprint; };
-  if (map.obstacles.some(circleRect)) return false;
+  const mount=mounts.find(rect=>footprint<=Math.min(rect.width,rect.height)/2&&Math.abs(position.x-(rect.x+rect.width/2))<.001&&Math.abs(position.y-(rect.y+rect.height/2))<.001);
+  const sameRect=(left:{x:number;y:number;width:number;height:number},right:{x:number;y:number;width:number;height:number})=>left.x===right.x&&left.y===right.y&&left.width===right.width&&left.height===right.height;
+  if (map.obstacles.some(rect=>(!mount||!sameRect(rect,mount))&&circleRect(rect))) return false;
   if (Math.hypot(position.x-map.goal.x,position.y-map.goal.y) < footprint+map.goalRadius) return false;
   return towers.every(tower=>Math.hypot(position.x-tower.x,position.y-tower.y) >= footprint+1.25);
 }
