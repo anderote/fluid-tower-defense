@@ -11,7 +11,7 @@ import '../editor/style.css';
 import { createUI } from '../ui/index.ts';
 import { createRenderer } from '../render/index.ts';
 import {createAudio} from '../audio/index.ts';
-import {mountLocalSoundtrack} from '../audio/local-soundtrack.ts';
+import {mountRedAlertSoundtrack} from '../audio/red-alert-soundtrack.ts';
 import {createBoss} from '../sim/bosses/index.ts';
 import {createHorde} from '../sim/horde/index.ts';
 import {HordeFront,HordeCapacity,encodeHorde} from '../sim/horde/model.ts';
@@ -54,7 +54,7 @@ try {
  gpu.shared.shotState=combat.shotState;
  const renderer=await createRenderer(gpu.device,gpu.context,gpu.format,gpu.shared,ui.canvas,{turretArt:params.get('turretArt')==='red-alert'?'red-alert':'soldat',floorArt:params.get('floor')==='grating'?'grating':'panels'});
  const audio=createAudio();
- mountLocalSoundtrack(root);
+ mountRedAlertSoundtrack(root);
  const selectedInspector=ui.canvas.parentElement!.querySelector<HTMLElement>('.selected-popup')!;
  const upgradeInspector=ui.canvas.parentElement!.querySelector<HTMLElement>('.upgrade-hover-card')!;
  const pressureLayer=document.createElement('div');pressureLayer.className='pressure-popups';ui.canvas.parentElement!.append(pressureLayer);
@@ -98,13 +98,13 @@ try {
      }
    }
  },error=>errors.push(String(error)));
- function resetWorld(resetRun=true){
+ function resetWorld(resetRun=true,level=1){
    if(resetRun){
      map=clearPlayerTerrain(map,builtWalls,builtWires);builtWalls=[];builtWires=[];
-     navigation=buildNavigation(map);run.setMap(map);syncTowerMounts();run.reset();
+     navigation=buildNavigation(map);run.setMap(map);syncTowerMounts();run.reset(level);
    }
    epoch=run.epoch;
-   physics.reset();combat.reset();resetHorde();shotReader.reset();boss.reset(false);clock.reset();metrics.reset();lastTickSample=0;waveStartTick=0;simulatedTime=0;
+   physics.reset();combat.reset();combat.clearAftermath();renderer.clearAftermath?.();resetHorde();shotReader.reset();boss.reset(false);clock.reset();metrics.reset();lastTickSample=0;waveStartTick=0;simulatedTime=0;
    gpu.device.queue.writeBuffer(gpu.shared.counters,0,new Uint32Array(COUNTER_WORDS));
    commands=[];visuals=[];visualParticles=[];heavyProjectiles=[];heavyExplosions=[];for(const popup of pressurePopups)popup.element.remove();pressurePopups=[];lastTowerPressurePopup.clear();cameraShake=0;count=0;spawnSlot=0;hoveredTowerId=null;state.kills=state.crushKills=state.leaks=state.earned=state.maxPressure=0;state.selectedKind=null;state.selected=null;state.upgradeTarget=null;state.buildTool=null;state.upgradeMode=false;state.paused=false;
    latest={epoch,tick:0,kills:0,crushKills:0,leaks:0,earned:0,live:0,invalid:0,maxPacking:0};
@@ -129,12 +129,12 @@ try {
    switch(action.type){
      case 'mode':state.mode=action.mode;resetWorld();break;
      case 'pause':state.paused=!state.paused;break;
-     case 'reset':clearPlayerStructures();resetWorld();state.message='Run reset. Placed walls and wire were removed.';break;
+     case 'reset':clearPlayerStructures();resetWorld(true,run.model.level);state.message='Level restarted. Placed defenses and run upgrades were removed.';break;
      case 'restart-wave':{
        const result=run.restartWave();actionResult(result,'Wave restarted. Defenses remain in position.');if(!result.ok)break;
        epoch=run.epoch;count=0;spawnSlot=0;commands=[];visuals=[];visualParticles=[];heavyProjectiles=[];heavyExplosions=[];for(const popup of pressurePopups)popup.element.remove();pressurePopups=[];lastTowerPressurePopup.clear();cameraShake=0;state.population=0;state.kills=state.crushKills=state.leaks=state.earned=state.maxPressure=0;
        latest={epoch,tick:clock.tick,kills:0,crushKills:0,leaks:0,earned:0,live:0,invalid:0,maxPacking:0};
-       gpu.device.queue.writeBuffer(gpu.shared.counters,0,new Uint32Array(COUNTER_WORDS));physics.reset();combat.reset();resetHorde();shotReader.reset();boss.reset(run.isBossWave);waveStartTick=clock.tick+1;lastTickSample=clock.tick;state.paused=false;state.selectedKind=null;
+       gpu.device.queue.writeBuffer(gpu.shared.counters,0,new Uint32Array(COUNTER_WORDS));physics.reset();combat.reset();combat.clearAftermath();renderer.clearAftermath?.();resetHorde();shotReader.reset();boss.reset(run.isBossWave);waveStartTick=clock.tick+1;lastTickSample=clock.tick;state.paused=false;state.selectedKind=null;
        break;
      }
      case 'new-game':newGame();break;
@@ -212,11 +212,11 @@ try {
  };
  const detonateHeavy=(impact:HeavyImpact)=>{
    const rocket=impact.kind==='rocket',scale=rocket ? .88 : 1;
-   heavyExplosions.push({x:impact.x,y:impact.y,kind:impact.kind,age:0,life:rocket ? .82 : .9,scale,direction:impact.direction,serial:impact.serial});
+   heavyExplosions.push({x:impact.x,y:impact.y,kind:impact.kind,age:0,life:rocket ? 1.35 : 1.65,scale,direction:impact.direction,serial:impact.serial});
    if(heavyExplosions.length>32)heavyExplosions.splice(0,heavyExplosions.length-32);
    audio.explode(impact.kind,impact.x,impact.serial);
    burst(impact,rocket?7:9,[.25,.24,.22],rocket?3.8:4.6,1.05,-.45,'smoke',rocket ? .9 : 1.15);
-   spray(impact,rocket?8:12,[.39,.27,.14],rocket?9:10.5,.68,impact.direction,7.4,'debris',rocket ? .9 : 1.12);
+   burst(impact,rocket?8:12,[.39,.27,.14],rocket?9:10.5,.68,7.4,'debris',rocket ? .9 : 1.12);
    spray(impact,rocket?7:10,[1,.64,.13],rocket?12:14,.38,impact.direction,1.8,'spark',rocket ? .8 : 1);
    burst(impact,rocket?3:4,[1,.27,.035],rocket?6.5:7.5,.48,-1.2,'spark',rocket?1:1.15);
    cameraShake=Math.min(1.4,Math.max(cameraShake,rocket ? .62 : .86)+.12);
@@ -397,7 +397,7 @@ try {
      const existingWall=placementKind==='wall'&&structurePlacement?builtWalls.find(wall=>wall.x===structurePlacement.x&&wall.y===structurePlacement.y):undefined;
      const placementCost=placementKind==='wall'?60:45;
      const placementGhost=state.mode==='game'&&placementKind&&structurePlacement?{...structurePlacement,kind:placementKind,valid:run.model.phase!=='won'&&run.model.phase!=='lost'&&run.model.metal>=placementCost&&(existingWall?existingWall.health<existingWall.maxHealth:!previewStructure(map,run.model.towers,structurePlacement))}:undefined;
-     renderer.encode(encoder,{count:editor.active?0:count,time:simulatedTime,map:editor.active?editor.map:map,towers:!editor.active&&state.mode==='game'?run.model.towers:[],effects:editor.active?[]:visuals,visualParticles:editor.active?[]:visualParticles,heavyProjectiles:editor.active?[]:heavyProjectiles,heavyExplosions:editor.active?[]:heavyExplosions,cameraShake:editor.active?0:cameraShake,walls:editor.active?[]:builtWalls,wires:editor.active?[]:builtWires,heatmap:state.heatmap,selection:run.model.selected,ghost:editor.active?undefined:ghost,placementGhost,boss:!editor.active&&latest.boss?.active?latest.boss:undefined});
+     renderer.encode(encoder,{aftermathVisible:!editor.active,count:editor.active?0:count,time:simulatedTime,map:editor.active?editor.map:map,towers:!editor.active&&state.mode==='game'?run.model.towers:[],effects:editor.active?[]:visuals,visualParticles:editor.active?[]:visualParticles,heavyProjectiles:editor.active?[]:heavyProjectiles,heavyExplosions:editor.active?[]:heavyExplosions,cameraShake:editor.active?0:cameraShake,walls:editor.active?[]:builtWalls,wires:editor.active?[]:builtWires,heatmap:state.heatmap,selection:run.model.selected,ghost:editor.active?undefined:ghost,placementGhost,boss:!editor.active&&latest.boss?.active?latest.boss:undefined});
      const arena=ui.canvas.parentElement!.getBoundingClientRect();for(const popup of pressurePopups){const screen=renderer.worldToScreen(popup.x,popup.y),progress=popup.age/popup.life;popup.element.style.left=`${screen.x-arena.left+popup.drift*progress}px`;popup.element.style.top=`${screen.y-arena.top-progress*34}px`;popup.element.style.opacity=String(Math.min(1,(1-progress)*2.8));}
      gpu.device.queue.submit([encoder.finish()]);
      if(now-lastUI>100)updateUI(now);else{positionInspector();positionUpgradeInspector();}
