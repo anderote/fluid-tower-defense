@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import {AUTOCANNON_MUZZLE_LIFT} from './soldat-art.ts';
 import type {TowerKind} from '../contracts/index.ts';
 import {TURRET_FOOTPRINT_PIXELS,TURRET_GRID,TURRET_PIXEL_SIZE,turretEjection,turretHardpoints,turretMuzzlePoint,turretMuzzlePoints,turretPixelRects} from './turret-art.ts';
 
@@ -22,13 +23,14 @@ test('turret art is authored inside a detailed 128 x 128 logical footprint',()=>
 test('muzzle points rotate every authored barrel hardpoint with the turret',()=>{
   for(const kind of kinds){
     const authored=turretHardpoints(kind).muzzles;
+    const lift=kind==='autocannon'?AUTOCANNON_MUZZLE_LIFT:0;
     const right=turretMuzzlePoints(kind,{x:10,y:20},0);
     const down=turretMuzzlePoints(kind,{x:10,y:20},Math.PI/2);
     assert.equal(right.length,authored.length);
-    assert.deepEqual(right,authored.map(point=>({x:10+point.x,y:20+point.y})));
+    assert.deepEqual(right,authored.map(point=>({x:10+point.x,y:20+point.y-lift})));
     down.forEach((point,index)=>{
       assert.ok(Math.abs(point.x-(10-authored[index].y))<1e-9,`${kind} barrel ${index} has an invalid rotated x`);
-      assert.ok(Math.abs(point.y-(20+authored[index].x))<1e-9,`${kind} barrel ${index} has an invalid rotated y`);
+      assert.ok(Math.abs(point.y-(20+authored[index].x-lift))<1e-9,`${kind} barrel ${index} has an invalid rotated y`);
     });
     assert.deepEqual(turretMuzzlePoint(kind,{x:10,y:20},0),right[0]);
   }
@@ -44,5 +46,17 @@ test('rocket rounds use three aligned tubes and firearm cases eject from rotatin
     assert.ok(down.direction.x>.95,`${kind} should eject right of a down-facing receiver`);
     assert.ok(Math.abs(right.direction.x-down.direction.y)<1e-9);
     assert.ok(Math.abs(right.direction.y+down.direction.x)<1e-9);
+  }
+});
+
+test('autogun muzzle follows the elevated sprite barrel across all 64 facings',()=>{
+  for(let facing=0;facing<64;facing++){
+    const angle=facing*Math.PI/32;
+    // Barrel cap ends at x=2.01, with its bore at z=.68+.16/2.
+    const expected={x:2.01*Math.cos(angle),y:2.01*Math.sin(angle)-.76*.65};
+    for(const offset of [-.02,0,.02]){
+      const actual=turretMuzzlePoint('autocannon',{x:0,y:0},angle+offset);
+      assert.ok(Math.hypot(actual.x-expected.x,actual.y-expected.y)<1e-9);
+    }
   }
 });

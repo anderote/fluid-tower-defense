@@ -1,3 +1,4 @@
+import {AUTOCANNON_MUZZLE_LIFT,SOLDAT_FACINGS} from './soldat-art.ts';
 import {createTeslaEffects} from './tesla.ts';
 import {TESLA_STATE_WGSL,TESLA_HEADER_BYTES,TESLA_PARTICLE_BYTES} from '../effects/tesla.ts';
 import { ENEMY_WGSL, towerBehavior } from '../content/index.ts';
@@ -88,7 +89,13 @@ struct TowerState { timing:vec4<f32>, shot:vec4<f32>, flags:vec4<f32> };
 struct Out { @builtin(position) pos:vec4<f32>, @location(0) local:vec2<f32>, @location(1) kind:f32, @location(2) age:f32, @location(3) shard:f32, @location(4) weapon:f32, @location(5) elapsed:f32 };
 fn clip(p:vec2<f32>)->vec2<f32>{let aspect=camera.viewport.x/max(1.,camera.viewport.y);let targetAspect=camera.world.z/camera.world.w;let sx=min(1.,targetAspect/aspect);let sy=min(1.,aspect/targetAspect);return vec2((((p.x-camera.world.x)/camera.world.z)*2.-1.)*sx,(1.-((p.y-camera.world.y)/camera.world.w)*2.)*sy);}
 ${MUZZLE_OFFSETS_WGSL}
-fn muzzlePoint(origin:vec2<f32>,forward:vec2<f32>,weapon:f32,barrel:f32)->vec2<f32>{let offset=muzzleOffset(weapon,barrel);let side=vec2(-forward.y,forward.x);return origin+forward*offset.x+side*offset.y;}
+fn muzzlePoint(origin:vec2<f32>,forward:vec2<f32>,weapon:f32,barrel:f32)->vec2<f32>{let offset=muzzleOffset(weapon,barrel);var facing=forward;var lift=0.;
+ if(weapon==2.){
+  let step=6.283185307179586/${wgslFloat(SOLDAT_FACINGS)};
+  let angle=floor(atan2(forward.y,forward.x)/step+.5)*step;
+  facing=vec2(cos(angle),sin(angle));lift=${wgslFloat(AUTOCANNON_MUZZLE_LIFT)};
+ }
+ let side=vec2(-facing.y,facing.x);return origin+facing*offset.x+side*offset.y-vec2(0.,lift);}
 fn muzzleDistance(weapon:f32)->f32{return muzzleOffset(weapon,select(0.,1.,weapon>=4.5&&weapon<5.5)).x;}
 @vertex fn vs(@builtin(vertex_index) vi:u32,@builtin(instance_index) ii:u32)->Out {
  let corners=array<vec2<f32>,6>(vec2(-1.,-1.),vec2(1.,-1.),vec2(-1.,1.),vec2(-1.,1.),vec2(1.,-1.),vec2(1.,1.));
@@ -102,7 +109,7 @@ fn muzzleDistance(weapon:f32)->f32{return muzzleOffset(weapon,select(0.,1.,weapo
   if(shard==0u){p=muzzle+forward*q.x*(1.25-1.7*elapsed)+side*q.y*(.55-.6*elapsed);}else{let smokeAge=clamp(elapsed/.62,0.,1.);p=muzzle-forward*smokeAge*(.35+f32(shard)*.035)+burst*(.1+smokeAge*.45)+q*(.13+smokeAge*.2);}
  }else if(weapon==2.){
   if(shard==0u){p=muzzle+forward*q.x*(1.4-2.8*elapsed)+side*q.y*(.58-1.05*elapsed);}
-  else if(shard==1u){p=autocannonTracer(q,muzzle,forward,len-muzzleDistance(weapon),elapsed);}
+  else if(shard==1u){let travel=aim-muzzle;let distance=length(travel);p=autocannonTracer(q,muzzle,travel/max(.001,distance),select(0.,distance,len>muzzleDistance(weapon)),elapsed);}
   else if(shard<8u){let impactAge=clamp((elapsed-.04)/.24,0.,1.);let ricochet=normalize(burst-forward*(.65+.2*fract(seed)));p=aim+ricochet*impactAge*(1.3+f32(shard)*.3)+q*(.18-.08*impactAge);}
   else{let smokeAge=clamp(elapsed/.32,0.,1.);let drift=side*(f32(shard)-9.5)*.22-forward*smokeAge*.8;p=muzzle+drift+q*(.16+smokeAge*.38);}
  }else if(weapon==3.){
