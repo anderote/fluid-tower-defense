@@ -15,6 +15,8 @@ const SAVE_KEY = 'pressure-front.run.v1';
 const MAX_TOWERS = 64;
 export const WAVES_PER_LEVEL=10;
 export const STARTING_METAL=3_000;
+/** Flat redeployment charge; upgrades and accumulated investment stay with the tower. */
+export const TOWER_MOVE_COST=25;
 const STARTER_TOWERS:readonly TowerKind[]=Object.freeze(Object.keys(TOWERS) as TowerKind[]);
 const TOWER_UNLOCK_COSTS:Readonly<Partial<Record<TowerKind,number>>>=Object.freeze({mortar:3_000,cryo:4_000,tesla:6_000,incinerator:7_500,rocket:9_000,railgun:12_000});
 const STAT_DEFS=Object.freeze([
@@ -176,6 +178,20 @@ export class RunController {
     if (index<0) return {ok:false,reason:'Tower not found.'};
     const [tower]=this.model.towers.splice(index,1); this.model.metal+=Math.floor(tower.spent*.7);
     if (this.model.selected===id) this.model.selected=null;
+    return {ok:true};
+  }
+  move(id:number, position:Vec2):ActionResult {
+    if (this.model.phase==='won' || this.model.phase==='lost') return {ok:false,reason:'The run is over.'};
+    const tower=this.model.towers.find(candidate=>candidate.id===id);
+    if (!tower) return {ok:false,reason:'Tower not found.'};
+    const buildMap=infantryMap(this.map,this.model.infantry??freshInfantry());
+    const placement=resolvePlacement(buildMap,position,1.25,this.buildMounts);
+    if (placement.x===tower.x && placement.y===tower.y) return {ok:false,reason:'Choose a new tower location.'};
+    const otherTowers=this.model.towers.filter(candidate=>candidate.id!==id);
+    if (!canPlace(buildMap,otherTowers,placement,1.25,this.buildMounts)) return {ok:false,reason:'That position is blocked or too close to another tower.'};
+    if (!hasSpawnRoute(mapWithTurretObstacles(buildMap,[...otherTowers,placement]))) return {ok:false,reason:'That turret would seal the zombie route to the goal.'};
+    if (this.model.metal<TOWER_MOVE_COST) return {ok:false,reason:`Requires ${TOWER_MOVE_COST} Metal.`};
+    this.model.metal-=TOWER_MOVE_COST;tower.x=placement.x;tower.y=placement.y;
     return {ok:true};
   }
   upgrade(id:number, branch:number):ActionResult {

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {DEFAULT_MAP, MAX_TOWER_LEVEL, TOWERS, towerUpgradeCost} from '../content/index.ts';
-import {createRun, STARTING_METAL, WAVES_PER_LEVEL, waveFor} from './index.ts';
+import {createRun, STARTING_METAL, TOWER_MOVE_COST, WAVES_PER_LEVEL, waveFor} from './index.ts';
 import {wallMountCells} from './terrain.ts';
 
 test('fresh runs start with 3,000 Metal',()=>{
@@ -96,21 +96,37 @@ test('placing a tower leaves the inspector closed',()=>{
   assert.equal(run.place('repulsor',{x:84,y:50}).ok,true);
   assert.equal(run.model.selected,null);
 });
-test('player-built walls support one centered tower and preserve it in saves',()=>{
-  const mount={x:32,y:20,width:4,height:4},map={...DEFAULT_MAP,id:'wall-mount-test',obstacles:[...DEFAULT_MAP.obstacles,mount]};
-  const run=createRun(map);run.setBuildMounts([mount]);
-  const placed=run.place('repulsor',{x:34,y:22});
-  assert.ok(placed.ok&&placed.tower);assert.deepEqual({x:placed.tower.x,y:placed.tower.y},{x:34,y:22});
-  assert.equal(run.place('autocannon',{x:34,y:22}).ok,false);
-  const restored=createRun(map);restored.setBuildMounts([mount]);
-  assert.equal(restored.load(run.save()).ok,true);assert.deepEqual({x:restored.model.towers[0].x,y:restored.model.towers[0].y},{x:34,y:22});
+test('moving a tower charges a small flat fee and keeps its upgrades',()=>{
+  const run=createRun(),placed=run.place('repulsor',{x:84,y:50});
+  assert.ok(placed.ok&&placed.tower);
+  assert.equal(run.upgrade(placed.tower.id,0).ok,true);
+  const before=run.model.metal,spent=placed.tower.spent;
+  assert.equal(run.move(placed.tower.id,{x:80,y:42}).ok,true);
+  assert.equal(run.model.metal,before-TOWER_MOVE_COST);
+  assert.deepEqual({x:placed.tower.x,y:placed.tower.y,level:placed.tower.level,branch:placed.tower.branch,spent:placed.tower.spent},{x:80,y:42,level:1,branch:0,spent});
+});
+test('moving a tower does not charge for invalid locations',()=>{
+  const run=createRun(),first=run.place('repulsor',{x:84,y:50}),second=run.place('autocannon',{x:80,y:42});
+  assert.ok(first.ok&&first.tower&&second.ok);
+  const before=run.model.metal;
+  assert.equal(run.move(first.tower.id,{x:80,y:42}).ok,false);
+  assert.equal(run.model.metal,before);
+});
+test('player-built walls support a compact turret pair and preserve it in saves',()=>{
+  const wall={x:32,y:20,width:4,height:4},mounts=wallMountCells([wall]),map={...DEFAULT_MAP,id:'wall-mount-test',obstacles:[...DEFAULT_MAP.obstacles,wall]};
+  const run=createRun(map);run.setBuildMounts(mounts);
+  const placed=run.place('repulsor',{x:33.2,y:21.5});
+  assert.ok(placed.ok&&placed.tower);assert.deepEqual({x:placed.tower.x,y:placed.tower.y},{x:33.25,y:21.35});
+  assert.equal(run.place('autocannon',{x:34.8,y:21.5}).ok,true);
+  const restored=createRun(map);restored.setBuildMounts(mounts);
+  assert.equal(restored.load(run.save()).ok,true);assert.deepEqual({x:restored.model.towers[0].x,y:restored.model.towers[0].y},{x:33.25,y:21.35});
 });
 test('starting indestructible walls support mounted towers and preserve them in saves',()=>{
   const mounts=wallMountCells(DEFAULT_MAP.obstacles),run=createRun();run.setBuildMounts(mounts);
   const placed=run.place('repulsor',{x:50.7,y:21.4});
-  assert.ok(placed.ok&&placed.tower);assert.deepEqual({x:placed.tower.x,y:placed.tower.y},{x:50,y:22});
+  assert.ok(placed.ok&&placed.tower);assert.deepEqual({x:placed.tower.x,y:placed.tower.y},{x:50.75,y:21.35});
   const restored=createRun();restored.setBuildMounts(mounts);
-  assert.equal(restored.load(run.save()).ok,true);assert.deepEqual({x:restored.model.towers[0].x,y:restored.model.towers[0].y},{x:50,y:22});
+  assert.equal(restored.load(run.save()).ok,true);assert.deepEqual({x:restored.model.towers[0].x,y:restored.model.towers[0].y},{x:50.75,y:21.35});
 });
 test('difficulty multiplier scales continuous zombie production and clamps to 1–40',()=>{
   const baseline=createRun(), intense=createRun();
