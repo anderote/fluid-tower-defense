@@ -120,13 +120,46 @@ const ART:Record<TowerKind,readonly TurretPixelRect[]>={
   tesla:detailed('tesla'),rocket:detailed('rocket'),railgun:detailed('railgun'),incinerator:detailed('incinerator'),
 };
 
-const MUZZLE_DISTANCE:Record<TowerKind,number>={
-  repulsor:1.55,mortar:1.7,autocannon:2,cryo:2,tesla:1.8,rocket:2,railgun:2.15,incinerator:2.15,
+export interface TurretHardpoints {
+  /** Barrel mouths in turret-local coordinates: +x is forward, +y is right. */
+  muzzles:readonly Vec2[];
+  /** Receiver port and initial throw direction for weapons with spent cases. */
+  ejection?:{port:Vec2;direction:Vec2};
+}
+
+/**
+ * Hardpoints match the default Soldat-inspired models in soldat-art.ts. Keeping
+ * these in one table prevents projectiles, flashes, and cases from drifting away
+ * from the rotating weapon art as each effect evolves.
+ */
+const HARDPOINTS:Record<TowerKind,TurretHardpoints>={
+  repulsor:{muzzles:[{x:1.45,y:0}]},
+  mortar:{muzzles:[{x:1.7,y:0}]},
+  autocannon:{muzzles:[{x:2,y:0}],ejection:{port:{x:.08,y:-.2},direction:{x:-.22,y:-1}}},
+  cryo:{muzzles:[{x:2,y:0}]},
+  // The Tesla weapon is a vertical coil, so its arc starts at the pivot.
+  tesla:{muzzles:[{x:0,y:0}]},
+  rocket:{muzzles:[{x:1.95,y:-.52},{x:1.95,y:0},{x:1.95,y:.52}]},
+  railgun:{muzzles:[{x:2.15,y:0}],ejection:{port:{x:-.48,y:-.28},direction:{x:-.16,y:-1}}},
+  incinerator:{muzzles:[{x:2.15,y:0}]},
+};
+
+const rotateLocal=(origin:Vec2,angle:number,point:Vec2):Vec2=>{
+  const forward={x:Math.cos(angle),y:Math.sin(angle)},side={x:-forward.y,y:forward.x};
+  return {x:origin.x+forward.x*point.x+side.x*point.y,y:origin.y+forward.y*point.x+side.y*point.y};
 };
 
 export const turretPixelRects=(kind:TowerKind):readonly TurretPixelRect[]=>ART[kind];
-export const turretMuzzleDistance=(kind:TowerKind):number=>MUZZLE_DISTANCE[kind];
-export const turretMuzzlePoint=(kind:TowerKind,origin:Vec2,angle:number):Vec2=>({
-  x:origin.x+Math.cos(angle)*MUZZLE_DISTANCE[kind],
-  y:origin.y+Math.sin(angle)*MUZZLE_DISTANCE[kind],
-});
+export const turretHardpoints=(kind:TowerKind):TurretHardpoints=>HARDPOINTS[kind];
+export const turretMuzzleDistance=(kind:TowerKind):number=>HARDPOINTS[kind].muzzles[0].x;
+export const turretMuzzlePoints=(kind:TowerKind,origin:Vec2,angle:number):Vec2[]=>HARDPOINTS[kind].muzzles.map(point=>rotateLocal(origin,angle,point));
+export const turretMuzzlePoint=(kind:TowerKind,origin:Vec2,angle:number,barrel=0):Vec2=>{
+  const muzzles=HARDPOINTS[kind].muzzles;
+  return rotateLocal(origin,angle,muzzles[Math.max(0,Math.min(muzzles.length-1,barrel))]);
+};
+export const turretEjection=(kind:TowerKind,origin:Vec2,angle:number):{point:Vec2;direction:Vec2}|undefined=>{
+  const ejection=HARDPOINTS[kind].ejection;if(!ejection)return;
+  const point=rotateLocal(origin,angle,ejection.port),tip=rotateLocal({x:0,y:0},angle,ejection.direction);
+  const length=Math.max(.001,Math.hypot(tip.x,tip.y));
+  return {point,direction:{x:tip.x/length,y:tip.y/length}};
+};

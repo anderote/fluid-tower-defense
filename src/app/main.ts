@@ -23,7 +23,7 @@ import { createRun, STARTING_METAL } from '../game/index.ts';
 import { COUNTER_WORDS, DEFAULT_TUNING, PARTICLE_FLOATS, type UIState, type GameAction, type Effect, type Vec2, type Rect, type Settlement, type VisualParticle, type VisualParticleStyle, type WorldMap, type HeavyProjectile, type HeavyExplosion } from '../contracts/index.ts';
 import {ShotEventReader} from '../runtime/shot-events.ts';
 import {advanceHeavyProjectiles,createHeavyProjectiles,type HeavyImpact} from '../effects/heavy-weapons.ts';
-import {turretMuzzlePoint} from '../render/turret-art.ts';
+import {turretEjection,turretMuzzlePoint,turretMuzzlePoints} from '../render/turret-art.ts';
 import {formatPressure,MANUAL_BLAST_PEAK_KPA,MANUAL_PUSH_PEAK_KPA} from '../sim/pressure/model.ts';
 
 const root=document.querySelector<HTMLElement>('#app')!;
@@ -206,16 +206,16 @@ try {
      const shotDefinition=compileTower(tower,run.model.bonuses,run.model.commandUpgrades,run.statModifiers());
      audio.fire(tower.kind,tower.x,event.serial);
      if(tower.kind==='mortar'||tower.kind==='rocket'){
-       heavyProjectiles.push(...createHeavyProjectiles(tower.kind,turretMuzzlePoint(tower.kind,tower,event.angle),event.target,event.serial,shotDefinition.peakPressureKpa));
+       heavyProjectiles.push(...createHeavyProjectiles(tower.kind,turretMuzzlePoints(tower.kind,tower,event.angle),event.target,event.serial,shotDefinition.peakPressureKpa));
        if(heavyProjectiles.length>48)heavyProjectiles.splice(0,heavyProjectiles.length-48);
        continue;
      }
      if(simulatedTime-(lastTowerPressurePopup.get(tower.id)??-1)>=.36){showPressure(event.target,shotDefinition.peakPressureKpa,event.serial);lastTowerPressurePopup.set(tower.id,simulatedTime);}
      if(tower.kind!=='autocannon'&&tower.kind!=='railgun')continue;
-     const forward={x:Math.cos(event.angle),y:Math.sin(event.angle)},side={x:-forward.y,y:forward.x};
-     const flip=event.serial%2?1:-1,speed=tower.kind==='railgun'?7.2:5.4,heavy=tower.kind==='railgun';
+     const forward={x:Math.cos(event.angle),y:Math.sin(event.angle)},speed=tower.kind==='railgun'?7.2:5.4,heavy=tower.kind==='railgun';
      const muzzle=turretMuzzlePoint(tower.kind,tower,event.angle);
-     if(visualParticles.length<520)visualParticles.push({x:muzzle.x-forward.x*.55+side.x*.35*flip,y:muzzle.y-forward.y*.55+side.y*.35*flip,vx:side.x*speed*flip-forward.x*1.4,vy:side.y*speed*flip-forward.y*1.4,size:heavy ? .42 : .3,life:heavy ? .92 : .72,age:0,color:heavy?[.78,.57,.24]:[.9,.7,.27],gravity:7.5,drag:.42,style:'shell',spin:(flip*(heavy?12:18))});
+     const ejection=turretEjection(tower.kind,tower,event.angle),jitter=((event.serial*37)%11-5)*.035;
+     if(ejection&&visualParticles.length<520)visualParticles.push({x:ejection.point.x,y:ejection.point.y,vx:ejection.direction.x*speed+forward.x*jitter,vy:ejection.direction.y*speed+forward.y*jitter,size:heavy ? .42 : .3,life:heavy ? .92 : .72,age:0,color:heavy?[.78,.57,.24]:[.9,.7,.27],gravity:7.5,drag:.42,style:'shell',spin:(event.serial%2?1:-1)*(heavy?12:18)});
      audio.shell(tower.x,event.serial,heavy);
      burst(event.target,heavy?10:6,heavy?[.46,1,.82]:[1,.7,.18],heavy?10:7,heavy ? .32 : .22,2,'spark',heavy?1.2:.8);
      burst(muzzle,2,[.24,.22,.18],2.2,.52,-.7,'smoke',heavy?1.15:.8);

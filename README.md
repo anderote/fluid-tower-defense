@@ -53,4 +53,6 @@ The focused Metal economy suite is at `/tests/economy/` on the local server. **R
 
 The planning documents include future content. See the implementation and validation results for current capabilities.
 
+The turret art gallery at `/tests/soldat-art/` compares each weapon at base level and upgrade levels 1, 10, 25, and 50, in enlarged and game-scale views. It checks all 2,560 frames for clipping and visible upgrade changes in every direction. `/tests/soldat-art/scene.html` displays the same lineup with the production WebGPU renderer and lets you rotate or upgrade it live.
+
 The focused horde GPU suite at `/tests/horde/` checks offscreen movement, continuous boundary crossing, repeated dead-slot recycling, live-slot protection, and congestion feedback.
