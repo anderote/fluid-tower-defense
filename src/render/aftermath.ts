@@ -51,7 +51,7 @@ fn piece(e:Remnant,part:u32,age:f32)->vec4f{
  let q=(corner(vi)+1.)*.5;let frame=10.+floor(min(5.,age/zombieCollapseStep(u32(e.body.w))));let facing=f32((i32(round(e.force.z/.7853981634))+16)%8);
  let slide=e.force.xy*e.body.z*.45*(1.-exp(-age*7.));
  let p=e.body.xy+slide+(q-vec2f(${ZOMBIE_PIVOT.x/ZOMBIE_FRAME},${ZOMBIE_PIVOT.y/ZOMBIE_FRAME}))*e.body.z*zombieTileScale(u32(e.body.w));
- var o=place(p,corner(vi),vec4f(.66,.6,.56,1.-smoothstep(30.,45.,age)),1.,e.life.y);o.uv=(vec2f(frame,sprite*8.+facing)+q)*${ZOMBIE_FRAME}.;return o;
+ var o=place(p,corner(vi),vec4f(select(vec3f(.66,.6,.56),vec3f(.2,.14,.09),e.force.w==3.),1.-smoothstep(30.,45.,age)),1.,e.life.y);o.uv=(vec2f(frame,sprite*8.+facing)+q)*${ZOMBIE_FRAME}.;return o;
 }
 fn partVertex(vi:u32,i:u32,air:bool)->Out{
  let e=aftermath.deaths[i];let age=camera.time.x-e.life.x;
