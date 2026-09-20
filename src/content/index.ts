@@ -52,8 +52,8 @@ export const ENEMIES: Record<EnemyKind, EnemyDef> = {
   husk: {id:'husk',index:5,name:'Husk',radius:.35625,mass:.85,health:34,speed:2.9,drive:1,pressureLimit:10,crushResistance:.5,bounty:4,leak:1,color:'#9edce8'},
 };
 
-/** Enemy bounties are accumulated as points; 10 points pay one Metal. */
-export const ENEMY_BOUNTY_DIVISOR=10;
+/** Enemy bounties are accumulated as points; 50 points pay one Metal. */
+export const ENEMY_BOUNTY_DIVISOR=50;
 
 const wgslNumber=(value:number):string=>Number.isInteger(value)?`${value}.0`:String(value);
 const hexRgb=(hex:string):readonly number[]=>[1,3,5].map(offset=>parseInt(hex.slice(offset,offset+2),16)/255);

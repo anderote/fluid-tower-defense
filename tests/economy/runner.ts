@@ -94,7 +94,7 @@ async function gpuCheck(repulsor:boolean) {
       assert(particles[PARTICLE_FLOATS+P.hp]===particles[PARTICLE_FLOATS+P.maxHp],'Out-of-range target took damage');
     }else{
       assert(counters[0]===34,'Expected 34 kills');
-      assert(counters[3]===10&&counters[15]===102,'34 shamblers should accumulate 102 bounty points and pay 10 Metal exactly once');
+      assert(counters[3]===2&&counters[15]===102,'34 shamblers should accumulate 102 bounty points and pay 2 Metal exactly once');
     }
     assert(errors.length===0,errors.join('; '));
   } finally {staging.destroy();combat.destroy();shared.particles.destroy();shared.counters.destroy();device.destroy();}
@@ -128,7 +128,7 @@ const cases=[
     assert(text('#metal')==='1130','Combat stat purchase did not spend Metal');
     click('#build-tab');click('[data-action="pause"]');
   }},
-  {name:'GPU kills pay 10× bounties exactly once',run:()=>gpuCheck(false)},
+  {name:'GPU kills pay bounties exactly once',run:()=>gpuCheck(false)},
   {name:'GPU Repulsor has reduced push and cannot hit beyond range 10',run:()=>gpuCheck(true)},
 ];
 button.onclick=async()=>{
