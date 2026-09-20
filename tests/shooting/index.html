@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><title>Shooting effects regression</title>
+<style>body{margin:24px;background:#181918;color:#d5d4c6;font:14px monospace}canvas{display:block;width:min(1100px,95vw);height:600px}button,select{padding:8px;margin:8px;color:inherit;background:#30342c}#status{color:#b6ce8f}</style>
+<h1>Autocannon tracer check</h1>
+<p>Eight firing directions. Tracers must grow forward from the muzzle, including at close range.</p>
+<label>Shot age <select id="age"><option value="0">0 ms</option><option value="0.008" selected>8 ms</option><option value="0.03">30 ms</option><option value="0.058">58 ms</option><option value="0.12">120 ms</option></select></label>
+<label>Target distance <select id="range"><option value="12">12 units</option><option value="3">3 units</option><option value="1">Inside muzzle</option></select></label>
+<p id="status">Checking GPU geometry…</p><canvas></canvas>
+<script type="module" src="./runner.ts"></script></html>
