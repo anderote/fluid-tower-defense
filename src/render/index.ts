@@ -46,12 +46,12 @@ struct TowerState { timing:vec4<f32>, shot:vec4<f32>, flags:vec4<f32> };
 @group(0) @binding(0) var<uniform> camera:Camera;
 @group(0) @binding(1) var<storage,read> states:array<TowerState>;
 @group(0) @binding(2) var<storage,read> towers:array<vec4<f32>>;
-struct Out { @builtin(position) pos:vec4<f32>, @location(0) local:vec2<f32>, @location(1) kind:f32, @location(2) age:f32, @location(3) shard:f32, @location(4) weapon:f32 };
+struct Out { @builtin(position) pos:vec4<f32>, @location(0) local:vec2<f32>, @location(1) kind:f32, @location(2) age:f32, @location(3) shard:f32, @location(4) weapon:f32, @location(5) elapsed:f32 };
 fn clip(p:vec2<f32>)->vec2<f32>{let aspect=camera.viewport.x/max(1.,camera.viewport.y);let targetAspect=camera.world.z/camera.world.w;let sx=min(1.,targetAspect/aspect);let sy=min(1.,aspect/targetAspect);return vec2((((p.x-camera.world.x)/camera.world.z)*2.-1.)*sx,(1.-((p.y-camera.world.y)/camera.world.w)*2.)*sy);}
 @vertex fn vs(@builtin(vertex_index) vi:u32,@builtin(instance_index) ii:u32)->Out {
  let corners=array<vec2<f32>,6>(vec2(-1.,-1.),vec2(1.,-1.),vec2(-1.,1.),vec2(-1.,1.),vec2(1.,-1.),vec2(1.,1.));
  let shard=vi/6u;let q=corners[vi%6u];let s=states[ii];let t=towers[ii];let kind=floor(t.w+.001);let weapon=round(fract(t.w)*100.);
- var life=.24;if(weapon==1.){life=.62;}else if(weapon==2.){life=.12;}else if(weapon==4.){life=.3;}else if(weapon==5.){life=.56;}else if(weapon==6.){life=.18;}else if(weapon==7.){life=.34;}
+ var life=.24;if(weapon==1.){life=.62;}else if(weapon==2.){life=.32;}else if(weapon==4.){life=.3;}else if(weapon==5.){life=.56;}else if(weapon==6.){life=.18;}else if(weapon==7.){life=.34;}
  let elapsed=max(0.,s.timing.y-s.timing.x);let valid=s.timing.y>0.&&elapsed<=life&&abs(s.flags.x-t.z)<.5;let age=select(2.,clamp(elapsed/life,0.,1.),valid);
  let aim=s.timing.zw;let delta=aim-t.xy;let len=max(.1,length(delta));let forward=delta/len;let side=vec2(-forward.y,forward.x);let seed=f32(shard)*2.399+f32(ii)*.71;let burst=vec2(cos(seed),sin(seed));var p:vec2<f32>;
  if(weapon==0.){
@@ -59,7 +59,11 @@ fn clip(p:vec2<f32>)->vec2<f32>{let aspect=camera.viewport.x/max(1.,camera.viewp
  }else if(weapon==1.){
   if(shard==0u){let travel=min(1.,age*1.55);let arc=sin(travel*3.14159);let center=mix(t.xy,aim,travel)+side*arc*1.4;p=center+q*(.5+arc*.42);}else{let impactAge=max(0.,(age-.52)/.48);let distance=impactAge*(1.4+f32(shard)*.32);p=aim+burst*distance+q*(.18+.035*f32(shard));}
  }else if(weapon==2.){
-  if(shard==0u){p=t.xy+forward*((q.x+1.)*.5*len)+side*q.y*.09;}else{p=t.xy+forward*(1.3+age*2.6)+burst*(.22+f32(shard)*.07)+q*.13;}
+  let muzzle=t.xy+forward*1.85;
+  if(shard==0u){p=muzzle+forward*q.x*(1.4-2.8*elapsed)+side*q.y*(.58-1.05*elapsed);}
+  else if(shard==1u){let travel=clamp(elapsed/.058,0.,1.);let head=mix(muzzle,aim,travel);p=head-forward*((q.x+1.)*.5*min(10.5,len))+side*q.y*.13;}
+  else if(shard<8u){let impactAge=clamp((elapsed-.04)/.24,0.,1.);let ricochet=normalize(burst-forward*(.65+.2*fract(seed)));p=aim+ricochet*impactAge*(1.3+f32(shard)*.3)+q*(.18-.08*impactAge);}
+  else{let smokeAge=clamp(elapsed/.32,0.,1.);let drift=side*(f32(shard)-9.5)*.22-forward*smokeAge*.8;p=muzzle+drift+q*(.16+smokeAge*.38);}
  }else if(weapon==3.){
   let u=(f32(shard)+.65)/12.;let width=(.3+u*3.2)*(1.-age*.45);p=t.xy+forward*(len*u)+side*(burst.y*width)+q*(.22+u*.5);
  }else if(weapon==4.){
@@ -71,14 +75,19 @@ fn clip(p:vec2<f32>)->vec2<f32>{let aspect=camera.viewport.x/max(1.,camera.viewp
  }else{
   let u=(f32(shard)+.6)/12.;let spread=(.35+u*3.4)*sin(seed+age*4.);p=t.xy+forward*(len*u*.82)+side*spread+q*(.32+u*1.05);
  }
- var o:Out;o.pos=vec4(clip(p),0.,1.);o.local=q;o.kind=kind;o.age=age;o.shard=f32(shard);o.weapon=weapon;return o;
+ var o:Out;o.pos=vec4(clip(p),0.,1.);o.local=q;o.kind=kind;o.age=age;o.shard=f32(shard);o.weapon=weapon;o.elapsed=elapsed;return o;
 }
 fn weaponColor(w:f32)->vec3<f32>{if(w<.5){return vec3(.52,1.,.24);}if(w<1.5){return vec3(.93,.48,.12);}if(w<2.5){return vec3(1.,.86,.3);}if(w<3.5){return vec3(.35,.88,1.);}if(w<4.5){return vec3(.68,.42,1.);}if(w<5.5){return vec3(1.,.22,.055);}if(w<6.5){return vec3(.28,1.,.79);}return vec3(1.,.3,.035);}
 @fragment fn fs(i:Out)->@location(0) vec4<f32>{
  if(i.age>1.){discard;}let d=length(i.local);let fade=(1.-i.age)*(1.-i.age);var col=weaponColor(i.weapon);var a=0.;
  if(i.weapon<.5){a=(1.-smoothstep(.36,1.,d))*fade*(.9-.035*i.shard);if(i.shard==0.){a*=smoothstep(.22,.72,d);}}
  else if(i.weapon<1.5){if(i.shard==0.&&i.age<.66){a=1.-smoothstep(.55,1.,d);col=mix(vec3(.18,.13,.09),col,smoothstep(.68,1.,d));}else{a=(1.-smoothstep(.18,1.,d))*smoothstep(.05,.38,d)*smoothstep(.5,.64,i.age)*(1.-i.age);}}
- else if(i.weapon<2.5){a=(1.-smoothstep(.18,1.,abs(i.local.y)))*fade;if(i.shard==0.){col=mix(vec3(1.),col,.35);}}
+ else if(i.weapon<2.5){
+  if(i.shard<.5){let hot=1.-smoothstep(.02,.11,i.elapsed);a=(1.-smoothstep(.25,1.,length(i.local)))*hot*1.2;col=mix(vec3(1.),vec3(1.,.48,.04),smoothstep(.1,1.,length(i.local)));}
+  else if(i.shard<1.5){a=(1.-smoothstep(.22,1.,abs(i.local.y)))*(1.-smoothstep(.06,.18,i.elapsed))*1.15;col=mix(vec3(1.),vec3(1.,.68,.16),smoothstep(-1.,1.,i.local.x));}
+  else if(i.shard<7.5){a=(1.-smoothstep(.18,1.,length(i.local)))*smoothstep(.035,.06,i.elapsed)*(1.-smoothstep(.12,.3,i.elapsed));col=mix(vec3(1.),vec3(1.,.42,.04),length(i.local));}
+  else{a=(1.-smoothstep(.2,1.,length(i.local)))*smoothstep(.045,.12,i.elapsed)*(1.-i.age)*.16;col=vec3(.34,.32,.29);}
+ }
  else if(i.weapon<3.5){a=(1.-smoothstep(.25,1.,d))*fade*(.35+.65*fract(sin(i.shard*19.7)*91.3));col=mix(col,vec3(1.),.28);}
  else if(i.weapon<4.5){a=(1.-smoothstep(.12,1.,abs(i.local.y)))*fade*(.65+.35*sin(i.local.x*24.+i.shard));col=mix(col,vec3(1.),.48);}
  else if(i.weapon<5.5){a=(1.-smoothstep(.28,1.,d))*fade;if(i.shard<3.){a=1.-smoothstep(.38,1.,max(abs(i.local.x),d*.7));col=mix(vec3(1.,.72,.18),col,.55);}else{col=vec3(.34,.3,.27);a*=.42;}}
@@ -113,6 +122,7 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
   const disc=(a:V[],x:number,y:number,rad:number,c:[number,number,number,number],n=10)=>{for(let i=0;i<n;i++){const u=i/n*Math.PI*2,v=(i+1)/n*Math.PI*2;tri(a,{x,y},{x:x+Math.cos(u)*rad,y:y+Math.sin(u)*rad},{x:x+Math.cos(v)*rad,y:y+Math.sin(v)*rad},c)}};
   const streak=(a:V[],x:number,y:number,vx:number,vy:number,length:number,width:number,c:[number,number,number,number])=>{const m=Math.max(.001,Math.hypot(vx,vy)),dx=vx/m*length,dy=vy/m*length,sx=-dy/m*width,sy=dx/m*width;tri(a,{x:x-dx+sx,y:y-dy+sy},{x:x-dx-sx,y:y-dy-sy},{x:x+sx,y:y+sy},c);tri(a,{x:x-dx-sx,y:y-dy-sy},{x:x-sx,y:y-sy},{x:x+sx,y:y+sy},c)};
   const shard=(a:V[],x:number,y:number,size:number,angle:number,c:[number,number,number,number])=>{const f={x:Math.cos(angle)*size,y:Math.sin(angle)*size},s={x:-Math.sin(angle)*size*.55,y:Math.cos(angle)*size*.55};tri(a,{x:x+f.x,y:y+f.y},{x:x+s.x,y:y+s.y},{x:x-f.x-s.x*.25,y:y-f.y-s.y*.25},c);tri(a,{x:x+f.x,y:y+f.y},{x:x-f.x-s.x*.25,y:y-f.y-s.y*.25},{x:x-s.x,y:y-s.y},c)};
+  const casing=(a:V[],x:number,y:number,size:number,angle:number,c:[number,number,number,number])=>{const f={x:Math.cos(angle)*size,y:Math.sin(angle)*size},s={x:-Math.sin(angle)*size*.28,y:Math.cos(angle)*size*.28};tri(a,{x:x+f.x,y:y+f.y},{x:x+s.x,y:y+s.y},{x:x-f.x+s.x,y:y-f.y+s.y},c);tri(a,{x:x+f.x,y:y+f.y},{x:x-f.x+s.x,y:y-f.y+s.y},{x:x-f.x-s.x,y:y-f.y-s.y},c);tri(a,{x:x+f.x,y:y+f.y},{x:x-f.x-s.x,y:y-f.y-s.y},{x:x-s.x,y:y-s.y},[Math.min(1,c[0]*1.3),Math.min(1,c[1]*1.35),Math.min(1,c[2]*1.2),c[3]*.85]);};
   const diamond=(a:V[],x:number,y:number,size:number,c:[number,number,number,number])=>{tri(a,{x,y:y-size},{x:x+size,y},{x,y:y+size},c);tri(a,{x,y:y-size},{x,y:y+size},{x:x-size,y},c)};
   const towerShape=(a:V[],t:Vec2 & {kind:string},c:[number,number,number,number])=>{const s=1.65;if(t.kind==='repulsor')disc(a,t.x,t.y,s,c,16);else if(t.kind==='rocket')tri(a,{x:t.x,y:t.y-s},{x:t.x+s,y:t.y+s},{x:t.x-s,y:t.y+s},c);else if(t.kind==='mortar'||t.kind==='tesla')rect(a,t.x-s,t.y-s,s*2,s*2,c);else if(t.kind==='autocannon'||t.kind==='railgun')diamond(a,t.x,t.y,s,c);else if(t.kind==='incinerator'){tri(a,{x:t.x,y:t.y-s},{x:t.x+s,y:t.y+s*.7},{x:t.x-s,y:t.y+s*.7},c);rect(a,t.x-s*.25,t.y-s*.1,s*.5,s*1.1,c);}else{rect(a,t.x-s*.38,t.y-s,s*.76,s*2,c);rect(a,t.x-s,t.y-s*.38,s*2,s*.76,c);}};
   const wireShape=(a:V[],wire:{x:number;y:number;width:number;height:number},c:[number,number,number,number],integrity:number,broken=false)=>{
@@ -175,7 +185,7 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
     if(scene.wallGhost)rect(a,scene.wallGhost.x,scene.wallGhost.y,scene.wallGhost.width,scene.wallGhost.height,scene.wallGhost.valid?[.25,.85,.95,.5]:[1,.15,.08,.5]);
     if(scene.demolitionHover){const alpha=.78+.18*Math.sin(scene.time*8);rectOutline(a,scene.demolitionHover.x,scene.demolitionHover.y,scene.demolitionHover.width,scene.demolitionHover.height,[1,.06,.035,alpha],.42);}
     for(const e of scene.effects){const progress=Math.max(0,Math.min(1,1-e.duration/.55)),ease=1-(1-progress)*(1-progress),alpha=(1-progress)*(1-progress);const c:[number,number,number,number]=e.kind==='blast'?[1,.34,.055,.88*alpha]:e.kind==='slow'?[.25,.8,1,.56*alpha]:[.45,.95,1,.62*alpha];const radius=Math.max(.35,e.radius*(.05+.95*ease));disc(a,e.x,e.y,Math.max(.2,e.radius*.22*(1-progress)),[c[0],c[1],c[2],.16*alpha],12);ring(a,e.x,e.y,radius,c,Math.max(.18,e.radius*.085*(1-progress)));if(progress>.16)ring(a,e.x,e.y,radius*.72,[c[0],c[1],c[2],c[3]*.38],Math.max(.12,e.radius*.035));if(e.kind==='push'){const q={x:e.x+e.direction.x*radius,y:e.y+e.direction.y*radius};tri(a,{x:e.x-.7,y:e.y-.7},{x:e.x+.7,y:e.y+.7},q,[c[0],c[1],c[2],c[3]*.32])}}
-    for(const p of scene.visualParticles??[]){const t=Math.max(0,Math.min(1,p.age/p.life)),x=p.x+p.vx*p.age*(1-p.drag*t),y=p.y+p.vy*p.age+.5*p.gravity*p.age*p.age,fade=(1-t)*(1-t),c:[number,number,number,number]=[p.color[0],p.color[1],p.color[2],fade];if(p.style==='smoke'){const bloom=Math.sin(Math.PI*t),size=p.size*(.55+1.55*t);disc(a,x,y,size,[c[0],c[1],c[2],bloom*.22],10);disc(a,x-size*.28,y+size*.12,size*.62,[c[0]*.7,c[1]*.72,c[2]*.75,bloom*.14],9);}else if(p.style==='mist'){const size=p.size*(.7+1.15*t);disc(a,x,y,size,[c[0],c[1],c[2],fade*.16],10);ring(a,x,y,size,[c[0],c[1],c[2],fade*.28],Math.max(.08,size*.14));}else if(p.style==='debris'){shard(a,x,y,p.size*(1-.3*t),p.spin*p.age,c);}else{streak(a,x,y,p.vx,p.vy,Math.max(.35,p.size*3.2*(1-t)),Math.max(.06,p.size*.22),c);disc(a,x,y,p.size*.52,[1,Math.min(1,p.color[1]+.18),Math.min(1,p.color[2]+.1),fade*.9],7);}}
+    for(const p of scene.visualParticles??[]){const t=Math.max(0,Math.min(1,p.age/p.life)),x=p.x+p.vx*p.age*(1-p.drag*t),y=p.y+p.vy*p.age+.5*p.gravity*p.age*p.age,fade=(1-t)*(1-t),c:[number,number,number,number]=[p.color[0],p.color[1],p.color[2],fade];if(p.style==='smoke'){const bloom=Math.sin(Math.PI*t),size=p.size*(.55+1.55*t);disc(a,x,y,size,[c[0],c[1],c[2],bloom*.22],10);disc(a,x-size*.28,y+size*.12,size*.62,[c[0]*.7,c[1]*.72,c[2]*.75,bloom*.14],9);}else if(p.style==='mist'){const size=p.size*(.7+1.15*t);disc(a,x,y,size,[c[0],c[1],c[2],fade*.16],10);ring(a,x,y,size,[c[0],c[1],c[2],fade*.28],Math.max(.08,size*.14));}else if(p.style==='shell'){casing(a,x,y,p.size*(1-.16*t),p.spin*p.age,c);}else if(p.style==='debris'){shard(a,x,y,p.size*(1-.3*t),p.spin*p.age,c);}else{streak(a,x,y,p.vx,p.vy,Math.max(.35,p.size*3.2*(1-t)),Math.max(.06,p.size*.22),c);disc(a,x,y,p.size*.52,[1,Math.min(1,p.color[1]+.18),Math.min(1,p.color[2]+.1),fade*.9],7);}}
     if(scene.boss){const c: [number,number,number,number]=scene.boss.phase===2?[1,.15,.04,.95]:scene.boss.phase===1?[.9,.72,.2,.95]:[.55,.78,1,.95];ring(a,scene.boss.x,scene.boss.y,2.5,c,.55);rect(a,scene.boss.x-3,scene.boss.y-4,6*Math.max(0,scene.boss.health/scene.boss.maxHealth),.45,c);}
     const capped=a.slice(0,MAX_OVERLAY_VERTICES); const data=new Float32Array(capped.length*6);capped.forEach((v,i)=>data.set([v.x,v.y,v.r,v.g,v.b,v.a],i*6));return data;
   }
