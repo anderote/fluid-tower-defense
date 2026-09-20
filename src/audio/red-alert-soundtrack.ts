@@ -16,6 +16,8 @@ export const redAlertTracks=FILES.map((file,index)=>({
 
 type SavedPlayback={track:number;time:number;volume:number;wasPlaying:boolean};
 
+const RED_ALERT_SOUNDTRACK_MARKUP='<div class="music-info"><label>RED ALERT SOUNDTRACK <span id="music-count"></span></label><p id="music-track"></p></div><div class="music-actions"><button data-music="toggle">PLAY</button><button data-music="next">NEXT</button></div><label class="music-volume">VOLUME <input id="music-volume" type="range" min="0" max="1" step="0.05" value="0.3" aria-label="Music volume"></label>';
+
 function savedPlayback():SavedPlayback{
   try{
     const value=JSON.parse(localStorage.getItem(STATE_KEY)??'null') as Partial<SavedPlayback>|null;
@@ -25,9 +27,9 @@ function savedPlayback():SavedPlayback{
 
 /** Mounts the bundled Red Alert soundtrack player. Playback begins after a user gesture. */
 export function mountRedAlertSoundtrack(root:HTMLElement):()=>void{
-  const panel=document.createElement('section');panel.className='soundtrack';panel.setAttribute('aria-label','Red Alert music player');
-  panel.innerHTML='<div class="music-info"><label>RED ALERT SOUNDTRACK <span id="music-count"></span></label><p id="music-track"></p></div><div class="music-actions"><button data-music="toggle">PLAY</button><button data-music="next">NEXT</button></div><label class="music-volume">VOLUME <input id="music-volume" type="range" min="0" max="1" step="0.05" value="0.3" aria-label="Music volume"></label>';
-  root.querySelector('.view-actions')?.insertAdjacentElement('beforebegin',panel);
+  const panel=root.querySelector<HTMLElement>('.soundtrack')??document.createElement('section');panel.className='soundtrack';panel.setAttribute('aria-label','Red Alert music player');
+  if(!panel.children.length)panel.innerHTML=RED_ALERT_SOUNDTRACK_MARKUP;
+  if(!panel.isConnected)root.querySelector('.simulation-controls')?.append(panel);
   const toggle=panel.querySelector<HTMLButtonElement>('[data-music="toggle"]')!,next=panel.querySelector<HTMLButtonElement>('[data-music="next"]')!,volume=panel.querySelector<HTMLInputElement>('#music-volume')!,count=panel.querySelector<HTMLElement>('#music-count')!,title=panel.querySelector<HTMLElement>('#music-track')!;
   const saved=savedPlayback(),audio=new Audio();audio.preload='metadata';audio.volume=saved.volume;volume.value=String(saved.volume);
   let index=saved.track,wantsPlay=saved.wasPlaying,destroyed=false,lastSave=0;

@@ -39,6 +39,7 @@ run.setHordeScale(state.streamWidth);
 let handleAction:(action:GameAction)=>void=()=>{};
 const ui=createUI(root,action=>handleAction(action));
 try {
+ mountRedAlertSoundtrack(root);
  const gpu=await connectGPU(ui.canvas);
  let failed=false;
  function fail(error:unknown){if(failed)return;failed=true;state.message=String(error instanceof Error?error.message:error);state.paused=true;ui.update(state);console.error(error);}
@@ -54,7 +55,6 @@ try {
  gpu.shared.shotState=combat.shotState;
  const renderer=await createRenderer(gpu.device,gpu.context,gpu.format,gpu.shared,ui.canvas,{turretArt:params.get('turretArt')==='red-alert'?'red-alert':'soldat',floorArt:params.get('floor')==='grating'?'grating':'panels'});
  const audio=createAudio();
- mountRedAlertSoundtrack(root);
  const selectedInspector=ui.canvas.parentElement!.querySelector<HTMLElement>('.selected-popup')!;
  const upgradeInspector=ui.canvas.parentElement!.querySelector<HTMLElement>('.upgrade-hover-card')!;
  const pressureLayer=document.createElement('div');pressureLayer.className='pressure-popups';ui.canvas.parentElement!.append(pressureLayer);
