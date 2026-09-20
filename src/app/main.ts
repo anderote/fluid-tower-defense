@@ -343,7 +343,6 @@ try {
  }
  function tick(){
    clock.tick++;simulatedTime+=clock.step;
-   if(state.mode==='game')run.accrueVeterancy(clock.step);
    let arrivals:Float32Array=new Float32Array(0);
    if(state.mode==='game'&&run.model.phase==='combat'){
      const positions=hordeFront.advance(clock.step,map,(run.model.level-1)*10+run.model.wave,state.difficulty,run.model.pending);

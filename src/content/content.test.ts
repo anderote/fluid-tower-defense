@@ -48,15 +48,15 @@ test('veterancy compounds small rank bonuses into meaningful late-service perfor
  const recruit=veterancyMultiplier(0), firstRank=veterancyMultiplier(1), experienced=veterancyMultiplier(50), legend=veterancyMultiplier(MAX_VETERANCY);
  assert.equal(recruit,1);
  assert.ok(firstRank>1&&firstRank<1.1,'one rank should be a slight improvement');
- assert.ok(experienced>=2&&experienced<2.5,'mid-career units should more than double their base damage');
- assert.equal(legend,5,'rank cap should reach five times base damage');
+ assert.ok(experienced>=1.5&&experienced<1.6,'mid-career units should gain a meaningful damage bonus');
+ assert.equal(legend,2.5,'rank cap should reach two and a half times base damage');
  assert.equal(veterancyLevel(veterancyXpForLevel(10)),10);
- assert.equal(veterancyXpForLevel(MAX_VETERANCY)/1.8/3600,100,'rank cap should require 100 hours of combat');
+ assert.equal(veterancyXpForLevel(MAX_VETERANCY),648_000,'rank cap should require 648,000 credited kills');
  const base:Tower={id:1,kind:'autocannon',x:50,y:50,level:0,branch:-1,angle:0,cooldown:0,spent:0,veterancy:0};
  const veteran=compileTower({...base,veterancy:MAX_VETERANCY});
- assert.equal(veteran.damage,compileTower(base).damage*5);
- assert.ok(1/veteran.cooldown>=2*(1/compileTower(base).cooldown),'veterans should fire at least twice as fast');
- assert.ok(veteran.range>=3*compileTower(base).range,'veterans should gain substantial targeting reach');
+ assert.equal(veteran.damage,compileTower(base).damage*2.5);
+ assert.ok(1/veteran.cooldown>=1.4*(1/compileTower(base).cooldown),'veterans should fire substantially faster');
+ assert.ok(veteran.range>=1.8*compileTower(base).range,'veterans should gain substantial targeting reach');
 });
 test('Repulsor upgrades retain a short-range control role',()=>{
  const tower:Tower={id:1,kind:'repulsor',x:50,y:50,level:50,branch:0,angle:0,cooldown:0,spent:0,veterancy:MAX_VETERANCY};

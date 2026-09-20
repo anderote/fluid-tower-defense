@@ -39,16 +39,16 @@ export const metalWallStats=(upgrades:readonly string[])=>{const multiplier=rese
 /** Packs authored towers into the supported GPU weapon behaviours. */
 export const towerBehavior=(kind:TowerKind):number=>({repulsor:0,mortar:1,autocannon:2,cryo:3,tesla:13,rocket:12,railgun:2,incinerator:14}[kind]);
 export const MAX_VETERANCY=100;
-/** 64.8 XP per squared rank: rank 10 takes 1 hour, rank 50 25 hours, and rank 100 100 hours of combat. */
+/** 64.8 XP per squared rank: rank 10 requires 6,480 credited kills, rank 50 162,000, and rank 100 648,000. */
 export const veterancyXpForLevel=(level:number):number=>64.8*Math.max(0,Math.min(MAX_VETERANCY,Math.ceil(level)))**2;
 export const veterancyLevel=(xp:number):number=>Math.min(MAX_VETERANCY,Math.floor(Math.sqrt(Math.max(0,xp)/64.8)));
 /**
- * Each rank is a modest 1.6% improvement, but a long-serving rank-100 unit
- * reaches 5x base damage. The same veteran curve is deliberately tempered
- * for range and rate of fire in `compileTower`, so they top out at 3.2x and
- * 2.12x respectively instead of turning late-game towers into instant clears.
+ * Each rank is a modest 0.9% improvement, but a long-serving rank-100 unit
+ * reaches 2.5x base damage. The same veteran curve is deliberately tempered
+ * for range and rate of fire in `compileTower`, so they top out at 1.83x and
+ * 1.42x respectively.
  */
-export const veterancyMultiplier=(level:number):number=>5**(Math.min(MAX_VETERANCY,Math.max(0,level))/MAX_VETERANCY);
+export const veterancyMultiplier=(level:number):number=>2.5**(Math.min(MAX_VETERANCY,Math.max(0,level))/MAX_VETERANCY);
 
 export const ENEMIES: Record<EnemyKind, EnemyDef> = {
   shambler: {id:'shambler',index:0,name:'Shambler',radius:.4125,mass:1,health:30,speed:3.1,drive:1,pressureLimit:24,crushResistance:1,bounty:3,leak:1,color:'#76c66e'},
