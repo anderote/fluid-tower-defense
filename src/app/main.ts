@@ -1,3 +1,4 @@
+import {AUTOSAVE_KEY, CHECKPOINT_KEY, saveDefense, loadDefense} from '../persistence/defense.ts';
 import { connectGPU } from '../runtime/gpu.ts';
 import { verifyABI } from '../runtime/abi-check.ts';
 import { FixedClock } from '../runtime/clock.ts';
@@ -51,10 +52,18 @@ try {
  const diagnosticText=diagnostics.querySelector('pre')!;
  const errors:string[]=[];
  let previousPaused=false;
- const AUTOSAVE_KEY='pressure-front.autosave.v1';let lastAutosave=0;
+ let lastAutosave=0;
  const resizeSpawn=()=>{const scale=Math.sqrt(state.difficulty);const width=Math.min(70,spawnBaseline.width*scale),height=Math.min(96,spawnBaseline.height*scale);map={...map,spawn:{x:spawnBaseline.x,y:Math.max(2,Math.min(map.height-height-2,spawnBaseline.y+spawnBaseline.height/2-height/2)),width,height}};};
- const saveSession=()=>{if(state.mode!=='game'||run.model.phase!=='preparation')return;try{const runState=run.save();localStorage.setItem(AUTOSAVE_KEY,JSON.stringify({runState,map,spawnBaseline,builtWalls,builtWires,difficulty:state.difficulty}));}catch{/* Local persistence is optional. */}};
- const restoreSession=()=>{try{const saved=JSON.parse(localStorage.getItem(AUTOSAVE_KEY)??'null') as {runState?:string;map?:WorldMap;spawnBaseline?:Rect;builtWalls?:Rect[];builtWires?:(Rect & {health:number;maxHealth:number;breached:boolean})[];difficulty?:number}|null;if(!saved?.runState||!saved.map)return false;builtWalls=(saved.builtWalls??[]).filter(w=>Number.isFinite(w.x)&&Number.isFinite(w.y));builtWires=(saved.builtWires??[]).filter(w=>Number.isFinite(w.x)&&Number.isFinite(w.y)&&Number.isFinite(w.health));const dynamic=[...builtWalls,...builtWires];const same=(a:Rect,b:Rect)=>a.x===b.x&&a.y===b.y&&a.width===b.width&&a.height===b.height;map={...saved.map,obstacles:[...saved.map.obstacles.filter(obstacle=>!dynamic.some(segment=>same(obstacle,segment))),...builtWalls,...builtWires.filter(wire=>!wire.breached)]};spawnBaseline=saved.spawnBaseline??saved.map.spawn;state.difficulty=run.setSpawnMultiplier(saved.difficulty??1);resizeSpawn();navigation=buildNavigation(map);run.setMap(map);run.setBuildMounts(builtWalls);return run.load(saved.runState).ok;}catch{return false;}};
+ const saveSession=(key=AUTOSAVE_KEY)=>{
+   if(state.mode!=='game'||run.model.phase!=='preparation')throw new Error('Defenses can only be saved between waves in Game mode.');
+   saveDefense(localStorage,key,run,{map,spawnBaseline,builtWalls,builtWires,difficulty:state.difficulty});
+ };
+ const restoreSession=(key=AUTOSAVE_KEY)=>{
+   const saved=loadDefense(localStorage,key,run);
+   map=saved.map;spawnBaseline=saved.spawnBaseline;builtWalls=saved.builtWalls;builtWires=saved.builtWires;state.difficulty=saved.difficulty;
+   navigation=buildNavigation(map);
+   editor.setMap({...map,spawn:spawnBaseline,obstacles:map.obstacles.filter(obstacle=>!builtWalls.includes(obstacle)&&!builtWires.includes(obstacle as typeof builtWires[number]))});
+ };
  const editor=createLevelEditor(root.querySelector<HTMLElement>('.view-actions')!,map,newMap=>{
    map=newMap;spawnBaseline=newMap.spawn;resizeSpawn();navigation=buildNavigation(map);run.setMap(map);state.mode='game';resetWorld();previousPaused=false;
    state.message='Custom level ready. Build your defense, then start a wave.';
@@ -74,7 +83,7 @@ try {
    if(resetRun)run.reset();epoch=run.epoch;
    physics.reset();combat.reset();boss.reset(false);clock.reset();metrics.reset();lastTickSample=0;waveStartTick=0;simulatedTime=0;
    gpu.device.queue.writeBuffer(gpu.shared.counters,0,new Uint32Array(COUNTER_WORDS));
-   commands=[];visuals=[];visualParticles=[];count=0;spawnSlot=0;state.kills=state.crushKills=state.leaks=state.earned=state.maxPressure=0;state.selectedKind=null;state.selected=null;state.paused=false;
+   commands=[];visuals=[];visualParticles=[];count=0;spawnSlot=0;state.kills=state.crushKills=state.leaks=state.earned=state.maxPressure=0;state.selectedKind=null;state.selected=null;state.buildTool=null;state.paused=false;
    latest={epoch,tick:0,kills:0,crushKills:0,leaks:0,earned:0,live:0,invalid:0,maxPacking:0};
    if(state.mode==='lab'){
      const batches=requestedPopulation<=10000?[{count:Math.floor(requestedPopulation*.8),kind:'shambler' as const,seed:1},{count:Math.floor(requestedPopulation*.15),kind:'runner' as const,seed:2},{count:requestedPopulation-Math.floor(requestedPopulation*.8)-Math.floor(requestedPopulation*.15),kind:'brute' as const,seed:3}]:[{count:requestedPopulation,kind:'shambler' as const,seed:1}];
@@ -115,8 +124,8 @@ try {
      case 'sell':if(run.model.selected!==null){const result=run.sell(run.model.selected);if(result.ok){combat.resetAttribution();run.resetTowerAttribution();}actionResult(result,'Tower sold.');}break;
      case 'difficulty':state.difficulty=run.setSpawnMultiplier(action.value);resizeSpawn();state.message=`Zombie production set to ${state.difficulty}×. Inlet expanded to protect spawn density.`;break;
      case 'bonus':actionResult(run.chooseBonus(action.id),'Bonus installed for this run.');break;
-     case 'save':try{saveSession();state.message='Saved between waves on this browser.';}catch(error){state.message=String(error);}break;
-     case 'load':{const result=run.load();if(result.ok){state.mode='game';resetWorld(false);}actionResult(result,'Saved defense restored.');break;}
+     case 'save':try{saveSession(CHECKPOINT_KEY);state.message='Defense checkpoint saved. Autosaves will not overwrite it.';}catch(error){state.message=`Could not save defense: ${error instanceof Error?error.message:String(error)}`;}break;
+     case 'load':{try{restoreSession(CHECKPOINT_KEY);state.mode='game';resetWorld(false);state.message='Defense checkpoint restored, including terrain and flow.';}catch(error){state.message=`Could not load defense: ${error instanceof Error?error.message:String(error)}`;}break;}
    }
    updateUI(performance.now());
  };
@@ -170,7 +179,7 @@ try {
    state.metal=run.model.metal;state.baseHealth=run.model.baseHealth/20*100;state.level=run.model.level;state.wave=run.model.wave;state.waveCount=run.model.waveCount;state.phase=state.mode==='lab'?'combat':run.model.phase;
    state.selected=run.model.towers.find(t=>t.id===run.model.selected)??null;state.bonusChoices=state.mode==='game'?run.model.bonusChoices:[];
    state.boss=state.mode==='game'&&run.isBossWave?latest.boss:undefined;state.commandUpgrades=state.mode==='game'?run.model.commandUpgrades:[];state.commandXp=progression.xp;state.metaUpgrades=progression.upgrades();
-   ui.update(state);positionInspector();if(now-lastAutosave>1500){saveSession();lastAutosave=now;}lastUI=now;
+   ui.update(state);positionInspector();if(now-lastAutosave>1500){try{if(state.mode==='game'&&run.model.phase==='preparation')saveSession();}catch{/* Automatic saves are best effort; manual saves report errors. */}lastAutosave=now;}lastUI=now;
    diagnosticText.textContent=JSON.stringify({adapter:gpu.adapter,abi:'passed',epoch,tick:clock.tick,simulationSeconds:simulatedTime,slots:count,live:latest.live,requested:requestedPopulation,invalid:latest.invalid,peakPacking:latest.maxPacking,crushKills:latest.crushKills,kills:latest.kills,medianMs:report.medianMs,p95Ms:report.p95Ms,frameSamples:report.samples,canvas:[ui.canvas.width,ui.canvas.height],readbackErrors:errors,boss:latest.boss},null,2);
  }
  function positionInspector(){
@@ -216,7 +225,9 @@ try {
      requestAnimationFrame(frame);
    }catch(error){fail(error);}
  }
- const restored=restoreSession();resetWorld(!restored);updateUI(performance.now());requestAnimationFrame(frame);
+ let restored=false;
+ if(state.mode==='game'){try{restoreSession();restored=true;}catch{/* Invalid or absent autosaves leave the fresh defense untouched. */}}
+ resetWorld(!restored);updateUI(performance.now());requestAnimationFrame(frame);
 } catch(error){state.message=String(error);state.paused=true;ui.update(state);console.error(error);}
 
 }

@@ -25,3 +25,9 @@ Validation: 36 CPU tests and production build pass, including forecast/queue agr
 Added a Bulldozer health/phase HUD driven by existing GPU readback, with bracing/charging/recovery guidance and terminal defeat/breach status. Research prerequisites now live in the content registry, and purchase validation and button availability share one rule with visible lock reasons. The Zombie Flow slider now reflects restored session settings.
 
 Validation: 42 CPU tests, production build, and all 7 real-GPU checks passed on Apple WebGPU with zero validation errors. Browser checks covered boss status layout/transitions using a UI fixture, research prerequisite unlocking after purchase, and a seeded wave-ten game showing live boss health and a restored 7× flow slider. A full campaign balance playthrough was not performed.
+
+## Full-defense checkpoints
+
+Separated explicit Save/Load checkpoints from automatic between-wave resume saves. Both capture the map, baseline spawn area, structures and wire condition, run state, and flow setting. Loads validate the complete snapshot before changing the current defense, reconnect obstacle identities for demolition, and synchronize the level editor. Manual storage failures now report an error instead of claiming success. Existing unversioned full autosaves remain readable.
+
+Validation: 47 CPU tests and production build passed. Tests cover mounted towers, wire collision state, independent save slots, flow restoration, corrupt snapshots, missing saves, blocked storage, and legacy autosaves. Chrome/WebGPU smoke checks verified Save → alter defenses/flow → autosave → Load, reload resume, and demolition of a restored wall.
