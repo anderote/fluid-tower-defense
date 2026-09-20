@@ -18,6 +18,12 @@ try {
   if(!root.querySelector('canvas')||!root.querySelector('aside > [data-action="start-wave"]')) {
     throw new Error('Game canvas or wave control was not initialized');
   }
+  const dock=root.querySelector<HTMLElement>('aside')!,toggle=dock.querySelector<HTMLButtonElement>('.window-toggle')!,handle=dock.querySelector<HTMLButtonElement>('.window-handle')!;
+  toggle.click();if(!dock.classList.contains('window-collapsed'))throw Error('Build menu must minimize');
+  toggle.click();if(dock.classList.contains('window-collapsed'))throw Error('Build menu must expand');
+  handle.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowLeft',bubbles:true}));
+  if(dock.dataset.windowMoved!=='true'||dock.style.position!=='fixed')throw Error('Window must retain its moved position');
+  const rect=dock.getBoundingClientRect();if(rect.left<0||rect.top<0)throw Error('Moved window must remain onscreen');
   result.textContent='PASS: UI initializes with working move and sell controls';
 } catch(error) {
   result.textContent=`FAIL: ${String(error)}`;

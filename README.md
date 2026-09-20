@@ -4,14 +4,34 @@ A browser tower-defense prototype with a GPU-simulated compressible zombie crowd
 
 Crowd pressure now directly hurts zombies: damage begins at sustained moderate pressure, ramps smoothly with compression, and reaches the full crush rate at the crush-pressure level. Enemy crush tolerance and brittle status still modify the final damage taken.
 
-## Run locally
+## Stable local game
+
+Open **http://127.0.0.1:5173**. This is a published build outside Git, running in the background through macOS launchd. Branch changes and development builds do not affect it. It starts again on login and uses the same browser saves as the old server.
+
+Ask Codex: **“update the game server.”** This means validate local `dev`, merge it into local `main`, then publish the server files from committed `main`. The chain is strictly **dev → main → game server**. This is a local release, not a remote Git pull. Ordinary feature work does not publish anything.
+
+The service runs from `~/Library/Application Support/Pressure Front/current`, with immutable builds in `releases/` beside it. The LaunchAgent is `local.pressure-front.game`. Logs are `server.log` and `server-error.log` in that application-support directory. After a release, refresh the game when ready; publishing does not restart the service or reload your tab.
+
+The low-level publish command (after validating and merging dev into main) is:
+
+```sh
+~/.local/bin/pressure-front update
+```
+
+It builds and tests a clean snapshot of committed main and swaps the release only on success. It never builds the checked-out development files. `pressure-front status`, `start`, and `stop` manage the background service.
+
+One-time setup on another Mac: `node scripts/stable-local.mjs install`, then `~/.local/bin/pressure-front update` and `~/.local/bin/pressure-front start`. Free port 5173 from the old Vite process before starting the stable service.
+
+## Active development
+
+In a dedicated feature worktree:
 
 ```sh
 npm install
 npm run dev
 ```
 
-Open the localhost URL printed by Vite in a browser with WebGPU enabled (a current Chrome or Safari). No API keys or server-side GPU are needed.
+Vite uses port 5174. Pass `--port 5190` (or another free port) for additional worktrees. Reserve port 5173 for the stable game. Use a browser with WebGPU enabled. No API keys or server-side GPU are needed.
 
 ## Play
 
