@@ -43,3 +43,9 @@ Validation: 50 CPU tests, production build, and 5/5 real-browser E2E scenarios p
 Corrected the CPU world-to-screen projection to match the GPU camera and inverse pointer mapping. The tower inspector now anchors to the selected tower, including letterboxed arenas, zoom, and pan. Added projection round-trip tests and an E2E assertion for inspector position and arena bounds.
 
 Validation: 53 CPU tests, production build, and 6/6 browser E2E scenarios passed on Apple WebGPU.
+
+## Stable research controls
+
+Kept unchanged research, Command XP, boon, and wave-preview markup intact across telemetry updates. Research buttons retain keyboard focus rather than being replaced every refresh, while purchases and combat still update their availability.
+
+Validation: the new browser focus check failed before the fix; 53 CPU tests, production build, and all 7 browser E2E scenarios pass after it.

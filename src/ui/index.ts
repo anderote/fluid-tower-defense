@@ -17,6 +17,13 @@ export function createUI(
   root: HTMLElement,
   onAction: (action: GameAction) => void,
 ): GameUI {
+  // Telemetry refreshes frequently; keep unchanged controls alive for keyboard focus.
+  const markup = new WeakMap<HTMLElement, string>();
+  const renderMarkup = (element: HTMLElement, html: string) => {
+    if (markup.get(element) === html) return;
+    element.innerHTML = html;
+    markup.set(element, html);
+  };
   const tower = (id: keyof typeof TOWERS) => {
     const t = TOWERS[id];
     return `<button data-tower="${id}"><span class="tower-shape" aria-hidden="true"></span><b>${t.name.toUpperCase()} <em></em></b><span class="cost">${t.cost}</span></button>`;
@@ -152,12 +159,12 @@ export function createUI(
       if (preview) {
         $("#wave-preview-title").textContent =
           `NEXT WAVE · ${preview.level}-${preview.wave}`;
-        $("#wave-preview-content").innerHTML = `
+        renderMarkup($("#wave-preview-content"), `
           <p class="wave-total">${preview.total.toLocaleString()} enemies${preview.boss ? " + 1 boss" : ""}</p>
           <ul>${preview.enemies.map(enemy => `<li><div><b>${enemy.name}</b><span>${enemy.count.toLocaleString()}</span></div><small>${enemy.role}</small></li>`).join("")}</ul>
           ${preview.boss ? '<p class="wave-boss"><b>BULLDOZER INCOMING</b><small>Heavy charging boss. Clear its escort and attack during recovery.</small></p>' : ""}
           <p class="wave-reward">${preview.boss ? "Level clear: start the next level with fresh defenses, Metal and base integrity." : `Completion reward: <b>+${preview.payment.toLocaleString()} Metal</b>`}</p>
-          <p class="wave-flow">Peak flow: ${preview.peakRate.toLocaleString()}/s after ${preview.rampSeconds.toLocaleString()}s.<br>Flow changes arrival speed, not enemy count. Actual flow is limited by spawn space.</p>`;
+          <p class="wave-flow">Peak flow: ${preview.peakRate.toLocaleString()}/s after ${preview.rampSeconds.toLocaleString()}s.<br>Flow changes arrival speed, not enemy count. Actual flow is limited by spawn space.</p>`);
       }
       $("#phase").textContent = s.phase.toUpperCase();
       $("#adapter").textContent = s.adapter;
@@ -180,13 +187,13 @@ export function createUI(
       $("#research-count").textContent =
         `${s.commandUpgrades.length} INSTALLED`;
       $("#command-xp").textContent = `${s.commandXp} XP`;
-      $("#meta-upgrades").innerHTML = s.metaUpgrades
+      renderMarkup($("#meta-upgrades"), s.metaUpgrades
         .map((upgrade) => {
           const cost = Math.round(upgrade.cost * (1 + upgrade.rank * 0.55));
           const maxed = upgrade.rank >= upgrade.maxRank;
           return `<button data-meta="${upgrade.id}" ${maxed || s.commandXp < cost ? "disabled" : ""}><b>${upgrade.name.toUpperCase()} · ${upgrade.rank}/${upgrade.maxRank}</b><span class="cost">${maxed ? "MAX" : `${cost} XP`}</span><small>${upgrade.description}</small></button>`;
         })
-        .join("");
+        .join(""));
       $("#selected-name").textContent = chosen
         ? `${chosen.name.toUpperCase()} / LV ${s.selected!.level}`
         : "TOWER INSPECTOR";
@@ -265,17 +272,17 @@ export function createUI(
         .forEach((button) => (button.disabled = locked));
       const bonusCard = $("#bonuses");
       bonusCard.hidden = !s.bonusChoices.length;
-      $("#bonus-choices").innerHTML = s.bonusChoices
+      renderMarkup($("#bonus-choices"), s.bonusChoices
         .map(
           (choice) =>
             `<button data-bonus="${choice.id}"><b>${choice.name.toUpperCase()}</b><small>${choice.description}</small></button>`,
         )
-        .join("");
-      $("#commands").innerHTML = COMMAND_UPGRADES.map((upgrade) => {
+        .join(""));
+      renderMarkup($("#commands"), COMMAND_UPGRADES.map((upgrade) => {
         const availability = commandUpgradeAvailability(s, upgrade.id);
         const installed = s.commandUpgrades.includes(upgrade.id);
         return `<button data-command="${upgrade.id}" ${availability.ok ? "" : "disabled"}><b>${installed ? "INSTALLED · " : ""}${upgrade.name.toUpperCase()}</b><span class="cost">${upgrade.cost} METAL</span><small>${upgrade.description}</small>${availability.ok ? "" : `<small class="research-lock">${availability.reason}</small>`}</button>`;
-      }).join("");
+      }).join(""));
       setPanel(research);
     },
     destroy() {

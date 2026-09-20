@@ -66,6 +66,10 @@ const cases:{name:string;run:()=>Promise<void>}[]=[
   assert(Math.abs(popup.top+popup.height/2-(canvas.top+canvas.height/2))<2,'Inspector is vertically detached from its tower');
   assert(popup.left>=arena.left&&popup.right<=arena.right&&popup.top>=arena.top&&popup.bottom<=arena.bottom,'Inspector escaped the arena');
  }},
+ {name:'Research buttons retain keyboard focus between telemetry updates',run:async()=>{
+  await fresh();click('#research-tab');const control=element<HTMLButtonElement>('[data-command="repulsor-impact-1"]');control.focus();
+  await sleep(600);assert(control.isConnected,'Research controls were recreated during telemetry refresh');assert(doc().activeElement===control,'Keyboard focus was lost during telemetry refresh');
+ }},
  {name:'Research prerequisites unlock after purchase and remain locked in combat',run:async()=>{
   await fresh();click('#research-tab');assert(element<HTMLButtonElement>('[data-command="repulsor-impact-2"]').disabled,'Rank II should be locked');
   click('[data-command="repulsor-impact-1"]');await until(()=>!element<HTMLButtonElement>('[data-command="repulsor-impact-2"]').disabled,'Rank II did not unlock');
