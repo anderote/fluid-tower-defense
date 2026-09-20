@@ -11,6 +11,8 @@ export async function createRenderer(device: GPUDevice, context: GPUCanvasContex
   const uniform = device.createBuffer({ label:'Render camera', size:64, usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST });
   let overlayCapacity=1;
   let overlays = device.createBuffer({ label:'Tactical overlays', size:24, usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST });
+  let foregroundCapacity=1;
+  let foreground = device.createBuffer({ label:'Foreground effects', size:24, usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST });
   const towerVisuals = device.createBuffer({ label:'Tower visual state', size:MAX_TOWERS * 16, usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST });
   const emptyShots = device.createBuffer({ label:'Empty firing state', size:MAX_TOWERS * 48, usage:GPUBufferUsage.STORAGE });
   const particleModule = device.createShaderModule({code:`
@@ -60,7 +62,7 @@ fn clip(p:vec2<f32>)->vec2<f32>{let aspect=camera.viewport.x/max(1.,camera.viewp
  let corners=array<vec2<f32>,6>(vec2(-1.,-1.),vec2(1.,-1.),vec2(-1.,1.),vec2(-1.,1.),vec2(1.,-1.),vec2(1.,1.));
  let shard=vi/6u;let q=corners[vi%6u];let s=states[ii];let t=towers[ii];let kind=floor(t.w+.001);let weapon=round(fract(t.w)*100.);
  var life=.24;if(weapon==1.){life=.62;}else if(weapon==2.){life=.32;}else if(weapon==4.){life=.3;}else if(weapon==5.){life=.56;}else if(weapon==6.){life=.18;}else if(weapon==7.){life=.34;}
- let elapsed=max(0.,s.timing.y-s.timing.x);let valid=s.timing.y>0.&&elapsed<=life&&abs(s.flags.x-t.z)<.5;let age=select(2.,clamp(elapsed/life,0.,1.),valid);
+ let elapsed=max(0.,s.timing.y-s.timing.x);let valid=s.timing.y>0.&&elapsed<=life&&abs(s.flags.x-t.z)<.5&&weapon!=1.&&weapon!=5.;let age=select(2.,clamp(elapsed/life,0.,1.),valid);
  let aim=s.timing.zw;let delta=aim-t.xy;let len=max(.1,length(delta));let forward=delta/len;let side=vec2(-forward.y,forward.x);let seed=f32(shard)*2.399+f32(ii)*.71;let burst=vec2(cos(seed),sin(seed));var p:vec2<f32>;
  if(weapon==0.){
   let distance=1.8+age*(4.5+len*.035);p=t.xy+burst*distance+q*(select(.22,1.05,shard==0u));
@@ -132,6 +134,7 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
   const streak=(a:V[],x:number,y:number,vx:number,vy:number,length:number,width:number,c:[number,number,number,number])=>{const m=Math.max(.001,Math.hypot(vx,vy)),dx=vx/m*length,dy=vy/m*length,sx=-dy/m*width,sy=dx/m*width;tri(a,{x:x-dx+sx,y:y-dy+sy},{x:x-dx-sx,y:y-dy-sy},{x:x+sx,y:y+sy},c);tri(a,{x:x-dx-sx,y:y-dy-sy},{x:x-sx,y:y-sy},{x:x+sx,y:y+sy},c)};
   const shard=(a:V[],x:number,y:number,size:number,angle:number,c:[number,number,number,number])=>{const f={x:Math.cos(angle)*size,y:Math.sin(angle)*size},s={x:-Math.sin(angle)*size*.55,y:Math.cos(angle)*size*.55};tri(a,{x:x+f.x,y:y+f.y},{x:x+s.x,y:y+s.y},{x:x-f.x-s.x*.25,y:y-f.y-s.y*.25},c);tri(a,{x:x+f.x,y:y+f.y},{x:x-f.x-s.x*.25,y:y-f.y-s.y*.25},{x:x-s.x,y:y-s.y},c)};
   const casing=(a:V[],x:number,y:number,size:number,angle:number,c:[number,number,number,number])=>{const f={x:Math.cos(angle)*size,y:Math.sin(angle)*size},s={x:-Math.sin(angle)*size*.28,y:Math.cos(angle)*size*.28};tri(a,{x:x+f.x,y:y+f.y},{x:x+s.x,y:y+s.y},{x:x-f.x+s.x,y:y-f.y+s.y},c);tri(a,{x:x+f.x,y:y+f.y},{x:x-f.x+s.x,y:y-f.y+s.y},{x:x-f.x-s.x,y:y-f.y-s.y},c);tri(a,{x:x+f.x,y:y+f.y},{x:x-f.x-s.x,y:y-f.y-s.y},{x:x-s.x,y:y-s.y},[Math.min(1,c[0]*1.3),Math.min(1,c[1]*1.35),Math.min(1,c[2]*1.2),c[3]*.85]);};
+  const orientedRect=(a:V[],x:number,y:number,halfLength:number,halfWidth:number,angle:number,c:[number,number,number,number])=>{const f={x:Math.cos(angle)*halfLength,y:Math.sin(angle)*halfLength},s={x:-Math.sin(angle)*halfWidth,y:Math.cos(angle)*halfWidth};tri(a,{x:x+f.x+s.x,y:y+f.y+s.y},{x:x-f.x+s.x,y:y-f.y+s.y},{x:x-f.x-s.x,y:y-f.y-s.y},c);tri(a,{x:x+f.x+s.x,y:y+f.y+s.y},{x:x-f.x-s.x,y:y-f.y-s.y},{x:x+f.x-s.x,y:y+f.y-s.y},c);};
   const diamond=(a:V[],x:number,y:number,size:number,c:[number,number,number,number])=>{tri(a,{x,y:y-size},{x:x+size,y},{x,y:y+size},c);tri(a,{x,y:y-size},{x,y:y+size},{x:x-size,y},c)};
   const towerShape=(a:V[],t:Vec2 & {kind:string},c:[number,number,number,number])=>{const s=1.65;if(t.kind==='repulsor')disc(a,t.x,t.y,s,c,16);else if(t.kind==='rocket')tri(a,{x:t.x,y:t.y-s},{x:t.x+s,y:t.y+s},{x:t.x-s,y:t.y+s},c);else if(t.kind==='mortar'||t.kind==='tesla')rect(a,t.x-s,t.y-s,s*2,s*2,c);else if(t.kind==='autocannon'||t.kind==='railgun')diamond(a,t.x,t.y,s,c);else if(t.kind==='incinerator'){tri(a,{x:t.x,y:t.y-s},{x:t.x+s,y:t.y+s*.7},{x:t.x-s,y:t.y+s*.7},c);rect(a,t.x-s*.25,t.y-s*.1,s*.5,s*1.1,c);}else{rect(a,t.x-s*.38,t.y-s,s*.76,s*2,c);rect(a,t.x-s,t.y-s*.38,s*2,s*.76,c);}};
   const wireShape=(a:V[],wire:{x:number;y:number;width:number;height:number},c:[number,number,number,number],integrity:number,broken=false)=>{
@@ -194,15 +197,56 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
     if(scene.wallGhost)rect(a,scene.wallGhost.x,scene.wallGhost.y,scene.wallGhost.width,scene.wallGhost.height,scene.wallGhost.valid?[.25,.85,.95,.5]:[1,.15,.08,.5]);
     if(scene.demolitionHover){const alpha=.78+.18*Math.sin(scene.time*8);rectOutline(a,scene.demolitionHover.x,scene.demolitionHover.y,scene.demolitionHover.width,scene.demolitionHover.height,[1,.06,.035,alpha],.42);}
     for(const e of scene.effects){const progress=Math.max(0,Math.min(1,1-e.duration/.55)),ease=1-(1-progress)*(1-progress),alpha=(1-progress)*(1-progress);const c:[number,number,number,number]=e.kind==='blast'?[1,.34,.055,.88*alpha]:e.kind==='slow'?[.25,.8,1,.56*alpha]:[.45,.95,1,.62*alpha];const radius=Math.max(.35,e.radius*(.05+.95*ease));disc(a,e.x,e.y,Math.max(.2,e.radius*.22*(1-progress)),[c[0],c[1],c[2],.16*alpha],12);ring(a,e.x,e.y,radius,c,Math.max(.18,e.radius*.085*(1-progress)));if(progress>.16)ring(a,e.x,e.y,radius*.72,[c[0],c[1],c[2],c[3]*.38],Math.max(.12,e.radius*.035));if(e.kind==='push'){const q={x:e.x+e.direction.x*radius,y:e.y+e.direction.y*radius};tri(a,{x:e.x-.7,y:e.y-.7},{x:e.x+.7,y:e.y+.7},q,[c[0],c[1],c[2],c[3]*.32])}}
-    for(const p of scene.visualParticles??[]){const t=Math.max(0,Math.min(1,p.age/p.life)),x=p.x+p.vx*p.age*(1-p.drag*t),y=p.y+p.vy*p.age+.5*p.gravity*p.age*p.age,fade=(1-t)*(1-t),c:[number,number,number,number]=[p.color[0],p.color[1],p.color[2],fade];if(p.style==='smoke'){const bloom=Math.sin(Math.PI*t),size=p.size*(.55+1.55*t);disc(a,x,y,size,[c[0],c[1],c[2],bloom*.22],10);disc(a,x-size*.28,y+size*.12,size*.62,[c[0]*.7,c[1]*.72,c[2]*.75,bloom*.14],9);}else if(p.style==='mist'){const size=p.size*(.7+1.15*t);disc(a,x,y,size,[c[0],c[1],c[2],fade*.16],10);ring(a,x,y,size,[c[0],c[1],c[2],fade*.28],Math.max(.08,size*.14));}else if(p.style==='shell'){casing(a,x,y,p.size*(1-.16*t),p.spin*p.age,c);}else if(p.style==='debris'){shard(a,x,y,p.size*(1-.3*t),p.spin*p.age,c);}else{streak(a,x,y,p.vx,p.vy,Math.max(.35,p.size*3.2*(1-t)),Math.max(.06,p.size*.22),c);disc(a,x,y,p.size*.52,[1,Math.min(1,p.color[1]+.18),Math.min(1,p.color[2]+.1),fade*.9],7);}}
     if(scene.boss){const c: [number,number,number,number]=scene.boss.phase===2?[1,.15,.04,.95]:scene.boss.phase===1?[.9,.72,.2,.95]:[.55,.78,1,.95];ring(a,scene.boss.x,scene.boss.y,2.5,c,.55);rect(a,scene.boss.x-3,scene.boss.y-4,6*Math.max(0,scene.boss.health/scene.boss.maxHealth),.45,c);}
     const data=new Float32Array(a.length*6);a.forEach((v,i)=>data.set([v.x,v.y,v.r,v.g,v.b,v.a],i*6));return data;
   }
-  return { encode(encoder,scene){if(world.width!==scene.map.width||world.height!==scene.map.height){world={width:scene.map.width,height:scene.map.height};clampCamera();}resize(); const v=view(); const u=new Float32Array([pixelW,pixelH,0,0,camera.x,camera.y,v.width,v.height,scene.time,scene.heatmap?1:0,0,0,0,0,0,0]);device.queue.writeBuffer(uniform,0,u);const visual=new Float32Array(Math.max(1,Math.min(MAX_TOWERS,scene.towers.length))*4),weaponKinds=['repulsor','mortar','autocannon','cryo','tesla','rocket','railgun','incinerator'];scene.towers.slice(0,MAX_TOWERS).forEach((t,i)=>visual.set([t.x,t.y,t.id,towerBehavior(t.kind)+weaponKinds.indexOf(t.kind)/100],i*4));device.queue.writeBuffer(towerVisuals,0,visual);const data=geometry(scene);if(data.length/6>overlayCapacity){const previous=overlays;overlayCapacity=2**Math.ceil(Math.log2(data.length/6));overlays=device.createBuffer({label:'Tactical overlays',size:overlayCapacity*24,usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST});previous.destroy();}if(data.byteLength)device.queue.writeBuffer(overlays,0,data.buffer,data.byteOffset,data.byteLength);const pass=encoder.beginRenderPass({colorAttachments:[{view:context.getCurrentTexture().createView(),clearValue:{r:.075,g:.075,b:.078,a:1},loadOp:'clear',storeOp:'store'}]});pass.setPipeline(bg);pass.setBindGroup(0,cameraBG);pass.draw(3);pass.setPipeline(overlay);pass.setBindGroup(0,cameraOverlay);pass.setVertexBuffer(0,overlays);pass.draw(data.length/6);pass.setPipeline(particles);pass.setBindGroup(0,cameraParticles);pass.draw(48,Math.min(scene.count,shared.capacity));if(shared.shotState){pass.setPipeline(cues);pass.setBindGroup(0,cameraCues);pass.draw(72,Math.min(MAX_TOWERS,scene.towers.length));}pass.end(); },
+  function foregroundGeometry(scene:RenderScene):Float32Array {const a:V[]=[];
+    for(const projectile of scene.heavyProjectiles??[]){
+      const local=projectile.age-projectile.delay;if(local<0)continue;const t=Math.max(0,Math.min(1,local/projectile.flight));
+      const dx=projectile.target.x-projectile.x,dy=projectile.target.y-projectile.y,length=Math.max(.001,Math.hypot(dx,dy)),forward={x:dx/length,y:dy/length},side={x:-forward.y,y:forward.x};
+      if(projectile.kind==='mortar'){
+        const arc=Math.sin(t*Math.PI)*1.28*(projectile.serial%2 ? .72 : -.72),x=projectile.x+dx*t+side.x*arc,y=projectile.y+dy*t+side.y*arc;
+        streak(a,x,y,forward.x,forward.y,1.65,.085,[1,.92,.18,.82]);streak(a,x-forward.x*.22,y-forward.y*.22,forward.x,forward.y,.82,.18,[1,.56,.055,.35]);
+        casing(a,x,y,.59,projectile.serial*.71+local*24,[.25,.2,.105,1]);disc(a,x,y,.16,[.9,.68,.21,.72],7);
+      }else{
+        const x=projectile.x+dx*t,y=projectile.y+dy*t,angle=Math.atan2(forward.y,forward.x);
+        for(let j=1;j<=6;j++){const lag=j*.045/projectile.flight;if(t<=lag*.45)continue;const u=Math.max(0,t-lag),jitter=Math.sin(projectile.serial*3.17+j*7.3)*(.08+j*.025),sx=projectile.x+dx*u+side.x*jitter,sy=projectile.y+dy*u+side.y*jitter,fade=(1-j/7)*Math.min(1,t*5);disc(a,sx,sy,.2+j*.075,[.29,.28,.26,.17*fade],9);disc(a,sx-side.x*.08,sy-side.y*.08,.12+j*.04,[.48,.45,.38,.09*fade],8);}
+        streak(a,x-forward.x*.48,y-forward.y*.48,forward.x,forward.y,1.45,.12,[1,.73,.15,.76]);disc(a,x-forward.x*.78,y-forward.y*.78,.24,[1,.29,.025,.8],7);
+        orientedRect(a,x,y,.78,.27,angle,[.19,.2,.17,1]);orientedRect(a,x+side.x*.07,y+side.y*.07,.55,.09,angle,[.65,.66,.56,.72]);
+        const nose={x:x+forward.x*1.02,y:y+forward.y*1.02},left={x:x+forward.x*.67+side.x*.27,y:y+forward.y*.67+side.y*.27},right={x:x+forward.x*.67-side.x*.27,y:y+forward.y*.67-side.y*.27};tri(a,nose,left,right,[.77,.76,.64,1]);
+      }
+    }
+    for(const explosion of scene.heavyExplosions??[]){
+      const t=Math.max(0,Math.min(1,explosion.age/explosion.life)),s=explosion.scale,flash=Math.max(0,1-t/.17),fire=Math.max(0,1-t/.55),smoke=Math.sin(Math.PI*Math.min(1,t*1.12));
+      if(flash>0){disc(a,explosion.x,explosion.y,(1.1+t*8)*s,[1,1,.78,.68*flash],14);disc(a,explosion.x,explosion.y,(.52+t*3.5)*s,[1,1,1,.92*flash],12);}
+      if(fire>0){ring(a,explosion.x,explosion.y,(1.25+t*8.2)*s,[1,.38,.035,.72*fire],Math.max(.16,(.58-t*.32)*s));disc(a,explosion.x,explosion.y,(1.35+t*3.4)*s,[1,.19,.018,.28*fire],12);}
+      for(let j=0;j<7;j++){const angle=j/7*Math.PI*2+explosion.serial*.73,radius=(.35+t*(2.3+(j%3)*.48))*s,x=explosion.x+Math.cos(angle)*radius,y=explosion.y+Math.sin(angle)*radius,cloud=(.72+t*(1.6+(j%2)*.42))*s;disc(a,x,y,cloud,[.2+(j%2)*.035,.19,.18,.2*smoke*(1-t*.72)],10);if(t<.5)disc(a,x-Math.cos(angle)*.16,y-Math.sin(angle)*.16,cloud*.48,[1,.42,.045,.26*fire],8);}
+      if(t>.12)ring(a,explosion.x,explosion.y,(1.8+t*10.5)*s,[.75,.68,.55,.18*(1-t)],Math.max(.08,.22*(1-t)));
+    }
+    for(const p of scene.visualParticles??[]){const t=Math.max(0,Math.min(1,p.age/p.life)),x=p.x+p.vx*p.age*(1-p.drag*t),y=p.y+p.vy*p.age+.5*p.gravity*p.age*p.age,fade=(1-t)*(1-t),c:[number,number,number,number]=[p.color[0],p.color[1],p.color[2],fade];if(p.style==='smoke'){const bloom=Math.sin(Math.PI*t),size=p.size*(.55+1.55*t);disc(a,x,y,size,[c[0],c[1],c[2],bloom*.22],10);disc(a,x-size*.28,y+size*.12,size*.62,[c[0]*.7,c[1]*.72,c[2]*.75,bloom*.14],9);}else if(p.style==='mist'){const size=p.size*(.7+1.15*t);disc(a,x,y,size,[c[0],c[1],c[2],fade*.16],10);ring(a,x,y,size,[c[0],c[1],c[2],fade*.28],Math.max(.08,size*.14));}else if(p.style==='shell'){casing(a,x,y,p.size*(1-.16*t),p.spin*p.age,c);}else if(p.style==='debris'){shard(a,x,y,p.size*(1-.3*t),p.spin*p.age,c);}else{streak(a,x,y,p.vx,p.vy,Math.max(.35,p.size*3.2*(1-t)),Math.max(.06,p.size*.22),c);disc(a,x,y,p.size*.52,[1,Math.min(1,p.color[1]+.18),Math.min(1,p.color[2]+.1),fade*.9],7);}}
+    const data=new Float32Array(a.length*6);a.forEach((v,i)=>data.set([v.x,v.y,v.r,v.g,v.b,v.a],i*6));return data;
+  }
+  return { encode(encoder,scene){
+      if(world.width!==scene.map.width||world.height!==scene.map.height){world={width:scene.map.width,height:scene.map.height};clampCamera();}
+      resize();const v=view(),shake=scene.cameraShake??0,shakeX=Math.sin(scene.time*83.7)*shake,shakeY=Math.cos(scene.time*71.3)*shake*.7;
+      device.queue.writeBuffer(uniform,0,new Float32Array([pixelW,pixelH,0,0,camera.x+shakeX,camera.y+shakeY,v.width,v.height,scene.time,scene.heatmap?1:0,0,0,0,0,0,0]));
+      const visual=new Float32Array(Math.max(1,Math.min(MAX_TOWERS,scene.towers.length))*4),weaponKinds=['repulsor','mortar','autocannon','cryo','tesla','rocket','railgun','incinerator'];
+      scene.towers.slice(0,MAX_TOWERS).forEach((t,i)=>visual.set([t.x,t.y,t.id,towerBehavior(t.kind)+weaponKinds.indexOf(t.kind)/100],i*4));device.queue.writeBuffer(towerVisuals,0,visual);
+      const data=geometry(scene),fx=foregroundGeometry(scene);
+      if(data.length/6>overlayCapacity){const previous=overlays;overlayCapacity=2**Math.ceil(Math.log2(data.length/6));overlays=device.createBuffer({label:'Tactical overlays',size:overlayCapacity*24,usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST});previous.destroy();}
+      if(fx.length/6>foregroundCapacity){const previous=foreground;foregroundCapacity=2**Math.ceil(Math.log2(fx.length/6));foreground=device.createBuffer({label:'Foreground effects',size:foregroundCapacity*24,usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST});previous.destroy();}
+      if(data.byteLength)device.queue.writeBuffer(overlays,0,data.buffer,data.byteOffset,data.byteLength);if(fx.byteLength)device.queue.writeBuffer(foreground,0,fx.buffer,fx.byteOffset,fx.byteLength);
+      const pass=encoder.beginRenderPass({colorAttachments:[{view:context.getCurrentTexture().createView(),clearValue:{r:.075,g:.075,b:.078,a:1},loadOp:'clear',storeOp:'store'}]});
+      pass.setPipeline(bg);pass.setBindGroup(0,cameraBG);pass.draw(3);
+      pass.setPipeline(overlay);pass.setBindGroup(0,cameraOverlay);pass.setVertexBuffer(0,overlays);pass.draw(data.length/6);
+      pass.setPipeline(particles);pass.setBindGroup(0,cameraParticles);pass.draw(48,Math.min(scene.count,shared.capacity));
+      pass.setPipeline(overlay);pass.setBindGroup(0,cameraOverlay);pass.setVertexBuffer(0,foreground);pass.draw(fx.length/6);
+      if(shared.shotState){pass.setPipeline(cues);pass.setBindGroup(0,cameraCues);pass.draw(72,Math.min(MAX_TOWERS,scene.towers.length));}pass.end();
+    },
     screenToWorld,
     worldToScreen,
     pan(dx,dy){camera.x+=dx;camera.y+=dy;clampCamera();},
     zoomAt(factor,clientX,clientY){const before=screenToWorld(clientX,clientY);camera.zoom=Math.max(1,Math.min(5,camera.zoom*factor));const after=screenToWorld(clientX,clientY);camera.x+=before.x-after.x;camera.y+=before.y-after.y;clampCamera();},
-    destroy(){uniform.destroy();overlays.destroy();towerVisuals.destroy();emptyShots.destroy();}
+    destroy(){uniform.destroy();overlays.destroy();foreground.destroy();towerVisuals.destroy();emptyShots.destroy();}
   };
 }
