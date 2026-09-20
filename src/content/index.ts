@@ -8,7 +8,7 @@ export const TOWERS: Record<TowerKind, TowerDef> = {
   cryo: {id:'cryo', name:'Cryo Emitter', description:'Slows and shoves a cone of incoming enemies.', cost:110, range:13, cooldown:.7, damage:1, force:6, radius:4.1, peakPressureKpa:95, color:'#a995ff', branches:['Deep Freeze','Cold Front']},
   tesla: {id:'tesla', name:'Tesla Coil', description:'Chains lightning through nearby enemies, briefly slowing them and frying lethal hits to ash.', cost:140, range:20, cooldown:.48, damage:7, force:8, radius:5.2, peakPressureKpa:120, color:'#9a7dff', branches:['Capacitor','Storm Cell']},
   rocket: {id:'rocket', name:'Rocket Pod', description:'Saturates dense crowds with a three-warhead scatter salvo.', cost:165, range:44, cooldown:2.9, damage:34, force:24, radius:6.6, peakPressureKpa:1250, color:'#ff5f48', branches:['Warhead','Barrage']},
-  railgun: {id:'railgun', name:'Railgun', description:'Penetrates and hurls targets along a long firing lane.', cost:180, range:48, cooldown:.78, damage:38, force:26, radius:1.1, peakPressureKpa:900, color:'#73f5d2', branches:['Slug','Accelerator']},
+  railgun: {id:'railgun', name:'Railgun', description:'Penetrates and hurls targets along a long firing lane.', cost:2_500, range:48, cooldown:.78, damage:38, force:26, radius:1.1, peakPressureKpa:900, color:'#73f5d2', branches:['Slug','Accelerator']},
   incinerator: {id:'incinerator', name:'Incinerator', description:'Bathes a short cone in heat that burns enemies over time.', cost:145, range:16, cooldown:.55, damage:13, force:0, radius:4.8, peakPressureKpa:80, color:'#ff7848', branches:['Furnace','Wildfire']},
 };
 

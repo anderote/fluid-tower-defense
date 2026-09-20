@@ -1,3 +1,5 @@
+import {createFireEffects} from './fire.ts';
+import {FIRE_STATE_BYTES} from '../effects/fire.ts';
 import {AUTOCANNON_MUZZLE_LIFT,SOLDAT_FACINGS} from './soldat-art.ts';
 import {createTeslaEffects} from './tesla.ts';
 import {createAftermathRenderer} from './aftermath.ts';
@@ -32,7 +34,9 @@ export async function createRenderer(device: GPUDevice, context: GPUCanvasContex
   const redAlert=await createRedAlertArt(device,format,uniform,turretArt,options.wireArt,options.floorArt).catch(error=>{console.warn('Facility artwork unavailable; using fallback graphics.',error);return null;});
   const emptyTesla=shared.teslaState?null:device.createBuffer({label:'Empty Tesla status',size:TESLA_HEADER_BYTES+shared.capacity*TESLA_PARTICLE_BYTES,usage:GPUBufferUsage.STORAGE});
   const teslaState=shared.teslaState??emptyTesla!;
-  const shamblers=await createShamblers(device,format,uniform,{...shared,teslaState});
+  const emptyHeat=shared.heatState?null:device.createBuffer({label:'Empty burn status',size:shared.capacity*FIRE_STATE_BYTES,usage:GPUBufferUsage.STORAGE});
+  const heatState=shared.heatState??emptyHeat!;
+  const shamblers=await createShamblers(device,format,uniform,{...shared,teslaState,heatState});
   const aftermath=shared.aftermath?await createAftermathRenderer(device,format,uniform,shared.aftermath,shamblers.texture):null;
   let overlayCapacity=1;
   let overlays = device.createBuffer({ label:'Tactical overlays', size:24, usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST });
@@ -40,6 +44,7 @@ export async function createRenderer(device: GPUDevice, context: GPUCanvasContex
   let foreground = device.createBuffer({ label:'Foreground effects', size:24, usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST });
   const towerVisuals = device.createBuffer({ label:'Tower visual state', size:MAX_TOWERS * 16, usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST });
   const emptyShots = device.createBuffer({ label:'Empty firing state', size:MAX_TOWERS * 48, usage:GPUBufferUsage.STORAGE });
+  const fire=await createFireEffects(device,format,uniform,{...shared,heatState},towerVisuals,emptyShots);
   const tesla=await createTeslaEffects(device,format,uniform,towerVisuals,shared,turretArt);
   const particleModule = device.createShaderModule({code:`
 ${PARTICLE_WGSL}
@@ -104,7 +109,7 @@ fn muzzleDistance(weapon:f32)->f32{return muzzleOffset(weapon,select(0.,1.,weapo
  let corners=array<vec2<f32>,6>(vec2(-1.,-1.),vec2(1.,-1.),vec2(-1.,1.),vec2(-1.,1.),vec2(1.,-1.),vec2(1.,1.));
  let shard=vi/6u;let q=corners[vi%6u];let s=states[ii];let t=towers[ii];let kind=floor(t.w+.001);let weapon=round(fract(t.w)*100.);
  var life=.24;if(weapon==1.){life=.62;}else if(weapon==2.){life=.32;}else if(weapon==4.){life=.3;}else if(weapon==5.){life=.56;}else if(weapon==6.){life=.18;}else if(weapon==7.){life=.34;}
- let elapsed=max(0.,s.timing.y-s.timing.x);let valid=s.timing.y>0.&&elapsed<=life&&abs(s.flags.x-t.z)<.5&&weapon!=4.;let age=select(2.,clamp(elapsed/life,0.,1.),valid);
+ let elapsed=max(0.,s.timing.y-s.timing.x);let valid=s.timing.y>0.&&elapsed<=life&&abs(s.flags.x-t.z)<.5&&weapon!=4.&&weapon!=7.;let age=select(2.,clamp(elapsed/life,0.,1.),valid);
  let aim=s.timing.zw;let delta=aim-t.xy;let len=max(.1,length(delta));let forward=delta/len;let side=vec2(-forward.y,forward.x);let muzzle=muzzlePoint(t.xy,forward,weapon,0.);let seed=f32(shard)*2.399+f32(ii)*.71;let burst=vec2(cos(seed),sin(seed));var p:vec2<f32>;
  if(weapon==0.){
   let distance=.15+age*(4.5+len*.035);p=muzzle+burst*distance+q*(select(.22,1.05,shard==0u));
@@ -322,7 +327,7 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
       const visual=new Float32Array(Math.max(1,Math.min(MAX_TOWERS,scene.towers.length))*4);
       scene.towers.slice(0,MAX_TOWERS).forEach((t,i)=>visual.set([t.x,t.y,t.id,towerBehavior(t.kind)+WEAPON_KINDS.indexOf(t.kind)/100],i*4));device.queue.writeBuffer(towerVisuals,0,visual);
       redAlert?.prepare(scene);
-      shamblers.prepare(encoder,scene);
+      shamblers.prepare(encoder,scene);fire.prepare(encoder,scene.count);
       if(scene.aftermathVisible!==false)aftermath?.prepare(scene);
       const data=geometry(scene),fx=foregroundGeometry(scene);
       if(data.length/6>overlayCapacity){const previous=overlays;overlayCapacity=2**Math.ceil(Math.log2(data.length/6));overlays=device.createBuffer({label:'Tactical overlays',size:overlayCapacity*24,usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST});previous.destroy();}
@@ -342,13 +347,13 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
       pass=encoder.beginRenderPass({colorAttachments:[{view:target,loadOp:'load',storeOp:'store'}]});
       if(scene.aftermathVisible!==false)aftermath?.spray(pass);
       pass.setPipeline(overlay);pass.setBindGroup(0,cameraOverlay);pass.setVertexBuffer(0,foreground);pass.draw(fx.length/6);
-      if(shared.shotState){pass.setPipeline(cues);pass.setBindGroup(0,cameraCues);pass.draw(72,Math.min(MAX_TOWERS,scene.towers.length));}tesla?.draw(pass,scene.count,scene.towers.length);pass.end();
+      if(shared.shotState){pass.setPipeline(cues);pass.setBindGroup(0,cameraCues);pass.draw(72,Math.min(MAX_TOWERS,scene.towers.length));}tesla?.draw(pass,scene.count,scene.towers.length);fire.draw(pass,scene.count,scene.towers.length);pass.end();
     },
     screenToWorld,
     worldToScreen,
     pan(dx,dy){camera.x+=dx;camera.y+=dy;clampCamera();},
     zoomAt(factor,clientX,clientY){const before=screenToWorld(clientX,clientY);camera.zoom=Math.max(1,Math.min(5,camera.zoom*factor));const after=screenToWorld(clientX,clientY);camera.x+=before.x-after.x;camera.y+=before.y-after.y;clampCamera();},
     clearAftermath(){aftermath?.reset();},
-    destroy(){aftermath?.destroy();tesla?.destroy();emptyTesla?.destroy();shamblers.destroy();redAlert?.destroy();uniform.destroy();overlays.destroy();foreground.destroy();towerVisuals.destroy();emptyShots.destroy();}
+    destroy(){fire.destroy();emptyHeat?.destroy();aftermath?.destroy();tesla?.destroy();emptyTesla?.destroy();shamblers.destroy();redAlert?.destroy();uniform.destroy();overlays.destroy();foreground.destroy();towerVisuals.destroy();emptyShots.destroy();}
   };
 }

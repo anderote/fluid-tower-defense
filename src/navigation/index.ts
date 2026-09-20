@@ -1,9 +1,30 @@
 import {type NavigationField, type Tower, type Vec2, type WorldMap} from '../contracts/index.ts';
 
 const CELL_SIZE = 1;
+/** Turret placement and collision use the same 2.5-unit square footprint. */
+export const TURRET_OBSTACLE_SIZE = 2.5;
 let version = 0;
 const inside = (map:WorldMap,x:number,y:number) => x >= 0 && y >= 0 && x < map.width && y < map.height;
 const blocked = (map:WorldMap,x:number,y:number) => map.obstacles.some(rect => x >= rect.x && x < rect.x+rect.width && y >= rect.y && y < rect.y+rect.height);
+
+/** Converts deployed turret centers into solid navigation and physics obstacles. */
+export function turretObstacles(towers:readonly Pick<Tower,'x'|'y'>[]): {x:number;y:number;width:number;height:number}[] {
+  return towers.map(tower=>({x:tower.x-TURRET_OBSTACLE_SIZE/2,y:tower.y-TURRET_OBSTACLE_SIZE/2,width:TURRET_OBSTACLE_SIZE,height:TURRET_OBSTACLE_SIZE}));
+}
+
+/** Keeps authored terrain separate while exposing every deployed turret as a solid. */
+export function mapWithTurretObstacles(map:WorldMap,towers:readonly Pick<Tower,'x'|'y'>[]):WorldMap {
+  return {...map,obstacles:[...map.obstacles,...turretObstacles(towers)]};
+}
+
+/** True when at least one spawn cell can reach the goal in the supplied field. */
+export function hasSpawnRoute(map:WorldMap):boolean {
+  const field=buildNavigation(map);
+  const minX=Math.max(0,Math.floor(map.spawn.x/field.cellSize)),maxX=Math.min(field.width,Math.ceil((map.spawn.x+map.spawn.width)/field.cellSize));
+  const minY=Math.max(0,Math.floor(map.spawn.y/field.cellSize)),maxY=Math.min(field.height,Math.ceil((map.spawn.y+map.spawn.height)/field.cellSize));
+  for(let y=minY;y<maxY;y++)for(let x=minX;x<maxX;x++)if(Number.isFinite(field.distances[y*field.width+x]))return true;
+  return false;
+}
 
 /** Snaps to a player-built wall center or keeps the footprint flush inside the map edge. */
 export function resolvePlacement(map:WorldMap,position:Vec2,footprint:number,mounts:readonly {x:number;y:number;width:number;height:number}[]=[]):Vec2 {

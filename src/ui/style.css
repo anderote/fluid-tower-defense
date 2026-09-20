@@ -61,8 +61,8 @@ header, footer { flex: none; display: flex; align-items: center; padding: 0 20px
 .status #adapter { grid-column: 2; color: var(--term-faint); font-size: var(--text-caption); }
 .led { width: 5px; height: 12px; background: var(--term-ok); grid-row: 1 / span 2; }
 .metrics { display: flex; gap: 10px; color: var(--term-warn); font-size: var(--text-caption); white-space: nowrap; }
-.simulation-controls { display: flex; flex: none; gap: 6px; }
-.simulation-controls button { min-height: 44px; padding: 9px 10px; white-space: nowrap; }
+.simulation-controls { display: flex; flex: none; align-items: center; gap: 4px; }
+.simulation-controls button { min-height: 30px; padding: 5px 7px; font-size: 10px; white-space: nowrap; }
 .view-actions { position: relative; flex: none; margin-left: auto; }
 .view-menu-toggle { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; line-height: 1; letter-spacing: 0; }
 .view-menu-toggle svg { display: block; width: 24px; height: 24px; fill: currentColor; }
@@ -140,13 +140,13 @@ button small { margin-top: 5px; color: var(--term-faint); font-size: var(--text-
 [data-tower="rocket"] .tower-shape { background: #ff5f48; clip-path: polygon(50% 0, 100% 100%, 50% 75%, 0 100%); }
 
 .controls > div, .selected > div { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
-.soundtrack { display: grid; grid-template-columns: minmax(130px, 1fr) auto; gap: 5px 12px; align-items: center; flex: 0 1 380px; min-width: 360px; padding: 0 12px; border-left: 1px solid var(--term-border); }
-.music-info { grid-row: span 2; min-width: 0; }
+.soundtrack { display: grid; grid-template-columns: minmax(120px, 170px) auto 110px; gap: 8px; align-items: center; min-width: 0; margin-left: 4px; padding-left: 8px; border-left: 1px solid var(--term-border); }
+.music-info { min-width: 0; }
 .music-info label { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 10px; letter-spacing: .04em; white-space: nowrap; }
 .music-info label span { float: none; margin-left: auto; font-size: 10px; }
 .music-actions { display: flex; gap: 4px; }
-.music-actions button { min-height: 28px; padding: 4px 6px; font-size: 10px; white-space: nowrap; }
-.soundtrack p { margin: 5px 0 0; overflow: hidden; color: var(--term-fg); font-size: var(--text-small); line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
+.music-actions button { min-height: 30px; padding: 5px 7px; font-size: 10px; white-space: nowrap; }
+.soundtrack p { margin: 1px 0 0; overflow: hidden; color: var(--term-fg); font-size: 10px; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
 .soundtrack p.error { color: var(--term-error); }
 .music-volume { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 8px; margin: 0; color: var(--term-faint); font-size: 10px; }
 .music-volume input { width: 100%; min-width: 0; height: 12px; margin: 0; accent-color: var(--term-accent); }
@@ -255,17 +255,16 @@ footer button:first-of-type { border-color: var(--term-accent); background: var(
 #commands .research-lock { color: var(--term-warn); }
 
 /* Keep music and primary actions reachable at every viewport width. */
-@media (max-width: 1800px) {
-  .soundtrack { order: 2; flex-basis: 100%; min-width: 0; padding: 10px 0 0; border-left: 0; border-top: 1px solid var(--term-border); }
-}
 @media (max-width: 1400px) { .pf header .status { display: none; } }
 @media (max-width: 1100px) {
   .pf header { height: auto; min-height: 78px; flex-wrap: wrap; gap: 10px; padding: 12px; }
   .pf header .status { display: none; }
-  .soundtrack { order: 2; flex-basis: 100%; min-width: 0; padding: 10px 0 0; border-left: 0; border-top: 1px solid var(--term-border); }
-  .music-volume { max-width: 180px; }
   .hud { align-self: stretch; }
   .simulation-controls { order: 1; flex-basis: 100%; }
+}
+@media (max-width: 800px) {
+  .soundtrack { grid-template-columns: minmax(100px, 1fr) auto; }
+  .music-volume { display: none; }
 }
 @media (max-width: 600px) {
   .pf header { display: grid; grid-template-columns: minmax(0, 1fr) 44px 124px; gap: 8px; }
@@ -274,8 +273,7 @@ footer button:first-of-type { border-color: var(--term-accent); background: var(
   .view-actions { grid-column: 2; grid-row: 1; margin: 0; }
   .pf .start-wave-top { grid-column: 3; grid-row: 1; min-width: 0; min-height: 48px; padding: 10px; font-size: var(--text-body); }
   .simulation-controls { grid-column: 1 / -1; grid-row: 2; }
-  .simulation-controls button { flex: 1; padding: 9px 6px; }
-  .soundtrack { grid-column: 1 / -1; grid-row: 3; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; padding-top: 9px; }
-  .music-info label { flex-wrap: wrap; gap: 0 6px; }
-  .music-info label span { margin-left: 0; }
+  .simulation-controls > button { flex: 1; padding-inline: 4px; }
+  .soundtrack { display: flex; gap: 4px; margin-left: 0; padding-left: 4px; }
+  .music-info, .music-volume { display: none; }
 }

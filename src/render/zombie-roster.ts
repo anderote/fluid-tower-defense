@@ -6,7 +6,7 @@ export const ZOMBIE_KINDS=['shambler','runner','softbody','brute'] as const sati
 export type ZombieKind=typeof ZOMBIE_KINDS[number];
 export const ZOMBIE_FRAME=48;
 export const ZOMBIE_FACINGS=8;
-export const ZOMBIE_FRAMES=16;
+export const ZOMBIE_FRAMES=24;
 export const ZOMBIE_PIVOT={x:24,y:32};
 export const ZOMBIE_PROFILES:Record<ZombieKind,{stride:number;turnRate:number;tileScale:number;collapseStep:number}>={
   shambler:{stride:.95,turnRate:7,tileScale:9.6,collapseStep:.09},

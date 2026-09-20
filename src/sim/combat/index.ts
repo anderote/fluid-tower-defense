@@ -1,3 +1,4 @@
+import {FIRE_STATE_BYTES,FIRE_STATE_WGSL,FIRE_BURN_SECONDS} from '../../effects/fire.ts';
 import {HEAVY_SALVO_SLOTS,impactTickOffset} from '../../effects/heavy-weapons.ts';
 import {TESLA_STATE_WGSL,TESLA_LINKS,TESLA_HEADER_BYTES,TESLA_PARTICLE_BYTES} from '../../effects/tesla.ts';
 import {createAftermathEvents} from '../../effects/aftermath.ts';
@@ -27,7 +28,8 @@ export async function createCombat(device:GPUDevice,shared:SharedGPU):Promise<Co
   const effects=device.createBuffer({label:'Manual damage effects',size:MAX_EFFECTS*48,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
   const tesla=device.createBuffer({label:'Tesla chain and electrocution state',size:TESLA_HEADER_BYTES+shared.capacity*TESLA_PARTICLE_BYTES,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST|GPUBufferUsage.COPY_SRC});
   shared.teslaState=tesla;
-  const heat=device.createBuffer({label:'Burn status',size:shared.capacity*8,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
+  const heat=device.createBuffer({label:'Burn status',size:shared.capacity*FIRE_STATE_BYTES,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST|GPUBufferUsage.COPY_SRC});
+  shared.heatState=heat;
   const ownership=device.createBuffer({label:'Last tower damage owner',size:shared.capacity*4,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
   const ownedBoss=!shared.bossState;
   const bossBuffer=shared.bossState??device.createBuffer({label:'Inactive boss placeholder',size:64,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
@@ -40,7 +42,7 @@ struct TowerState { timing:vec4f, shot:vec4f, flags:vec4f };
 struct Round { definition:Tower, aim:vec4f };
 struct Firing { towers:array<TowerState,64>, rounds:array<Round,${MAX_TOWERS*HEAVY_SALVO_SLOTS}> };
 struct Effect { position:vec4f, direction:vec4f, extra:vec4f };
-struct Heat { burn:vec2f };
+${FIRE_STATE_WGSL}
 struct Boss { motion:vec4f, body:vec4f, mode:vec4f, flags:vec4f };
 @group(0) @binding(0) var<uniform> params:Params;
 @group(0) @binding(1) var<storage,read_write> particles:array<Particle>;
@@ -154,7 +156,7 @@ fn roundFall(round:Round,point:vec2f,bodyRadius:f32)->vec3f {
    }
    continue;
   }
-  if(kind==14u){let delta=p.pos.xy-def.position.xy;let dist=length(delta);let forward=vec2f(cos(s.shot.w),sin(s.shot.w));if(dist<=def.position.z&&dot(safeDir(delta),forward)>=cos(clamp(def.weapon.w*.18,.25,1.35))){let fall=max(.2,1.-dist/max(def.position.z,.001));heat[i].burn=vec2f(max(heat[i].burn.x,1.5),max(heat[i].burn.y,def.weapon.y*fall));atomicStore(&owners[i],t+1u);}continue;}
+  if(kind==14u){let delta=p.pos.xy-def.position.xy;let dist=length(delta);let forward=vec2f(cos(s.shot.w),sin(s.shot.w));if(dist<=def.position.z&&dot(safeDir(delta),forward)>=cos(clamp(def.weapon.w*.18,.25,1.35))){let fall=max(.2,1.-dist/max(def.position.z,.001));let previous=heat[i].burn;heat[i].burn=vec4f(${FIRE_BURN_SECONDS},max(select(0.,previous.y,fireActive(previous,p.status.w)),def.weapon.y*fall),p.status.w,select(params.clock.y+1.,previous.w,fireActive(previous,p.status.w)));atomicStore(&owners[i],t+1u);}continue;}
   var origin=def.position.xy;var rad=def.position.z;
   if(kind==1u){origin=s.timing.zw;rad=def.weapon.w;}
   let delta=p.pos.xy-origin;let dist=length(delta);if(dist>rad){continue;}
@@ -188,8 +190,16 @@ fn roundFall(round:Round,point:vec2f,bodyRadius:f32)->vec3f {
 }
 @compute @workgroup_size(128) fn burn(@builtin(global_invocation_id) gid:vec3u){
  let i=gid.x;if(i>=u32(params.clock.z)){return;}var p=particles[i];var h=heat[i];
- if(p.state.w<.5||p.body.z<=0.){heat[i]=Heat(vec2f(0));return;}
- if(h.burn.x>0.&&h.burn.y>0.){p.body.z-=h.burn.y*params.clock.x;h.burn.x=max(0.,h.burn.x-params.clock.x);}
+ if(h.burn.z!=p.status.w||abs(p.state.w)<.5){heat[i]=Heat(vec4f(0));return;}
+ if(p.state.w<.5||p.body.z<=0.){h.burn.x=max(0.,h.burn.x-params.clock.x);heat[i]=h;return;}
+ if(fireActive(h.burn,p.status.w)){
+  p.body.z-=h.burn.y*params.clock.x;h.burn.x=max(0.,h.burn.x-params.clock.x);
+  // Panic is an impulse before physics: walls, contacts and navigation still resolve it.
+  let speed=length(p.pos.zw);let heading=select(vec2f(1.,0.),p.pos.zw/max(.001,speed),speed>.1);
+  let side=vec2f(-heading.y,heading.x);let panic=sin(params.clock.y*.17+f32(i)*2.399);
+  let desired=(heading+side*panic*.85)*enemySpeed(u32(p.state.z))*1.65;
+  p.pos=vec4f(p.pos.xy,mix(p.pos.zw,desired,min(1.,params.clock.x*7.)));
+ }
  heat[i]=h;particles[i]=p;
 }
 @compute @workgroup_size(1) fn hitBoss(){
@@ -228,7 +238,7 @@ fn roundFall(round:Round,point:vec2f,bodyRadius:f32)->vec3f {
  if(p.body.z<=0.0){p.body.z=0;p.body.w=-params.clock.y;p.state.w=-1;atomicAdd(&counters[0],1u);if(wasAlive&&crush>0){atomicAdd(&counters[1],1u);}else{let owner=atomicLoad(&owners[i]);if(owner>0u&&owner<=64u){atomicAdd(&counters[16u+owner-1u],1u);}}let bounty=enemyBountyPoints(kind);let prior=atomicAdd(&counters[15],bounty);let payout=(prior+bounty)/${ENEMY_BOUNTY_DIVISOR}u-prior/${ENEMY_BOUNTY_DIVISOR}u;if(payout>0u){atomicAdd(&counters[3],payout);}}
  else if(params.goal.w<.5&&distance(p.pos.xy,params.goal.xy)<params.goal.z){p.state.w=0;atomicAdd(&counters[2],enemyLeak(kind));}
  else{atomicAdd(&counters[4],1u);atomicMax(&counters[6],u32(clamp(p.state.x,0.0,1000.0)*1000.0));}
- if(p.state.w<.5){heat[i]=Heat(vec2f(0));atomicStore(&owners[i],0u);}
+ if(p.state.w<.5){if(abs(p.state.w)<.5){heat[i]=Heat(vec4f(0));}atomicStore(&owners[i],0u);}
  p.status.y=max(0.0,p.status.y-params.clock.x);
  particles[i]=p;
 }`});
@@ -264,7 +274,7 @@ fn roundFall(round:Round,point:vec2f,bodyRadius:f32)->vec3f {
     },
     encodeAfter(encoder,frame){encoder.clearBuffer(shared.counters,HORDE_PRESSURE_COUNTER*4,4);encoder.clearBuffer(shared.counters,16,4);encoder.clearBuffer(shared.counters,24,4);dispatch(encoder,3,Math.ceil(frame.count/128));aftermath.after(encoder,frame.count);},
     clearAftermath(){aftermath.reset();},
-    reset(){device.queue.writeBuffer(tesla,0,new Uint8Array(tesla.size));device.queue.writeBuffer(state,0,new Uint8Array(state.size));device.queue.writeBuffer(heat,0,new Float32Array(shared.capacity*2));device.queue.writeBuffer(ownership,0,new Uint32Array(shared.capacity));},
+    reset(){device.queue.writeBuffer(tesla,0,new Uint8Array(tesla.size));device.queue.writeBuffer(state,0,new Uint8Array(state.size));device.queue.writeBuffer(heat,0,new Float32Array(shared.capacity*4));device.queue.writeBuffer(ownership,0,new Uint32Array(shared.capacity));},
     resetAttribution(){device.queue.writeBuffer(shared.counters,16*4,new Uint32Array(MAX_TOWERS));},
     destroy(){aftermath.destroy();uniforms.destroy();towers.destroy();state.destroy();effects.destroy();tesla.destroy();heat.destroy();ownership.destroy();if(ownedBoss)bossBuffer.destroy();},
   };

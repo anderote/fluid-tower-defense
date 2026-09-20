@@ -1,5 +1,5 @@
 import {COMMAND_UPGRADES, DEFAULT_MAP, MAX_TOWER_LEVEL, MAX_VETERANCY, TOWERS, towerUpgradeCost, veterancyLevel} from '../content/index.ts';
-import {canPlace, resolvePlacement} from '../navigation/index.ts';
+import {canPlace, hasSpawnRoute, mapWithTurretObstacles, resolvePlacement} from '../navigation/index.ts';
 import {commandUpgradeAvailability} from './research.ts';
 import type {BonusChoice, StatUpgrade, Rect, RunModel, Settlement, SpawnBatch, Tower, TowerKind, TowerUnlock, Vec2, WorldMap} from '../contracts/index.ts';
 
@@ -163,6 +163,7 @@ export class RunController {
     if (this.model.metal<def.cost) return {ok:false,reason:'Insufficient Metal.'};
     const placement=resolvePlacement(this.map,position,1.25,this.buildMounts);
     if (!canPlace(this.map,this.model.towers,placement,1.25,this.buildMounts)) return {ok:false,reason:'That position is blocked or too close to another tower.'};
+    if (!hasSpawnRoute(mapWithTurretObstacles(this.map,[...this.model.towers,placement]))) return {ok:false,reason:'That turret would seal the zombie route to the goal.'};
     const tower:Tower={id:this.nextTowerId++,kind,x:placement.x,y:placement.y,level:0,branch:-1,angle:0,cooldown:0,spent:def.cost,kills:0,veterancy:0,veterancyXp:0};
     this.model.metal-=def.cost; this.model.towers.push(tower); this.model.selected=null;
     return {ok:true,tower};
