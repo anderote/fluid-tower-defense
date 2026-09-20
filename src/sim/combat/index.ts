@@ -4,6 +4,15 @@ import { PARTICLE_WGSL, HORDE_PRESSURE_COUNTER, MAX_EFFECTS, type SharedGPU, typ
 import { ENEMY_BOUNTY_DIVISOR, ENEMY_WGSL, towerBehavior } from '../../content/index.ts';
 
 const MAX_TOWERS=64;
+export const RELOAD_JITTER=0.04;
+
+/** A stable per-tower firing cadence that prevents identical guns from firing in lockstep. */
+export function reloadMultiplier(towerId:number,shot:number):number{
+  let seed=(Math.imul(towerId,1103515245)+Math.imul(shot,12345))>>>0;
+  seed=(seed^(seed>>>16))>>>0;
+  return 1-RELOAD_JITTER+(seed&65535)/65535*(RELOAD_JITTER*2);
+}
+
 export interface CombatFrame extends PhysicsFrame { towers:readonly {tower:Tower;definition:TowerDef}[] }
 export interface ShotSnapshot { id:number;x:number;y:number;angle:number;fired:boolean }
 export interface CombatModule { encodeBefore(encoder:GPUCommandEncoder,frame:CombatFrame):void;encodeAfter(encoder:GPUCommandEncoder,frame:CombatFrame):void;reset():void;clearAftermath():void;resetAttribution():void;destroy():void;readonly shotState:GPUBuffer }
@@ -40,6 +49,11 @@ struct Boss { motion:vec4f, body:vec4f, mode:vec4f, flags:vec4f };
 @group(0) @binding(8) var<storage,read_write> owners:array<atomic<u32>>;
 @group(0) @binding(9) var<storage,read_write> electricity:TeslaState;
 fn safeDir(delta:vec2f)->vec2f { return delta/max(length(delta),0.0001); }
+fn reloadMultiplier(towerId:u32,shot:u32)->f32 {
+ var seed=towerId*1103515245u+shot*12345u;
+ seed=seed^(seed>>16u);
+ return ${1-RELOAD_JITTER}+f32(seed&65535u)/65535.*${RELOAD_JITTER*2};
+}
 fn blastFalloff(distance:f32,radius:f32)->f32 {
  let safeRadius=max(radius,.0001);if(distance>=safeRadius){return 0.;}
  let coreRadius=safeRadius*.2;let inverseRadius=coreRadius/max(coreRadius,distance);
@@ -65,9 +79,10 @@ fn blastFalloff(distance:f32,radius:f32)->f32 {
  }
  let b=boss[0];let bossDistance=distance(b.motion.xy,def.position.xy);
  let bossScore=-distance(b.motion.xy,params.goal.xy)+select(0.0,30.0,u32(def.position.w)==2u);
+ let reload=def.weapon.x*reloadMultiplier(u32(def.flags.x),u32(s.flags.y+1.));
  if(b.mode.z>.5&&b.body.z>0&&bossDistance<=def.position.z&&(!found||bossScore>best)){
-  s.timing=vec4f(def.weapon.x,def.weapon.x,b.motion.xy);s.shot=vec4f(1,-1,b.flags.x,atan2(b.motion.y-def.position.y,b.motion.x-def.position.x));s.flags.y+=1.;
- }else if(found){let p=particles[selected];s.timing=vec4f(def.weapon.x,def.weapon.x,p.pos.xy);s.shot=vec4f(1,f32(selected),p.status.w,atan2(p.pos.y-def.position.y,p.pos.x-def.position.x));s.flags.y+=1.;}
+  s.timing=vec4f(reload,def.weapon.x,b.motion.xy);s.shot=vec4f(1,-1,b.flags.x,atan2(b.motion.y-def.position.y,b.motion.x-def.position.x));s.flags.y+=1.;
+ }else if(found){let p=particles[selected];s.timing=vec4f(reload,def.weapon.x,p.pos.xy);s.shot=vec4f(1,f32(selected),p.status.w,atan2(p.pos.y-def.position.y,p.pos.x-def.position.x));s.flags.y+=1.;}
  if(u32(def.position.w)==13u&&s.shot.x>.5){
   s.flags.z=params.clock.y+1.;
   let base=t*${TESLA_LINKS}u;
