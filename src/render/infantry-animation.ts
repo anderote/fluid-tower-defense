@@ -62,6 +62,13 @@ export function infantryMuzzle(s:Pick<Soldier,'x'|'y'|'angle'|'kind'>){
   return {x:s.x+dx*reach,y:s.y-.85+dy*reach*.6,dx,dy};
 }
 
+/** Rifle brass follows a short ballistic arc from the weapon's ejection side. */
+export function infantryCasing(s:Pick<Soldier,'x'|'y'|'angle'|'kind'|'attackAge'>){
+  const age=s.attackAge;if((s.kind??'rifle')!=='rifle'||age===undefined||age<0||age>.72)return;
+  const {dx,dy}=infantryMuzzle(s),side={x:-dy,y:dx},vx=side.x*2.2-dx*.25,vy=side.y*1.1-2.5;
+  return {x:s.x+side.x*.38+vx*age,y:s.y-.82+side.y*.25+vy*age+4.4*age*age,angle:s.angle+age*20,alpha:(1-age/.72)**2};
+}
+
 /** Map normalized dog poses to untouched OpenRA dog and pounce frames. */
 export function classicDogFrame(facing:number,frame:number){
   const direction=classicInfantryFacing(facing);

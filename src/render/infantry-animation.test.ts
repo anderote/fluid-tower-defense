@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {createInfantryAnimator,classicInfantryFacing,classicDogFrame,infantryFacing,infantryMuzzle,INFANTRY_ATTACK,INFANTRY_DEATH} from './infantry-animation.ts';
+import {createInfantryAnimator,classicInfantryFacing,classicDogFrame,infantryCasing,infantryFacing,infantryMuzzle,INFANTRY_ATTACK,INFANTRY_DEATH} from './infantry-animation.ts';
 import {readFileSync} from 'node:fs';
 import {infantryStats,type Soldier} from '../infantry/model.ts';
 const soldier=():Soldier=>({id:1,home:1,x:10,y:10,quality:0,health:40,cooldown:0,angle:0,flash:0,walk:0,dead:0});
@@ -8,6 +8,10 @@ const soldier=():Soldier=>({id:1,home:1,x:10,y:10,quality:0,health:40,cooldown:0
 test('classic cardinal facings map to east, south, west and north without mirroring',()=>{
   assert.deepEqual([0,Math.PI/2,Math.PI,-Math.PI/2].map(a=>classicInfantryFacing(infantryFacing(a))),[6,4,2,0]);
   assert.equal(infantryFacing(2*Math.PI),0);
+});
+test('rifles eject fading ballistic brass while non-casing weapons do not',()=>{
+  const rifle={...soldier(),kind:'rifle' as const,attackAge:.1},early=infantryCasing(rifle),late=infantryCasing({...rifle,attackAge:.6});assert.ok(early&&late);assert.ok(late.y>early.y);assert.ok(late.alpha<early.alpha);
+  assert.equal(infantryCasing({...rifle,kind:'rocket'}),undefined);assert.equal(infantryCasing({...rifle,attackAge:.8}),undefined);
 });
 test('walking follows displacement, stops at rest and freezes when paused',()=>{
   const animate=createInfantryAnimator(),s=soldier();assert.equal(animate.prepare([s],0)[0].frame,0);

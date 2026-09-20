@@ -16,6 +16,14 @@ try{
  const read=async(buffer:GPUBuffer,size:number)=>{const copy=device.createBuffer({size,usage:GPUBufferUsage.COPY_DST|GPUBufferUsage.MAP_READ}),e=device.createCommandEncoder();e.copyBufferToBuffer(buffer,0,copy,0,size);device.queue.submit([e.finish()]);await copy.mapAsync(GPUMapMode.READ);const data=new Float32Array(copy.getMappedRange()).slice();copy.unmap();copy.destroy();return data;};
  const step=async(tick:number)=>{frame.tick=tick;const e=device.createCommandEncoder();combat.encodeBefore(e,frame);combat.encodeAfter(e,frame);device.queue.submit([e.finish()]);return read(shared.particles,256);};
  let checks=0;
+ // Direct-fire weapons respect terrain cover; mortars intentionally arc over it.
+ frame.count=1;frame.map={...frame.map,obstacles:[{x:14,y:0,width:2,height:40}]};
+ for(const kind of ['autocannon','rocket','railgun','incinerator','mortar'] as const){
+  combat.reset();tower.kind=kind;frame.tick++;frame.towers=[{tower,definition:{...TOWERS[kind],cooldown:10}}];
+  const hidden=new Float32Array(64);hidden.set([18,10,0,0,.4,1,1000,1000,0,0,0,1,0,0,0,1]);device.queue.writeBuffer(shared.particles,0,hidden);await step(frame.tick);
+  const firing=await read(combat.shotState,48),fired=firing[4]>.5;assert(fired===(kind==='mortar'),`${kind} line-of-sight rule failed`);checks++;
+ }
+ frame.count=4;frame.map={...frame.map,obstacles:[]};
  for(const kind of ['rocket','mortar'] as const){
   combat.reset();seed();tower.kind=kind;frame.towers=[{tower,definition:{...TOWERS[kind],cooldown:10}}];
   let projectiles:HeavyProjectile[]=createHeavyProjectiles(kind,[tower],{x:30,y:10},1).map(p=>({...p,launchTick:100}));
