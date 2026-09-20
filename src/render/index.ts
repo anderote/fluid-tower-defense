@@ -1,6 +1,7 @@
 import { ENEMY_WGSL, towerBehavior } from '../content/index.ts';
-import { PARTICLE_WGSL, type RenderScene, type Renderer, type SharedGPU, type Vec2 } from '../contracts/index.ts';
+import { PARTICLE_WGSL, type RenderScene, type Renderer, type SharedGPU, type TowerKind, type Vec2 } from '../contracts/index.ts';
 import {screenToWorld as unproject, worldToScreen as project} from './camera.ts';
+import {TURRET_GRID, turretPixelRects, type TurretInk} from './turret-art.ts';
 
 const MAX_TOWERS = 64;
 type V = { x:number; y:number; r:number; g:number; b:number; a:number };
@@ -58,32 +59,32 @@ struct TowerState { timing:vec4<f32>, shot:vec4<f32>, flags:vec4<f32> };
 @group(0) @binding(2) var<storage,read> towers:array<vec4<f32>>;
 struct Out { @builtin(position) pos:vec4<f32>, @location(0) local:vec2<f32>, @location(1) kind:f32, @location(2) age:f32, @location(3) shard:f32, @location(4) weapon:f32, @location(5) elapsed:f32 };
 fn clip(p:vec2<f32>)->vec2<f32>{let aspect=camera.viewport.x/max(1.,camera.viewport.y);let targetAspect=camera.world.z/camera.world.w;let sx=min(1.,targetAspect/aspect);let sy=min(1.,aspect/targetAspect);return vec2((((p.x-camera.world.x)/camera.world.z)*2.-1.)*sx,(1.-((p.y-camera.world.y)/camera.world.w)*2.)*sy);}
+fn muzzleDistance(weapon:f32)->f32{if(weapon<.5){return 1.55;}if(weapon<1.5){return 1.7;}if(weapon<2.5){return 2.;}if(weapon<3.5){return 2.;}if(weapon<4.5){return 1.8;}if(weapon<5.5){return 2.;}if(weapon<6.5){return 2.15;}return 2.15;}
 @vertex fn vs(@builtin(vertex_index) vi:u32,@builtin(instance_index) ii:u32)->Out {
  let corners=array<vec2<f32>,6>(vec2(-1.,-1.),vec2(1.,-1.),vec2(-1.,1.),vec2(-1.,1.),vec2(1.,-1.),vec2(1.,1.));
  let shard=vi/6u;let q=corners[vi%6u];let s=states[ii];let t=towers[ii];let kind=floor(t.w+.001);let weapon=round(fract(t.w)*100.);
  var life=.24;if(weapon==1.){life=.62;}else if(weapon==2.){life=.32;}else if(weapon==4.){life=.3;}else if(weapon==5.){life=.56;}else if(weapon==6.){life=.18;}else if(weapon==7.){life=.34;}
  let elapsed=max(0.,s.timing.y-s.timing.x);let valid=s.timing.y>0.&&elapsed<=life&&abs(s.flags.x-t.z)<.5&&weapon!=1.&&weapon!=5.;let age=select(2.,clamp(elapsed/life,0.,1.),valid);
- let aim=s.timing.zw;let delta=aim-t.xy;let len=max(.1,length(delta));let forward=delta/len;let side=vec2(-forward.y,forward.x);let seed=f32(shard)*2.399+f32(ii)*.71;let burst=vec2(cos(seed),sin(seed));var p:vec2<f32>;
+ let aim=s.timing.zw;let delta=aim-t.xy;let len=max(.1,length(delta));let forward=delta/len;let side=vec2(-forward.y,forward.x);let muzzle=t.xy+forward*muzzleDistance(weapon);let seed=f32(shard)*2.399+f32(ii)*.71;let burst=vec2(cos(seed),sin(seed));var p:vec2<f32>;
  if(weapon==0.){
-  let distance=1.8+age*(4.5+len*.035);p=t.xy+burst*distance+q*(select(.22,1.05,shard==0u));
+  let distance=.15+age*(4.5+len*.035);p=muzzle+burst*distance+q*(select(.22,1.05,shard==0u));
  }else if(weapon==1.){
   if(shard==0u){let travel=min(1.,age*1.55);let arc=sin(travel*3.14159);let center=mix(t.xy,aim,travel)+side*arc*1.4;p=center+q*(.5+arc*.42);}else{let impactAge=max(0.,(age-.52)/.48);let distance=impactAge*(1.4+f32(shard)*.32);p=aim+burst*distance+q*(.18+.035*f32(shard));}
  }else if(weapon==2.){
-  let muzzle=t.xy+forward*1.85;
   if(shard==0u){p=muzzle+forward*q.x*(1.4-2.8*elapsed)+side*q.y*(.58-1.05*elapsed);}
   else if(shard==1u){let travel=clamp(elapsed/.058,0.,1.);let head=mix(muzzle,aim,travel);p=head-forward*((q.x+1.)*.5*min(10.5,len))+side*q.y*.13;}
   else if(shard<8u){let impactAge=clamp((elapsed-.04)/.24,0.,1.);let ricochet=normalize(burst-forward*(.65+.2*fract(seed)));p=aim+ricochet*impactAge*(1.3+f32(shard)*.3)+q*(.18-.08*impactAge);}
   else{let smokeAge=clamp(elapsed/.32,0.,1.);let drift=side*(f32(shard)-9.5)*.22-forward*smokeAge*.8;p=muzzle+drift+q*(.16+smokeAge*.38);}
  }else if(weapon==3.){
-  let u=(f32(shard)+.65)/12.;let width=(.3+u*3.2)*(1.-age*.45);p=t.xy+forward*(len*u)+side*(burst.y*width)+q*(.22+u*.5);
+  let u=(f32(shard)+.65)/12.;let width=(.3+u*3.2)*(1.-age*.45);p=muzzle+forward*(max(0.,len-muzzleDistance(weapon))*u)+side*(burst.y*width)+q*(.22+u*.5);
  }else if(weapon==4.){
-  let u=(f32(shard)+.5)/12.;let jitter=sin(u*39.+f32(ii)*2.1+age*17.)*(.35+sin(u*3.14159)*.95);p=t.xy+forward*(len*u)+side*jitter+forward*q.x*(len/21.)+side*q.y*.16;
+  let u=(f32(shard)+.5)/12.;let beamLen=max(0.,len-muzzleDistance(weapon));let jitter=sin(u*39.+f32(ii)*2.1+age*17.)*(.35+sin(u*3.14159)*.95);p=muzzle+forward*(beamLen*u)+side*jitter+forward*q.x*(beamLen/21.)+side*q.y*.16;
  }else if(weapon==5.){
   let lane=f32(shard%3u)-1.;let travel=min(1.,age*1.7);let center=mix(t.xy,aim+side*lane*2.1,travel);if(shard<3u){p=center+forward*q.x*.9+side*q.y*.34;}else{let trail=fract(f32(shard)*.381);p=mix(t.xy,center,trail)+side*(lane+sin(seed)*.45)+q*(.18+.22*age);}
  }else if(weapon==6.){
-  if(shard==0u){p=t.xy+forward*((q.x+1.)*.5*len)+side*q.y*.16;}else{p=aim+burst*(.4+f32(shard)*.22)+q*.14;}
+  if(shard==0u){p=muzzle+forward*((q.x+1.)*.5*max(0.,len-muzzleDistance(weapon)))+side*q.y*.16;}else{p=aim+burst*(.4+f32(shard)*.22)+q*.14;}
  }else{
-  let u=(f32(shard)+.6)/12.;let spread=(.35+u*3.4)*sin(seed+age*4.);p=t.xy+forward*(len*u*.82)+side*spread+q*(.32+u*1.05);
+  let u=(f32(shard)+.6)/12.;let spread=(.35+u*3.4)*sin(seed+age*4.);p=muzzle+forward*(max(0.,len-muzzleDistance(weapon))*u*.82)+side*spread+q*(.32+u*1.05);
  }
  var o:Out;o.pos=vec4(clip(p),0.,1.);o.local=q;o.kind=kind;o.age=age;o.shard=f32(shard);o.weapon=weapon;o.elapsed=elapsed;return o;
 }
@@ -135,8 +136,19 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
   const shard=(a:V[],x:number,y:number,size:number,angle:number,c:[number,number,number,number])=>{const f={x:Math.cos(angle)*size,y:Math.sin(angle)*size},s={x:-Math.sin(angle)*size*.55,y:Math.cos(angle)*size*.55};tri(a,{x:x+f.x,y:y+f.y},{x:x+s.x,y:y+s.y},{x:x-f.x-s.x*.25,y:y-f.y-s.y*.25},c);tri(a,{x:x+f.x,y:y+f.y},{x:x-f.x-s.x*.25,y:y-f.y-s.y*.25},{x:x-s.x,y:y-s.y},c)};
   const casing=(a:V[],x:number,y:number,size:number,angle:number,c:[number,number,number,number])=>{const f={x:Math.cos(angle)*size,y:Math.sin(angle)*size},s={x:-Math.sin(angle)*size*.28,y:Math.cos(angle)*size*.28};tri(a,{x:x+f.x,y:y+f.y},{x:x+s.x,y:y+s.y},{x:x-f.x+s.x,y:y-f.y+s.y},c);tri(a,{x:x+f.x,y:y+f.y},{x:x-f.x+s.x,y:y-f.y+s.y},{x:x-f.x-s.x,y:y-f.y-s.y},c);tri(a,{x:x+f.x,y:y+f.y},{x:x-f.x-s.x,y:y-f.y-s.y},{x:x-s.x,y:y-s.y},[Math.min(1,c[0]*1.3),Math.min(1,c[1]*1.35),Math.min(1,c[2]*1.2),c[3]*.85]);};
   const orientedRect=(a:V[],x:number,y:number,halfLength:number,halfWidth:number,angle:number,c:[number,number,number,number])=>{const f={x:Math.cos(angle)*halfLength,y:Math.sin(angle)*halfLength},s={x:-Math.sin(angle)*halfWidth,y:Math.cos(angle)*halfWidth};tri(a,{x:x+f.x+s.x,y:y+f.y+s.y},{x:x-f.x+s.x,y:y-f.y+s.y},{x:x-f.x-s.x,y:y-f.y-s.y},c);tri(a,{x:x+f.x+s.x,y:y+f.y+s.y},{x:x-f.x-s.x,y:y-f.y-s.y},{x:x+f.x-s.x,y:y+f.y-s.y},c);};
-  const diamond=(a:V[],x:number,y:number,size:number,c:[number,number,number,number])=>{tri(a,{x,y:y-size},{x:x+size,y},{x,y:y+size},c);tri(a,{x,y:y-size},{x,y:y+size},{x:x-size,y},c)};
-  const towerShape=(a:V[],t:Vec2 & {kind:string},c:[number,number,number,number])=>{const s=1.65;if(t.kind==='repulsor')disc(a,t.x,t.y,s,c,16);else if(t.kind==='rocket')tri(a,{x:t.x,y:t.y-s},{x:t.x+s,y:t.y+s},{x:t.x-s,y:t.y+s},c);else if(t.kind==='mortar'||t.kind==='tesla')rect(a,t.x-s,t.y-s,s*2,s*2,c);else if(t.kind==='autocannon'||t.kind==='railgun')diamond(a,t.x,t.y,s,c);else if(t.kind==='incinerator'){tri(a,{x:t.x,y:t.y-s},{x:t.x+s,y:t.y+s*.7},{x:t.x-s,y:t.y+s*.7},c);rect(a,t.x-s*.25,t.y-s*.1,s*.5,s*1.1,c);}else{rect(a,t.x-s*.38,t.y-s,s*.76,s*2,c);rect(a,t.x-s,t.y-s*.38,s*2,s*.76,c);}};
+  const towerShape=(a:V[],t:Vec2 & {kind:TowerKind;angle?:number},c:[number,number,number,number])=>{
+    const angle=Math.round((t.angle??0)/(Math.PI/8))*(Math.PI/8),cell=4/TURRET_GRID;
+    const palette:Record<TurretInk,[number,number,number,number]>={
+      shadow:[.008,.01,.014,c[3]*.72],base:[.12,.14,.17,c[3]],dark:[c[0]*.18,c[1]*.2,c[2]*.22,c[3]],
+      body:[c[0]*.62,c[1]*.68,c[2]*.7,c[3]],light:[Math.min(1,c[0]*1.15+.12),Math.min(1,c[1]*1.15+.12),Math.min(1,c[2]*1.15+.12),c[3]],
+      accent:c,hot:[1,Math.min(1,c[1]+.2),Math.min(1,c[2]+.12),c[3]],
+    };
+    for(const pixel of turretPixelRects(t.kind)){
+      const localX=(pixel.x+pixel.width/2-TURRET_GRID/2)*cell,localY=(pixel.y+pixel.height/2-TURRET_GRID/2)*cell;
+      const x=t.x+Math.cos(angle)*localX-Math.sin(angle)*localY,y=t.y+Math.sin(angle)*localX+Math.cos(angle)*localY;
+      orientedRect(a,x,y,pixel.width*cell/2,pixel.height*cell/2,angle,palette[pixel.ink]);
+    }
+  };
   const wireShape=(a:V[],wire:{x:number;y:number;width:number;height:number},c:[number,number,number,number],integrity:number,broken=false)=>{
     const damage=1-integrity, span=Math.max(.35,wire.height-.6);
     for(let x=wire.x+.3;x<wire.x+wire.width;x+=.55){
