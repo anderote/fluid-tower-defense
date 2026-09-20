@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {infantryBuildingPixels,BUILDING_PIXEL,BUILDING_ANCHOR} from './infantry-building-art.ts';
 import type {InfantryKind} from '../infantry/model.ts';
-const kinds:InfantryKind[]=['rifle','rocket','flame','samurai'];
+const kinds:InfantryKind[]=['rifle','rocket','flame','samurai','dog'];
 test('infantry facilities have unique, cached, finite pixel artwork and transparent surroundings',()=>{
   const signatures=new Set<string>();
   for(const kind of kinds){
@@ -13,6 +13,6 @@ test('infantry facilities have unique, cached, finite pixel artwork and transpar
     assert.ok(pixels.every(p=>p.x>0&&p.y>0),'no opaque background');
     signatures.add(JSON.stringify(pixels));
   }
-  assert.equal(signatures.size,4);assert.equal(BUILDING_ANCHOR.x,32);
+  assert.equal(signatures.size,5);assert.equal(BUILDING_ANCHOR.x,32);
   assert.ok(64*BUILDING_PIXEL<6,'art remains compatible with the existing small footprint');
 });

@@ -47,7 +47,7 @@ function mixIndex(mix){
   const entries=new Map();for(let i=0;i<count;i++){const p=start+6+i*12;entries.set(header.readUInt32LE(p),mix.subarray(base+header.readUInt32LE(p+4),base+header.readUInt32LE(p+4)+header.readUInt32LE(p+8)));}
   return entries;
 }
-const packages=['interior.mix','conquer.mix','local.mix','temperat.mix','snow.mix'].map(name=>mixIndex(zipFile(name)));
+const packages=['interior.mix','conquer.mix','local.mix','temperat.mix','snow.mix','allies.mix','russian.mix','lores.mix','hires.mix'].map(name=>mixIndex(zipFile(name)));
 function asset(name){
   for(const mix of packages){
     const file=mix.get(nameHash(name));if(file)return file;
@@ -98,6 +98,7 @@ function add(name,frames,colors=palette){sprites[name]=frames.map((frame,index)=
 add('floor',tiles(asset('flor0001.int')));
 for(let i=1;i<=49;i++)add(`wall${i}`,tiles(asset(`wall${String(i).padStart(4,'0')}.int`)));
 for(const name of ['gun','tsla','ftur','sam','fenc','barb'])add(name,shp(asset(`${name}.shp`)));
+for(const name of ['e1','e3','e4','dog','dogbullt','kenn','barr','tent'])add(name,shp(asset(`${name}.shp`)),asset('temperat.pal'));
 add('grating',tiles(asset('gflr0001.int')));
 for(const name of ['strp0001','strp0002','gstr0001','gstr0002','arro0001','arro0002'])add(name,tiles(asset(`${name}.int`)));
 for(const index of [1,3,5,7,9,10,11]){const name=`xtra${String(index).padStart(4,'0')}`;add(name,tiles(asset(`${name}.int`)));}
@@ -112,7 +113,7 @@ for(const [biome,extension,pal] of [['forest','tem','temperat.pal'],['winter','s
 // OpenRA's die6 uses the original 14-frame temperate electrocution sprite.
 add('electro',shp(asset('electro.tem')),asset('temperat.pal'));
 // Every frame retains its original canvas and pivot; transparent margins matter.
-const size=2048,rgba=Buffer.alloc(size*size*4);let x=0,y=0,row=0;
+const size=3072,rgba=Buffer.alloc(size*size*4);let x=0,y=0,row=0;
 const frames=images.map(im=>{
   if(x+im.width+2>size){x=0;y+=row+2;row=0;}if(y+im.height+2>size)throw Error('Atlas overflow');
   const entry={x:x+1,y:y+1,width:im.width,height:im.height};

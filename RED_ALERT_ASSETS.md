@@ -92,6 +92,19 @@ asset atlas is unavailable or lacks the wire frames.
 ## Campaign landscapes
 
 See `CAMPAIGN_MAPS.md` for the three authored environments, gameplay integration,
-asset-catalog route, and validation coverage. The source atlas is now 2048 square;
+asset-catalog route, and validation coverage. The source atlas is now 3072 square;
 custom turret sprites are appended below its full height, avoiding overlap with
 the new terrain frames. The separate palettes are baked per sprite during import.
+
+## Infantry and dogs
+
+Original `e1.shp`, `e3.shp`, `e4.shp`, `dog.shp`, `dogbullt.shp`,
+`kenn.shp`, `tent.shp`, and `barr.shp` are imported with `temperat.pal`.
+The importer also indexes the verified package's `allies.mix`, `russian.mix`,
+`lores.mix`, and `hires.mix`, which contain additional infantry content.
+Animation offsets follow
+[OpenRA infantry sequences](https://github.com/OpenRA/OpenRA/blob/bleed/mods/ra/sequences/infantry.yaml)
+and [structure sequences](https://github.com/OpenRA/OpenRA/blob/bleed/mods/ra/sequences/structures.yaml).
+The kennel and dog are the original artwork, with no generated replacements.
+The 3072-pixel atlas plus the 5120-pixel custom turret bank fits WebGPU's default
+8192-pixel texture limit. The same EA attribution and local-prototype terms above apply.

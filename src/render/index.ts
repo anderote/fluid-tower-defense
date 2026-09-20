@@ -304,12 +304,14 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
   function foregroundGeometry(scene:RenderScene):Float32Array {const a:V[]=[];
     if(scene.barracksGhost){const p=scene.barracksGhost,c:[number,number,number,number]=p.valid?[.6,.9,.3,.8]:[1,.2,.1,.8];rect(a,p.x-2,p.y-2,4,4,[...c.slice(0,3),.2] as [number,number,number,number]);rectOutline(a,p.x-2,p.y-2,4,4,c,.15);}
     for(const b of scene.infantry?.buildings??[]){
-      for(const p of infantryBuildingPixels(b.kind??'rifle'))rect(a,b.x+(p.x-BUILDING_ANCHOR.x)*BUILDING_PIXEL,b.y+(p.y-BUILDING_ANCHOR.y)*BUILDING_PIXEL,p.width*BUILDING_PIXEL,p.height*BUILDING_PIXEL,p.color);
+      if(!redAlert?.hasInfantrySprites||(b.kind!=='dog'&&(b.kind??'rifle')!=='rifle'))for(const p of infantryBuildingPixels(b.kind??'rifle'))rect(a,b.x+(p.x-BUILDING_ANCHOR.x)*BUILDING_PIXEL,b.y+(p.y-BUILDING_ANCHOR.y)*BUILDING_PIXEL,p.width*BUILDING_PIXEL,p.height*BUILDING_PIXEL,p.color);
       if(b.id===scene.selectedBarracks){const distance=Math.hypot(b.rally.x-b.x,b.rally.y-b.y);for(let d=3;d<distance-1;d+=1.2){const t=d/distance;rect(a,b.x+(b.rally.x-b.x)*t-.08,b.y+(b.rally.y-b.y)*t-.08,.16,.16,[.85,.77,.3,.6]);}rectOutline(a,b.x-2.35,b.y-2.35,4.7,4.7,[.72,.93,.35,.95],.1);ring(a,b.rally.x,b.rally.y,2.5,[.65,.93,.35,.8],.12);rect(a,b.rally.x,b.rally.y-2,.1,2,[.8,.9,.5,1]);rect(a,b.rally.x+.1,b.rally.y-2,1,.6,[.85,.77,.19,1]);}
     }
     for(const s of scene.infantry?.soldiers??[]){
       const kind=s.kind??'rifle',stats=infantryStats(s.kind,s.quality,s.defense,s.veterancy);
       const x=s.x,y=s.y,dead=s.health<=0,alpha=dead?Math.max(0,1-s.dead/3):1;
+      const original=redAlert?.hasInfantrySprites&&kind!=='samurai';
+      if(!original){
       if(dead){rect(a,x-.65,y-.25,1.3,.5,[.29,.32,.18,alpha]);rect(a,x-.8,y-.2,.35,.35,[.55,.4,.27,alpha]);continue;}
       if(kind==='samurai'&&s.flash>0){for(let i=1;i<=4;i++){const fade=s.flash/.28*(1-i/5)*.32,tx=x-Math.cos(s.angle)*i*.65,ty=y-Math.sin(s.angle)*i*.65;rect(a,tx-.42,ty-1.25,.84,1.4,[.47,.63,.75,fade]);rect(a,tx-.32,ty-1.7,.64,.4,[.75,.86,.95,fade]);}}
       disc(a,x,y+.16,.6,[.02,.025,.02,.45],8);
@@ -320,10 +322,14 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
       rect(a,x-.22,y-1.45,.44,.43,[.69,.52,.32,1]);rect(a,x-.34,y-1.72,.68,.37,[.24,.34,.13,1]);rect(a,x-.22,y-1.73,.4,.13,[.54,.62,.34,1]);
       if(kind==='samurai'){rect(a,x-.4,y-1.13,.8,.8,[.43,.09,.07,1]);rect(a,x-.42,y-1.75,.84,.19,[.78,.2,.1,1]);for(let j=0;j<3;j++)rect(a,x-.35,y-.95+j*.2,.7,.07,[.7,.43,.19,1]);}
       if(kind==='flame'){rect(a,x-.62,y-1.3,.3,.9,[.7,.28,.06,1]);rect(a,x+.34,y-1.3,.3,.9,[.7,.28,.06,1]);}
+      }
       const dx=Math.cos(s.angle),dy=Math.sin(s.angle),mx=x+dx*.95,my=y-.65+dy*.95;
+      if(!original){
       orientedRect(a,x+dx*.5,y-.65+dy*.5,kind==='samurai'?1.35:kind==='rocket'?1:.64,kind==='rocket'?.26:.1,s.angle,kind==='samurai'?[.87,.94,1,1]:[.11,.13,.1,1]);
       if(kind==='rocket')orientedRect(a,x+dx*1.2,y-.65+dy*1.2,.22,.28,s.angle,[.7,.28,.14,1]);
-      if(s.flash>0){
+      }
+      if(dead)continue;
+      if(s.flash>0&&kind!=='dog'){
         if(kind==='samurai'){const phase=1-s.flash/.28;for(let layer=0;layer<3;layer++)for(let j=0;j<18;j++){const angle=s.angle-1.9+phase*2.5+j*.09,r=2.1+layer*.18,fade=(j/18)*(s.flash/.28)*(1-layer*.24);streak(a,x+Math.cos(angle)*r,y-.65+Math.sin(angle)*r,-Math.sin(angle),Math.cos(angle),.27,.08,[.7,.89,1,fade]);}}
         else if(kind==='flame'){for(let j=0;j<12;j++){const spread=s.angle+Math.sin(j*13)*.42,reach=1+j*.42;disc(a,x+Math.cos(spread)*reach,y-.65+Math.sin(spread)*reach,.2+j*.04,[1,.2+j*.035,.04,(1-j/15)*s.flash*4],5);}}
         else if(kind==='rocket'){streak(a,mx+dx*4,my+dy*4,dx,dy,4,.14,[.88,.84,.65,s.flash*5]);disc(a,mx,my,.4,[1,.6,.15,.8],6);}
@@ -389,6 +395,7 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
         pass=encoder.beginRenderPass({colorAttachments:[{view:target,loadOp:'load',storeOp:'store'}],depthStencilAttachment:{view:sceneDepth!.createView(),depthLoadOp:'load',depthStoreOp:'store'}});
       }
       redAlert?.drawTowers(pass);
+      redAlert?.drawInfantry(pass);
       pass.end();shamblers.draw(encoder,target,pixelW,pixelH,scene.count,sceneDepth);
       pass=encoder.beginRenderPass({colorAttachments:[{view:target,loadOp:'load',storeOp:'store'}]});
       if(scene.aftermathVisible!==false)blood?.spray(pass);

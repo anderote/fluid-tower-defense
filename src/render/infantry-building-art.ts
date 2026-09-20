@@ -77,6 +77,13 @@ export function infantryBuildingPixels(kind:InfantryKind):readonly BuildingPixel
     box(35,59,18,3,'steelDark');box(36,59,16,1,'steel');box(35,53,2,7,'steel');
     box(11,41,5,5,'brass');polygon([[12,45],[13,41],[15,45]],'black');
     for(let x=16;x<34;x+=4)box(x,64,2,2,'brass');crate(9,62);
+  }else if(kind==='dog'){
+    // Emergency fallback only; the game normally draws original kenn.shp.
+    box(17,42,31,23,'wood');box(18,42,29,2,'woodLight');
+    polygon([[12,44],[32,27],[53,44]],'roof');
+    polygon([[32,27],[53,44],[48,46],[32,34]],'roofDark');
+    box(25,49,14,16,'black');box(25,48,14,2,'outline');
+    box(18,62,7,2,'woodLight');box(41,62,6,2,'woodLight');
   }else{
     // A fortified field dojo: concrete bunker, dark tiled hip roof, red beams.
     box(12,36,38,28,'outline');box(13,37,36,25,'wall');box(43,38,6,25,'wallDark');

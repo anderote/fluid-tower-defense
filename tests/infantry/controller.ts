@@ -26,5 +26,9 @@ try{
  click('[aria-label="Minimize BUILDING INSPECTOR"]');assert(controller.inspector.classList.contains('window-collapsed'),'building inspector minimizes');
  click('[aria-label="Expand BUILDING INSPECTOR"]');click('[data-infantry="production"]');assert(controller.state().buildings[0].production===1,'popup purchases building upgrades');
  click('[aria-label="Close BUILDING INSPECTOR"]');assert(!!controller.inspector.hidden,'close dismisses building inspector');
+ for(let i=0;i<9;i++){click('[data-kind="dog"]');controller.click({x:8+(i%5)*9,y:8+Math.floor(i/5)*9});controller.cancel();controller.update();}
+ assert(controller.state().buildings.length===10,'construction continues beyond eight buildings');
+ assert(controller.state().buildings.filter(b=>b.kind==='dog').length===9,'kennel button places dog-producing buildings');
+ const restored=createRun(map);assert(restored.load(run.serialize()).ok,'more than eight buildings round-trip through saves');
  output.textContent+='\nALL CHECKS PASSED';
 }catch(error){output.textContent+='\nFAIL '+String(error);}

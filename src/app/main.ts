@@ -347,6 +347,7 @@ try {
  function updateUI(now:number){
    wallInspector.update(now,builtWalls);
    infantry.update();
+   state.casualties=state.mode==='game'?(infantry.state().casualties??0):0;state.friendlyFire=state.mode==='game'?(infantry.state().friendlyFire??0):0;
    const report=metrics.report();state.fps=report.fps;state.frameMs=report.medianMs;
    state.metal=run.model.metal;state.baseHealth=run.model.baseHealth/20*100;state.level=run.model.level;state.wave=run.model.wave;state.waveCount=run.model.waveCount;state.phase=state.mode==='lab'?'combat':run.model.phase;
    state.mapTitle=map.scenery?.title;const nextLevel=Math.floor(run.model.wave/10)+1;state.nextMapTitle=isCampaignMap(map)&&nextLevel!==run.model.level&&nextLevel<=3?campaignMap(nextLevel).scenery!.title:undefined;
@@ -413,8 +414,8 @@ try {
    const bossFrame={dt:clock.step,tick:clock.tick,count,map:activeMap.scenery?activeMap:{...activeMap,spawn:{x:50,y:35,width:32,height:30}},active:state.mode==='game'&&run.isBossWave};
    horde.encode(encoder,arrivals,count);
    const infantryShots=advanceInfantry(infantry.state(),infantry.ensureFields(),infantry.fields,infantryGPU.threats,clock.step,state.mode==='game'&&run.model.phase==='combat',run.statModifiers());
-   const finishInfantry=state.mode==='game'?infantryGPU.encode(encoder,infantry.state().soldiers,infantryShots,activeMap,count,clock.tick%6===0):undefined;
-   if(infantryShots.length){const shot=infantryShots[0],kind=infantry.state().soldiers.find(s=>s.id===shot.soldier)?.kind;if(kind==='samurai')audio.slash(shot.x,clock.tick);else audio.fire(kind==='rocket'?'rocket':kind==='flame'?'incinerator':'autocannon',shot.x,clock.tick);}
+   const finishInfantry=state.mode==='game'?infantryGPU.encode(encoder,infantry.state().soldiers,infantryShots,activeMap,count,clock.tick%6===0,run.statModifiers(),clock.step):undefined;
+   if(infantryShots.length){const shot=infantryShots[0],kind=infantry.state().soldiers.find(s=>s.id===shot.soldier)?.kind;if(kind==='dog')audio.bark(shot.x,clock.tick);else if(kind==='samurai')audio.slash(shot.x,clock.tick);else audio.fire(kind==='rocket'?'rocket':kind==='flame'?'incinerator':'autocannon',shot.x,clock.tick);}
    combat.encodeBefore(encoder,frame);boss.encode(encoder,bossFrame);physics.encode(encoder,frame);combat.encodeAfter(encoder,frame);boss.encodeResolve(encoder,bossFrame);
    let finish:(()=>void)|undefined,finishShots:(()=>void)|undefined;
    if(clock.tick-lastTickSample>=6){finish=settlement.encode(encoder,gpu.shared.counters,gpu.shared.obstacleCounters!,gpu.shared.obstacleCapacity!,epoch,clock.tick);if(finish)lastTickSample=clock.tick;}
