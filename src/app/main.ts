@@ -241,7 +241,7 @@ try {
      const placement=pointer?towerPlacement(pointer):undefined;
      const ghost=state.mode==='game'&&state.selectedKind&&placement?{...placement,kind:state.selectedKind,range:compileTower({id:0,kind:state.selectedKind,x:placement.x,y:placement.y,level:0,branch:-1,angle:0,cooldown:0,spent:0},run.model.bonuses,run.model.commandUpgrades,progression.ranks()).range,valid:canPlace(map,run.model.towers,placement,1.25,builtWalls)&&run.model.phase!=='won'&&run.model.phase!=='lost'}:undefined;
      const wallGhost=state.mode==='game'&&wallTool&&pointer?{...wallAt(pointer),valid:!validateEditorMap({...map,obstacles:[...map.obstacles,wallAt(pointer)]})}:undefined;
-     renderer.encode(encoder,{count:editor.active?0:count,time:simulatedTime,map:editor.active?editor.map:map,towers:!editor.active&&state.mode==='game'?run.model.towers:[],effects:editor.active?[]:visuals,visualParticles:editor.active?[]:visualParticles,wires:editor.active?[]:builtWires,heatmap:state.heatmap,selection:run.model.selected,ghost:editor.active?undefined:ghost,wallGhost,boss:!editor.active&&latest.boss?.active?latest.boss:undefined});
+     renderer.encode(encoder,{count:editor.active?0:count,time:simulatedTime,map:editor.active?editor.map:map,towers:!editor.active&&state.mode==='game'?run.model.towers:[],effects:editor.active?[]:visuals,visualParticles:editor.active?[]:visualParticles,walls:editor.active?[]:builtWalls,wires:editor.active?[]:builtWires,heatmap:state.heatmap,selection:run.model.selected,ghost:editor.active?undefined:ghost,wallGhost,boss:!editor.active&&latest.boss?.active?latest.boss:undefined});
      gpu.device.queue.submit([encoder.finish()]);
      if(now-lastUI>100)updateUI(now);else positionInspector();
      requestAnimationFrame(frame);
