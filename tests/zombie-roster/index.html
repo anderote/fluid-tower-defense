@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><title>Zombie roster prototype</title>
+<style>body{margin:24px;background:#181918;color:#d5d4c6;font:14px monospace}h1{font-size:23px}button,select{background:#30342c;color:inherit;border:1px solid #72765c;padding:9px;margin:0 8px 8px 0}canvas{display:block;width:min(1150px,94vw);height:620px;image-rendering:pixelated}#status{color:#b6ce8f}#atlas{width:768px;height:1536px}summary{cursor:pointer;margin:16px 0}</style>
+<h1>Zombie roster / infantry study</h1>
+<p>Shambler · Runner · Bloater · Brute. Original artwork over the existing crowd physics.</p>
+<label>Scene <select id="scene"><option value="lineup">Side-by-side · four types</option><option value="gallery">Eight directions</option><option value="crowd">Mixed crowd · 1,600 simulated</option><option value="stress">65,536 mixed sprites · rendering stress only</option></select></label>
+<label>Character <select id="kind"><option value="shambler">Shambler</option><option value="runner">Runner</option><option value="softbody">Bloater</option><option value="brute">Brute</option></select></label>
+<label>Pose <select id="pose"><option value="walk">Walk</option><option value="idle">Idle</option><option value="stagger">Knockback</option><option value="death">Death</option></select></label>
+<button id="pause">Pause</button><button id="step">Step 100 ms</button><button id="blast">Blast crowd</button><button id="heat">Pressure colors</button><button id="reset">Reset scene</button>
+<p id="status">Checking animation and sprite atlas…</p><p id="stats"></p><p id="legend">Left to right: Shambler / Runner / Bloater / Brute · east-facing above, south-facing below.</p><canvas id="game"></canvas>
+<details><summary>All four sprite sheets · eight directions and sixteen poses each</summary><canvas id="atlas"></canvas></details>
+<script type="module" src="../shamblers/runner.ts"></script></html>

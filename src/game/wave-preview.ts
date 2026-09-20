@@ -8,7 +8,7 @@ const ROLES: Record<EnemyKind, string> = {
   brute: 'Heavy and crush-resistant; focus sustained damage.',
   husk: 'Dense and slow; make room before the inlet backs up.',
   rager: 'Fast pressure fighter; repel it before it reaches your line.',
-  softbody: 'Flexible mass; use area control to keep it from slipping through.',
+  softbody: 'Bloated and compression-resistant; use area damage and crowd control.',
 };
 
 type PreviewState = Pick<UIState, 'mode' | 'phase' | 'level' | 'wave' | 'difficulty'> & Partial<Pick<UIState, 'streamWidth'>>;
