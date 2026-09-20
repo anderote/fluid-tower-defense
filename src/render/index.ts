@@ -3,16 +3,17 @@ import { PARTICLE_WGSL, type RenderScene, type Renderer, type SharedGPU, type To
 import {screenToWorld as unproject, worldToScreen as project} from './camera.ts';
 import {TURRET_GRID, turretPixelRects, type TurretInk} from './turret-art.ts';
 import {createRedAlertArt,hasRedAlertSprite,type TurretArtStyle} from './red-alert.ts';
+import type {WireArtStyle} from './wire-art.ts';
 
 const MAX_TOWERS = 64;
 type V = { x:number; y:number; r:number; g:number; b:number; a:number };
 const sameRect=(left:{x:number;y:number;width:number;height:number},right:{x:number;y:number;width:number;height:number})=>left.x===right.x&&left.y===right.y&&left.width===right.width&&left.height===right.height;
 
 /** GPU-only visualizer. Particle bodies remain in the shared simulation buffer. */
-export async function createRenderer(device: GPUDevice, context: GPUCanvasContext, format: GPUTextureFormat, shared: SharedGPU, canvas: HTMLCanvasElement,options:{turretArt?:TurretArtStyle}={}): Promise<Renderer> {
+export async function createRenderer(device: GPUDevice, context: GPUCanvasContext, format: GPUTextureFormat, shared: SharedGPU, canvas: HTMLCanvasElement,options:{turretArt?:TurretArtStyle;wireArt?:WireArtStyle}={}): Promise<Renderer> {
   const uniform = device.createBuffer({ label:'Render camera', size:64, usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST });
   const turretArt=options.turretArt??'soldat';
-  const redAlert=await createRedAlertArt(device,format,uniform,turretArt).catch(error=>{console.warn('Facility artwork unavailable; using fallback graphics.',error);return null;});
+  const redAlert=await createRedAlertArt(device,format,uniform,turretArt,options.wireArt).catch(error=>{console.warn('Facility artwork unavailable; using fallback graphics.',error);return null;});
   let overlayCapacity=1;
   let overlays = device.createBuffer({ label:'Tactical overlays', size:24, usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST });
   let foregroundCapacity=1;
@@ -215,6 +216,7 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
       }
     }
     for(const wire of scene.wires??[]){
+      if(redAlert?.hasWireSprites)continue;
       const integrity=Math.max(.03,Math.min(1,wire.health/wire.maxHealth)),damage=1-integrity;
       const color:[number,number,number,number]=wire.breached?[.17,.06,.022,.86]:[.68-damage*.43,.74-damage*.58,.72-damage*.62,.96];
       wireShape(a,wire,color,integrity,wire.breached);
@@ -236,7 +238,7 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
       rect(a,scene.placementGhost.x-.14,scene.placementGhost.y-.14,scene.placementGhost.width+.28,scene.placementGhost.height+.28,[c[0],c[1],c[2],.12*pulse]);
       rectOutline(a,scene.placementGhost.x-.08,scene.placementGhost.y-.08,scene.placementGhost.width+.16,scene.placementGhost.height+.16,[c[0],c[1],c[2],.62*pulse],.11);
       if(scene.placementGhost.kind==='wire'){
-        wireShape(a,scene.placementGhost,c,1);
+        if(!redAlert?.hasWireSprites)wireShape(a,scene.placementGhost,c,1);
         for(const x of [scene.placementGhost.x+.22,scene.placementGhost.x+scene.placementGhost.width-.22])for(const y of [scene.placementGhost.y+.22,scene.placementGhost.y+scene.placementGhost.height-.22])disc(a,x,y,.09,c,5);
       }else{
         rect(a,scene.placementGhost.x,scene.placementGhost.y,scene.placementGhost.width,scene.placementGhost.height,[c[0],c[1],c[2],.42]);

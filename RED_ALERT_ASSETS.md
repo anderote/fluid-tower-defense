@@ -44,6 +44,8 @@ shows the actual WebGPU renderer with connected walls and multiple gun facings.
 - Autocannon: `gun.shp`, first 32 directional frames, original fixed foundation.
 - Tesla: `tsla.shp`, idle frame, original elevated sprite anchor.
 - Incinerator: `ftur.shp`, idle frame.
+- Wire: `barb.shp`, 16 connected coil configurations plus 16 fallen-wire frames.
+  `fenc.shp` is also imported for the comparison fixture (staked fence).
 - The other five weapon types retain their existing art in this first pass.
 - Additional original wall junctions, damaged guns, charging frames, and SAM
   frames are retained in the atlas for later refinement; they are not all used.
@@ -56,3 +58,28 @@ Texture reads use nearest pixels. Terrain instance buffers update only when
 the map or solid obstacles change; combat, damage, saves, and pressure physics
 retain their existing behavior. Missing assets fall back to the prior renderer
 and produce a console warning.
+
+## Connected barbed wire
+
+The default wire now uses original `barb.shp` coils at the same 24-pixel / 4-unit
+scale and interior palette as the facility floor. Adjacent live wire cells select
+the original north/east/south/west connection frames; no sprite rotation is used.
+Breaching or removing a segment immediately exposes the neighboring end pieces.
+Concrete walls do not count as wire connections.
+
+Above 70% health the source sprite is unchanged. At 70% it receives a tarnished
+tint; at 35% the outer details give way to original fallen-wire fragments while
+central strands remain. These intermediate damage treatments are our runtime
+composites, not additional original Red Alert animation frames. A breached cell
+uses only the fallen-wire bank and ceases connecting its live neighbors. The
+original palette shadows and transparent floor gaps are retained.
+
+`/tests/wire-art/` compares BARB and FENC on the live floor/wall renderer, with
+damage, breach/repair, valid/invalid placement, and gameplay-scale controls.
+The comparison does not change the default or persist a gameplay setting.
+`src/render/wire-art.test.ts` covers every connection mask, damage thresholds,
+breach/reconnection, placement topology, saved footprints, and atlas dimensions.
+
+Collision bounds, health, costs, saves, and the approved Soldat turrets are
+unchanged. The former geometric wire renderer remains the fallback when the
+asset atlas is unavailable or lacks the wire frames.

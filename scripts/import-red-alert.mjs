@@ -97,7 +97,7 @@ const sprites={},images=[];
 function add(name,frames){sprites[name]=frames.map((frame,index)=>{const id=images.length;images.push({...frame,name,index});return id;});}
 add('floor',tiles(asset('flor0001.int')));
 for(let i=1;i<=49;i++)add(`wall${i}`,tiles(asset(`wall${String(i).padStart(4,'0')}.int`)));
-for(const name of ['gun','tsla','ftur','sam'])add(name,shp(asset(`${name}.shp`)));
+for(const name of ['gun','tsla','ftur','sam','fenc','barb'])add(name,shp(asset(`${name}.shp`)));
 // Every frame retains its original canvas and pivot; transparent margins matter.
 const size=1024,rgba=Buffer.alloc(size*size*4);let x=0,y=0,row=0;
 const frames=images.map(im=>{

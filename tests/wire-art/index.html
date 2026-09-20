@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><title>Red Alert wire / facility study</title>
+<style>body{margin:24px;background:#181918;color:#d5d4c6;font:14px monospace}h1{font-size:20px}button,a{background:#30342c;color:inherit;border:1px solid #72765c;padding:10px;display:inline-block;margin:0 8px 8px 0}canvas.scene{display:block;width:min(1152px,95vw);height:640px}#status{color:#b6ce8f}#sheets{display:flex;gap:24px}#sheets canvas{image-rendering:pixelated;width:384px}figure{margin:0}small{display:block;margin:10px 0}</style>
+<h1>Red Alert wire / facility study</h1>
+<p id="style"></p>
+<a href="?wire=barb">BARB / coiled wire</a><a href="?wire=fenc">FENC / staked fence</a><a href="/">Play with BARB</a>
+<button id="damage">Damage / repair live wire</button><button id="breach">Breach / restore middle segment</button><button id="ghost">Valid / invalid preview</button><button id="zoom">Gameplay scale / close-up</button>
+<p>Top: intact → worn → frayed → breached. Bottom: connected corners, junctions, and a removable middle segment. Green/red: placement preview.</p>
+<span id="status">Loading WebGPU…</span><canvas class="scene"></canvas>
+<h2>Original 24 × 24 frames / interior palette</h2><small>Frames 0–15: connected wire. Frames 16–31: fallen remnants. Both sheets share the same floor palette.</small><div id="sheets"></div>
+<script type="module" src="./scene.ts"></script></html>
