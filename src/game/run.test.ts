@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {DEFAULT_MAP, MAX_TOWER_LEVEL, TOWERS, towerUpgradeCost} from '../content/index.ts';
-import {createRun, STARTING_METAL, WAVES_PER_LEVEL, waveFor} from './index.ts';
+import {createRun, STARTING_METAL, TOWER_MOVE_COST, WAVES_PER_LEVEL, waveFor} from './index.ts';
 import {wallMountCells} from './terrain.ts';
 
 test('fresh runs start with 3,000 Metal',()=>{
@@ -95,6 +95,22 @@ test('placing a tower leaves the inspector closed',()=>{
   const run=createRun();
   assert.equal(run.place('repulsor',{x:84,y:50}).ok,true);
   assert.equal(run.model.selected,null);
+});
+test('moving a tower charges a small flat fee and keeps its upgrades',()=>{
+  const run=createRun(),placed=run.place('repulsor',{x:84,y:50});
+  assert.ok(placed.ok&&placed.tower);
+  assert.equal(run.upgrade(placed.tower.id,0).ok,true);
+  const before=run.model.metal,spent=placed.tower.spent;
+  assert.equal(run.move(placed.tower.id,{x:80,y:42}).ok,true);
+  assert.equal(run.model.metal,before-TOWER_MOVE_COST);
+  assert.deepEqual({x:placed.tower.x,y:placed.tower.y,level:placed.tower.level,branch:placed.tower.branch,spent:placed.tower.spent},{x:80,y:42,level:1,branch:0,spent});
+});
+test('moving a tower does not charge for invalid locations',()=>{
+  const run=createRun(),first=run.place('repulsor',{x:84,y:50}),second=run.place('autocannon',{x:80,y:42});
+  assert.ok(first.ok&&first.tower&&second.ok);
+  const before=run.model.metal;
+  assert.equal(run.move(first.tower.id,{x:80,y:42}).ok,false);
+  assert.equal(run.model.metal,before);
 });
 test('player-built walls support one centered tower and preserve it in saves',()=>{
   const mount={x:32,y:20,width:4,height:4},map={...DEFAULT_MAP,id:'wall-mount-test',obstacles:[...DEFAULT_MAP.obstacles,mount]};
