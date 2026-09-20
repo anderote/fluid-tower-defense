@@ -163,12 +163,12 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
   const cameraParticles=device.createBindGroup({layout:particles.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:uniform}},{binding:1,resource:{buffer:shared.particles}},{binding:2,resource:{buffer:teslaState}}]});
   const cameraOverlay=device.createBindGroup({layout:overlay.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:uniform}}]});
   const cameraCues=device.createBindGroup({layout:cues.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:uniform}},{binding:1,resource:{buffer:shared.shotState ?? emptyShots}},{binding:2,resource:{buffer:towerVisuals}}]});
-  let pixelW=0,pixelH=0;
+  let pixelW=0,pixelH=0,sceneDepth:GPUTexture|undefined;
   let camera={x:0,y:0,zoom:1};
   let world={width:160,height:100};
   const view=()=>({width:world.width/camera.zoom,height:world.height/camera.zoom});
   const clampCamera=()=>{const v=view();camera.x=Math.max(0,Math.min(world.width-v.width,camera.x));camera.y=Math.max(0,Math.min(world.height-v.height,camera.y));};
-  const resize=()=>{const d=Math.min(devicePixelRatio||1,2),max=device.limits.maxTextureDimension2D; const w=Math.max(1,Math.min(max,Math.round(canvas.clientWidth*d))),h=Math.max(1,Math.min(max,Math.round(canvas.clientHeight*d))); if(w!==pixelW||h!==pixelH){pixelW=w;pixelH=h;canvas.width=w;canvas.height=h;context.configure({device,format,alphaMode:'opaque'});} };
+  const resize=()=>{const d=Math.min(devicePixelRatio||1,2),max=device.limits.maxTextureDimension2D; const w=Math.max(1,Math.min(max,Math.round(canvas.clientWidth*d))),h=Math.max(1,Math.min(max,Math.round(canvas.clientHeight*d))); if(w!==pixelW||h!==pixelH){pixelW=w;pixelH=h;canvas.width=w;canvas.height=h;sceneDepth?.destroy();sceneDepth=device.createTexture({label:'World object depth order',size:[w,h],format:'depth32float',usage:GPUTextureUsage.RENDER_ATTACHMENT});context.configure({device,format,alphaMode:'opaque'});} };
   const screenToWorld=(clientX:number,clientY:number):Vec2=>unproject({x:clientX,y:clientY},canvas.getBoundingClientRect(),camera,world);
   const worldToScreen=(x:number,y:number):Vec2=>project({x,y},canvas.getBoundingClientRect(),camera,world);
   const push=(a:V[],x:number,y:number,c:[number,number,number,number])=>a.push({x,y,r:c[0],g:c[1],b:c[2],a:c[3]});
@@ -339,11 +339,16 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
       redAlert?.drawFloor(pass);
       // Gore never covers defenses: altitude changes fragment motion, not its layer.
       if(scene.aftermathVisible!==false){aftermath?.ground(pass);aftermath?.fragments(pass);}
-      redAlert?.drawStructures(pass);
+      redAlert?.drawWires(pass);
       pass.setPipeline(overlay);pass.setBindGroup(0,cameraOverlay);pass.setVertexBuffer(0,overlays);pass.draw(data.length/6);
-      redAlert?.drawTowers(pass);
       pass.setPipeline(particles);pass.setBindGroup(0,cameraParticles);pass.draw(48,Math.min(scene.count,shared.capacity));
-      pass.end();shamblers.draw(encoder,target,pixelW,pixelH,scene.count);
+      pass.end();
+      // Only ground-sorted sprite pipelines use this attachment. The stored
+      // result becomes the occlusion field for the animated unit pass.
+      pass=encoder.beginRenderPass({colorAttachments:[{view:target,loadOp:'load',storeOp:'store'}],depthStencilAttachment:{view:sceneDepth!.createView(),depthClearValue:1,depthLoadOp:'clear',depthStoreOp:'store'}});
+      redAlert?.drawOccluders(pass);
+      redAlert?.drawTowers(pass);
+      pass.end();shamblers.draw(encoder,target,pixelW,pixelH,scene.count,sceneDepth);
       pass=encoder.beginRenderPass({colorAttachments:[{view:target,loadOp:'load',storeOp:'store'}]});
       if(scene.aftermathVisible!==false)aftermath?.spray(pass);
       pass.setPipeline(overlay);pass.setBindGroup(0,cameraOverlay);pass.setVertexBuffer(0,foreground);pass.draw(fx.length/6);
@@ -354,6 +359,6 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
     pan(dx,dy){camera.x+=dx;camera.y+=dy;clampCamera();},
     zoomAt(factor,clientX,clientY){const before=screenToWorld(clientX,clientY);camera.zoom=Math.max(1,Math.min(5,camera.zoom*factor));const after=screenToWorld(clientX,clientY);camera.x+=before.x-after.x;camera.y+=before.y-after.y;clampCamera();},
     clearAftermath(){aftermath?.reset();},
-    destroy(){fire.destroy();emptyHeat?.destroy();aftermath?.destroy();tesla?.destroy();emptyTesla?.destroy();shamblers.destroy();redAlert?.destroy();uniform.destroy();overlays.destroy();foreground.destroy();towerVisuals.destroy();emptyShots.destroy();}
+    destroy(){fire.destroy();emptyHeat?.destroy();aftermath?.destroy();tesla?.destroy();emptyTesla?.destroy();shamblers.destroy();redAlert?.destroy();sceneDepth?.destroy();uniform.destroy();overlays.destroy();foreground.destroy();towerVisuals.destroy();emptyShots.destroy();}
   };
 }
