@@ -1,3 +1,5 @@
+import {createInfantrySprites} from './infantry-sprites.ts';
+import {infantryMuzzle} from './infantry-animation.ts';
 import {createBloodRenderer} from './blood.ts';
 import {createFireEffects} from './fire.ts';
 import {infantryBuildingPixels,BUILDING_PIXEL,BUILDING_ANCHOR} from './infantry-building-art.ts';
@@ -40,6 +42,7 @@ export async function createRenderer(device: GPUDevice, context: GPUCanvasContex
   const emptyHeat=shared.heatState?null:device.createBuffer({label:'Empty burn status',size:shared.capacity*FIRE_STATE_BYTES,usage:GPUBufferUsage.STORAGE});
   const heatState=shared.heatState??emptyHeat!;
   const shamblers=await createShamblers(device,format,uniform,{...shared,teslaState,heatState});
+  const infantrySprites=await createInfantrySprites(device,format,uniform);
   const aftermath=shared.aftermath?await createAftermathRenderer(device,format,uniform,shared.aftermath,shamblers.texture):null;
   const blood=shared.bloodWalls&&shared.aftermath?await createBloodRenderer(device,format,uniform,shared):null;
   let overlayCapacity=1;
@@ -309,20 +312,9 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
     }
     for(const s of scene.infantry?.soldiers??[]){
       const kind=s.kind??'rifle',stats=infantryStats(s.kind,s.quality,s.defense,s.veterancy);
-      const x=s.x,y=s.y,dead=s.health<=0,alpha=dead?Math.max(0,1-s.dead/3):1;
-      if(dead){rect(a,x-.65,y-.25,1.3,.5,[.29,.32,.18,alpha]);rect(a,x-.8,y-.2,.35,.35,[.55,.4,.27,alpha]);continue;}
-      if(kind==='samurai'&&s.flash>0){for(let i=1;i<=4;i++){const fade=s.flash/.28*(1-i/5)*.32,tx=x-Math.cos(s.angle)*i*.65,ty=y-Math.sin(s.angle)*i*.65;rect(a,tx-.42,ty-1.25,.84,1.4,[.47,.63,.75,fade]);rect(a,tx-.32,ty-1.7,.64,.4,[.75,.86,.95,fade]);}}
-      disc(a,x,y+.16,.6,[.02,.025,.02,.45],8);
-      const step=Math.sin(s.walk)*.13;
-      rect(a,x-.36,y-.35+step,.25,.55,[.11,.14,.09,1]);rect(a,x+.1,y-.35-step,.25,.55,[.11,.14,.09,1]);
-      rect(a,x-.42,y-1.1,.84,.84,[.14,.2,.1,1]);rect(a,x-.29,y-1.06,.58,.65,[.4,.48,.22,1]);
-      rect(a,x-.5,y-.95,.18,.55,[.46,.48,.28,1]);rect(a,x+.32,y-.95,.18,.55,[.46,.48,.28,1]);
-      rect(a,x-.22,y-1.45,.44,.43,[.69,.52,.32,1]);rect(a,x-.34,y-1.72,.68,.37,[.24,.34,.13,1]);rect(a,x-.22,y-1.73,.4,.13,[.54,.62,.34,1]);
-      if(kind==='samurai'){rect(a,x-.4,y-1.13,.8,.8,[.43,.09,.07,1]);rect(a,x-.42,y-1.75,.84,.19,[.78,.2,.1,1]);for(let j=0;j<3;j++)rect(a,x-.35,y-.95+j*.2,.7,.07,[.7,.43,.19,1]);}
-      if(kind==='flame'){rect(a,x-.62,y-1.3,.3,.9,[.7,.28,.06,1]);rect(a,x+.34,y-1.3,.3,.9,[.7,.28,.06,1]);}
-      const dx=Math.cos(s.angle),dy=Math.sin(s.angle),mx=x+dx*.95,my=y-.65+dy*.95;
-      orientedRect(a,x+dx*.5,y-.65+dy*.5,kind==='samurai'?1.35:kind==='rocket'?1:.64,kind==='rocket'?.26:.1,s.angle,kind==='samurai'?[.87,.94,1,1]:[.11,.13,.1,1]);
-      if(kind==='rocket')orientedRect(a,x+dx*1.2,y-.65+dy*1.2,.22,.28,s.angle,[.7,.28,.14,1]);
+      const x=s.x,y=s.y,dead=s.health<=0;
+      if(dead)continue;
+      const muzzle=infantryMuzzle(s),{dx,dy}=muzzle,mx=muzzle.x,my=muzzle.y;
       if(s.flash>0){
         if(kind==='samurai'){const phase=1-s.flash/.28;for(let layer=0;layer<3;layer++)for(let j=0;j<18;j++){const angle=s.angle-1.9+phase*2.5+j*.09,r=2.1+layer*.18,fade=(j/18)*(s.flash/.28)*(1-layer*.24);streak(a,x+Math.cos(angle)*r,y-.65+Math.sin(angle)*r,-Math.sin(angle),Math.cos(angle),.27,.08,[.7,.89,1,fade]);}}
         else if(kind==='flame'){for(let j=0;j<12;j++){const spread=s.angle+Math.sin(j*13)*.42,reach=1+j*.42;disc(a,x+Math.cos(spread)*reach,y-.65+Math.sin(spread)*reach,.2+j*.04,[1,.2+j*.035,.04,(1-j/15)*s.flash*4],5);}}
@@ -363,7 +355,7 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
       device.queue.writeBuffer(uniform,0,new Float32Array([pixelW,pixelH,0,0,camera.x+shakeX,camera.y+shakeY,v.width,v.height,scene.time,scene.heatmap?1:0,0,0,0,0,0,0]));
       const visual=new Float32Array(Math.max(1,Math.min(MAX_TOWERS,scene.towers.length))*4);
       scene.towers.slice(0,MAX_TOWERS).forEach((t,i)=>visual.set([t.x,t.y,t.id,towerBehavior(t.kind)+WEAPON_KINDS.indexOf(t.kind)/100],i*4));device.queue.writeBuffer(towerVisuals,0,visual);
-      redAlert?.prepare(scene);
+      redAlert?.prepare(scene);infantrySprites.prepare(scene);
       shamblers.prepare(encoder,scene);fire.prepare(encoder,scene.count);
       if(scene.aftermathVisible!==false){aftermath?.prepare(scene);blood?.prepare(encoder,scene);}
       const data=geometry(scene),fx=foregroundGeometry(scene);
@@ -390,6 +382,8 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
       }
       redAlert?.drawTowers(pass);
       pass.end();shamblers.draw(encoder,target,pixelW,pixelH,scene.count,sceneDepth);
+      pass=encoder.beginRenderPass({label:'Infantry in world depth',colorAttachments:[{view:target,loadOp:'load',storeOp:'store'}],depthStencilAttachment:{view:sceneDepth!.createView(),depthLoadOp:'load',depthStoreOp:'discard'}});
+      infantrySprites.draw(pass);pass.end();
       pass=encoder.beginRenderPass({colorAttachments:[{view:target,loadOp:'load',storeOp:'store'}]});
       if(scene.aftermathVisible!==false)blood?.spray(pass);
       pass.setPipeline(overlay);pass.setBindGroup(0,cameraOverlay);pass.setVertexBuffer(0,foreground);pass.draw(fx.length/6);
@@ -400,6 +394,6 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
     pan(dx,dy){camera.x+=dx;camera.y+=dy;clampCamera();},
     zoomAt(factor,clientX,clientY){const before=screenToWorld(clientX,clientY);camera.zoom=Math.max(1,Math.min(5,camera.zoom*factor));const after=screenToWorld(clientX,clientY);camera.x+=before.x-after.x;camera.y+=before.y-after.y;clampCamera();},
     clearAftermath(preserveBlood=false){aftermath?.reset();if(!preserveBlood)blood?.reset();},
-    destroy(){blood?.destroy();fire.destroy();emptyHeat?.destroy();aftermath?.destroy();tesla?.destroy();emptyTesla?.destroy();shamblers.destroy();redAlert?.destroy();sceneDepth?.destroy();uniform.destroy();overlays.destroy();foreground.destroy();towerVisuals.destroy();emptyShots.destroy();}
+    destroy(){blood?.destroy();fire.destroy();emptyHeat?.destroy();aftermath?.destroy();tesla?.destroy();emptyTesla?.destroy();shamblers.destroy();infantrySprites.destroy();redAlert?.destroy();sceneDepth?.destroy();uniform.destroy();overlays.destroy();foreground.destroy();towerVisuals.destroy();emptyShots.destroy();}
   };
 }
