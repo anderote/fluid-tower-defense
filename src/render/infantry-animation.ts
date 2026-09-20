@@ -11,7 +11,7 @@ export const infantryFacing=(angle:number)=>((Math.round(angle/(Math.PI/4))%8)+8
 export const classicInfantryFacing=(facing:number)=>(6-facing+8)%8;
 export const attackFrames=(kind:InfantryKind)=>kind==='flame'?16:8;
 export interface InfantryPose {facing:number;frame:number;alpha:number;moving:boolean}
-type Motion={x:number;y:number;time:number;phase:number;heading:number;pose:InfantryPose};
+type Motion={x:number;y:number;time:number;phase:number;heading:number;cooldown:number;flash:number;attackTime:number;interval:number;pose:InfantryPose};
 
 /** Render-only state: animation follows actual travel, without changing saves or combat. */
 export function createInfantryAnimator(){
@@ -27,10 +27,15 @@ export function createInfantryAnimator(){
         const dt=old?time-old.time:0,dx=old?s.x-old.x:0,dy=old?s.y-old.y:0,distance=Math.hypot(dx,dy);
         const moving=dt>0&&distance/dt>.12&&distance<6;
         const phase=moving?((old?.phase??0)+distance/1.8)%1:(old?.phase??(s.id*.381966)%1);
-        const kind=s.kind??'rifle',stats=infantryStats(kind,s.quality,s.defense);
-        const duration=Math.min(kind==='rocket'?.64:kind==='flame'?.8:.52,stats.cooldown*.8);
-        const elapsed=Math.max(0,stats.cooldown-s.cooldown);
-        const firing=s.health>0&&(s.flash>0||(s.cooldown>0&&elapsed<duration));
+        const kind=s.kind??'rifle',stats=infantryStats(kind,s.quality,s.defense,s.veterancy);
+        // Detect actual attacks, including research-altered reload rates, rather than
+        // inferring the pose from the unmodified weapon's cooldown.
+        const shot=s.flash>0&&(!old||s.flash>old.flash+.0001)||!!old&&s.cooldown>old.cooldown+.0001;
+        const attackTime=shot?time:old?.attackTime??(s.cooldown>0?time-Math.max(0,stats.cooldown-s.cooldown):-Infinity);
+        const interval=shot&&s.cooldown>0?s.cooldown:old?.interval??stats.cooldown;
+        const duration=Math.min(kind==='rocket'?.64:kind==='flame'?.8:.52,interval*.8);
+        const elapsed=time-attackTime;
+        const firing=s.health>0&&(s.flash>0||elapsed<duration);
         let heading=s.angle;
         if(moving&&!firing){
           const target=Math.atan2(dy,dx),previous=old?.heading??target;
@@ -44,7 +49,7 @@ export function createInfantryAnimator(){
         }
         if(s.health<=0)frame=INFANTRY_DEATH+Math.min(7,Math.floor(s.dead/.08));
         const pose={facing:infantryFacing(heading),frame,alpha:s.health>0?1:Math.max(0,Math.min(1,(3-s.dead)/.8)),moving};
-        motion.set(s.id,{x:s.x,y:s.y,time,phase,heading,pose});return pose;
+        motion.set(s.id,{x:s.x,y:s.y,time,phase,heading,cooldown:s.cooldown,flash:s.flash,attackTime,interval,pose});return pose;
       });
     },
   };

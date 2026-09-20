@@ -2,7 +2,7 @@ import {createWallInspector} from '../ui/wall-inspector.ts';
 import {createStructurePreview, clearPlayerTerrain, restoreSessionTerrain, terrainMounts, wallMountCells} from '../game/terrain.ts';
 import {createInfantryController} from '../infantry/controller.ts';
 import {createInfantryGPU} from '../infantry/gpu.ts';
-import {advanceInfantry,infantryMap,freshInfantry} from '../infantry/model.ts';
+import {advanceInfantry,awardInfantryKills,infantryMap,freshInfantry} from '../infantry/model.ts';
 import {campaignMap,isCampaignMap} from '../content/levels.ts';
 import {AUTOSAVE_KEY, CHECKPOINT_KEY, saveDefense, loadDefense} from '../persistence/defense.ts';
 import { connectGPU } from '../runtime/gpu.ts';
@@ -73,7 +73,7 @@ try {
  type PressurePopup={element:HTMLElement;x:number;y:number;age:number;life:number;drift:number};
  let commands:Effect[]=[], visuals:Effect[]=[], visualParticles:VisualParticle[]=[], heavyProjectiles:HeavyProjectile[]=[], heavyExplosions:HeavyExplosion[]=[], pressurePopups:PressurePopup[]=[], cameraShake=0, pointer:Vec2|undefined, hoveredTowerId:number|null=null, hoverClearTimer=0, lastTickSample=0, waveStartTick=0;
  const lastTowerPressurePopup=new Map<number,number>();
- let latest:Settlement={epoch,tick:0,kills:0,crushKills:0,leaks:0,earned:0,live:0,invalid:0,maxPacking:0};
+ let latest:Settlement={epoch,tick:0,kills:0,crushKills:0,leaks:0,earned:0,live:0,invalid:0,maxPacking:0},previousInfantryKills:number[]=[];
  let lastUI=0, previous=performance.now(), simulatedTime=0;
  const diagnostics=document.createElement('details');diagnostics.className='diagnostics';diagnostics.innerHTML='<summary>Developer diagnostics</summary><pre></pre>';root.append(diagnostics);
  const diagnosticText=diagnostics.querySelector('pre')!;
@@ -103,6 +103,8 @@ try {
    const currentLive=gpu.shared.capacity-hordeCapacity.available(gpu.shared.capacity);
    latest=s;state.population=currentLive;state.kills=s.kills;state.crushKills=s.crushKills;state.leaks=s.leaks;state.earned=s.earned;state.maxPressure=Math.max(state.maxPressure,s.maxPressure??0);
    if(state.mode==='game'){
+     const reported=s.infantryKills??[],earnedBySoldier=reported.map((total,index)=>Math.max(0,total-(previousInfantryKills[index]??0)));
+     awardInfantryKills(infantry.state(),infantryGPU.liveIds,earnedBySoldier);previousInfantryKills=[...reported];
      run.applySettlement({...s,live:currentLive});
      if(currentLive===0&&count>0&&s.tick>=waveStartTick&&run.model.pending.length===0&&run.model.phase==='combat'){
        const clearedWave=run.model.wave,result=run.finishSettling();if(result.ok){const checkpoint=clearedWave>=10;state.message=checkpoint?`Wave ${clearedWave} contained. Extract or continue with your Metal and research.`:run.model.bonusChoices.length?'Wave cleared. Choose a command boon.':'Wave cleared. Spend your Metal on defenses and research.';count=0;}
@@ -111,7 +113,7 @@ try {
  },error=>errors.push(String(error)));
  function resetWorld(resetRun=true,level=1){
    wallInspector.select(undefined);
-   infantryGPU.reset();infantry.reset();
+   infantryGPU.reset();infantry.reset();previousInfantryKills=[];
    if(resetRun){
      map=clearPlayerTerrain(map,builtWalls,builtWires);builtWalls=[];builtWires=[];
      run.setMap(map);syncTowerMounts();run.reset(level);refreshNavigation();
@@ -149,7 +151,7 @@ try {
        const result=run.restartWave();actionResult(result,'Wave restarted. Defenses remain in position.');if(!result.ok)break;
        epoch=run.epoch;count=0;spawnSlot=0;commands=[];visuals=[];visualParticles=[];heavyProjectiles=[];heavyExplosions=[];for(const popup of pressurePopups)popup.element.remove();pressurePopups=[];lastTowerPressurePopup.clear();cameraShake=0;state.population=0;state.kills=state.crushKills=state.leaks=state.earned=state.maxPressure=0;
        latest={epoch,tick:clock.tick,kills:0,crushKills:0,leaks:0,earned:0,live:0,invalid:0,maxPacking:0};
-       gpu.device.queue.writeBuffer(gpu.shared.counters,0,new Uint32Array(COUNTER_WORDS));physics.reset();combat.reset();combat.clearAftermath();renderer.clearAftermath?.(true);resetHorde();shotReader.reset();boss.reset(run.isBossWave);waveStartTick=clock.tick+1;lastTickSample=clock.tick;state.paused=false;state.selectedKind=null;
+       gpu.device.queue.writeBuffer(gpu.shared.counters,0,new Uint32Array(COUNTER_WORDS));previousInfantryKills=[];physics.reset();combat.reset();combat.clearAftermath();renderer.clearAftermath?.(true);resetHorde();shotReader.reset();boss.reset(run.isBossWave);waveStartTick=clock.tick+1;lastTickSample=clock.tick;state.paused=false;state.selectedKind=null;
        break;
      }
      case 'new-game':newGame();break;
@@ -410,7 +412,7 @@ try {
    const encoder=gpu.device.createCommandEncoder({label:`Simulation tick ${clock.tick}`});
    const bossFrame={dt:clock.step,tick:clock.tick,count,map:activeMap.scenery?activeMap:{...activeMap,spawn:{x:50,y:35,width:32,height:30}},active:state.mode==='game'&&run.isBossWave};
    horde.encode(encoder,arrivals,count);
-   const infantryShots=advanceInfantry(infantry.state(),infantry.ensureFields(),infantry.fields,infantryGPU.threats,clock.step,state.mode==='game'&&run.model.phase==='combat');
+   const infantryShots=advanceInfantry(infantry.state(),infantry.ensureFields(),infantry.fields,infantryGPU.threats,clock.step,state.mode==='game'&&run.model.phase==='combat',run.statModifiers());
    const finishInfantry=state.mode==='game'?infantryGPU.encode(encoder,infantry.state().soldiers,infantryShots,activeMap,count,clock.tick%6===0):undefined;
    if(infantryShots.length){const shot=infantryShots[0],kind=infantry.state().soldiers.find(s=>s.id===shot.soldier)?.kind;if(kind==='samurai')audio.slash(shot.x,clock.tick);else audio.fire(kind==='rocket'?'rocket':kind==='flame'?'incinerator':'autocannon',shot.x,clock.tick);}
    combat.encodeBefore(encoder,frame);boss.encode(encoder,bossFrame);physics.encode(encoder,frame);combat.encodeAfter(encoder,frame);boss.encodeResolve(encoder,bossFrame);
