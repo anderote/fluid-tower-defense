@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {DEFAULT_MAP, MAX_TOWER_LEVEL, TOWERS, towerUpgradeCost} from '../content/index.ts';
-import {CommandProgression, createRun, STARTING_METAL, WAVES_PER_LEVEL, waveFor} from './index.ts';
+import {createRun, STARTING_METAL, WAVES_PER_LEVEL, waveFor} from './index.ts';
 
 test('cumulative settlements pay only newly reported totals',()=>{
   const run=createRun(); run.startWave(); run.takeSpawns(200);
@@ -14,29 +14,55 @@ test('cumulative settlements pay only newly reported totals',()=>{
 });
 test('tower records use reported GPU kill attribution rather than estimated damage output',()=>{
   const run=createRun();
-  const first=run.place('repulsor',{x:84,y:50}), second=run.place('mortar',{x:80,y:42});
+  const first=run.place('repulsor',{x:84,y:50}), second=run.place('autocannon',{x:80,y:42});
   assert.ok(first.ok&&second.ok); run.startWave();
   run.applySettlement({epoch:1,tick:1,kills:7,crushKills:0,leaks:0,earned:21,live:1,invalid:0,maxPacking:0,towerKills:[2,5]});
   assert.equal(run.model.towers[0].kills,2); assert.equal(run.model.towers[1].kills,5);
   run.applySettlement({epoch:1,tick:2,kills:10,crushKills:0,leaks:0,earned:30,live:1,invalid:0,maxPacking:0,towerKills:[3,7]});
   assert.equal(run.model.towers[0].kills,3); assert.equal(run.model.towers[1].kills,7);
 });
-test('Command XP permanently purchases base stat upgrades and unlocks a new tier after ten levels',()=>{
-  const profile=new CommandProgression(); profile.award(100);
-  assert.equal(profile.buy('damage').ok,true);
-  assert.equal(profile.ranks().filter(id=>id==='damage').length,1);
-  assert.equal(profile.unlockForLevel(10),false);
-  assert.equal(profile.unlockForLevel(11),true);
-  assert.equal(profile.unlockedTier,2);
+test('weapon unlocks and stat research spend run Metal and reset with the run',()=>{
+  const run=createRun();
+  assert.deepEqual(run.towerUnlocks().filter(unlock=>unlock.unlocked).map(unlock=>unlock.kind),['repulsor','autocannon']);
+  assert.equal(run.place('mortar',{x:84,y:50}).ok,false);
+  run.model.metal=2_999;
+  assert.equal(run.unlockTower('mortar').ok,false);
+  assert.equal(run.model.metal,2_999);
+  run.model.metal=3_075;
+  assert.equal(run.unlockTower('mortar').ok,true);
+  assert.equal(run.model.metal,75);
+  assert.equal(run.unlockTower('mortar').ok,false);
+  assert.equal(run.buyStatUpgrade('damage').ok,true);
+  assert.equal(run.model.metal,0);
+  assert.deepEqual(run.statModifiers(),['damage']);
+  assert.equal(run.buyStatUpgrade('damage').ok,false);
+  const restored=createRun();
+  assert.equal(restored.load(run.serialize()).ok,true);
+  assert.equal(restored.isTowerUnlocked('mortar'),true);
+  assert.deepEqual(restored.statModifiers(),['damage']);
+  assert.equal(restored.model.metal,0);
+  restored.reset();
+  assert.equal(restored.isTowerUnlocked('mortar'),false);
+  assert.deepEqual(restored.statModifiers(),[]);
+  assert.equal(restored.model.metal,STARTING_METAL);
 });
-test('only repulsor and autocannon start unlocked and advanced towers cost substantial Command XP',()=>{
-  assert.equal(createRun().model.metal,1_200);
-  const profile=new CommandProgression(), unlocks=profile.towerUnlocks();
-  assert.deepEqual(unlocks.filter(unlock=>unlock.unlocked).map(unlock=>unlock.kind),['repulsor','autocannon']);
-  assert.equal(unlocks.find(unlock=>unlock.kind==='mortar')?.cost,3_000);
-  assert.equal(unlocks.find(unlock=>unlock.kind==='railgun')?.cost,12_000);
-  profile.award(2_999);assert.equal(profile.unlockTower('mortar').ok,false);
-  profile.award(1);assert.equal(profile.unlockTower('mortar').ok,true);assert.equal(profile.isTowerUnlocked('mortar'),true);assert.equal(profile.xp,0);
+test('Metal research is allowed during combat, capped, and blocked after defeat',()=>{
+  const run=createRun();
+  run.model.metal=100_000;
+  run.startWave();
+  assert.equal(run.unlockTower('cryo').ok,true);
+  for(let rank=0;rank<10;rank++)assert.equal(run.buyStatUpgrade('force').ok,true);
+  const metal=run.model.metal;
+  assert.equal(run.buyStatUpgrade('force').ok,false);
+  assert.equal(run.buyStatUpgrade('unknown').ok,false);
+  assert.equal(run.model.metal,metal);
+  assert.equal(run.restartWave().ok,true);
+  assert.equal(run.isTowerUnlocked('cryo'),true);
+  assert.equal(run.statUpgrades().find(upgrade=>upgrade.id==='force')?.rank,10);
+  run.model.phase='lost';
+  assert.equal(run.unlockTower('mortar').ok,false);
+  assert.equal(run.buyStatUpgrade('damage').ok,false);
+  assert.equal(run.model.metal,metal);
 });
 test('branches lock and preparation saves restore',()=>{
   const run=createRun(), result=run.place('repulsor',{x:84,y:50}); assert.ok(result.ok && result.tower); const tower=result.tower;
@@ -47,7 +73,8 @@ test('branches lock and preparation saves restore',()=>{
 test('common towers support fifty upgrade levels and persist at the cap',()=>{
   assert.equal(MAX_TOWER_LEVEL,50);
   for(const kind of Object.keys(TOWERS) as (keyof typeof TOWERS)[]){
-    const run=createRun(), result=run.place(kind,{x:84,y:50}); assert.ok(result.ok && result.tower); const tower=result.tower;
+    const run=createRun(); run.model.metal=100_000; if(!run.isTowerUnlocked(kind))assert.equal(run.unlockTower(kind).ok,true);
+    const result=run.place(kind,{x:84,y:50}); assert.ok(result.ok && result.tower); const tower=result.tower;
     run.model.metal=100_000;
     for(let level=0;level<MAX_TOWER_LEVEL;level++) assert.equal(run.upgrade(tower.id,0).ok,true,`${kind} upgrade ${level+1}`);
     assert.equal(tower.level,50);
@@ -72,7 +99,7 @@ test('player-built walls support one centered tower and preserve it in saves',()
   const run=createRun(map);run.setBuildMounts([mount]);
   const placed=run.place('repulsor',{x:34,y:22});
   assert.ok(placed.ok&&placed.tower);assert.deepEqual({x:placed.tower.x,y:placed.tower.y},{x:34,y:22});
-  assert.equal(run.place('cryo',{x:34,y:22}).ok,false);
+  assert.equal(run.place('autocannon',{x:34,y:22}).ok,false);
   const restored=createRun(map);restored.setBuildMounts([mount]);
   assert.equal(restored.load(run.save()).ok,true);assert.deepEqual({x:restored.model.towers[0].x,y:restored.model.towers[0].y},{x:34,y:22});
 });
@@ -115,7 +142,7 @@ test('ten waves unlock extraction while endless continuation retains the defense
   assert.equal(run.place('repulsor',{x:84,y:50}).ok,true);
   for(let wave=1;wave<=WAVES_PER_LEVEL;wave++)finish(wave);
   assert.equal(run.model.phase,'checkpoint');assert.equal(run.model.wave,10);assert.equal(run.model.towers.length,1);
-  assert.ok(run.extractionXp>0);assert.equal(run.continueRun().ok,true);assert.equal(run.model.level,2);
+  assert.equal(run.continueRun().ok,true);assert.equal(run.model.level,2);
   finish(11);assert.equal(run.model.wave,11);assert.equal(run.model.phase,'checkpoint');assert.equal(run.model.towers.length,1);
   const restored=createRun(); assert.equal(restored.load(run.save()).ok,true);
 });
@@ -166,11 +193,11 @@ test('opening waves are a larger continuous stream, never an initial packet dump
   assert.ok(firstSecond>0);
 });
 
-test('extracting after the checkpoint ends the run and returns a milestone payout',()=>{
+test('extracting after the checkpoint ends the run',()=>{
   const run=createRun();
   for(let wave=1;wave<=10;wave++){
     assert.equal(run.startWave().ok,true);run.takeSpawns(65_536);run.applySettlement({epoch:1,tick:wave,kills:0,crushKills:0,leaks:0,earned:0,live:0,invalid:0,maxPacking:0});assert.equal(run.finishSettling().ok,true);
     if(run.model.bonusChoices.length)run.chooseBonus(run.model.bonusChoices[0].id);
   }
-  const reward=run.extractionXp,result=run.finishRun();assert.ok(result.ok);if(result.ok)assert.equal(result.xp,reward);assert.equal(run.model.phase,'won');
+  const result=run.finishRun();assert.ok(result.ok);assert.equal(run.model.phase,'won');
 });

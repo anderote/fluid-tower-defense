@@ -16,7 +16,7 @@ import { createCombat, type CombatFrame } from '../sim/combat/index.ts';
 import { barbedWireStats, createParticles, DEFAULT_MAP, compileTower, TOWERS } from '../content/index.ts';
 import { buildNavigation, canPlace, snapToMount } from '../navigation/index.ts';
 import {wallCapacity, wallHealthAfterPressure} from '../sim/walls/model.ts';
-import { createCommandProgression, createRun, STARTING_METAL } from '../game/index.ts';
+import { createRun, STARTING_METAL } from '../game/index.ts';
 import { COUNTER_WORDS, DEFAULT_TUNING, PARTICLE_FLOATS, type UIState, type GameAction, type Effect, type Vec2, type Rect, type Settlement, type VisualParticle, type VisualParticleStyle, type WorldMap, type HeavyProjectile, type HeavyExplosion } from '../contracts/index.ts';
 import {ShotEventReader} from '../runtime/shot-events.ts';
 import {advanceHeavyProjectiles,createHeavyProjectiles,type HeavyImpact} from '../effects/heavy-weapons.ts';
@@ -27,8 +27,7 @@ if(params.has('validate')) {
  const {showValidation}=await import('./validation-page.ts');await showValidation(root);
 } else {
 const run=createRun();
-const progression=createCommandProgression();
-const state:UIState={mode:params.get('mode')==='lab'?'lab':'game',phase:'preparation',paused:false,fps:0,frameMs:0,population:10000,capacity:65536,kills:0,crushKills:0,leaks:0,earned:0,maxPressure:0,metal:650,baseHealth:100,level:1,wave:0,waveCount:10,difficulty:1,streamWidth:60,selected:null,selectedKind:null,buildTool:null,heatmap:true,tool:'blast',message:'Connecting to local GPU…',adapter:'WebGPU',bonusChoices:[],commandUpgrades:[],commandXp:progression.xp,metaUpgrades:progression.upgrades(),towerUnlocks:progression.towerUnlocks(),extractionXp:0};
+const state:UIState={mode:params.get('mode')==='lab'?'lab':'game',phase:'preparation',paused:false,fps:0,frameMs:0,population:10000,capacity:65536,kills:0,crushKills:0,leaks:0,earned:0,maxPressure:0,metal:650,baseHealth:100,level:1,wave:0,waveCount:10,difficulty:1,streamWidth:60,selected:null,selectedKind:null,buildTool:null,heatmap:true,tool:'blast',message:'Connecting to local GPU…',adapter:'WebGPU',bonusChoices:[],bonuses:[],commandUpgrades:[],statUpgrades:run.statUpgrades(),towerUnlocks:run.towerUnlocks()};
 run.setHordeScale(state.streamWidth);
 let handleAction:(action:GameAction)=>void=()=>{};
 const ui=createUI(root,action=>handleAction(action));
@@ -70,7 +69,7 @@ try {
    map=newMap;spawnBaseline=newMap.spawn;builtWalls=[];builtWires=[];resizeSpawn();navigation=buildNavigation(map);run.setMap(map);run.setBuildMounts(builtWalls);state.mode='game';resetWorld();previousPaused=false;
    state.message='Custom level ready. Build your defense, then start a wave.';
  },active=>{if(active){previousPaused=state.paused;state.paused=true;state.selectedKind=null;state.buildTool=null;state.message='Paint walls on the arena. Right-drag erases. Apply & Play starts a fresh defense.';}else{state.paused=previousPaused;}});
- const newGame=()=>{try{localStorage.removeItem(AUTOSAVE_KEY);localStorage.removeItem('pressure-front.customlevel.v1');}catch{/* Persistence is optional. */}run.clearSave();progression.reset();editor.resetToDefault();state.mode='game';state.difficulty=1;state.streamWidth=60;run.setHordeScale(state.streamWidth);map=DEFAULT_MAP;spawnBaseline=DEFAULT_MAP.spawn;resizeSpawn();builtWalls=[];builtWires=[];navigation=buildNavigation(map);run.setMap(map);run.setBuildMounts([]);resetWorld();state.message='New game started.';};
+ const newGame=()=>{try{localStorage.removeItem(AUTOSAVE_KEY);localStorage.removeItem('pressure-front.customlevel.v1');}catch{/* Persistence is optional. */}run.clearSave();editor.resetToDefault();state.mode='game';state.difficulty=1;state.streamWidth=60;run.setHordeScale(state.streamWidth);map=DEFAULT_MAP;spawnBaseline=DEFAULT_MAP.spawn;resizeSpawn();builtWalls=[];builtWires=[];navigation=buildNavigation(map);run.setMap(map);run.setBuildMounts([]);resetWorld();state.message='New game started.';};
 
  const settlement=new SettlementReader(gpu.device,s=>{
    if(s.epoch!==epoch)return;
@@ -78,7 +77,7 @@ try {
    if(state.mode==='game'){
      run.applySettlement(s);
      if(s.live===0&&count>0&&s.tick>=waveStartTick&&run.model.pending.length===0&&run.model.phase==='combat'){
-       const clearedWave=run.model.wave,result=run.finishSettling();if(result.ok){const xp=18+run.model.level*8+clearedWave*3,checkpoint=clearedWave>=10;progression.award(xp);state.message=checkpoint?`Wave ${clearedWave} contained. Extract for ${run.extractionXp} XP or keep this defense and continue.`:run.model.bonusChoices.length?'Wave cleared. Choose a command boon.':`Wave cleared. +${xp} Command XP.`;count=0;}
+       const clearedWave=run.model.wave,result=run.finishSettling();if(result.ok){const checkpoint=clearedWave>=10;state.message=checkpoint?`Wave ${clearedWave} contained. Extract or keep this defense and its research to continue.`:run.model.bonusChoices.length?'Wave cleared. Choose a command boon.':'Wave cleared. Spend your Metal on defenses and research.';count=0;}
      }
    }
  },error=>errors.push(String(error)));
@@ -121,8 +120,8 @@ try {
      case 'heatmap':state.heatmap=action.value;break;
      case 'population':if(state.mode==='lab'){requestedPopulation=action.value;resetWorld();}break;
      case 'tool':state.tool=action.tool;state.selectedKind=null;break;
-     case 'select-tower':if(action.kind&&!progression.isTowerUnlocked(action.kind)){state.selectedKind=null;state.message=`${TOWERS[action.kind].name} is locked. Research it with Command XP first.`;break;}wallTool=false;wireTool=false;state.buildTool=null;run.model.selected=null;state.selectedKind=state.selectedKind===action.kind?null:action.kind;state.message=state.selectedKind?`${TOWERS[state.selectedKind].name}: click a clear build location.`:'Click a tower to inspect it.';break;
-     case 'unlock-tower':{const result=progression.unlockTower(action.kind);actionResult(result,`${TOWERS[action.kind].name} unlocked permanently.`);state.selectedKind=null;break;}
+     case 'select-tower':if(action.kind&&!run.isTowerUnlocked(action.kind)){state.selectedKind=null;state.message=`${TOWERS[action.kind].name} is locked. Unlock it with Metal first.`;break;}wallTool=false;wireTool=false;state.buildTool=null;run.model.selected=null;state.selectedKind=state.selectedKind===action.kind?null:action.kind;state.message=state.selectedKind?`${TOWERS[state.selectedKind].name}: click a clear build location.`:'Click a tower to inspect it.';break;
+     case 'unlock-tower':{const result=run.unlockTower(action.kind);actionResult(result,`${TOWERS[action.kind].name} unlocked for this run.`);state.selectedKind=null;break;}
      case 'wall-tool':wallTool=!wallTool;wireTool=false;state.buildTool=wallTool?'wall':null;state.selectedKind=null;state.message=wallTool?'Wall tool: click to place a 4 × 4 Metal wall, or reinforce a damaged wall to full integrity.':'Wall tool cancelled.';break;
      case 'wire-tool':wireTool=!wireTool;wallTool=false;state.buildTool=wireTool?'wire':null;state.selectedKind=null;state.message=wireTool?'Barbed wire: restrains the swarm until high pressure forces a breach.':'Barbed wire tool cancelled.';break;
      case 'demolish-tool':wallTool=false;wireTool=false;state.buildTool=state.buildTool==='demolish'?null:'demolish';state.selectedKind=null;state.message=state.buildTool==='demolish'?'Demolish tool: click a player-built wall or barbed wire to recover half its Metal.':'Demolish tool cancelled.';break;
@@ -130,11 +129,11 @@ try {
        const result=run.startWave();actionResult(result,'Wave incoming. Hold the choke.');if(!result.ok)break;
        count=0;spawnSlot=0;heavyProjectiles=[];heavyExplosions=[];cameraShake=0;state.population=0;physics.reset();combat.reset();shotReader.reset();boss.reset(run.isBossWave);waveStartTick=clock.tick+1;state.paused=false;state.selectedKind=null;break;
      }
-     case 'continue-run':{const result=run.continueRun();if(result.ok){const unlocked=progression.unlockForLevel(run.model.level);state.message=unlocked?`Command tier ${progression.unlockedTier} unlocked. Wave ${run.model.wave+1} is ready.`:`Defense retained. Wave ${run.model.wave+1} is ready.`;}else state.message=result.reason;break;}
-     case 'finish-run':{const result=run.finishRun();if(result.ok){progression.award(result.xp??0);state.message=`Sector secured after ${run.model.wave} waves. +${result.xp??0} extraction XP.`;}else state.message=result.reason;break;}
+     case 'continue-run':{const result=run.continueRun();if(result.ok){state.message=`Defense and research retained. Wave ${run.model.wave+1} is ready.`;}else state.message=result.reason;break;}
+     case 'finish-run':{const result=run.finishRun();if(result.ok){state.message=`Sector secured after ${run.model.wave} waves.`;}else state.message=result.reason;break;}
      case 'upgrade':if(run.model.selected!==null)actionResult(run.upgrade(run.model.selected,action.branch),'Tower upgraded.');break;
      case 'buy-command':actionResult(run.buyCommandUpgrade(action.id),'Command upgrade installed.');break;
-     case 'buy-meta':actionResult(progression.buy(action.id),'Permanent Command upgrade installed.');break;
+     case 'buy-stat':actionResult(run.buyStatUpgrade(action.id),'Stat upgrade installed for this run.');break;
      case 'sell':if(run.model.selected!==null){const result=run.sell(run.model.selected);if(result.ok){combat.resetAttribution();run.resetTowerAttribution();}actionResult(result,'Tower sold.');}break;
      case 'difficulty':state.difficulty=run.setSpawnMultiplier(action.value);resizeSpawn();state.message=`Zombie production set to ${state.difficulty}×. The inlet stays fixed; stream rate increases.`;break;
      case 'stream-width':state.streamWidth=Math.max(1,Math.min(100,Math.round(action.value)));run.setHordeScale(state.streamWidth);resizeSpawn();navigation=buildNavigation(map);run.setMap(map);state.message=`Stream width ${state.streamWidth}: quota is ${(state.streamWidth*100_000*Math.pow(run.model.wave+1,1.67)).toLocaleString(undefined,{maximumFractionDigits:0})} zombies.`;break;
@@ -256,8 +255,8 @@ try {
  function updateUI(now:number){
    const report=metrics.report();state.fps=report.fps;state.frameMs=report.medianMs;
    state.metal=run.model.metal;state.baseHealth=run.model.baseHealth/20*100;state.level=run.model.level;state.wave=run.model.wave;state.waveCount=run.model.waveCount;state.phase=state.mode==='lab'?'combat':run.model.phase;
-   state.selected=run.model.towers.find(t=>t.id===run.model.selected)??null;state.bonusChoices=state.mode==='game'?run.model.bonusChoices:[];state.extractionXp=run.extractionXp;
-   state.boss=latest.boss;state.bossHealth=latest.boss?.active?latest.boss.health/latest.boss.maxHealth*100:undefined;state.commandUpgrades=state.mode==='game'?run.model.commandUpgrades:[];state.commandXp=progression.xp;state.metaUpgrades=progression.upgrades();
+   state.selected=run.model.towers.find(t=>t.id===run.model.selected)??null;state.bonusChoices=state.mode==='game'?run.model.bonusChoices:[];state.bonuses=state.mode==='game'?run.model.bonuses:[];
+   state.boss=latest.boss;state.bossHealth=latest.boss?.active?latest.boss.health/latest.boss.maxHealth*100:undefined;state.commandUpgrades=state.mode==='game'?run.model.commandUpgrades:[];state.statUpgrades=run.statUpgrades();state.towerUnlocks=run.towerUnlocks();
    ui.update(state);positionInspector();if(now-lastAutosave>1500){saveSession();lastAutosave=now;}lastUI=now;
    diagnosticText.textContent=JSON.stringify({adapter:gpu.adapter,abi:'passed',epoch,tick:clock.tick,simulationSeconds:simulatedTime,slots:count,live:latest.live,requested:requestedPopulation,invalid:latest.invalid,peakPacking:latest.maxPacking,crushKills:latest.crushKills,kills:latest.kills,medianMs:report.medianMs,p95Ms:report.p95Ms,frameSamples:report.samples,canvas:[ui.canvas.width,ui.canvas.height],readbackErrors:errors,boss:latest.boss},null,2);
  }
@@ -293,7 +292,7 @@ try {
        state.message=collapsed.length?`${collapsed.length} Metal wall section${collapsed.length===1?'':'s'} collapsed under local pressure.`:breached.length?`${breached.length} barbed wire section${breached.length===1?'':'s'} gave way under local swarm pressure.`:`${spent.length} barbed wire section${spent.length===1?'':'s'} wore out.`;
      }
    }
-   const frame:CombatFrame={dt:clock.step,tick:clock.tick,count,map,effects,tuning:DEFAULT_TUNING,navigation,lab:state.mode==='lab',towers:state.mode==='game'?run.model.towers.map(tower=>({tower,definition:compileTower(tower,run.model.bonuses,run.model.commandUpgrades,progression.ranks())})):[]};
+   const frame:CombatFrame={dt:clock.step,tick:clock.tick,count,map,effects,tuning:DEFAULT_TUNING,navigation,lab:state.mode==='lab',towers:state.mode==='game'?run.model.towers.map(tower=>({tower,definition:compileTower(tower,run.model.bonuses,run.model.commandUpgrades,run.statModifiers())})):[]};
    const encoder=gpu.device.createCommandEncoder({label:`Simulation tick ${clock.tick}`});
    const bossFrame={dt:clock.step,tick:clock.tick,count,map:{...map,spawn:{x:50,y:35,width:32,height:30}},active:state.mode==='game'&&run.isBossWave};
    combat.encodeBefore(encoder,frame);boss.encode(encoder,bossFrame);physics.encode(encoder,frame);combat.encodeAfter(encoder,frame);boss.encodeResolve(encoder,bossFrame);
@@ -314,7 +313,7 @@ try {
      const encoder=gpu.device.createCommandEncoder({label:'Present'});
      const placement=pointer?towerPlacement(pointer):undefined;
      const wallPlacement=pointer?wallAt(pointer):undefined;
-     const ghost=state.mode==='game'&&state.selectedKind&&placement?{...placement,kind:state.selectedKind,range:compileTower({id:0,kind:state.selectedKind,x:placement.x,y:placement.y,level:0,branch:-1,angle:0,cooldown:0,spent:0},run.model.bonuses,run.model.commandUpgrades,progression.ranks()).range,valid:canPlace(map,run.model.towers,placement,1.25,builtWalls)&&run.model.phase!=='won'&&run.model.phase!=='lost'}:undefined;
+     const ghost=state.mode==='game'&&state.selectedKind&&placement?{...placement,kind:state.selectedKind,range:compileTower({id:0,kind:state.selectedKind,x:placement.x,y:placement.y,level:0,branch:-1,angle:0,cooldown:0,spent:0},run.model.bonuses,run.model.commandUpgrades,run.statModifiers()).range,valid:canPlace(map,run.model.towers,placement,1.25,builtWalls)&&run.model.phase!=='won'&&run.model.phase!=='lost'}:undefined;
      const wallGhost=state.mode==='game'&&wallTool&&wallPlacement?{...wallPlacement,valid:builtWalls.some(wall=>wall.x===wallPlacement.x&&wall.y===wallPlacement.y&&wall.health<wall.maxHealth)||!validateEditorMap({...map,obstacles:[...map.obstacles,wallPlacement]})}:undefined;
      renderer.encode(encoder,{count:editor.active?0:count,time:simulatedTime,map:editor.active?editor.map:map,towers:!editor.active&&state.mode==='game'?run.model.towers:[],effects:editor.active?[]:visuals,visualParticles:editor.active?[]:visualParticles,heavyProjectiles:editor.active?[]:heavyProjectiles,heavyExplosions:editor.active?[]:heavyExplosions,cameraShake:editor.active?0:cameraShake,walls:editor.active?[]:builtWalls,wires:editor.active?[]:builtWires,heatmap:state.heatmap,selection:run.model.selected,ghost:editor.active?undefined:ghost,wallGhost,boss:!editor.active&&latest.boss?.active?latest.boss:undefined});
      gpu.device.queue.submit([encoder.finish()]);

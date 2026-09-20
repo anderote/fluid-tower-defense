@@ -63,7 +63,7 @@ fn finite1(v: f32) -> bool { return v == v && abs(v) < 1e20; }
 fn finite2(v: vec2<f32>) -> bool { return finite1(v.x) && finite1(v.y); }
 fn safeRadius(v: f32) -> f32 {
   if (!finite1(v)) { return 0.25; }
-  return clamp(abs(v), 0.05, 0.45);
+  return clamp(abs(v), 0.05, 0.85);
 }
 fn safeMass(v: f32) -> f32 {
   if (!finite1(v)) { return 1.0; }
@@ -166,7 +166,7 @@ fn measureDensity(@builtin(global_invocation_id) gid: vec3<u32>) {
       while (link != 0u) {
         let otherIndex = link - 1u;
         let other = particles[otherIndex];
-        if (other.state.w >= 0.5 && finite2(other.pos.xy)) {
+        if (otherIndex != index && other.state.w >= 0.5 && finite2(other.pos.xy)) {
           let distance = length(particle.pos.xy - other.pos.xy);
           if (distance < params.kernelRadius) {
             packing += occupiedArea(safeRadius(other.body.x)) * kernel(distance);
@@ -267,12 +267,14 @@ fn computeMotion(@builtin(global_invocation_id) gid: vec3<u32>) {
           if (other.state.w >= 0.5 && finite2(other.pos.xy) && finite2(other.pos.zw)) {
             let offset = position - other.pos.xy;
             let distance = length(offset);
-            if (distance < params.kernelRadius && distance > 0.0001) {
+            if (distance > 0.0001) {
               let normal = offset / distance;
-              let q = 1.0 - distance / params.kernelRadius;
-              let otherArea = occupiedArea(safeRadius(other.body.x));
-              acceleration += normal * (particle.state.y + other.state.y) * otherArea * q * 0.055 / mass;
-              acceleration += (other.pos.zw - velocity) * max(0.0, params.viscosity) * otherArea * kernel(distance) / mass;
+              if (distance < params.kernelRadius) {
+                let q = 1.0 - distance / params.kernelRadius;
+                let otherArea = occupiedArea(safeRadius(other.body.x));
+                acceleration += normal * (particle.state.y + other.state.y) * otherArea * q * 0.055 / mass;
+                acceleration += (other.pos.zw - velocity) * max(0.0, params.viscosity) * otherArea * kernel(distance) / mass;
+              }
               let contactDistance = radius + safeRadius(other.body.x);
               if (distance < contactDistance) {
                 acceleration += normal * (contactDistance - distance) / max(contactDistance, 0.001) * 75.0 / mass;

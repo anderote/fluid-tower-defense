@@ -1,13 +1,22 @@
 import { COUNTER_WORDS, MAX_PARTICLES, PARTICLE_BYTES, type SharedGPU } from '../contracts/index.ts';
+
+const REQUIRED_STORAGE_BUFFERS_PER_SHADER_STAGE = 9;
+
 export async function connectGPU(canvas: HTMLCanvasElement) {
   if (!navigator.gpu) throw new Error('WebGPU is unavailable. Open this game in a current Chrome or Safari with WebGPU enabled.');
   const adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
   if (!adapter) throw new Error('No WebGPU adapter is available. Check browser hardware acceleration.');
-  // Dynamic terrain telemetry brings the physics stage to nine storage bindings.
-  // WebGPU adapters may expose that capacity without granting it unless requested.
-  const requiredStorageBuffers=9;
-  if(adapter.limits.maxStorageBuffersPerShaderStage<requiredStorageBuffers)throw new Error(`This WebGPU adapter supports ${adapter.limits.maxStorageBuffersPerShaderStage} storage buffers per shader stage; Pressure Front requires ${requiredStorageBuffers}.`);
-  const device = await adapter.requestDevice({requiredLimits:{maxStorageBuffersPerShaderStage:requiredStorageBuffers}});
+  if (adapter.limits.maxStorageBuffersPerShaderStage < REQUIRED_STORAGE_BUFFERS_PER_SHADER_STAGE) {
+    throw new Error(
+      `This GPU supports ${adapter.limits.maxStorageBuffersPerShaderStage} storage buffers per shader stage; ` +
+      `${REQUIRED_STORAGE_BUFFERS_PER_SHADER_STAGE} are required.`,
+    );
+  }
+  const device = await adapter.requestDevice({
+    requiredLimits: {
+      maxStorageBuffersPerShaderStage: REQUIRED_STORAGE_BUFFERS_PER_SHADER_STAGE,
+    },
+  });
   const context = canvas.getContext('webgpu');
   if (!context) throw new Error('Could not create a GPU canvas.');
   const format = navigator.gpu.getPreferredCanvasFormat();

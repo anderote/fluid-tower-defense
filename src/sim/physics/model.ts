@@ -1,9 +1,11 @@
 /** Shared numerical choices for the CPU reference checks and WGSL solver. */
-export const PHYSICS_CELL_SIZE = 1;
+export const MAX_BODY_RADIUS = 0.85;
+// One cell spans the largest possible contact diameter, so the 3x3 neighbor
+// search always sees bodies close enough to repel one another.
+export const PHYSICS_CELL_SIZE = MAX_BODY_RADIUS * 2;
 export const PHYSICS_KERNEL_RADIUS = 1;
 export const PHYSICS_SUBSTEPS = 2;
 export const MIN_BODY_RADIUS = 0.05;
-export const MAX_BODY_RADIUS = 0.45;
 
 export function occupiedArea(radius: number): number {
   if (!Number.isFinite(radius)) radius = 0.25;

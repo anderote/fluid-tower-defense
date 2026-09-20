@@ -1,27 +1,45 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {CommandProgression} from './index.ts';
+import {createRun} from './index.ts';
 
-function loadProfile(value: unknown) {
-  const previous = Object.getOwnPropertyDescriptor(globalThis, 'window');
-  Object.defineProperty(globalThis, 'window', {configurable:true,value:{localStorage:{getItem:()=>JSON.stringify(value)}}});
-  try { return new CommandProgression(); }
-  finally { if(previous) Object.defineProperty(globalThis,'window',previous); else Reflect.deleteProperty(globalThis,'window'); }
-}
-
-test('damaged profile ranks recover without losing valid progress or creating invalid arrays',()=>{
-  const profile=loadProfile({version:1,xp:120.9,ranks:{damage:-1,rate:2.5,range:1000000000,force:'oops'},unlockedTier:'oops'});
-  assert.equal(profile.xp,120);
-  assert.equal(profile.unlockedTier,1);
-  assert.deepEqual(profile.upgrades().map(upgrade=>upgrade.rank),[0,2,10,0]);
-  assert.equal(profile.ranks().length,12);
+test('malformed saved research is rejected without changing the running defense',()=>{
+  const run=createRun();
+  run.buyStatUpgrade('damage');
+  const before=run.serialize();
+  for(const invalid of [
+    {statRanks:{damage:-1}}, {statRanks:{rate:2.5}}, {statRanks:{range:1000000000}},
+    {statRanks:{force:'oops'}}, {statRanks:{unknown:1}}, {statRanks:[]},
+    {unlockedTowers:['repulsor']}, {unlockedTowers:['repulsor','autocannon','unknown']},
+    {unlockedTowers:['repulsor','autocannon','mortar','mortar']},
+  ]){
+    const saved=JSON.parse(before);Object.assign(saved.model,invalid);
+    assert.equal(run.load(JSON.stringify(saved)).ok,false);
+    assert.equal(run.serialize(),before);
+  }
 });
 
-test('valid profile progress round-trips and unsupported profiles start fresh',()=>{
-  const profile=loadProfile({version:1,xp:875,ranks:{damage:3,rate:2,unknown:99},unlockedTier:4});
-  assert.equal(profile.xp,875);assert.equal(profile.unlockedTier,4);
-  assert.deepEqual(profile.ranks(),['damage','damage','damage','rate','rate']);
-  for(const value of [null,{version:2,xp:200,ranks:{damage:3}},[]]){
-    const fresh=loadProfile(value);assert.equal(fresh.xp,0);assert.deepEqual(fresh.ranks(),[]);
+test('legacy saves retain existing guns and Metal without using an account XP profile',()=>{
+  const run=createRun();run.model.metal=5_000;run.unlockTower('mortar');
+  assert.equal(run.place('mortar',{x:84,y:50}).ok,true);
+  const saved=JSON.parse(run.serialize());saved.contentVersion='pressure-front-4';
+  delete saved.model.unlockedTowers;delete saved.model.statRanks;
+  const restored=createRun();
+  assert.equal(restored.load(JSON.stringify(saved)).ok,true);
+  assert.equal(restored.model.metal,run.model.metal);
+  assert.equal(restored.isTowerUnlocked('mortar'),true);
+  assert.deepEqual(restored.statModifiers(),[]);
+  const again=createRun();assert.equal(again.load(restored.serialize()).ok,true);
+  assert.deepEqual(again.model.unlockedTowers,restored.model.unlockedTowers);
+});
+
+test('a fresh run never reads permanent account upgrades',()=>{
+  const previous=Object.getOwnPropertyDescriptor(globalThis,'window');
+  Object.defineProperty(globalThis,'window',{configurable:true,value:{localStorage:{getItem:()=>{throw new Error('Account profile should not be read');}}}});
+  try {
+    const run=createRun();
+    assert.deepEqual(run.statModifiers(),[]);
+    assert.deepEqual(run.model.unlockedTowers,['repulsor','autocannon']);
+  } finally {
+    if(previous)Object.defineProperty(globalThis,'window',previous);else Reflect.deleteProperty(globalThis,'window');
   }
 });
