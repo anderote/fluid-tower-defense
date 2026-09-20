@@ -81,7 +81,9 @@ export function waveFor(level:number,wave:number):Wave {
   const weights=new Map(PHASE_WEIGHTS[phase]);
   if(cycle>0){for(const kind of ['runner','brute','rager','softbody','husk'] as const)weights.set(kind,(weights.get(kind)??0)+.025);}
   const weightTotal=[...weights.values()].reduce((sum,value)=>sum+value,0);
-  const desiredRate=Math.min(1_500,240+threat*45),duration=Math.max(16,total/desiredRate);
+  // Waves deliberately last long enough to read as sustained pressure: 30 seconds
+  // at the opening, growing to a one-minute stream in the endless game.
+  const duration=Math.min(60,30+threat*2);
   const spawns:SpawnBatch[]=[];
   let assigned=0,index=0;
   for(const [kind,weight] of weights){
