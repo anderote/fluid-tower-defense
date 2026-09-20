@@ -61,3 +61,9 @@ Validation: malformed-profile unit test reproduced the issue; 55 CPU tests, prod
 Let focused buttons handle Space, preserve browser modifier shortcuts and text editing, suppress repeated toggle actions from held keys, and clear camera movement on blur, hidden tabs, or text-input focus.
 
 Validation: 55 CPU tests, production build, and 9/9 browser E2E scenarios passed. The keyboard case covers button Space, modifier shortcuts, held build keys, and Escape cancellation.
+
+## Interrupted E2E recovery
+
+Persist original saves before browser tests change them, recover interrupted runs on the next visit, and retain backups when restoration fails. Frame navigation now has a timeout. The suite refuses to overwrite a pending backup.
+
+Validation: 57 CPU tests, production build, and 9/9 browser E2E checks passed. A deliberate reload during a run displayed successful original-save recovery before the next full run.

@@ -1,3 +1,4 @@
+import {backupSaves,restoreSaves} from './storage.ts';
 // Browser-native E2E checks: actual UI events, actual WebGPU, no mocked simulation.
 const frame=document.querySelector<HTMLIFrameElement>('#game')!;
 const results=document.querySelector<HTMLOListElement>('#results')!;
@@ -24,13 +25,19 @@ function point(x:number,y:number){
 function snapshot(){click('[data-action="save"]');assert(text('#message').includes('checkpoint saved'),'Save failed: '+text('#message'));return JSON.parse(localStorage.getItem(checkpointKey)!);}
 function hasRect(rects:{x:number;y:number}[],x:number,y:number){return rects.some(r=>r.x===x&&r.y===y);}
 function freshStorage(){for(const key of Object.keys(localStorage))if(key.startsWith(savePrefix))localStorage.removeItem(key);}
+async function loadFrame(path:string){
+ await new Promise<void>((resolve,reject)=>{
+  const loaded=()=>{clearTimeout(timer);resolve();};
+  const timer=setTimeout(()=>{frame.removeEventListener('load',loaded);reject(new Error('Frame navigation timed out: '+path));},12000);
+  frame.addEventListener('load',loaded,{once:true});frame.src=path;
+ });
+}
 async function navigate(path='/'){
- frame.src=path;
- await new Promise<void>(resolve=>frame.addEventListener('load',()=>resolve(),{once:true}));
+ await loadFrame(path);
  await until(()=>!!doc().querySelector('#adapter')?.textContent?.includes('/ WEBGPU'),'Game failed to initialize WebGPU');
  await until(()=>text('#metal')!=='000','Game failed to initialize UI');
 }
-async function fresh(){frame.src='about:blank';await new Promise<void>(resolve=>frame.addEventListener('load',()=>resolve(),{once:true}));freshStorage();await navigate();}
+async function fresh(){await loadFrame('about:blank');freshStorage();await navigate();}
 const cases:{name:string;run:()=>Promise<void>}[]=[
  {name:'Checkpoint survives later autosaves and restores structures, Metal, and flow',run:async()=>{
   await fresh();click('[data-action="wall-tool"]');point(22,22);await until(()=>text('#metal')==='590','Wall was not charged');flow(2);snapshot();
@@ -94,7 +101,14 @@ const cases:{name:string;run:()=>Promise<void>}[]=[
 ];
 button.onclick=async()=>{
  button.disabled=true;results.replaceChildren();summary.textContent='Running…';
- const backup=new Map(Object.keys(localStorage).filter(key=>key.startsWith(savePrefix)).map(key=>[key,localStorage.getItem(key)!]));let passed=0;
+ let passed=0;
+ try{backupSaves(localStorage);}catch(error){summary.textContent='Could not back up saves: '+String(error);button.disabled=false;return;}
  try{for(const item of cases){const row=document.createElement('li');row.textContent=item.name+' — running';results.append(row);try{await item.run();row.className='pass';row.textContent=item.name+' — PASS';passed++;}catch(error){row.className='fail';row.textContent=item.name+' — FAIL: '+String(error);}}}
- finally{frame.src='about:blank';await new Promise<void>(resolve=>frame.addEventListener('load',()=>resolve(),{once:true}));freshStorage();for(const [key,value] of backup)localStorage.setItem(key,value);summary.textContent=`${passed}/${cases.length} checks passed`;button.disabled=false;}
+ finally{
+  try{await loadFrame('about:blank');restoreSaves(localStorage);summary.textContent=`${passed}/${cases.length} checks passed`;}
+  catch(error){summary.textContent='Save recovery required: '+String(error)+'. Reload this page to retry.';}
+  button.disabled=false;
+ }
 };
+
+try{if(restoreSaves(localStorage))summary.textContent='Recovered original saves from an interrupted run.';}catch(error){summary.textContent='Save recovery failed: '+String(error);button.disabled=true;}
