@@ -46,11 +46,44 @@ struct TowerState { timing:vec4<f32>, shot:vec4<f32>, flags:vec4<f32> };
 @group(0) @binding(2) var<storage,read> towers:array<vec4<f32>>;
 struct Out { @builtin(position) pos:vec4<f32>, @location(0) local:vec2<f32>, @location(1) kind:f32, @location(2) age:f32, @location(3) shard:f32, @location(4) weapon:f32 };
 fn clip(p:vec2<f32>)->vec2<f32>{let aspect=camera.viewport.x/max(1.,camera.viewport.y);let targetAspect=camera.world.z/camera.world.w;let sx=min(1.,targetAspect/aspect);let sy=min(1.,aspect/targetAspect);return vec2((((p.x-camera.world.x)/camera.world.z)*2.-1.)*sx,(1.-((p.y-camera.world.y)/camera.world.w)*2.)*sy);}
-@vertex fn vs(@builtin(vertex_index) vi:u32,@builtin(instance_index) ii:u32)->Out {let c=array<vec2<f32>,6>(vec2(-1.,-1.),vec2(1.,-1.),vec2(-1.,1.),vec2(-1.,1.),vec2(1.,-1.),vec2(1.,1.));let shard=vi/6u;let q=c[vi%6u];let s=states[ii];let t=towers[ii];let kind=floor(t.w+.001);let weapon=round(fract(t.w)*100.);let valid=s.shot.x>.5&&s.timing.y>0.&&abs(s.flags.x-t.z)<.5;let age=select(2.,clamp((s.timing.y-s.timing.x)/.22,0.,1.),valid);let aim=s.timing.zw;let d=aim-t.xy;let len=max(.1,length(d));let forward=d/len;let side=vec2(-forward.y,forward.x);let seed=f32(shard)*2.399+f32(ii)*.71;let burst=vec2(cos(seed),sin(seed));var p:vec2<f32>;
- if(shard==0u){if(kind==1.){let r=max(1.2,min(7.,len*.16))*(.45+.7*age);p=aim+q*r;}else if(kind==0.){p=t.xy+q*(2.2+age*(2.1+len*.025));}else if(kind==2.){p=t.xy+forward*((q.x+1.)*.5*len)+side*q.y*(.11+.18*(1.-age));}else{p=t.xy+forward*((q.x+1.)*.5*len)+side*q.y*select(.32,2.2,kind==3.);}}else{let impact=select(t.xy+forward*min(3.,len*.18),aim,kind==1.||kind==2.);let distance=(.25+age*3.2)*(.55+fract(seed*.83));p=impact+burst*distance+q*vec2(.16,.5+f32(shard)*.025)*(1.-age*.35);}
- var o:Out;o.pos=vec4(clip(p),0,1);o.local=q;o.kind=kind;o.age=age;o.shard=f32(shard);o.weapon=weapon;return o;}
-fn weaponColor(w:f32)->vec3<f32>{if(w<.5){return vec3(.55,1.,.28);}if(w<1.5){return vec3(1.,.46,.11);}if(w<2.5){return vec3(1.,.84,.24);}if(w<3.5){return vec3(.42,.9,1.);}if(w<4.5){return vec3(.7,.38,1.);}if(w<5.5){return vec3(1.,.18,.055);}return vec3(.3,1.,.78);}
-@fragment fn fs(i:Out)->@location(0) vec4<f32>{if(i.age>1.){discard;}let d=length(i.local);let fade=(1.-i.age)*(1.-i.age);let col=weaponColor(i.weapon);var a=0.;if(i.shard>0.){a=(1.-smoothstep(.15,.9,abs(i.local.x)))*(1.-smoothstep(.28,1.,abs(i.local.y)))*fade*(.86-i.shard*.035);return vec4(mix(vec3(1.,.92,.58),col,.62),max(0.,a));}if(i.kind==1.){a=(1.-smoothstep(.7,1.,d))*smoothstep(.08,.35,d)*fade;}else if(i.kind==2.){a=(1.-smoothstep(.48,1.,abs(i.local.y)))*(.72+.28*sin(i.local.x*18.))*fade;}else if(i.kind==3.){a=(1.-smoothstep(.3,1.,abs(i.local.y)))*smoothstep(-1.,.05,i.local.x)*fade*.82;}else{a=smoothstep(.96,.28,d)*fade*.72;}return vec4(col,a);}`});
+@vertex fn vs(@builtin(vertex_index) vi:u32,@builtin(instance_index) ii:u32)->Out {
+ let corners=array<vec2<f32>,6>(vec2(-1.,-1.),vec2(1.,-1.),vec2(-1.,1.),vec2(-1.,1.),vec2(1.,-1.),vec2(1.,1.));
+ let shard=vi/6u;let q=corners[vi%6u];let s=states[ii];let t=towers[ii];let kind=floor(t.w+.001);let weapon=round(fract(t.w)*100.);
+ var life=.24;if(weapon==1.){life=.62;}else if(weapon==2.){life=.12;}else if(weapon==4.){life=.3;}else if(weapon==5.){life=.56;}else if(weapon==6.){life=.18;}else if(weapon==7.){life=.34;}
+ let elapsed=max(0.,s.timing.y-s.timing.x);let valid=s.timing.y>0.&&elapsed<=life&&abs(s.flags.x-t.z)<.5;let age=select(2.,clamp(elapsed/life,0.,1.),valid);
+ let aim=s.timing.zw;let delta=aim-t.xy;let len=max(.1,length(delta));let forward=delta/len;let side=vec2(-forward.y,forward.x);let seed=f32(shard)*2.399+f32(ii)*.71;let burst=vec2(cos(seed),sin(seed));var p:vec2<f32>;
+ if(weapon==0.){
+  let distance=1.8+age*(4.5+len*.035);p=t.xy+burst*distance+q*(select(.22,1.05,shard==0u));
+ }else if(weapon==1.){
+  if(shard==0u){let travel=min(1.,age*1.55);let arc=sin(travel*3.14159);let center=mix(t.xy,aim,travel)+side*arc*1.4;p=center+q*(.5+arc*.42);}else{let impactAge=max(0.,(age-.52)/.48);let distance=impactAge*(1.4+f32(shard)*.32);p=aim+burst*distance+q*(.18+.035*f32(shard));}
+ }else if(weapon==2.){
+  if(shard==0u){p=t.xy+forward*((q.x+1.)*.5*len)+side*q.y*.09;}else{p=t.xy+forward*(1.3+age*2.6)+burst*(.22+f32(shard)*.07)+q*.13;}
+ }else if(weapon==3.){
+  let u=(f32(shard)+.65)/12.;let width=(.3+u*3.2)*(1.-age*.45);p=t.xy+forward*(len*u)+side*(burst.y*width)+q*(.22+u*.5);
+ }else if(weapon==4.){
+  let u=(f32(shard)+.5)/12.;let jitter=sin(u*39.+f32(ii)*2.1+age*17.)*(.35+sin(u*3.14159)*.95);p=t.xy+forward*(len*u)+side*jitter+forward*q.x*(len/21.)+side*q.y*.16;
+ }else if(weapon==5.){
+  let lane=f32(shard%3u)-1.;let travel=min(1.,age*1.7);let center=mix(t.xy,aim+side*lane*2.1,travel);if(shard<3u){p=center+forward*q.x*.9+side*q.y*.34;}else{let trail=fract(f32(shard)*.381);p=mix(t.xy,center,trail)+side*(lane+sin(seed)*.45)+q*(.18+.22*age);}
+ }else if(weapon==6.){
+  if(shard==0u){p=t.xy+forward*((q.x+1.)*.5*len)+side*q.y*.16;}else{p=aim+burst*(.4+f32(shard)*.22)+q*.14;}
+ }else{
+  let u=(f32(shard)+.6)/12.;let spread=(.35+u*3.4)*sin(seed+age*4.);p=t.xy+forward*(len*u*.82)+side*spread+q*(.32+u*1.05);
+ }
+ var o:Out;o.pos=vec4(clip(p),0.,1.);o.local=q;o.kind=kind;o.age=age;o.shard=f32(shard);o.weapon=weapon;return o;
+}
+fn weaponColor(w:f32)->vec3<f32>{if(w<.5){return vec3(.52,1.,.24);}if(w<1.5){return vec3(.93,.48,.12);}if(w<2.5){return vec3(1.,.86,.3);}if(w<3.5){return vec3(.35,.88,1.);}if(w<4.5){return vec3(.68,.42,1.);}if(w<5.5){return vec3(1.,.22,.055);}if(w<6.5){return vec3(.28,1.,.79);}return vec3(1.,.3,.035);}
+@fragment fn fs(i:Out)->@location(0) vec4<f32>{
+ if(i.age>1.){discard;}let d=length(i.local);let fade=(1.-i.age)*(1.-i.age);var col=weaponColor(i.weapon);var a=0.;
+ if(i.weapon<.5){a=(1.-smoothstep(.36,1.,d))*fade*(.9-.035*i.shard);if(i.shard==0.){a*=smoothstep(.22,.72,d);}}
+ else if(i.weapon<1.5){if(i.shard==0.&&i.age<.66){a=1.-smoothstep(.55,1.,d);col=mix(vec3(.18,.13,.09),col,smoothstep(.68,1.,d));}else{a=(1.-smoothstep(.18,1.,d))*smoothstep(.05,.38,d)*smoothstep(.5,.64,i.age)*(1.-i.age);}}
+ else if(i.weapon<2.5){a=(1.-smoothstep(.18,1.,abs(i.local.y)))*fade;if(i.shard==0.){col=mix(vec3(1.),col,.35);}}
+ else if(i.weapon<3.5){a=(1.-smoothstep(.25,1.,d))*fade*(.35+.65*fract(sin(i.shard*19.7)*91.3));col=mix(col,vec3(1.),.28);}
+ else if(i.weapon<4.5){a=(1.-smoothstep(.12,1.,abs(i.local.y)))*fade*(.65+.35*sin(i.local.x*24.+i.shard));col=mix(col,vec3(1.),.48);}
+ else if(i.weapon<5.5){a=(1.-smoothstep(.28,1.,d))*fade;if(i.shard<3.){a=1.-smoothstep(.38,1.,max(abs(i.local.x),d*.7));col=mix(vec3(1.,.72,.18),col,.55);}else{col=vec3(.34,.3,.27);a*=.42;}}
+ else if(i.weapon<6.5){a=(1.-smoothstep(.18,1.,abs(i.local.y)))*fade;if(i.shard==0.){a*=1.35;col=mix(col,vec3(1.),.62);}}
+ else{let flicker=.58+.42*sin(i.local.y*9.+i.shard*2.7+i.age*23.);a=(1.-smoothstep(.32,1.,d))*fade*flicker;col=mix(vec3(1.,.92,.18),col,smoothstep(.05,.9,d));}
+ return vec4(col,max(0.,a));
+}`});
   const bgModule=device.createShaderModule({code:`
 struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group(0) @binding(0) var<uniform> camera:Camera;
 @vertex fn vs(@builtin(vertex_index) v:u32)->@builtin(position) vec4<f32>{let p=array<vec2<f32>,3>(vec2(-1,-1),vec2(3,-1),vec2(-1,3));return vec4(p[v],0,1);}
@@ -95,7 +128,7 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
     if(scene.boss){const c: [number,number,number,number]=scene.boss.phase===2?[1,.15,.04,.95]:scene.boss.phase===1?[.9,.72,.2,.95]:[.55,.78,1,.95];ring(a,scene.boss.x,scene.boss.y,2.5,c,.55);rect(a,scene.boss.x-3,scene.boss.y-4,6*Math.max(0,scene.boss.health/scene.boss.maxHealth),.45,c);}
     const capped=a.slice(0,MAX_OVERLAY_VERTICES); const data=new Float32Array(capped.length*6);capped.forEach((v,i)=>data.set([v.x,v.y,v.r,v.g,v.b,v.a],i*6));return data;
   }
-  return { encode(encoder,scene){resize(); const v=view(); const u=new Float32Array([pixelW,pixelH,0,0,camera.x,camera.y,v.width,v.height,scene.time,scene.heatmap?1:0,0,0,0,0,0,0]);device.queue.writeBuffer(uniform,0,u);const visual=new Float32Array(Math.max(1,Math.min(MAX_TOWERS,scene.towers.length))*4),weaponKinds=['repulsor','mortar','autocannon','cryo','tesla','rocket','railgun'];scene.towers.slice(0,MAX_TOWERS).forEach((t,i)=>visual.set([t.x,t.y,t.id,towerBehavior(t.kind)+weaponKinds.indexOf(t.kind)/100],i*4));device.queue.writeBuffer(towerVisuals,0,visual);const data=geometry(scene);if(data.byteLength)device.queue.writeBuffer(overlays,0,data.buffer,data.byteOffset,data.byteLength);const pass=encoder.beginRenderPass({colorAttachments:[{view:context.getCurrentTexture().createView(),clearValue:{r:.075,g:.075,b:.078,a:1},loadOp:'clear',storeOp:'store'}]});pass.setPipeline(bg);pass.setBindGroup(0,cameraBG);pass.draw(3);pass.setPipeline(overlay);pass.setBindGroup(0,cameraOverlay);pass.setVertexBuffer(0,overlays);pass.draw(data.length/6);pass.setPipeline(particles);pass.setBindGroup(0,cameraParticles);pass.draw(48,Math.min(scene.count,shared.capacity));if(shared.shotState){pass.setPipeline(cues);pass.setBindGroup(0,cameraCues);pass.draw(72,Math.min(MAX_TOWERS,scene.towers.length));}pass.end(); },
+  return { encode(encoder,scene){resize(); const v=view(); const u=new Float32Array([pixelW,pixelH,0,0,camera.x,camera.y,v.width,v.height,scene.time,scene.heatmap?1:0,0,0,0,0,0,0]);device.queue.writeBuffer(uniform,0,u);const visual=new Float32Array(Math.max(1,Math.min(MAX_TOWERS,scene.towers.length))*4),weaponKinds=['repulsor','mortar','autocannon','cryo','tesla','rocket','railgun','incinerator'];scene.towers.slice(0,MAX_TOWERS).forEach((t,i)=>visual.set([t.x,t.y,t.id,towerBehavior(t.kind)+weaponKinds.indexOf(t.kind)/100],i*4));device.queue.writeBuffer(towerVisuals,0,visual);const data=geometry(scene);if(data.byteLength)device.queue.writeBuffer(overlays,0,data.buffer,data.byteOffset,data.byteLength);const pass=encoder.beginRenderPass({colorAttachments:[{view:context.getCurrentTexture().createView(),clearValue:{r:.075,g:.075,b:.078,a:1},loadOp:'clear',storeOp:'store'}]});pass.setPipeline(bg);pass.setBindGroup(0,cameraBG);pass.draw(3);pass.setPipeline(overlay);pass.setBindGroup(0,cameraOverlay);pass.setVertexBuffer(0,overlays);pass.draw(data.length/6);pass.setPipeline(particles);pass.setBindGroup(0,cameraParticles);pass.draw(48,Math.min(scene.count,shared.capacity));if(shared.shotState){pass.setPipeline(cues);pass.setBindGroup(0,cameraCues);pass.draw(72,Math.min(MAX_TOWERS,scene.towers.length));}pass.end(); },
     screenToWorld,
     worldToScreen,
     pan(dx,dy){camera.x+=dx;camera.y+=dy;clampCamera();},
