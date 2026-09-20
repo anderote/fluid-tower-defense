@@ -112,21 +112,22 @@ test('moving a tower does not charge for invalid locations',()=>{
   assert.equal(run.move(first.tower.id,{x:80,y:42}).ok,false);
   assert.equal(run.model.metal,before);
 });
-test('player-built walls support a compact turret pair and preserve it in saves',()=>{
-  const wall={x:32,y:20,width:4,height:4},mounts=wallMountCells([wall]),map={...DEFAULT_MAP,id:'wall-mount-test',obstacles:[...DEFAULT_MAP.obstacles,wall]};
+test('linked player-built walls support three turrets per pair and preserve them in saves',()=>{
+  const walls=[{x:32,y:20,width:4,height:4},{x:32,y:24,width:4,height:4}],mounts=wallMountCells(walls),map={...DEFAULT_MAP,id:'wall-mount-test',obstacles:[...DEFAULT_MAP.obstacles,...walls]};
   const run=createRun(map);run.setBuildMounts(mounts);
-  const placed=run.place('repulsor',{x:33.2,y:21.5});
-  assert.ok(placed.ok&&placed.tower);assert.deepEqual({x:placed.tower.x,y:placed.tower.y},{x:33.25,y:21.35});
-  assert.equal(run.place('autocannon',{x:34.8,y:21.5}).ok,true);
+  const placed=run.place('repulsor',{x:34,y:21.5});
+  assert.ok(placed.ok&&placed.tower);assert.deepEqual({x:placed.tower.x,y:placed.tower.y},{x:34,y:21.35});
+  assert.equal(run.place('autocannon',{x:34,y:23.4}).ok,true);
+  assert.equal(run.place('mortar',{x:34,y:25.4}).ok,true);
   const restored=createRun(map);restored.setBuildMounts(mounts);
-  assert.equal(restored.load(run.save()).ok,true);assert.deepEqual({x:restored.model.towers[0].x,y:restored.model.towers[0].y},{x:33.25,y:21.35});
+  assert.equal(restored.load(run.save()).ok,true);assert.deepEqual({x:restored.model.towers[0].x,y:restored.model.towers[0].y},{x:34,y:21.35});
 });
 test('starting indestructible walls support mounted towers and preserve them in saves',()=>{
   const mounts=wallMountCells(DEFAULT_MAP.obstacles),run=createRun();run.setBuildMounts(mounts);
-  const placed=run.place('repulsor',{x:50.7,y:21.4});
-  assert.ok(placed.ok&&placed.tower);assert.deepEqual({x:placed.tower.x,y:placed.tower.y},{x:50.75,y:21.35});
+  const target=mounts[0],position={x:target.x+target.width/2,y:target.y+target.height/2},placed=run.place('repulsor',position);
+  assert.ok(placed.ok&&placed.tower);assert.deepEqual({x:placed.tower.x,y:placed.tower.y},position);
   const restored=createRun();restored.setBuildMounts(mounts);
-  assert.equal(restored.load(run.save()).ok,true);assert.deepEqual({x:restored.model.towers[0].x,y:restored.model.towers[0].y},{x:50.75,y:21.35});
+  assert.equal(restored.load(run.save()).ok,true);assert.deepEqual({x:restored.model.towers[0].x,y:restored.model.towers[0].y},position);
 });
 test('difficulty multiplier scales continuous zombie production and clamps to 1–40',()=>{
   const baseline=createRun(), intense=createRun();

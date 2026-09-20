@@ -22,29 +22,51 @@ export function restoreSessionTerrain(
 }
 
 /**
- * Lay out two compact hardpoints across each 4 × 4 wall cap.  The cap is seen
- * at an angle, so its usable surface is visually higher than the centre of
- * the tile; keeping the mounts toward its top edge makes a defense read as
- * sitting on the wall rather than against its front face.
+ * Give every wall cell one stable cap hardpoint. Connected pairs share one
+ * additional hardpoint between them, yielding three mounts per two tiles.
+ * Pairing follows the component's main axis so vertical walls mount turrets
+ * down their centreline instead of squeezing them side by side.
  */
 export function wallMountCells(walls:readonly Rect[],size=4):Rect[] {
   if(!Number.isFinite(size)||size<=0)return [];
-  const cells:Rect[]=[],seen=new Set<string>();
+  const cells=new Map<string,{x:number;y:number}>();
   for(const wall of walls){
     const columns=Math.floor(wall.width/size),rows=Math.floor(wall.height/size);
     for(let row=0;row<rows;row++)for(let column=0;column<columns;column++){
       const x=wall.x+column*size,y=wall.y+row*size;
-      // 1.5 units keeps adjacent emplacements compact without becoming a
-      // single unreadable sprite cluster.  A mount is a point-sized Rect so
-      // the existing save/build API can continue carrying Rect values.
-      for(const offsetX of [1.25,2.75]){
-        const cell={x:x+offsetX-.01,y:y+1.35-.01,width:.02,height:.02};
-        const key=`${cell.x}:${cell.y}`;
-        if(!seen.has(key)){seen.add(key);cells.push(cell);}
-      }
+      cells.set(`${x}:${y}`,{x,y});
     }
   }
-  return cells;
+  const mounts:Rect[]=[],visited=new Set<string>(),point=(x:number,y:number)=>mounts.push({x:x-.01,y:y-.01,width:.02,height:.02});
+  for(const [key,start] of cells){
+    if(visited.has(key))continue;
+    const component:{x:number;y:number}[]=[],queue=[start];visited.add(key);
+    while(queue.length){
+      const cell=queue.pop()!;component.push(cell);
+      for(const [dx,dy] of [[size,0],[-size,0],[0,size],[0,-size]]){
+        const nextKey=`${cell.x+dx}:${cell.y+dy}`,next=cells.get(nextKey);
+        if(next&&!visited.has(nextKey)){visited.add(nextKey);queue.push(next);}
+      }
+    }
+    const minX=Math.min(...component.map(cell=>cell.x)),maxX=Math.max(...component.map(cell=>cell.x));
+    const minY=Math.min(...component.map(cell=>cell.y)),maxY=Math.max(...component.map(cell=>cell.y));
+    const vertical=maxY-minY>maxX-minX,paired=new Set<string>();
+    const ordered=[...component].sort((a,b)=>vertical?a.x-b.x||a.y-b.y:a.y-b.y||a.x-b.x);
+    // The base mount never moves when a neighbor is added or removed.
+    for(const cell of ordered)point(cell.x+size/2,cell.y+size*.3375);
+    if(component.length<2)continue;
+    for(const cell of ordered){
+      const cellKey=`${cell.x}:${cell.y}`;
+      if(paired.has(cellKey))continue;
+      const next=vertical?cells.get(`${cell.x}:${cell.y+size}`):cells.get(`${cell.x+size}:${cell.y}`);
+      if(!next)continue;
+      const nextKey=`${next.x}:${next.y}`;
+      if(paired.has(nextKey)||!component.includes(next))continue;
+      paired.add(cellKey);paired.add(nextKey);
+      point(vertical?cell.x+size/2:cell.x+size,vertical?cell.y+size*.8375:cell.y+size*.3375);
+    }
+  }
+  return mounts;
 }
 
 /** Scenery is solid, but trees, houses and cliffs are not turret foundations. */
