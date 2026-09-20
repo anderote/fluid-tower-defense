@@ -22,6 +22,7 @@ import { createRun, STARTING_METAL } from '../game/index.ts';
 import { COUNTER_WORDS, DEFAULT_TUNING, PARTICLE_FLOATS, type UIState, type GameAction, type Effect, type Vec2, type Rect, type Settlement, type VisualParticle, type VisualParticleStyle, type WorldMap, type HeavyProjectile, type HeavyExplosion } from '../contracts/index.ts';
 import {ShotEventReader} from '../runtime/shot-events.ts';
 import {advanceHeavyProjectiles,createHeavyProjectiles,type HeavyImpact} from '../effects/heavy-weapons.ts';
+import {turretMuzzlePoint} from '../render/turret-art.ts';
 
 const root=document.querySelector<HTMLElement>('#app')!;
 const params=new URLSearchParams(location.search);
@@ -181,23 +182,25 @@ try {
  const shotReader=new ShotEventReader(gpu.device,events=>{
    for(const event of events){
      const tower=run.model.towers.find(candidate=>candidate.id===event.towerId);if(!tower)continue;
+     tower.angle=(event.angle+Math.PI*2)%(Math.PI*2);
      audio.fire(tower.kind,tower.x,event.serial);
      if(tower.kind==='mortar'||tower.kind==='rocket'){
-       heavyProjectiles.push(...createHeavyProjectiles(tower.kind,tower,event.target,event.serial));
+       heavyProjectiles.push(...createHeavyProjectiles(tower.kind,turretMuzzlePoint(tower.kind,tower,event.angle),event.target,event.serial));
        if(heavyProjectiles.length>48)heavyProjectiles.splice(0,heavyProjectiles.length-48);
        continue;
      }
      if(tower.kind!=='autocannon'&&tower.kind!=='railgun')continue;
      const forward={x:Math.cos(event.angle),y:Math.sin(event.angle)},side={x:-forward.y,y:forward.x};
      const flip=event.serial%2?1:-1,speed=tower.kind==='railgun'?7.2:5.4,heavy=tower.kind==='railgun';
-     if(visualParticles.length<520)visualParticles.push({x:tower.x+forward.x*1.25+side.x*.35*flip,y:tower.y+forward.y*1.25+side.y*.35*flip,vx:side.x*speed*flip-forward.x*1.4,vy:side.y*speed*flip-forward.y*1.4,size:heavy ? .42 : .3,life:heavy ? .92 : .72,age:0,color:heavy?[.78,.57,.24]:[.9,.7,.27],gravity:7.5,drag:.42,style:'shell',spin:(flip*(heavy?12:18))});
+     const muzzle=turretMuzzlePoint(tower.kind,tower,event.angle);
+     if(visualParticles.length<520)visualParticles.push({x:muzzle.x-forward.x*.55+side.x*.35*flip,y:muzzle.y-forward.y*.55+side.y*.35*flip,vx:side.x*speed*flip-forward.x*1.4,vy:side.y*speed*flip-forward.y*1.4,size:heavy ? .42 : .3,life:heavy ? .92 : .72,age:0,color:heavy?[.78,.57,.24]:[.9,.7,.27],gravity:7.5,drag:.42,style:'shell',spin:(flip*(heavy?12:18))});
      audio.shell(tower.x,event.serial,heavy);
      burst(event.target,heavy?10:6,heavy?[.46,1,.82]:[1,.7,.18],heavy?10:7,heavy ? .32 : .22,2,'spark',heavy?1.2:.8);
-     burst({x:tower.x+forward.x*1.9,y:tower.y+forward.y*1.9},2,[.24,.22,.18],2.2,.52,-.7,'smoke',heavy?1.15:.8);
+     burst(muzzle,2,[.24,.22,.18],2.2,.52,-.7,'smoke',heavy?1.15:.8);
    }
  },error=>errors.push(`shot readback: ${String(error)}`));
- const placeWall=(wall:Rect)=>{const existing=builtWalls.find(candidate=>candidate.x===wall.x&&candidate.y===wall.y);if(existing){if(existing.health>=existing.maxHealth){state.message='Metal wall is already at full integrity.';return;}const result=run.spendMetal(60);if(!result.ok){state.message=result.reason??'Could not reinforce wall.';return;}existing.health=existing.maxHealth;state.message='Metal wall reinforced to full integrity.';return;}const candidate={...map,obstacles:[...map.obstacles,wall]};const issue=validateEditorMap(candidate);if(issue){state.message=issue;return;}const result=run.spendMetal(60);if(!result.ok){state.message=result.reason??'Could not build wall.';return;}const capacity=wallCapacity(0);builtWalls.push({...wall,health:capacity,maxHealth:capacity});map=candidate;navigation=buildNavigation(map);run.setMap(map);run.setBuildMounts(builtWalls);state.message='Metal wall installed. Turrets snap to its center.';};
- const placeWire=(wire:Rect)=>{if(builtWires.some(existing=>existing.x===wire.x&&existing.y===wire.y))return;const candidate={...map,obstacles:[...map.obstacles,wire]};const issue=validateEditorMap(candidate);if(issue){state.message=issue;return;}const result=run.spendMetal(45);if(!result.ok){state.message=result.reason??'Could not place wire.';return;}const stats=barbedWireStats(run.model.commandUpgrades),placed={...wire,health:stats.durability,maxHealth:stats.durability,breached:false};builtWires.push(placed);map=candidate;navigation=buildNavigation(map);run.setMap(map);state.message='Barbed wire installed. It restrains until swarm pressure forces a breach.';};
+ const placeWall=(wall:Rect)=>{const existing=builtWalls.find(candidate=>candidate.x===wall.x&&candidate.y===wall.y);if(existing){if(existing.health>=existing.maxHealth){state.message='Metal wall is already at full integrity.';return;}const result=run.spendMetal(60);if(!result.ok){state.message=result.reason??'Could not reinforce wall.';return;}existing.health=existing.maxHealth;state.message='Metal wall reinforced to full integrity.';return;}const capacity=wallCapacity(0),builtWall={...wall,health:capacity,maxHealth:capacity},candidate={...map,obstacles:[...map.obstacles,builtWall]};const issue=validateEditorMap(candidate);if(issue){state.message=issue;return;}const result=run.spendMetal(60);if(!result.ok){state.message=result.reason??'Could not build wall.';return;}builtWalls.push(builtWall);map=candidate;navigation=buildNavigation(map);run.setMap(map);run.setBuildMounts(builtWalls);state.message='Metal wall installed. Turrets snap to its center.';};
+ const placeWire=(wire:Rect)=>{if(builtWires.some(existing=>existing.x===wire.x&&existing.y===wire.y))return;const stats=barbedWireStats(run.model.commandUpgrades),placed={...wire,health:stats.durability,maxHealth:stats.durability,breached:false},candidate={...map,obstacles:[...map.obstacles,placed]};const issue=validateEditorMap(candidate);if(issue){state.message=issue;return;}const result=run.spendMetal(45);if(!result.ok){state.message=result.reason??'Could not place wire.';return;}builtWires.push(placed);map=candidate;navigation=buildNavigation(map);run.setMap(map);state.message='Barbed wire installed. It restrains until swarm pressure forces a breach.';};
  const demolishAt=(point:Vec2)=>{const wall=builtWalls.find(candidate=>point.x>=candidate.x&&point.x<candidate.x+candidate.width&&point.y>=candidate.y&&point.y<candidate.y+candidate.height);if(wall){removeWall(point);return;}const wire=builtWires.find(candidate=>point.x>=candidate.x&&point.x<candidate.x+candidate.width&&point.y>=candidate.y&&point.y<candidate.y+candidate.height);if(wire){removeWire(point);return;}state.message='Only player-built Metal Walls and Barbed Wire can be demolished.';};
  ui.canvas.addEventListener('pointermove',event=>{pointer=renderer.screenToWorld(event.clientX,event.clientY);if(editor.active&&event.buttons)editor.paint(pointer,event.buttons&2?true:undefined);if((wallTool||wireTool)&&(event.buttons&2))(wallTool?removeWall:removeWire)(pointer);if(wallTool&&(event.buttons&1))placeWall(wallAt(pointer));if(wireTool&&(event.buttons&1)){const wire=wallAt(pointer);if(!builtWires.some(w=>w.x===wire.x&&w.y===wire.y))placeWire(wire);}});
  const removeWall=(point:Vec2)=>{const index=builtWalls.findIndex(w=>point.x>=w.x&&point.x<w.x+w.width&&point.y>=w.y&&point.y<w.y+w.height);if(index<0)return;const wall=builtWalls[index],center={x:wall.x+wall.width/2,y:wall.y+wall.height/2};if(run.model.towers.some(tower=>Math.hypot(tower.x-center.x,tower.y-center.y)<.01)){state.message='Sell the mounted turret before removing this wall.';return;}builtWalls.splice(index,1);removeStructuresFromMap([wall]);run.refundMetal(30);state.message='Metal wall recovered for 30 Metal.';};

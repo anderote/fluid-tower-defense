@@ -2,8 +2,9 @@ import type {Rect, Tower, Vec2, WorldMap} from '../contracts/index.ts';
 import {validateEditorMap} from '../editor/index.ts';
 
 export function clearPlayerTerrain(map:WorldMap,walls:readonly Rect[],wires:readonly Rect[]):WorldMap {
-  const playerStructures=new Set([...walls,...wires]);
-  return {...map,obstacles:map.obstacles.filter(obstacle=>!playerStructures.has(obstacle))};
+  const playerStructures=[...walls,...wires];
+  const sameRect=(left:Rect,right:Rect)=>left.x===right.x&&left.y===right.y&&left.width===right.width&&left.height===right.height;
+  return {...map,obstacles:map.obstacles.filter(obstacle=>!playerStructures.some(structure=>sameRect(obstacle,structure)))};
 }
 
 export function snapToMount(point:Vec2,mounts:readonly Rect[]):Vec2 {
