@@ -318,8 +318,8 @@ export function createUI(
             ? {label: "EXTRACTION READY", reason: "Choose Continue in the sidebar to prepare the next wave, or Finish Run to extract."}
             : s.phase === "won"
               ? {label: "RUN COMPLETE", reason: "Run complete. Use Reset in the Build controls to begin another defense."}
-              : s.phase === "lost"
-                ? {label: "BASE LOST", reason: "The base was lost. Use Restart in the Build controls to retry with your defenses."}
+            : s.phase === "lost"
+                ? {label: "RESTART WAVE", reason: "", action: "restart-wave" as const}
                 : s.paused
                   ? {label: "WAVE PAUSED", reason: "This wave is paused. Use Resume in the top bar or press Space to continue."}
                   : {label: "WAVE ACTIVE", reason: "A wave is already running. Clear the remaining horde before starting the next wave."};
