@@ -56,6 +56,9 @@ const PI: f32 = 3.141592653589793;
 const MAX_FORCE: f32 = 90.0;
 const MAX_SPEED: f32 = 30.0;
 const MAX_DISPLACEMENT: f32 = 0.24;
+const OBSTACLE_CONTACT_COUNTER_OFFSET: u32 = 80u;
+const OBSTACLE_PACKING_COUNTER_OFFSET: u32 = 144u;
+const OBSTACLE_PRESSURE_COUNTER_OFFSET: u32 = 208u;
 
 fn finite1(v: f32) -> bool { return v == v && abs(v) < 1e20; }
 fn finite2(v: vec2<f32>) -> bool { return finite1(v.x) && finite1(v.y); }
@@ -189,6 +192,18 @@ fn measureDensity(@builtin(global_invocation_id) gid: vec3<u32>) {
   particles[index].state.y = pressure;
   atomicMax(&counters[6], u32(packing * 1000.0));
   atomicMax(&counters[14], u32(pressure * 100.0));
+  if (params.substepIndex == 0u) {
+    let radius = safeRadius(particle.body.x);
+    for (var obstacleIndex = 0u; obstacleIndex < params.obstacleCount; obstacleIndex += 1u) {
+      let rect = obstacles[obstacleIndex].rect;
+      let nearest = clamp(particle.pos.xy, rect.xy, rect.xy + rect.zw);
+      if (distance(particle.pos.xy, nearest) <= radius + 0.18) {
+        atomicAdd(&counters[OBSTACLE_CONTACT_COUNTER_OFFSET + obstacleIndex], 1u);
+        atomicMax(&counters[OBSTACLE_PACKING_COUNTER_OFFSET + obstacleIndex], u32(packing * 1000.0));
+        atomicMax(&counters[OBSTACLE_PRESSURE_COUNTER_OFFSET + obstacleIndex], u32(pressure * 100.0));
+      }
+    }
+  }
 }
 
 fn effectImpulse(position: vec2<f32>, mass: f32) -> vec2<f32> {

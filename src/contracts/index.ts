@@ -21,9 +21,14 @@ export const PARTICLE_FLOATS = 16;
 export const PARTICLE_BYTES = PARTICLE_FLOATS * 4;
 export const MAX_EFFECTS = 64;
 export const MAX_OBSTACLES = 64;
+export const MAX_TOWERS = 64;
+export const TOWER_KILL_COUNTER_OFFSET = 16;
+export const OBSTACLE_CONTACT_COUNTER_OFFSET = TOWER_KILL_COUNTER_OFFSET + MAX_TOWERS;
+export const OBSTACLE_PACKING_COUNTER_OFFSET = OBSTACLE_CONTACT_COUNTER_OFFSET + MAX_OBSTACLES;
+export const OBSTACLE_PRESSURE_COUNTER_OFFSET = OBSTACLE_PACKING_COUNTER_OFFSET + MAX_OBSTACLES;
 // The first 16 words are global settlement telemetry. The remaining words are
-// per-active-tower kill totals, written by combat on the GPU.
-export const COUNTER_WORDS = 16 + 64;
+// per-tower kill totals followed by local obstacle contact, packing, and pressure telemetry.
+export const COUNTER_WORDS = OBSTACLE_PRESSURE_COUNTER_OFFSET + MAX_OBSTACLES;
 // Shared packed layout: four vec4<f32>. All fields are floats, including kind/alive.
 // pos=(x,y,vx,vy), body=(radius,mass,hp,maxHp), state=(packing,pressure,kind,alive), status=(slowRemaining,brittleRemaining,crushExposure,generation).
 export const PARTICLE_WGSL = `struct Particle { pos: vec4<f32>, body: vec4<f32>, state: vec4<f32>, status: vec4<f32> };`;
@@ -32,10 +37,9 @@ export const P = { x:0,y:1,vx:2,vy:3,radius:4,mass:5,hp:6,maxHp:7,packing:8,pres
 export interface SharedGPU { particles: GPUBuffer; counters: GPUBuffer; capacity: number; shotState?: GPUBuffer; bossState?: GPUBuffer }
 export interface PhysicsFrame { dt: number; tick: number; count: number; map: WorldMap; effects: readonly Effect[]; tuning: Tuning; navigation?: NavigationField; lab: boolean }
 export interface PhysicsModule { encode(encoder: GPUCommandEncoder, frame: PhysicsFrame): void; reset(): void; destroy(): void }
-export interface Settlement { epoch: number; tick: number; kills: number; crushKills: number; leaks: number; earned: number; live: number; invalid: number; maxPacking: number; maxPressure?:number; towerKills?:readonly number[]; boss?:{x:number;y:number;health:number;maxHealth:number;phase:number;active:boolean} }
-// counters: cumulative kills, crush kills, leaks (base damage), earned, current live, invalid,
-// max packing*1000, boss telemetry at 7..13, max pressure*100 at 14, then tower kills at 16+.
-export interface RenderScene { count: number; time: number; map: WorldMap; towers: readonly Tower[]; effects: readonly Effect[]; visualParticles?: readonly VisualParticle[]; wires?: readonly (Rect & {health:number;maxHealth:number;breached:boolean})[]; heatmap: boolean; selection: number | null; ghost?: Vec2 & {kind: TowerKind; valid: boolean; range:number}; wallGhost?: Rect & {valid:boolean}; boss?: Vec2 & {health:number;maxHealth:number;phase:number} }
+export interface Settlement { epoch: number; tick: number; kills: number; crushKills: number; leaks: number; earned: number; live: number; invalid: number; maxPacking: number; maxPressure?:number; towerKills?:readonly number[]; obstacleContacts?:readonly number[]; obstaclePacking?:readonly number[]; obstaclePressure?:readonly number[]; boss?:{x:number;y:number;health:number;maxHealth:number;phase:number;active:boolean} }
+// Counters 0..15 hold global and boss telemetry; the remaining ranges hold tower and obstacle telemetry.
+export interface RenderScene { count: number; time: number; map: WorldMap; towers: readonly Tower[]; effects: readonly Effect[]; visualParticles?: readonly VisualParticle[]; walls?: readonly (Rect & {health:number;maxHealth:number})[]; wires?: readonly (Rect & {health:number;maxHealth:number;breached:boolean})[]; heatmap: boolean; selection: number | null; ghost?: Vec2 & {kind: TowerKind; valid: boolean; range:number}; wallGhost?: Rect & {valid:boolean}; placementGhost?: Rect & {kind:'wall'|'wire';valid:boolean}; boss?: Vec2 & {health:number;maxHealth:number;phase:number} }
 export interface Renderer { encode(encoder: GPUCommandEncoder, scene: RenderScene): void; screenToWorld(clientX:number,clientY:number):Vec2; worldToScreen(x:number,y:number):Vec2; pan(dx:number,dy:number):void; zoomAt(factor:number,clientX:number,clientY:number):void; destroy():void }
 export type GameAction = {type:'mode';mode:'lab'|'game'} | {type:'pause'} | {type:'restart-wave'} | {type:'new-game'} | {type:'start-wave'} | {type:'select-tower';kind:TowerKind|null} | {type:'wall-tool'} | {type:'wire-tool'} | {type:'upgrade';branch:number} | {type:'buy-command';id:string} | {type:'buy-meta';id:string} | {type:'sell'} | {type:'difficulty';value:number} | {type:'heatmap';value:boolean} | {type:'population';value:number} | {type:'tool';tool:'blast'|'push'|'inspect'} | {type:'bonus';id:string};
 export interface BonusChoice { id:string; name:string; description:string }
