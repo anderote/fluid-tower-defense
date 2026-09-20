@@ -8,10 +8,12 @@ test('wall engineering has diminishing returns across 20 levels',()=>{
   assert.ok(wallCapacity(20)>wallCapacity(0));
 });
 test('walls only fatigue under meaningful contacted pressure',()=>{
+  assert.equal(BASE_WALL_DURABILITY,2_880);
+  assert.equal(BASE_WALL_PRESSURE_RESISTANCE,90);
   assert.equal(wallCapacity(0),BASE_WALL_DURABILITY);
   assert.equal(wallFatigueIncrement(BASE_WALL_PRESSURE_RESISTANCE,1,1,0),0);
   assert.equal(wallFatigueIncrement(80,0,1,0),0);
-  assert.ok(wallFatigueIncrement(80,1,1,0)>wallFatigueIncrement(80,1,1,10));
+  assert.ok(wallFatigueIncrement(100,1,1,0)>wallFatigueIncrement(100,1,1,10));
   assert.equal(wallHealthAfterPressure(1,100,1,10,0),0);
 });
 test('base walls survive sustained pressure that previously destroyed them immediately',()=>{

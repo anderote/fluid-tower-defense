@@ -1,6 +1,6 @@
 export const MAX_WALL_ENGINEERING = 20;
-export const BASE_WALL_DURABILITY = 960;
-export const BASE_WALL_PRESSURE_RESISTANCE = 72;
+export const BASE_WALL_DURABILITY = 2_880;
+export const BASE_WALL_PRESSURE_RESISTANCE = 90;
 const WALL_FATIGUE_RATE = 0.006;
 
 /** Diminishing-return global wall technology: early ranks matter, late ranks refine. */
