@@ -1,6 +1,6 @@
 import {PARTICLE_WGSL,type SharedGPU} from '../contracts/index.ts';
 import {ELECTROCUTION_DURATION,ELECTROCUTION_FRAMES,TESLA_LINKS,TESLA_STATE_WGSL} from '../effects/tesla.ts';
-import type {TurretArtStyle} from './red-alert.ts';
+import {usesClassicDefenseSprite,type TurretArtStyle} from './red-alert.ts';
 
 const assetBase=(import.meta as ImportMeta&{env?:{BASE_URL?:string}}).env?.BASE_URL??'/';
 
@@ -27,6 +27,10 @@ fn clip(p:vec2f)->vec4f {let aspect=camera.viewport.x/max(1.,camera.viewport.y);
 fn quad(i:u32)->vec2f {let q=array<vec2f,6>(vec2f(-1,-1),vec2f(1,-1),vec2f(-1,1),vec2f(-1,1),vec2f(1,-1),vec2f(1,1));return q[i%6u];}
 fn hash(v:f32)->f32 {return fract(sin(v*127.1+311.7)*43758.5453);}
 `;
+  // The classic coil cap is substantially higher than the project's former
+  // directional model.  The bolt must leave that cap—not the center of the
+  // foundation—so its charge flash reads as a fixed Red Alert Tesla Coil.
+  const coilEmitterHeight=style==='red-alert'||usesClassicDefenseSprite('tesla')?-4.5:-1.45;
   const boltModule=device.createShaderModule({label:'Tesla continuous forked bolts and microblasts',code:common+`
 @group(0) @binding(3) var<storage,read> shots:array<TowerState>;
 @group(0) @binding(4) var<storage,read> towers:array<vec4f>;
@@ -46,7 +50,7 @@ fn boltPoint(a:vec2f,b:vec2f,u:f32,seed:f32)->vec2f {
  let age=max(0.,camera.time.x-(s.flags.z-1.)/60.);let q=quad(vi);let piece=vi/6u;
  var o:Out;o.pos=vec4f(2.,2.,0.,1.);o.local=q;o.color=vec4f(0.);o.mode=0.;
  if(round(fract(t.w)*100.)!=4.||s.flags.x!=t.z||s.flags.y<1.||link.z< -1.||age>.34){return o;}
- var a=t.xy+vec2f(0.,${style==='red-alert'?-4.5:-1.45});
+ var a=t.xy+vec2f(0.,${coilEmitterHeight});
  if(hop>0u){a=endpoint(electricity.links[instance-1u]);}
  let b=endpoint(link);let seed=f32(tower)*13.7+s.flags.y*31.+floor(age/.04)*7.;
  let fade=(1.-smoothstep(.04,.18,age))*pow(.86,f32(hop));

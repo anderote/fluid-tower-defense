@@ -43,14 +43,17 @@ export async function createFireEffects(device:GPUDevice,format:GPUTextureFormat
  let q=corner(vi);let shard=vi/6u;let smoke=shard>=24u;let k=f32(shard%24u);
  let age=fract(k/24.+elapsed*2.1);let seed=f32(i)*2.399+k*1.71;
  let angle=s.shot.w;let f=vec2(cos(angle),sin(angle));let side=vec2(-f.y,f.x);
- // Match the elevated Soldat barrel mouth, including baked facing quantization.
- let facing=floor(angle/.09817477042+.5)*.09817477042;
- let muzzle=t.xy+vec2(cos(facing),sin(facing))*2.16-vec2(0.,.5005);
- let range=max(1.,length(s.timing.zw-t.xy)-2.15);
+ // The Flame Tower is a fixed, top-down structure.  Start its jet at the
+ // raised furnace mouth rather than at the center of the old rotating model.
+ // The small forward offset keeps the first flame tongue clear of the sprite.
+ let muzzle=t.xy+f*1.18-vec2(0.,1.02);
+ let range=max(1.,length(s.timing.zw-t.xy)-1.18);
  let reach=min(range,2.+elapsed/max(.04,min(.52,s.timing.y*.95))*range*3.);let along=age*reach;
- let spread=sin(seed+floor(camera.time.x*14.)*.7)*(.12+age*1.35);
- let size=(.45+age*1.7)*select(1.,1.25,smoke);
- let center=muzzle+f*along+side*spread-vec2(0.,select(age*.45,age*1.8,smoke));
+ // Chunky, fast tongues retain the hot yellow core / orange edge of the
+ // original flame weapon instead of reading as a smooth modern particle cone.
+ let spread=sin(seed+floor(camera.time.x*12.)*.7)*(.1+age*1.12);
+ let size=(.38+age*1.45)*select(1.,1.18,smoke);
+ let center=muzzle+f*along+side*spread-vec2(0.,select(age*.32,age*1.55,smoke));
  let position=center+f*q.x*size*1.35+side*q.y*size;
  let fade=(1.-smoothstep(min(.52,s.timing.y*.95)*.55,min(.52,s.timing.y*.95),elapsed))*(1.-smoothstep(.78,1.,age));
  return output(position,q,fade,seed,select(0.,1.,smoke));
@@ -62,8 +65,10 @@ export async function createFireEffects(device:GPUDevice,format:GPUTextureFormat
  let age=fract(clock*(1.65+k*.09)+seed);
  let radius=max(.22,p.body.x);let scale=radius*select(1.,.65,p.state.w<0.);
  let life=min(1.,h.x*3.)*(1.-age*.7);
- let side=sin(seed+clock*5.)*scale*(.5+age);
- let base=p.pos.xy+vec2(side*select(1.,2.,ember),-scale*(1.+age*select(3.,7.,ember)));
+ // Burning infantry carry tight fire from boots to shoulders, plus sparse
+ // cinders and smoke; their body remains readable underneath the effect.
+ let side=sin(seed+clock*5.)*scale*(.36+age*.72);
+ let base=p.pos.xy+vec2(side*select(1.,1.7,ember),-scale*(.72+age*select(2.6,5.7,ember)));
  let trailing=-p.pos.zw*age*.06;
  let size=scale*select(.6+age*.55,.1,ember);
  let position=base+trailing+vec2(q.x*size,q.y*size*1.7);
