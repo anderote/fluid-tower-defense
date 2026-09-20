@@ -109,6 +109,7 @@ export async function runBossGPUChecks(device: GPUDevice, map: WorldMap): Promis
       damage: 50,
       force: 0,
       radius: 0.5,
+      peakPressureKpa: 180,
       color: '#fff',
       branches: ['A', 'B'],
     };
