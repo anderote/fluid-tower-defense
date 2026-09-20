@@ -247,7 +247,17 @@ export class RunController {
     this.model.phase=this.model.wave>=WAVES_PER_LEVEL?'checkpoint':'preparation';
     return {ok:true};
   }
-  continueRun():ActionResult {if(this.model.phase!=='checkpoint')return {ok:false,reason:'Extraction is not currently available.'};this.model.level=Math.floor(this.model.wave/WAVES_PER_LEVEL)+1;this.model.phase='preparation';return {ok:true};}
+  continueRun(nextMap?:WorldMap,structureRefund=0):ActionResult {
+    if(this.model.phase!=='checkpoint')return {ok:false,reason:'Extraction is not currently available.'};
+    const nextLevel=Math.floor(this.model.wave/WAVES_PER_LEVEL)+1;
+    if(nextMap&&(nextLevel===this.model.level||!isFiniteInteger(structureRefund)||structureRefund<0))return {ok:false,reason:'Relocation is only available at the next level boundary.'};
+    if(nextMap){
+      this.model.metal+=this.model.towers.reduce((sum,tower)=>sum+tower.spent,0)+structureRefund;
+      this.model.towers=[];this.model.selected=null;this.nextTowerId=1;this.map=nextMap;this.buildMounts=[];
+      this.runEpoch++;this.applied=emptyApplied();this.live=0;
+    }
+    this.model.level=nextLevel;this.model.phase='preparation';return {ok:true};
+  }
   finishRun():ActionResult {if(this.model.phase!=='checkpoint')return {ok:false,reason:'Survive ten waves before extracting.'};this.model.phase='won';return {ok:true};}
   chooseBonus(id:string):ActionResult {
     if (!this.model.bonusChoices.some(choice=>choice.id===id)) return {ok:false,reason:'That bonus is not available.'};

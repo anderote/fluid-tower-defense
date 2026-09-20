@@ -1,4 +1,5 @@
 import type { SharedGPU, WorldMap } from '../../contracts/index.ts';
+import {buildNavigation} from '../../navigation/index.ts';
 import {
   BOSS_BYTES,
   BOSS_HEALTH,
@@ -38,6 +39,7 @@ struct Params { clock: vec4<f32>, world: vec4<f32>, spawn: vec4<f32>, rules: vec
 @group(0) @binding(1) var<storage, read_write> bossState: Boss;
 @group(0) @binding(2) var<storage, read_write> particles: array<Particle>;
 @group(0) @binding(3) var<storage, read_write> counters: array<atomic<u32>>;
+@group(0) @binding(4) var<storage, read> route: array<vec2<f32>>;
 
 const PHASE_ADVANCE: u32 = 0u;
 const PHASE_BRACE: u32 = 1u;
@@ -89,7 +91,13 @@ fn advanceBoss() {
   }
 
   let goal = params.world.zw;
-  let direction = safeDirection(goal - boss.motion.xy);
+  var direction = safeDirection(goal - boss.motion.xy);
+  if(params.rules.w > 0.5){
+    let cell=vec2<u32>(clamp(floor(boss.motion.xy),vec2<f32>(0.0),params.rules.yz-vec2<f32>(1.0)));
+    let step=route[cell.y*u32(params.rules.y)+cell.x];
+    direction=vec2<f32>(0.0);
+    if(length(step)>0.01){direction=safeDirection(vec2<f32>(cell)+vec2<f32>(0.5)+step-boss.motion.xy);}
+  }
   var speed = 1.65;
   if (phase == PHASE_BRACE) { speed = 0.0; }
   if (phase == PHASE_CHARGE) { speed = 7.5; }
@@ -201,9 +209,9 @@ function packParams(frame: BossFrame): Float32Array {
     frame.map.spawn.width,
     frame.map.spawn.height,
     frame.map.goalRadius,
-    0,
-    0,
-    0,
+    Math.ceil(frame.map.width),
+    Math.ceil(frame.map.height),
+    frame.map.scenery ? 1 : 0,
   ]);
 }
 
@@ -219,6 +227,8 @@ export async function createBoss(device: GPUDevice, shared: SharedGPU): Promise<
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
   shared.bossState = buffer;
+  let routeBuffer=device.createBuffer({label:'Boss clearance-aware route',size:8,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
+  let routeBytes=8,routeObstacles:WorldMap['obstacles']|undefined,routeKey='';
 
   const module = device.createShaderModule({ label: 'Boss compute', code: BOSS_WGSL });
   const compilation = await module.getCompilationInfo();
@@ -226,6 +236,7 @@ export async function createBoss(device: GPUDevice, shared: SharedGPU): Promise<
   if (errors.length > 0) {
     buffer.destroy();
     uniforms.destroy();
+    routeBuffer.destroy();
     if (shared.bossState === buffer) shared.bossState = undefined;
     throw new Error(`Boss shader compilation failed:\n${errors.map((message) => `${message.lineNum}:${message.linePos} ${message.message}`).join('\n')}`);
   }
@@ -237,6 +248,7 @@ export async function createBoss(device: GPUDevice, shared: SharedGPU): Promise<
       { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
       { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
       { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
+      { binding: 4, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } },
     ],
   });
   const pipelineLayout = device.createPipelineLayout({ label: 'Boss pipeline layout', bindGroupLayouts: [layout] });
@@ -245,7 +257,7 @@ export async function createBoss(device: GPUDevice, shared: SharedGPU): Promise<
     device.createComputePipelineAsync({ label: 'Boss particle contacts', layout: pipelineLayout, compute: { module, entryPoint: 'pushParticles' } }),
     device.createComputePipelineAsync({ label: 'Resolve boss', layout: pipelineLayout, compute: { module, entryPoint: 'resolveBoss' } }),
   ]);
-  const bindGroup = device.createBindGroup({
+  const makeBindGroup = () => device.createBindGroup({
     label: 'Boss bind group',
     layout,
     entries: [
@@ -253,8 +265,10 @@ export async function createBoss(device: GPUDevice, shared: SharedGPU): Promise<
       { binding: 1, resource: { buffer } },
       { binding: 2, resource: { buffer: shared.particles } },
       { binding: 3, resource: { buffer: shared.counters } },
+      { binding: 4, resource: { buffer: routeBuffer } },
     ],
   });
+  let bindGroup=makeBindGroup();
 
   let generation = 0;
   let destroyed = false;
@@ -278,6 +292,15 @@ export async function createBoss(device: GPUDevice, shared: SharedGPU): Promise<
     encode(encoder: GPUCommandEncoder, frame: BossFrame): void {
       if (destroyed) throw new Error('Cannot encode with a destroyed boss module.');
       validateFrame(frame, shared.capacity);
+      if(frame.active&&frame.map.scenery){
+        const map=frame.map,key=[map.width,map.height,map.goal.x,map.goal.y].join(',');
+        if(routeObstacles!==map.obstacles||routeKey!==key){
+          const margin=BOSS_RADIUS+1;
+          const field=buildNavigation({...map,obstacles:map.obstacles.map(r=>({x:r.x-margin,y:r.y-margin,width:r.width+2*margin,height:r.height+2*margin}))});
+          if(field.vectors.byteLength>routeBytes){routeBuffer.destroy();routeBytes=field.vectors.byteLength;routeBuffer=device.createBuffer({label:'Boss clearance-aware route',size:routeBytes,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});bindGroup=makeBindGroup();}
+          device.queue.writeBuffer(routeBuffer,0,field.vectors as Float32Array<ArrayBuffer>);routeObstacles=map.obstacles;routeKey=key;
+        }
+      }
       device.queue.writeBuffer(uniforms, 0, packParams(frame));
       encodePass(encoder, 'Advance boss state', advancePipeline, 1);
       if (frame.count > 0) {
@@ -297,6 +320,7 @@ export async function createBoss(device: GPUDevice, shared: SharedGPU): Promise<
       if (shared.bossState === buffer) shared.bossState = undefined;
       buffer.destroy();
       uniforms.destroy();
+      routeBuffer.destroy();
     },
   };
 }

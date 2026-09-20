@@ -1,6 +1,7 @@
 import type {Rect, WorldMap} from '../contracts/index.ts';
 import {validateEditorMap} from '../editor/index.ts';
 import {createRun, type RunController} from '../game/index.ts';
+import {terrainMounts} from '../game/terrain.ts';
 
 export const AUTOSAVE_KEY = 'pressure-front.autosave.v1';
 export const CHECKPOINT_KEY = 'pressure-front.checkpoint.v1';
@@ -39,7 +40,7 @@ export function decodeDefense(raw:string):SavedDefense {
   const issue = validateEditorMap(defense.map);
   if (issue) throw new Error(issue);
   const candidate = createRun(defense.map);
-  candidate.setBuildMounts(defense.builtWalls);
+  candidate.setBuildMounts(terrainMounts(defense.map));
   if (!candidate.load(defense.runState).ok) throw new Error('Invalid saved run.');
   return defense;
 }
@@ -54,7 +55,7 @@ export function loadDefense(storage:Storage, key:string, run:RunController):Save
   const raw = storage.getItem(key);
   if (!raw) throw new Error('No saved defense found.');
   const saved = decodeDefense(raw);
-  const result = run.load(saved.runState, {map:saved.map, buildMounts:saved.builtWalls});
+  const result = run.load(saved.runState, {map:saved.map, buildMounts:terrainMounts(saved.map)});
   if (!result.ok) throw new Error(result.reason);
   run.setSpawnMultiplier(saved.difficulty);
   return saved;

@@ -37,7 +37,7 @@ async function navigate(path='/'){
  await until(()=>!!doc().querySelector('#adapter')?.textContent?.includes('/ WEBGPU'),'Game failed to initialize WebGPU');
  await until(()=>text('#metal')!=='000','Game failed to initialize UI');
 }
-async function fresh(){await loadFrame('about:blank');freshStorage();await navigate();}
+async function fresh(path='/'){await loadFrame('about:blank');freshStorage();await navigate(path);}
 const cases:{name:string;run:()=>Promise<void>}[]=[
  {name:'Checkpoint survives later autosaves and restores structures, Metal, and flow',run:async()=>{
   await fresh();click('[data-action="wall-tool"]');point(22,22);await until(()=>text('#metal')==='2940','Wall was not charged');flow(2);snapshot();
@@ -47,7 +47,7 @@ const cases:{name:string;run:()=>Promise<void>}[]=[
   const restored=snapshot();assert(restored.builtWalls.length===1&&restored.builtWires.length===0,'Wrong structures restored');
  }},
  {name:'Corrupt tower checkpoints fail without changing the current defense',run:async()=>{
-  await fresh();click('[data-tower="repulsor"]');point(22,22);await until(()=>text('#metal')==='2910','Tower was not placed');
+  await fresh();click('[data-tower="repulsor"]');point(22,46);await until(()=>text('#metal')==='2910','Tower was not placed');
   const saved=snapshot(),run=JSON.parse(saved.runState);run.model.towers[0].veterancy='broken';saved.runState=JSON.stringify(run);localStorage.setItem(checkpointKey,JSON.stringify(saved));
   click('[data-action="load"]');await until(()=>text('#message').toLowerCase().includes('invalid'),'Corrupt checkpoint did not report invalid data');
   assert(text('#metal')==='2910','Failed load changed Metal');const current=JSON.parse(snapshot().runState);assert(current.model.towers.length===1&&current.model.towers[0].veterancy===0,'Failed load changed the tower');
@@ -63,15 +63,21 @@ const cases:{name:string;run:()=>Promise<void>}[]=[
   const saved=snapshot();assert(saved.builtWalls.length===0&&saved.builtWires.length===0,'Reset kept free structures');assert(!hasRect(saved.map.obstacles,20,20)&&!hasRect(saved.map.obstacles,28,20),'Reset kept terrain collisions');
  }},
  {name:'Ordinary clicks can mount towers; mounted walls cannot be demolished',run:async()=>{
-  await fresh();click('[data-action="wall-tool"]');point(22,22);click('[data-tower="repulsor"]');point(21.7,22.3);
+  await fresh();click('[data-action="wall-tool"]');point(22,46);click('[data-tower="repulsor"]');point(21.7,46.3);
   await until(()=>text('#metal')==='2850','Click did not snap onto the player-wall mount');
-  const saved=snapshot(),run=JSON.parse(saved.runState);assert(run.model.towers[0].x===22&&run.model.towers[0].y===22,'Mounted tower is not centered');
-  click('[data-action="demolish-tool"]');point(22,22);await until(()=>text('#message').includes('Sell the mounted turret'),'Mounted wall demolition was not blocked');
+  const saved=snapshot(),run=JSON.parse(saved.runState);assert(run.model.towers[0].x===22&&run.model.towers[0].y===46,'Mounted tower is not centered');
+  click('[data-action="demolish-tool"]');point(22,46);await until(()=>text('#message').includes('Sell the mounted turret'),'Mounted wall demolition was not blocked');
  }},
  {name:'Starting indestructible walls accept turret mounts',run:async()=>{
-  await fresh();click('[data-tower="repulsor"]');point(50.8,22.9);
+  await fresh('/?map=3');click('[data-tower="repulsor"]');point(46.8,22.9);
   await until(()=>text('#metal')==='2910','Starting wall did not accept the turret');
-  const saved=snapshot(),run=JSON.parse(saved.runState);assert(run.model.towers[0].x===50&&run.model.towers[0].y===22,'Starting-wall turret did not snap to its wall cell');
+  const saved=snapshot(),run=JSON.parse(saved.runState);assert(run.model.towers[0].x===46&&run.model.towers[0].y===22,'Starting-wall turret did not snap to its wall cell');
+ }},
+ {name:'Forest cliffs reject turret mounts without spending Metal',run:async()=>{
+  await fresh();click('[data-tower="repulsor"]');point(50,22);
+  await until(()=>text('#message').includes('blocked'),'Cliff did not reject the turret');
+  assert(text('#metal')==='3000','Blocked cliff placement spent Metal');
+  assert(JSON.parse(snapshot().runState).model.towers.length===0,'Cliff accepted a turret');
  }},
  {name:'Turrets placed at map edges sit flush inside every boundary',run:async()=>{
   await fresh();click('[data-tower="repulsor"]');

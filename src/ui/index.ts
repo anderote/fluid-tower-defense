@@ -269,6 +269,8 @@ export function createUI(
       const chosen = s.selected ? TOWERS[s.selected.kind] : undefined,
         upgrade = 45 + (s.selected?.level ?? 0) * 35;
       $("#phase").textContent = s.phase === "checkpoint" ? "EXTRACTION READY" : s.phase.toUpperCase();
+      root.querySelector(".arena-label > span")!.textContent=s.mapTitle?.toUpperCase()??"SECTOR 07 / CONTAINMENT GRID";
+      root.querySelector("#extraction p")!.textContent=s.nextMapTitle?`Continue to ${s.nextMapTitle}. Deployed defenses are refunded; Metal and research carry over.`:"Secure the level now, or retain every defense and push into endless escalation.";
       $("#adapter").textContent = s.adapter;
       $("#fps").textContent = `${s.fps | 0} FPS`;
       $("#ms").textContent = `${s.frameMs.toFixed(1)} MS`;
