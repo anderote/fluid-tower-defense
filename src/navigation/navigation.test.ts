@@ -45,3 +45,12 @@ test('starting walls support one centered tower per wall cell',()=>{
   assert.equal(canPlace(DEFAULT_MAP,[],{x:50,y:22},1.25,mounts),true);
   assert.equal(canPlace(DEFAULT_MAP,[{id:1,kind:'repulsor',x:50,y:22,level:0,branch:-1,angle:0,cooldown:0,spent:120}],{x:54,y:22},1.25,mounts),true);
 });
+
+test('routes reserve body clearance and steer displaced enemies out of wall margins',()=>{
+ const map={...DEFAULT_MAP,obstacles:[{x:48,y:0,width:8,height:40}]};
+ const field=buildNavigation(map),at=(x:number,y:number)=>y*field.width+x;
+ assert.equal(field.distances[at(56,20)],Infinity,'A body cannot move along the wall at x=56.0');
+ assert.ok(Number.isFinite(field.distances[at(57,20)]));
+ assert.ok(field.vectors[at(56,20)*2]>0,'Displaced body should move away from the wall');
+ assert.ok(field.vectors[at(47,20)*2]<0,'Western wall margin should escape west');
+});

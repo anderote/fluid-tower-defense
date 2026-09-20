@@ -53,19 +53,18 @@ const PHASE_WEIGHTS:readonly (readonly [SpawnBatch['kind'],number])[][]=[
 const burstFor=(_kind:SpawnBatch['kind']):number=>1;
 
 /** Deterministic authored-pattern director with bounded population and unbounded stat scaling. */
-export function waveFor(level:number,wave:number,slider=1):Wave {
+export function waveFor(level:number,wave:number):Wave {
   const globalWave=Math.max(1,Math.floor(wave>WAVES_PER_LEVEL?wave:(Math.max(1,level)-1)*WAVES_PER_LEVEL+wave));
   const threat=globalWave-1,phase=(globalWave-1)%WAVES_PER_LEVEL,cycle=Math.floor((globalWave-1)/WAVES_PER_LEVEL);
-  // The quota is intentionally far beyond the on-screen population. The inlet
-  // keeps feeding until it is met, while the runtime pauses it when capacity is full.
-  const hordeScale=Math.max(1,Math.min(100,Math.round(slider)));
-  const total=Math.round(hordeScale*100_000*Math.pow(globalWave,1.67));
+  // Short opening encounters; later difficulty grows through composition and health,
+  // not an unbounded backlog multiplied by the physical inlet width.
+  const total=Math.min(12_000,1_200+threat*600);
   const healthScale=1+Math.max(0,globalWave-WAVES_PER_LEVEL)*.035;
   const seed=(globalWave*10_000+globalWave*977)>>>0;
   const weights=new Map(PHASE_WEIGHTS[phase]);
   if(cycle>0){for(const kind of ['runner','brute','rager','softbody','husk'] as const)weights.set(kind,(weights.get(kind)??0)+.025);}
   const weightTotal=[...weights.values()].reduce((sum,value)=>sum+value,0);
-  const arrivalRate=2_400;
+  const arrivalRate=Math.min(180,90+threat*6);
   const duration=total/arrivalRate;
   const spawns:SpawnBatch[]=[];
   let assigned=0,index=0;
@@ -111,7 +110,6 @@ export class RunController {
   private spawnElapsed=0;
   private spawnAllocation=0;
   private spawnMultiplier=1;
-  private hordeScale=1;
   private waveStartBaseHealth=20;
   private map:WorldMap;
   private buildMounts:Rect[]=[];
@@ -119,9 +117,13 @@ export class RunController {
   constructor(initialMap:WorldMap=DEFAULT_MAP) { this.map=initialMap; }
 
   get epoch():number { return this.runEpoch; }
+  get waveProgress(){
+    const queued=this.model.pending.reduce((sum,batch)=>sum+batch.count,0);
+    return {total:this.model.wave>0?waveFor(this.model.level,this.model.wave).total:0,queued,live:this.live};
+  }
   get isBossWave():boolean { return this.model.wave>0&&this.model.wave%WAVES_PER_LEVEL===0; }
   setSpawnMultiplier(value:number):number { this.spawnMultiplier=Math.max(1,Math.min(40,Math.round(value)||1)); return this.spawnMultiplier; }
-  setHordeScale(value:number):number { this.hordeScale=Math.max(1,Math.min(100,Math.round(value)||1)); return this.hordeScale; }
+
 
   statUpgrades():StatUpgrade[] {
     return STAT_DEFS.map(def=>({...def,rank:this.model.statRanks[def.id]??0}));
@@ -191,12 +193,12 @@ export class RunController {
   startWave():ActionResult {
     if (this.model.phase!=='preparation') return {ok:false,reason:'The current wave is not ready to start.'};
     if(this.model.bonusChoices.length)return {ok:false,reason:'Choose a command boon before starting the wave.'};
-    const wave=waveFor(this.model.level,this.model.wave+1,this.hordeScale); this.waveStartBaseHealth=this.model.baseHealth;this.model.wave++; this.model.pending=wave.spawns.map(batch=>({...batch,credit:0})); this.model.phase='combat'; this.live=0;this.spawnElapsed=0;this.spawnAllocation=0;
+    const wave=waveFor(this.model.level,this.model.wave+1); this.waveStartBaseHealth=this.model.baseHealth;this.model.wave++; this.model.pending=wave.spawns.map(batch=>({...batch,credit:0})); this.model.phase='combat'; this.live=0;this.spawnElapsed=0;this.spawnAllocation=0;
     return {ok:true};
   }
   restartWave():ActionResult {
     if(this.model.wave<1||!['combat','settling','lost'].includes(this.model.phase))return {ok:false,reason:'There is no active wave to restart.'};
-    const wave=waveFor(this.model.level,this.model.wave,this.hordeScale);this.model.pending=wave.spawns.map(batch=>({...batch,credit:0}));this.model.phase='combat';this.model.baseHealth=this.waveStartBaseHealth;this.model.selected=null;
+    const wave=waveFor(this.model.level,this.model.wave);this.model.pending=wave.spawns.map(batch=>({...batch,credit:0}));this.model.phase='combat';this.model.baseHealth=this.waveStartBaseHealth;this.model.selected=null;
     this.live=0;this.spawnElapsed=0;this.spawnAllocation=0;this.runEpoch++;this.applied=emptyApplied();
     return {ok:true};
   }

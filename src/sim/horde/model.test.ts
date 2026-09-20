@@ -30,6 +30,7 @@ test('full pool resumes conservatively with delayed readback',()=>{
 });
 test('narrow front retains mixed species and never spends unavailable arrivals',()=>{
  const run=createRun();run.startWave();run.model.pending=waveFor(1,9).spawns.map(batch=>({...batch}));
+ run.takeSpawns(0,1); // Fill bounded arrival credit before testing capacity allocation.
  const kinds=new Set<string>();let total=0;
  for(let tick=0;tick<120;tick++)for(const batch of run.takeSpawns(tick%20===0?20:0,1/60)){kinds.add(batch.kind);total+=batch.count;}
  assert.equal(kinds.size,6);assert.equal(total,120);

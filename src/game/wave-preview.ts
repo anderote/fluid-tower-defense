@@ -17,7 +17,7 @@ type PreviewState = Pick<UIState, 'mode' | 'phase' | 'level' | 'wave' | 'difficu
 export function previewNextWave(state: PreviewState) {
   if (state.mode !== 'game' || state.phase !== 'preparation') return null;
   const wave = state.wave + 1;
-  const definition = waveFor(state.level, wave, state.streamWidth??1);
+  const definition = waveFor(state.level, wave);
   return {
     level: state.level,
     wave,

@@ -84,3 +84,11 @@ Validation: a new CPU test reproduced invalid-record acceptance before the fix. 
 Weapon unlocks and repeatable stat research now spend Metal and are owned by the run. Saves retain purchases; reset clears them. Legacy saves retain deployed weapon types and Metal without applying account-wide XP bonuses. Retained the concurrently integrated 100× enemy-bounty reduction, including fractional reward accumulation. Repulsors have range 10, force 16, 1.35-second pulses, a narrower cone, weaker branch bonuses, and reduced per-level range growth.
 
 Validation: unit tests and production build passed; the focused `/tests/economy/` browser suite passed 4/4 scenarios covering unlock/place/reload/reset, stat affordability and combat purchases, exactly-once GPU bounties, and actual Repulsor range/impulse.
+
+## Playable opening waves and visible progress
+
+Decoupled stream width from wave quotas: wave one now has 1,200 enemies instead of six million at default frontage. Later waves add 600 enemies up to a 12,000 cap. Added an always-visible sidebar forecast/remaining count, split into live and queued enemies, and included progress in diagnostics.
+
+Full-wave playtesting also exposed stranded survivors: navigation treated zombies as points while collision reserved body radius. Routes now reserve body clearance and guide displaced bodies out of wall margins instead of directing them through terrain.
+
+Validation: 133 CPU tests and production build passed. The final browser regression cleared Pine Valley wave one in 70.9 simulated seconds with 1,200 kills, 100% integrity, and a 2,990-Metal defense; the counter reached zero and wave two became available. It also checked widths 1, 60, and 100 produce the same quota. Earlier runs reproduced stranded survivors before the navigation fix. Later campaign difficulty and arbitrary player defenses have not been fully balanced.

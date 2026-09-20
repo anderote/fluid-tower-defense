@@ -277,3 +277,8 @@ footer button:first-of-type { border-color: var(--term-accent); background: var(
   .soundtrack { display: flex; gap: 4px; margin-left: 0; padding-left: 4px; }
   .music-info, .music-volume { display: none; }
 }
+
+.wave-status { padding: 12px; border-bottom: 1px solid var(--term-border); }
+.wave-status b { color: var(--term-accent); }
+.wave-status p { margin: 8px 0; font-size: 18px; }
+.wave-status small { color: var(--term-muted); line-height: 1.5; }

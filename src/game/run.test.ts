@@ -163,42 +163,42 @@ test('wave director uses a shared continuous inlet and introduces every enemy by
   assert.ok(waveFor(1,30).healthScale>waveFor(1,10).healthScale);
 });
 
-test('wave director streams until its large horde quota is defeated',()=>{
+test('wave director streams a bounded escalating horde',()=>{
   const wave=waveFor(1,10);
   assert.ok(wave.total>waveFor(1,1).total);
   assert.ok(wave.spawns.some(batch=>(batch.burst??Infinity)<=10));
-  for(let second=4;second<=62;second+=2){
+  for(let second=4;second<=40;second+=2){
     assert.ok(wave.spawns.some(batch=>{const start=batch.start??0, end=start+batch.count/(batch.rate??1);return start<=second&&end>=second;}),`expected an active stream at ${second}s`);
   }
   const opening=waveFor(1,1).spawns[0], late=waveFor(3,10).spawns[0];
-  assert.ok(opening.count/(opening.rate??1)>=40);
+  assert.ok(opening.count/(opening.rate??1)>=10);
   assert.ok(late.count/(late.rate??1)>opening.count/(opening.rate??1));
 });
 
-test('horde quota is slider × 100,000 × global wave to the 1.67 power',()=>{
-  const slider=7,globalWave=4;
-  assert.equal(waveFor(1,globalWave,slider).total,Math.round(slider*100_000*Math.pow(globalWave,1.67)));
-  assert.equal(waveFor(2,1,slider).total,Math.round(slider*100_000*Math.pow(11,1.67)));
+test('campaign wave sizes are bounded and independent of physical stream width',()=>{
+  assert.equal(waveFor(1,1).total,1200);
+  assert.equal(waveFor(2,1).total,waveFor(1,11).total);
+  assert.equal(waveFor(1,10000).total,12000);
 });
 
 test('continuous horde arrival pauses at capacity and resumes when space opens',()=>{
-  const run=createRun();run.setHordeScale(1);assert.equal(run.startWave().ok,true);
+  const run=createRun();assert.equal(run.startWave().ok,true);
   const first=run.takeSpawns(100,1).reduce((sum,batch)=>sum+batch.count,0);
-  assert.equal(first,100);
+  assert.ok(first>0&&first<=100);
   assert.equal(run.takeSpawns(0,1).length,0);
   const resumed=run.takeSpawns(100,1).reduce((sum,batch)=>sum+batch.count,0);
-  assert.equal(resumed,100);
+  assert.ok(resumed>0&&resumed<=100);
 });
 
-test('opening waves are a larger continuous stream, never an initial packet dump',()=>{
+test('opening waves are a short continuous stream, never an initial packet dump',()=>{
   const wave=waveFor(1,1),run=createRun();
-  assert.ok(wave.total>=12_000,'opening population should be substantially larger');
+  assert.equal(wave.total,1200);
   assert.ok(wave.spawns.every(batch=>(batch.burst??0)===1));
   assert.equal(run.startWave().ok,true);
   const firstTick=run.takeSpawns(65_536,1/60).reduce((sum,batch)=>sum+batch.count,0);
   const firstSecond=firstTick+Array.from({length:59},()=>run.takeSpawns(65_536,1/60).reduce((sum,batch)=>sum+batch.count,0)).reduce((sum,count)=>sum+count,0);
   assert.ok(firstTick<wave.total*.02);
-  assert.ok(firstSecond<wave.total*.05);
+  assert.ok(firstSecond<wave.total*.1);
   assert.ok(firstSecond>0);
 });
 
