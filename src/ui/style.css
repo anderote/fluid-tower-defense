@@ -183,6 +183,17 @@ button small { margin-top: 5px; color: var(--term-faint); font-size: var(--text-
 .reset-gate section { width: min(390px,100%); padding: 16px; border: 1px solid var(--term-error); background: var(--term-bg); box-shadow: 0 16px 48px rgba(0,0,0,.55); }
 .reset-gate p { margin: 10px 0 16px; color: var(--term-muted); font-size: var(--text-body); line-height: 1.6; }
 .reset-gate section > div { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.settings-gate { position: fixed; z-index: 31; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(0,0,0,.72); }
+.settings-gate section { width: min(390px,100%); padding: 16px; border: 1px solid var(--term-border-strong); background: var(--term-bg); box-shadow: 0 16px 48px rgba(0,0,0,.55); }
+.settings-gate header { display: flex; justify-content: space-between; padding: 0 0 12px; border: 0; }
+.settings-gate header label { margin: 0; color: var(--term-fg); }
+.settings-gate header label::before { content: "// "; color: var(--term-accent); }
+.settings-gate header button { width: 30px; min-height: 30px; padding: 0; color: var(--term-muted); font-size: 20px; line-height: 1; }
+.settings-gate p { margin: 0 0 18px; color: var(--term-muted); font-size: var(--text-small); }
+.audio-setting { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin: 0 0 16px; color: var(--term-fg); }
+.audio-setting output { color: var(--term-accent); }
+.audio-setting input { grid-column: 1 / -1; width: 100%; margin: 0; accent-color: var(--term-accent); }
+.settings-gate section > button { width: 100%; border-color: var(--term-accent); color: var(--term-accent); }
 
 #commands { display: grid; gap: 6px; }
 #commands button { position: relative; min-height: 59px; padding-right: 80px; text-align: left; }

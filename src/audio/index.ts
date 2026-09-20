@@ -1,8 +1,10 @@
 import type {TowerKind} from '../contracts/index.ts';
+import {audioSettings,onAudioSettingsChange} from './settings.ts';
 
 /** Dry synthesized weapon layers plus attributed OpenSoldat heavy-weapon samples. */
 export function createAudio(){
   let ctx:AudioContext|undefined,master:GainNode|undefined,noise:AudioBuffer|undefined;
+  const stopListening=onAudioSettingsChange(settings=>{if(master)master.gain.value=settings.effects;});
   const samples:Partial<Record<'m79Fire'|'m79Explosion'|'law',AudioBuffer>>={};
   let samplesLoading=false;
 
@@ -17,7 +19,7 @@ export function createAudio(){
   const arm=()=>{
     if(!ctx){
       ctx=new AudioContext();
-      master=ctx.createGain();master.gain.value=.48;
+      master=ctx.createGain();master.gain.value=audioSettings().effects;
       const limiter=ctx.createDynamicsCompressor();
       limiter.threshold.value=-16;limiter.knee.value=8;limiter.ratio.value=10;limiter.attack.value=.002;limiter.release.value=.12;
       master.connect(limiter).connect(ctx.destination);
@@ -75,5 +77,5 @@ export function createAudio(){
     tone(at,kind==='rocket'?58:72,24,kind==='rocket'?.34:.25,kind==='rocket'?.16:.11,pan,'sine');
   };
   const beep=(hz:number,duration=.07)=>{arm();if(ctx)tone(ctx.currentTime+.004,hz,hz*.82,duration,.045,0,'sine');};
-  return {arm,fire,shell,explode,click:()=>beep(420,.04),blast:()=>beep(90,.16),alert:()=>beep(760,.12),destroy:()=>{void ctx?.close();ctx=undefined;master=undefined;noise=undefined;}};
+  return {arm,fire,shell,explode,click:()=>beep(420,.04),blast:()=>beep(90,.16),alert:()=>beep(760,.12),destroy:()=>{stopListening();void ctx?.close();ctx=undefined;master=undefined;noise=undefined;}};
 }
