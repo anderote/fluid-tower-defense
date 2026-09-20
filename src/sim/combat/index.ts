@@ -35,6 +35,7 @@ export async function createCombat(device:GPUDevice,shared:SharedGPU):Promise<Co
   const heat=device.createBuffer({label:'Burn status',size:shared.capacity*FIRE_STATE_BYTES,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST|GPUBufferUsage.COPY_SRC});
   shared.heatState=heat;
   const ownership=device.createBuffer({label:'Last tower damage owner',size:shared.capacity*4,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
+  shared.damageOwners=ownership;
   const ownedBoss=!shared.bossState;
   const bossBuffer=shared.bossState??device.createBuffer({label:'Inactive boss placeholder',size:64,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
   const preamble=`${PARTICLE_WGSL}

@@ -1,0 +1,6 @@
+.infantry-panel { margin-top: 12px; padding: 10px 0 0; border-top: 1px solid #485343; }
+.infantry-panel button { width: 100%; text-align: left; margin: 4px 0; padding: 8px; white-space: normal; }
+.infantry-panel button.active { outline: 1px solid #a8ca66; }
+.infantry-panel p { font-size: 11px; line-height: 1.5; color: #a8b5a4; margin: 6px 0; }
+.infantry-panel small { display: block; color: #d7ce92; margin-top: 4px; }
+.infantry-panel b { font-size: 11px; }
