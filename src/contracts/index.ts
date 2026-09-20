@@ -34,7 +34,7 @@ export const COUNTER_WORDS = HORDE_PRESSURE_COUNTER + 1;
 export const PARTICLE_WGSL = `struct Particle { pos: vec4<f32>, body: vec4<f32>, state: vec4<f32>, status: vec4<f32> };`;
 export const P = { x:0,y:1,vx:2,vy:3,radius:4,mass:5,hp:6,maxHp:7,packing:8,pressure:9,kind:10,alive:11,slow:12,brittle:13,exposure:14,generation:15 } as const;
 // Root owns particles/counters. Modules may allocate private scratch; they encode, never submit.
-export interface SharedGPU { particles: GPUBuffer; counters: GPUBuffer; capacity: number; obstacleCounters?:GPUBuffer; obstacleCapacity?:number; shotState?: GPUBuffer; bossState?: GPUBuffer }
+export interface SharedGPU { particles: GPUBuffer; counters: GPUBuffer; capacity: number; obstacleCounters?:GPUBuffer; obstacleCapacity?:number; shotState?: GPUBuffer; teslaState?:GPUBuffer; bossState?: GPUBuffer }
 export interface PhysicsFrame { dt: number; tick: number; count: number; map: WorldMap; effects: readonly Effect[]; tuning: Tuning; navigation?: NavigationField; lab: boolean }
 export interface PhysicsModule { encode(encoder: GPUCommandEncoder, frame: PhysicsFrame): void; reset(): void; destroy(): void }
 export interface Settlement { epoch: number; tick: number; kills: number; crushKills: number; leaks: number; earned: number; live: number; invalid: number; maxPacking: number; maxPressure?:number; inletBlocked?:boolean; towerKills?:readonly number[]; obstacleContacts?:readonly number[]; obstaclePacking?:readonly number[]; obstaclePressure?:readonly number[]; boss?:{x:number;y:number;health:number;maxHealth:number;phase:number;active:boolean} }

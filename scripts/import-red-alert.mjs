@@ -99,6 +99,8 @@ add('floor',tiles(asset('flor0001.int')));
 for(let i=1;i<=49;i++)add(`wall${i}`,tiles(asset(`wall${String(i).padStart(4,'0')}.int`)));
 for(const name of ['gun','tsla','ftur','sam','fenc','barb'])add(name,shp(asset(`${name}.shp`)));
 add('grating',tiles(asset('gflr0001.int')));
+// OpenRA's die6 uses the original 14-frame temperate electrocution sprite.
+add('electro',shp(asset('electro.tem')).map(frame=>({...frame,palette:asset('temperat.pal')})));
 // Every frame retains its original canvas and pivot; transparent margins matter.
 const size=1024,rgba=Buffer.alloc(size*size*4);let x=0,y=0,row=0;
 const frames=images.map(im=>{
@@ -107,7 +109,7 @@ const frames=images.map(im=>{
   for(let py=0;py<im.height;py++)for(let px=0;px<im.width;px++){
     const index=im.pixels[py*im.width+px],at=((entry.y+py)*size+entry.x+px)*4;
     // Palette index 4 is the original translucent shadow; index 0 is transparent.
-    for(let channel=0;channel<3;channel++)rgba[at+channel]=index===4?0:palette[index*3+channel]*4;
+    for(let channel=0;channel<3;channel++)rgba[at+channel]=index===4?0:(im.palette??palette)[index*3+channel]*4;
     rgba[at+3]=index===0?0:index===4?128:255;
   }
   x+=im.width+2;row=Math.max(row,im.height);return entry;
@@ -117,5 +119,5 @@ function chunk(type,data){const tag=Buffer.from(type),body=Buffer.concat([tag,da
 const header=Buffer.alloc(13);header.writeUInt32BE(size);header.writeUInt32BE(size,4);header[8]=8;header[9]=6;
 const scanlines=Buffer.alloc(size*(size*4+1));for(let row=0;row<size;row++)rgba.copy(scanlines,row*(size*4+1)+1,row*size*4,(row+1)*size*4);
 await writeFile(resolve(output,'atlas.png'),Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]),chunk('IHDR',header),chunk('IDAT',deflateSync(scanlines)),chunk('IEND',Buffer.alloc(0))]));
-await writeFile(resolve(output,'atlas.json'),JSON.stringify({size,frames,sprites,source:{package:'OpenRA ra-base.zip',sha1:EXPECTED,palette:'interior.pal',copyright:'Original Red Alert artwork © Electronic Arts. Not covered by OpenRA GPL.',notice:'https://www.openra.net/legal/'}},null,2)+'\n');
+await writeFile(resolve(output,'atlas.json'),JSON.stringify({size,frames,sprites,source:{package:'OpenRA ra-base.zip',sha1:EXPECTED,palette:'interior.pal (electro: temperat.pal)',copyright:'Original Red Alert artwork © Electronic Arts. Not covered by OpenRA GPL.',notice:'https://www.openra.net/legal/'}},null,2)+'\n');
 console.log(`Imported ${frames.length} original frames to ${output}`);

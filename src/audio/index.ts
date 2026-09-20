@@ -51,7 +51,9 @@ export function createAudio(){
       case 'rocket':
         if(!sample('law',at,.58,pan,.98+jitter*.05)){hiss(at,.24,.16,90,3200,pan,serial*.137);tone(at,68,34,.18,.19,pan,'sawtooth');}break;
       case 'tesla':
-        hiss(at,.1,.11,2200,12000,pan,serial*.097);tone(at,1450*(1+jitter),190,.16,.08,pan,'sawtooth');break;
+        hiss(at,.065,.2,1800,12000,pan,serial*.097);tone(at,1550*(1+jitter),120,.18,.095,pan,'sawtooth');
+        for(let crack=1;crack<=3;crack++)hiss(at+crack*.035,.026,.065,2800,10000,pan,serial*.097+crack*.13);
+        tone(at+.015,105,38,.13,.08,pan,'sine');break;
       case 'incinerator':
         hiss(at,.2,.1,180,4400,pan,serial*.157);tone(at,96,49,.13,.07,pan,'sawtooth');break;
       case 'cryo':
