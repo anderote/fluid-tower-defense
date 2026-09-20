@@ -50,6 +50,7 @@ export async function createRenderer(device: GPUDevice, context: GPUCanvasContex
   let overlays = device.createBuffer({ label:'Tactical overlays', size:24, usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST });
   let foregroundCapacity=1;
   let foreground = device.createBuffer({ label:'Foreground effects', size:24, usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST });
+  let sightKey='',sightPoints:Vec2[]=[];
   const towerVisuals = device.createBuffer({ label:'Tower visual state', size:MAX_TOWERS * 16, usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST });
   const emptyShots = device.createBuffer({ label:'Empty firing state', size:MAX_TOWERS * 48, usage:GPUBufferUsage.STORAGE });
   const fire=await createFireEffects(device,format,uniform,{...shared,heatState},towerVisuals,emptyShots);
@@ -243,7 +244,9 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
     const focused=scene.selection===null?undefined:scene.towers.find(tower=>tower.id===scene.selection);
     if(focused&&scene.selectionRange){
       const color:[number,number,number,number]=focused.kind==='incinerator'?[1,.25,.055,.105]:focused.kind==='rocket'?[1,.32,.15,.09]:focused.kind==='railgun'?[.25,1,.74,.09]:focused.kind==='autocannon'?[1,.82,.25,.09]:[.55,.9,1,.075];
-      const points=towerRequiresLineOfSight(focused.kind)?lineOfSightPolygon(focused,scene.selectionRange,scene.map.obstacles):Array.from({length:192},(_,index)=>{const angle=index/192*Math.PI*2;return {x:focused.x+Math.cos(angle)*scene.selectionRange!,y:focused.y+Math.sin(angle)*scene.selectionRange!};});
+      const nextSightKey=[focused.id,focused.x,focused.y,focused.kind,scene.selectionRange,...scene.map.obstacles.flatMap(obstacle=>[obstacle.x,obstacle.y,obstacle.width,obstacle.height])].join('|');
+      if(nextSightKey!==sightKey){sightKey=nextSightKey;sightPoints=towerRequiresLineOfSight(focused.kind)?lineOfSightPolygon(focused,scene.selectionRange,scene.map.obstacles,128):Array.from({length:128},(_,index)=>{const angle=index/128*Math.PI*2;return {x:focused.x+Math.cos(angle)*scene.selectionRange!,y:focused.y+Math.sin(angle)*scene.selectionRange!};});}
+      const points=sightPoints;
       for(let index=0;index<points.length;index++)tri(a,focused,points[index],points[(index+1)%points.length],color);
       const edge:[number,number,number,number]=[color[0],color[1],color[2],.34];
       for(let index=0;index<points.length;index++){const start=points[index],end=points[(index+1)%points.length];streak(a,end.x,end.y,end.x-start.x,end.y-start.y,Math.hypot(end.x-start.x,end.y-start.y),.055,edge);}
@@ -321,7 +324,7 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
       if(b.id===scene.selectedBarracks){const distance=Math.hypot(b.rally.x-b.x,b.rally.y-b.y);for(let d=3;d<distance-1;d+=1.2){const t=d/distance;rect(a,b.x+(b.rally.x-b.x)*t-.08,b.y+(b.rally.y-b.y)*t-.08,.16,.16,[.85,.77,.3,.6]);}rectOutline(a,b.x-2.35,b.y-2.35,4.7,4.7,[.72,.93,.35,.95],.1);ring(a,b.rally.x,b.rally.y,2.5,[.65,.93,.35,.8],.12);rect(a,b.rally.x,b.rally.y-2,.1,2,[.8,.9,.5,1]);rect(a,b.rally.x+.1,b.rally.y-2,1,.6,[.85,.77,.19,1]);}
     }
     for(const s of scene.infantry?.soldiers??[]){
-      const kind=s.kind??'rifle',stats=infantryStats(s.kind,s.quality,s.defense,s.veterancy);
+      const kind=s.kind??'rifle';
       const x=s.x,y=s.y,dead=s.health<=0;
       if(dead)continue;
       if(scene.selectedInfantry?.has(s.id))ring(a,x,y+.15,1.05,[.43,1,.36,.95],.11);
@@ -339,7 +342,7 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
         else if(kind==='rocket'){streak(a,mx+dx*4,my+dy*4,dx,dy,4,.14,[.88,.84,.65,s.flash*5]);disc(a,mx,my,.4,[1,.6,.15,.8],6);}
         else {disc(a,mx,my,.24,[1,.86,.29,.95],5);streak(a,mx+dx*2,my+dy*2,dx,dy,2,.025,[1,.89,.43,s.flash*6]);}
       }
-      if(s.health<stats.health||scene.selectedBarracks===s.home||scene.selectedInfantry?.has(s.id)){rect(a,x-.65,y-2.1,1.3,.13,[.12,.13,.1,1]);rect(a,x-.65,y-2.1,1.3*s.health/stats.health,.13,[.5,.85,.22,1]);}
+      if(scene.selectedBarracks===s.home||scene.selectedInfantry?.has(s.id)){const maxHealth=infantryStats(s.kind,s.quality,s.defense,s.veterancy).health;rect(a,x-.65,y-2.1,1.3,.13,[.12,.13,.1,1]);rect(a,x-.65,y-2.1,1.3*s.health/maxHealth,.13,[.5,.85,.22,1]);}
       for(let rank=0;rank<Math.min(5,Math.floor((s.veterancy??0)/20));rank++)rect(a,x-.4+rank*.18,y-1.02,.1,.1,[.95,.84,.3,1]);
     }
     for(const projectile of scene.heavyProjectiles??[]){

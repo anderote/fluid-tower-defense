@@ -18,9 +18,9 @@ test('casualties count deaths once and friendly fire is a distinct subset',()=>{
 test('each specialized building produces only its own infantry at its configured rate',()=>{
   for(const kind of Object.keys(INFANTRY) as InfantryKind[]){const f=setup(kind);f.step(INFANTRY[kind].interval-.1);assert.equal(f.state.soldiers.length,0);f.step(.2);const s=f.state.soldiers[0];assert.equal(s.kind,kind);assert.equal(s.health,infantryStats(kind).health);assert.ok(validInfantry(f.state,map));}
 });
-test('starting rifleman throughput is 29 percent below the previous two-second cadence',()=>{
-  assert.ok(Math.abs(1/INFANTRY.rifle.interval-(1/2)*.71)<1e-12);
-  const f=setup('rifle');f.step(2.7);assert.equal(f.state.soldiers.length,0);f.step(.2);assert.equal(f.state.soldiers.length,1);
+test('starting rifleman recruitment takes five seconds',()=>{
+  assert.equal(INFANTRY.rifle.interval,5);
+  const f=setup('rifle');f.step(4.9);assert.equal(f.state.soldiers.length,0);f.step(.2);assert.equal(f.state.soldiers.length,1);
 });
 test('armor reduces zombie damage but even fully armored samurai can be killed',()=>{
   const f=setup('samurai');f.state.buildings[0].defense=5;f.step(12.1);const s=f.state.soldiers[0],hp=s.health;
