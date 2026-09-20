@@ -13,7 +13,7 @@ import { createCombat, type CombatFrame } from '../sim/combat/index.ts';
 import { barbedWireStats, createParticles, DEFAULT_MAP, compileTower, TOWERS } from '../content/index.ts';
 import { buildNavigation, canPlace } from '../navigation/index.ts';
 import { createRun } from '../game/index.ts';
-import { DEFAULT_TUNING, PARTICLE_FLOATS, type UIState, type GameAction, type Effect, type Vec2, type Rect, type Settlement, type VisualParticle, type WorldMap } from '../contracts/index.ts';
+import { DEFAULT_TUNING, PARTICLE_FLOATS, type UIState, type GameAction, type Effect, type Vec2, type Rect, type Settlement, type VisualParticle, type VisualParticleStyle, type WorldMap } from '../contracts/index.ts';
 
 const root=document.querySelector<HTMLElement>('#app')!;
 const params=new URLSearchParams(location.search);
@@ -97,7 +97,7 @@ try {
      case 'population':if(state.mode==='lab'){requestedPopulation=action.value;resetWorld();}break;
      case 'tool':state.tool=action.tool;state.selectedKind=null;break;
      case 'select-tower':wallTool=false;wireTool=false;state.selectedKind=state.selectedKind===action.kind?null:action.kind;state.message=state.selectedKind?`${TOWERS[state.selectedKind].name}: click a clear build location.`:'Click a tower to inspect it.';break;
-     case 'wall-tool':wallTool=!wallTool;wireTool=false;state.selectedKind=null;state.message=wallTool?'Wall tool: click to place a 4 × 4 Metal wall. Routes and the boss lane stay protected.':'Wall tool cancelled.';break;
+     case 'wall-tool':wallTool=!wallTool;wireTool=false;state.selectedKind=null;state.message=wallTool?'Wall tool: click to place a 4 × 4 Metal wall. Keep at least one route to the goal.':'Wall tool cancelled.';break;
      case 'wire-tool':wireTool=!wireTool;wallTool=false;state.selectedKind=null;state.message=wireTool?'Barbed wire: restrains the swarm until high pressure forces a breach.':'Barbed wire tool cancelled.';break;
      case 'start-wave':{
        const result=run.startWave();actionResult(result,'Wave incoming. Hold the choke.');if(!result.ok)break;
@@ -114,13 +114,13 @@ try {
    updateUI(performance.now());
  };
  const wallAt=(point:Vec2):Rect=>({x:Math.floor(point.x/4)*4,y:Math.floor(point.y/4)*4,width:4,height:4});
- const burst=(point:Vec2, count:number, color:[number,number,number], speed:number, life:number, gravity=0)=>{
+ const burst=(point:Vec2, count:number, color:[number,number,number], speed:number, life:number, gravity=0, style:VisualParticleStyle='spark', scale=1)=>{
    // Keep the CPU-side flourish bounded: the swarm itself stays entirely GPU simulated.
    const available=Math.max(0,520-visualParticles.length);
    for(let i=0;i<Math.min(count,available);i++){
      const angle=(i/count)*Math.PI*2+Math.sin((simulatedTime+i)*9)*.32;
      const velocity=speed*(.45+((i*37)%100)/100*.7);
-     visualParticles.push({x:point.x,y:point.y,vx:Math.cos(angle)*velocity,vy:Math.sin(angle)*velocity,size:.13+((i*17)%100)/100*.28,life:life*(.65+((i*29)%100)/100*.45),age:0,color,gravity,drag:.32});
+     visualParticles.push({x:point.x,y:point.y,vx:Math.cos(angle)*velocity,vy:Math.sin(angle)*velocity,size:(.2+((i*17)%100)/100*.38)*scale,life:life*(.65+((i*29)%100)/100*.45),age:0,color,gravity,drag:style==='smoke'?.55:.32,style,spin:(i%2?1:-1)*(2.4+((i*13)%10)*.35)});
    }
  };
  const placeWall=(wall:Rect)=>{if(builtWalls.some(existing=>existing.x===wall.x&&existing.y===wall.y))return;const candidate={...map,obstacles:[...map.obstacles,wall]};const issue=validateEditorMap(candidate);if(issue){state.message=issue;return;}const result=run.spendMetal(60);if(!result.ok){state.message=result.reason??'Could not build wall.';return;}builtWalls.push(wall);map=candidate;navigation=buildNavigation(map);run.setMap(map);state.message='Metal wall installed. Right-drag removes for 30 Metal.';};
@@ -142,7 +142,14 @@ try {
    }else if(state.tool!=='inspect'){
      if(commands.length>=64){state.message='Effect queue full; advance the simulation.';return;}
      const effect:Effect={...point,kind:state.tool==='blast'?'blast':'push',radius:state.tool==='blast'?10:15,strength:state.tool==='blast'?32:38,damage:state.tool==='blast'?16:0,direction:{x:1,y:0},cone:Math.PI*.7,duration:.55,source:0};commands.push(effect);visuals.push({...effect});
-     if(effect.kind==='blast'){burst(point,42,[1,.34,.06],18,.62,9);burst(point,18,[1,.82,.25],10,.38,3);}else burst(point,20,[.35,.9,1],13,.48,0);
+     if(effect.kind==='blast'){
+       burst(point,34,[1,.3,.035],21,.68,8,'spark',1.25);
+       burst(point,16,[1,.78,.16],11,.48,4,'spark',.8);
+       burst(point,11,[.24,.2,.15],5.5,1.35,-2.8,'smoke',2.8);
+     }else{
+       burst(point,24,[.35,.92,1],14,.58,0,'spark',1.05);
+       burst(point,10,[.16,.65,.82],5,.85,-1.2,'mist',2.2);
+     }
      state.message=state.tool==='blast'?'Concussive blast deployed.':'Pressure pulse deployed toward the base.';
    }else state.message=`World position ${point.x.toFixed(1)}, ${point.y.toFixed(1)} · peak packing ${latest.maxPacking.toFixed(2)}`;
  });
@@ -173,7 +180,7 @@ try {
    }
    const wireStats=barbedWireStats(run.model.commandUpgrades);
    const effects=[...commands,...builtWires.map(wire=>({x:wire.x+wire.width/2,y:wire.y+wire.height/2,kind:'slow' as const,radius:3.2,strength:0,damage:wireStats.damage*clock.step,direction:{x:0,y:0},cone:0,duration:wireStats.slow,source:0}))].slice(0,64);commands=[];
-   if(state.mode==='game'&&run.model.phase==='combat'&&builtWires.length){const contact=Math.min(1,latest.live/30),erosion=clock.step*wireStats.damage*contact*(1+Math.max(0,latest.maxPacking-1)*.4);const breached=builtWires.filter(wire=>!wire.breached&&latest.maxPacking>=wireStats.resistance);for(const wire of breached){wire.breached=true;map={...map,obstacles:map.obstacles.filter(obstacle=>obstacle!==wire)};burst({x:wire.x+wire.width/2,y:wire.y+wire.height/2},32,[1,.32,.08],13,.72,11);burst({x:wire.x+wire.width/2,y:wire.y+wire.height/2},16,[.5,.6,.62],8,.95,8);}if(breached.length){navigation=buildNavigation(map);run.setMap(map);state.message=`${breached.length} barbed wire section${breached.length===1?'':'s'} gave way under swarm pressure.`;}const spent=builtWires.filter(wire=>(wire.health-=erosion)<=0);if(spent.length){for(const wire of spent)burst({x:wire.x+wire.width/2,y:wire.y+wire.height/2},18,[.56,.42,.22],7,.8,8);builtWires=builtWires.filter(wire=>wire.health>0);map={...map,obstacles:map.obstacles.filter(obstacle=>!spent.includes(obstacle as typeof spent[number]))};navigation=buildNavigation(map);run.setMap(map);state.message=`${spent.length} barbed wire section${spent.length===1?'':'s'} wore out after cutting through the swarm.`;}}
+   if(state.mode==='game'&&run.model.phase==='combat'&&builtWires.length){const contact=Math.min(1,latest.live/30),erosion=clock.step*wireStats.damage*contact*(1+Math.max(0,latest.maxPacking-1)*.4);const breached=builtWires.filter(wire=>!wire.breached&&latest.maxPacking>=wireStats.resistance);for(const wire of breached){wire.breached=true;map={...map,obstacles:map.obstacles.filter(obstacle=>obstacle!==wire)};const center={x:wire.x+wire.width/2,y:wire.y+wire.height/2};burst(center,24,[1,.32,.08],14,.75,10,'spark',1.15);burst(center,22,[.5,.6,.62],9,1.05,9,'debris',1.45);burst(center,7,[.2,.19,.16],4,1.25,-2,'smoke',2.2);}if(breached.length){navigation=buildNavigation(map);run.setMap(map);state.message=`${breached.length} barbed wire section${breached.length===1?'':'s'} gave way under swarm pressure.`;}const spent=builtWires.filter(wire=>(wire.health-=erosion)<=0);if(spent.length){for(const wire of spent)burst({x:wire.x+wire.width/2,y:wire.y+wire.height/2},22,[.56,.42,.22],8,.9,9,'debris',1.3);builtWires=builtWires.filter(wire=>wire.health>0);map={...map,obstacles:map.obstacles.filter(obstacle=>!spent.includes(obstacle as typeof spent[number]))};navigation=buildNavigation(map);run.setMap(map);state.message=`${spent.length} barbed wire section${spent.length===1?'':'s'} wore out after cutting through the swarm.`;}}
    const frame:CombatFrame={dt:clock.step,tick:clock.tick,count,map,effects,tuning:DEFAULT_TUNING,navigation,lab:state.mode==='lab',towers:state.mode==='game'?run.model.towers.map(tower=>({tower,definition:compileTower(tower,run.model.bonuses,run.model.commandUpgrades)})):[]};
    const encoder=gpu.device.createCommandEncoder({label:`Simulation tick ${clock.tick}`});
    const bossFrame={dt:clock.step,tick:clock.tick,count,map:{...map,spawn:{x:50,y:35,width:32,height:30}},active:state.mode==='game'&&run.isBossWave};

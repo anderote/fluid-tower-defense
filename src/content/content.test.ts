@@ -9,6 +9,13 @@ test('particle generator reports its actual populated prefix and keeps bodies ap
  assert.equal(particles.length,10*PARTICLE_FLOATS);
  for(let i=0;i<10;i++) for(let j=0;j<i;j++) assert.ok(Math.hypot(particles[i*16+P.x]-particles[j*16+P.x],particles[i*16+P.y]-particles[j*16+P.y]) >= particles[i*16+P.radius]+particles[j*16+P.radius]);
 });
+test('streamed particles appear across randomized spawn cells',()=>{
+ const first=createParticles([{count:10,kind:'brute',seed:4}],DEFAULT_MAP,10,0);
+ const later=createParticles([{count:10,kind:'brute',seed:4}],DEFAULT_MAP,10,10);
+ const rows=new Set(Array.from({length:10},(_,index)=>Math.floor(first[index*PARTICLE_FLOATS+P.y])));
+ assert.ok(rows.size>1,'the first arrivals should not sweep across one lattice row');
+ assert.notDeepEqual(Array.from(first),Array.from(later));
+});
 test('each tower branch changes a useful supported combat stat',()=>{
   for (const kind of Object.keys(TOWERS) as (keyof typeof TOWERS)[]) {
     const base={id:1,kind,x:84,y:50,level:1,branch:-1,angle:0,cooldown:0,spent:TOWERS[kind].cost};
