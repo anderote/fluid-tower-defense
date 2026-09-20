@@ -1,5 +1,5 @@
 import {createInfantrySprites} from './infantry-sprites.ts';
-import {infantryMuzzle} from './infantry-animation.ts';
+import {infantryCasing,infantryMuzzle,samuraiSlashPhase,SAMURAI_ATTACK_DURATION} from './infantry-animation.ts';
 import {createBloodRenderer} from './blood.ts';
 import {createFireEffects} from './fire.ts';
 import {infantryBuildingPixels,BUILDING_PIXEL,BUILDING_ANCHOR} from './infantry-building-art.ts';
@@ -9,7 +9,7 @@ import {AUTOCANNON_MUZZLE_LIFT,SOLDAT_FACINGS} from './soldat-art.ts';
 import {createTeslaEffects} from './tesla.ts';
 import {createAftermathRenderer} from './aftermath.ts';
 import {TESLA_STATE_WGSL,TESLA_HEADER_BYTES,TESLA_PARTICLE_BYTES} from '../effects/tesla.ts';
-import { ENEMY_WGSL, towerBehavior } from '../content/index.ts';
+import { ENEMY_WGSL, towerBehavior, towerRequiresLineOfSight } from '../content/index.ts';
 import { PARTICLE_WGSL, type RenderScene, type Renderer, type SharedGPU, type TowerKind, type Vec2 } from '../contracts/index.ts';
 import {cameraPanBounds,screenToWorld as unproject, worldToScreen as project} from './camera.ts';
 import {TURRET_GRID, turretHardpoints, turretPixelRects, type TurretInk} from './turret-art.ts';
@@ -18,6 +18,7 @@ import type {WireArtStyle} from './wire-art.ts';
 import {SHOT_GEOMETRY_WGSL} from './shot-geometry.ts';
 import {createShamblers} from './shamblers.ts';
 import {ZOMBIE_ROSTER_WGSL} from './zombie-roster.ts';
+import {lineOfSightPolygon} from './line-of-sight.ts';
 
 const MAX_TOWERS = 64;
 const WEAPON_KINDS:readonly TowerKind[]=['repulsor','mortar','autocannon','cryo','tesla','rocket','railgun','incinerator'];
@@ -239,6 +240,14 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
   };
   function geometry(scene:RenderScene): Float32Array { const a:V[]=[];
     const activeWires=(scene.wires??[]).filter(wire=>!wire.breached);
+    const focused=scene.selection===null?undefined:scene.towers.find(tower=>tower.id===scene.selection);
+    if(focused&&scene.selectionRange){
+      const color:[number,number,number,number]=focused.kind==='incinerator'?[1,.25,.055,.105]:focused.kind==='rocket'?[1,.32,.15,.09]:focused.kind==='railgun'?[.25,1,.74,.09]:focused.kind==='autocannon'?[1,.82,.25,.09]:[.55,.9,1,.075];
+      const points=towerRequiresLineOfSight(focused.kind)?lineOfSightPolygon(focused,scene.selectionRange,scene.map.obstacles):Array.from({length:192},(_,index)=>{const angle=index/192*Math.PI*2;return {x:focused.x+Math.cos(angle)*scene.selectionRange!,y:focused.y+Math.sin(angle)*scene.selectionRange!};});
+      for(let index=0;index<points.length;index++)tri(a,focused,points[index],points[(index+1)%points.length],color);
+      const edge:[number,number,number,number]=[color[0],color[1],color[2],.34];
+      for(let index=0;index<points.length;index++){const start=points[index],end=points[(index+1)%points.length];streak(a,end.x,end.y,end.x-start.x,end.y-start.y,Math.hypot(end.x-start.x,end.y-start.y),.055,edge);}
+    }
     if(!redAlert)for(const o of scene.map.obstacles){if(activeWires.some(wire=>sameRect(wire,o)))continue;rect(a,o.x-.22,o.y-.22,o.width+.44,o.height+.44,[.018,.021,.027,.78]);rect(a,o.x,o.y,o.width,o.height,[.13,.15,.19,.98]);rect(a,o.x+.38,o.y+.38,Math.max(0,o.width-.76),Math.max(0,o.height-.76),[.22,.25,.3,.92]);rect(a,o.x+.38,o.y+.38,Math.max(0,o.width-.76),.34,[.5,.57,.66,.42]);rect(a,o.x+o.width-.58,o.y+.45,.18,Math.max(0,o.height-.9),[.045,.052,.07,.74]);for(let y=o.y+2;y<o.y+o.height-1;y+=5)rect(a,o.x+.08,y,Math.min(.48,o.width*.16),1.5,[.95,.61,.12,.38]);}
     for(const wall of scene.walls??[]){
       const integrity=Math.max(0,Math.min(1,wall.health/wall.maxHealth)),damage=1-integrity;
@@ -279,7 +288,6 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
       }
     }
     rect(a,scene.map.spawn.x,scene.map.spawn.y,scene.map.spawn.width,scene.map.spawn.height,[.95,.48,.12,.11]); ring(a,scene.map.goal.x,scene.map.goal.y,scene.map.goalRadius,[.71,.98,.31,.85]);
-    const focused=scene.selection===null?undefined:scene.towers.find(tower=>tower.id===scene.selection);
     if(focused?.groundTarget&&!scene.groundTargetGhost){const target=focused.groundTarget,distance=Math.hypot(target.x-focused.x,target.y-focused.y);for(let d=4;d<distance-1;d+=1.25){const t=d/distance;disc(a,focused.x+(target.x-focused.x)*t,focused.y+(target.y-focused.y)*t,.09,[1,.79,.18,.58],6);}const pulse=.78+.22*Math.sin(scene.time*6);ring(a,target.x,target.y,1.55,[1,.78,.12,.92*pulse],.18);ring(a,target.x,target.y,.5,[1,.9,.35,.82*pulse],.11);rect(a,target.x-2.05,target.y-.07,1.25,.14,[1,.78,.12,.85]);rect(a,target.x+.8,target.y-.07,1.25,.14,[1,.78,.12,.85]);rect(a,target.x-.07,target.y-2.05,.14,1.25,[1,.78,.12,.85]);rect(a,target.x-.07,target.y+.8,.14,1.25,[1,.78,.12,.85]);}
     if(scene.groundTargetGhost){const g=scene.groundTargetGhost,c:[number,number,number,number]=g.valid?[.65,1,.25,.84]:[1,.18,.12,.88],distance=Math.hypot(g.x-g.originX,g.y-g.originY);ring(a,g.originX,g.originY,g.range,[c[0],c[1],c[2],.38],.16);for(let d=3;d<distance-1;d+=1.25){const t=d/distance;disc(a,g.originX+(g.x-g.originX)*t,g.originY+(g.y-g.originY)*t,.09,[c[0],c[1],c[2],.55],6);}ring(a,g.x,g.y,1.45,c,.2);ring(a,g.x,g.y,.42,c,.1);}
     for(const t of scene.towers){const c: [number,number,number,number]=t.kind==='repulsor'?[.73,1,.22,.95]:t.kind==='mortar'?[1,.62,.16,.95]:t.kind==='autocannon'?[.28,.85,1,.95]:t.kind==='cryo'?[.4,.85,.95,.95]:t.kind==='tesla'?[.62,.45,1,.95]:t.kind==='rocket'?[1,.25,.15,.95]:t.kind==='incinerator'?[1,.31,.12,.95]:[.35,1,.78,.95];towerShape(a,t,c);if(scene.selection===t.id)ring(a,t.x,t.y,4.2,[1,.88,.4,.9],.35);}
@@ -306,6 +314,8 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
   }
   function foregroundGeometry(scene:RenderScene):Float32Array {const a:V[]=[];
     if(scene.barracksGhost){const p=scene.barracksGhost,c:[number,number,number,number]=p.valid?[.6,.9,.3,.8]:[1,.2,.1,.8];rect(a,p.x-2,p.y-2,4,4,[...c.slice(0,3),.2] as [number,number,number,number]);rectOutline(a,p.x-2,p.y-2,4,4,c,.15);}
+    if(scene.infantrySelectionBox){const box=scene.infantrySelectionBox;rect(a,box.x,box.y,box.width,box.height,[.33,.94,.38,.09]);rectOutline(a,box.x,box.y,box.width,box.height,[.45,1,.48,.9],.08);}
+    if(scene.infantryCommandTarget){const p=scene.infantryCommandTarget;ring(a,p.x,p.y,1.1,[.4,1,.38,.8],.12);rect(a,p.x-.08,p.y-.7,.16,1.4,[.48,1,.42,.75]);rect(a,p.x-.7,p.y-.08,1.4,.16,[.48,1,.42,.75]);}
     for(const b of scene.infantry?.buildings??[]){
       if(!redAlert?.hasInfantrySprites||(b.kind!=='dog'&&(b.kind??'rifle')!=='rifle'))for(const p of infantryBuildingPixels(b.kind??'rifle'))rect(a,b.x+(p.x-BUILDING_ANCHOR.x)*BUILDING_PIXEL,b.y+(p.y-BUILDING_ANCHOR.y)*BUILDING_PIXEL,p.width*BUILDING_PIXEL,p.height*BUILDING_PIXEL,p.color);
       if(b.id===scene.selectedBarracks){const distance=Math.hypot(b.rally.x-b.x,b.rally.y-b.y);for(let d=3;d<distance-1;d+=1.2){const t=d/distance;rect(a,b.x+(b.rally.x-b.x)*t-.08,b.y+(b.rally.y-b.y)*t-.08,.16,.16,[.85,.77,.3,.6]);}rectOutline(a,b.x-2.35,b.y-2.35,4.7,4.7,[.72,.93,.35,.95],.1);ring(a,b.rally.x,b.rally.y,2.5,[.65,.93,.35,.8],.12);rect(a,b.rally.x,b.rally.y-2,.1,2,[.8,.9,.5,1]);rect(a,b.rally.x+.1,b.rally.y-2,1,.6,[.85,.77,.19,1]);}
@@ -314,14 +324,22 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
       const kind=s.kind??'rifle',stats=infantryStats(s.kind,s.quality,s.defense,s.veterancy);
       const x=s.x,y=s.y,dead=s.health<=0;
       if(dead)continue;
+      if(scene.selectedInfantry?.has(s.id))ring(a,x,y+.15,1.05,[.43,1,.36,.95],.11);
       const muzzle=infantryMuzzle(s),{dx,dy}=muzzle,mx=muzzle.x,my=muzzle.y;
-      if(s.flash>0&&kind!=='dog'){
-        if(kind==='samurai'){const phase=1-s.flash/.28;for(let layer=0;layer<3;layer++)for(let j=0;j<18;j++){const angle=s.angle-1.9+phase*2.5+j*.09,r=2.1+layer*.18,fade=(j/18)*(s.flash/.28)*(1-layer*.24);streak(a,x+Math.cos(angle)*r,y-.65+Math.sin(angle)*r,-Math.sin(angle),Math.cos(angle),.27,.08,[.7,.89,1,fade]);}}
-        else if(kind==='flame'){for(let j=0;j<12;j++){const spread=s.angle+Math.sin(j*13)*.42,reach=1+j*.42;disc(a,x+Math.cos(spread)*reach,y-.65+Math.sin(spread)*reach,.2+j*.04,[1,.2+j*.035,.04,(1-j/15)*s.flash*4],5);}}
+      const shell=infantryCasing(s);if(shell)casing(a,shell.x,shell.y,.13,shell.angle,[.82,.61,.2,shell.alpha]);
+      if(kind==='samurai'&&s.attackAge!==undefined&&s.attackAge<SAMURAI_ATTACK_DURATION){
+        const slash=samuraiSlashPhase(s.attackAge);
+        if(slash.cut>0&&slash.cut<1){
+          const reveal=Math.min(1,slash.cut*2.8),fade=Math.min(1,(1-slash.cut)*2.4),segments=Math.max(2,Math.floor(12*reveal));
+          for(let j=0;j<segments;j++){const t=j/11,angle=s.angle-1.2+t*2.35,r=1.15+Math.sin(t*Math.PI)*.48;const sx=x+Math.cos(angle)*r,sy=y-.58+Math.sin(angle)*r*.68;streak(a,sx,sy,-Math.sin(angle),Math.cos(angle),.32,.13,[.62,.82,1,.52*fade]);streak(a,sx,sy,-Math.sin(angle),Math.cos(angle),.23,.055,[1,.97,.78,.92*fade]);}
+          if(slash.cut>.68){const hit=s.angle+1.12,hx=x+Math.cos(hit)*1.48,hy=y-.58+Math.sin(hit)*1.02;for(const turn of [0,Math.PI/2])streak(a,hx,hy,Math.cos(hit+turn),Math.sin(hit+turn),.48,.055,[1,.88,.45,.8*fade]);}
+        }
+      }else if(s.flash>0&&kind!=='dog'){
+        if(kind==='flame'){for(let j=0;j<12;j++){const spread=s.angle+Math.sin(j*13)*.42,reach=1+j*.42;disc(a,x+Math.cos(spread)*reach,y-.65+Math.sin(spread)*reach,.2+j*.04,[1,.2+j*.035,.04,(1-j/15)*s.flash*4],5);}}
         else if(kind==='rocket'){streak(a,mx+dx*4,my+dy*4,dx,dy,4,.14,[.88,.84,.65,s.flash*5]);disc(a,mx,my,.4,[1,.6,.15,.8],6);}
         else {disc(a,mx,my,.24,[1,.86,.29,.95],5);streak(a,mx+dx*2,my+dy*2,dx,dy,2,.025,[1,.89,.43,s.flash*6]);}
       }
-      if(s.health<stats.health||scene.selectedBarracks===s.home){rect(a,x-.65,y-2.1,1.3,.13,[.12,.13,.1,1]);rect(a,x-.65,y-2.1,1.3*s.health/stats.health,.13,[.5,.85,.22,1]);}
+      if(s.health<stats.health||scene.selectedBarracks===s.home||scene.selectedInfantry?.has(s.id)){rect(a,x-.65,y-2.1,1.3,.13,[.12,.13,.1,1]);rect(a,x-.65,y-2.1,1.3*s.health/stats.health,.13,[.5,.85,.22,1]);}
       for(let rank=0;rank<Math.min(5,Math.floor((s.veterancy??0)/20));rank++)rect(a,x-.4+rank*.18,y-1.02,.1,.1,[.95,.84,.3,1]);
     }
     for(const projectile of scene.heavyProjectiles??[]){

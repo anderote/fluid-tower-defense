@@ -3,19 +3,21 @@ type Point=[number,number,number];
 type Atlas={frames:{x:number;y:number;width:number;height:number}[];sprites:Record<string,number[]>};
 const assetBase=(import.meta as ImportMeta&{env?:{BASE_URL?:string}}).env?.BASE_URL??'/';
 
-/** Original samurai sprite, using the same small projected body and eight facings. */
+/** Original Red Alert-scale samurai: compact silhouette, limited palette, crisp pixels. */
 export function drawSamuraiFrame(ctx:CanvasRenderingContext2D,facing:number,frame:number){
   ctx.clearRect(0,0,INFANTRY_FRAME,INFANTRY_FRAME);
-  ctx.fillStyle='rgba(0,0,0,.3)';ctx.fillRect(INFANTRY_PIVOT.x-4,INFANTRY_PIVOT.y-1,9,3);
+  ctx.fillStyle='rgba(0,0,0,.28)';ctx.fillRect(INFANTRY_PIVOT.x-4,INFANTRY_PIVOT.y-1,8,2);
   const angle=facing*Math.PI/4,f=[Math.cos(angle),Math.sin(angle)],side=[-f[1],f[0]];
   const walking=frame>0&&frame<INFANTRY_ATTACK,phase=(frame-1)*Math.PI/3;
   const stride=walking?Math.sin(phase):0,fall=frame>=INFANTRY_DEATH?(frame-INFANTRY_DEATH)/7:0;
   const attack=frame>=INFANTRY_ATTACK&&frame<INFANTRY_DEATH;
-  const swing=attack?Math.min(1,(frame-INFANTRY_ATTACK)/7):0;
-  const ink='#22291f',cloth='#687049',light='#9c9a61',armor='#474e44',skin='#bd9d71',steel='#c2c5a5';
+  const progress=attack?Math.min(1,(frame-INFANTRY_ATTACK)/15):0;
+  const cut=attack?Math.max(0,Math.min(1,(progress-.22)/.38)):0,follow=attack?Math.max(0,(progress-.6)/.4):0;
+  const ease=(v:number)=>v*v*(3-2*v),swing=ease(cut),lunge=attack?Math.sin(Math.min(1,progress/.72)*Math.PI)*.17:0;
+  const ink='#182016',cloth='#59643a',dark='#354329',light='#92934e',skin='#b58a5d',steel='#d3d5bd',band='#7d3028';
   const project=([x,y,z]:Point):[number,number]=>{
     const xx=x+z*fall*.75,zz=z*(1-fall*.95);
-    return [Math.round(INFANTRY_PIVOT.x+(f[0]*xx+side[0]*y)*8),Math.round(INFANTRY_PIVOT.y+(f[1]*xx+side[1]*y)*5-zz*10)];
+    return [Math.round(INFANTRY_PIVOT.x+(f[0]*xx+side[0]*y)*7),Math.round(INFANTRY_PIVOT.y+(f[1]*xx+side[1]*y)*4.5-zz*9)];
   };
   const pixel=(p:Point,w:number,h:number,color:string)=>{const [x,y]=project(p);ctx.fillStyle=color;ctx.fillRect(x-Math.floor(w/2),y-Math.floor(h/2),w,h);};
   // Integer Bresenham strokes keep every sprite crisp at the original pixel scale.
@@ -25,23 +27,25 @@ export function drawSamuraiFrame(ctx:CanvasRenderingContext2D,facing:number,fram
     for(;;){ctx.fillRect(x-Math.floor(width/2),y-Math.floor(width/2),width,width);if(x===tx&&y===ty)break;const e=error*2;if(e>=dy){error+=dy;x+=sx;}if(e<=dx){error+=dx;y+=sy;}}
   };
   const limb=(a:Point,b:Point,width:number,color:string)=>{stroke(a,b,width+2,ink);stroke(a,b,width,color);};
-  const leg=(s:number)=>{const step=stride*s*.26;limb([0,s*.16,.65],[step*.4,s*.18,.3],2,cloth);limb([step*.4,s*.18,.3],[step,s*.2,.04+Math.max(0,-stride*s)*.16],2,armor);pixel([step+.08,s*.2,.03],3,2,ink);};
+  const leg=(s:number)=>{const step=stride*s*.24;limb([lunge,s*.13,.61],[lunge+step*.4,s*.14,.3],1,cloth);limb([lunge+step*.4,s*.14,.3],[lunge+step,s*.16,.04+Math.max(0,-stride*s)*.14],1,dark);pixel([lunge+step+.06,s*.16,.03],3,2,ink);};
   const far=side[1]>0?-1:1;
   leg(far);leg(-far);
-  // Segmented cuirass, waist plates, and shoulder guards keep the melee role readable.
-  limb([0,0,.58],[.03,0,1.14],5,armor);
-  for(let i=0;i<3;i++)stroke([.06,-.24,.64+i*.16],[.06,.24,.64+i*.16],1,i%2?light:cloth);
-  for(const s of [far,-far]){
-    const hand:Point=[attack?.3+Math.sin(swing*Math.PI)*.35:.22,s*.18,attack?1.36-swing*.63:.84];
-    limb([0,s*.32,1.12],[.1,s*.35,.93],2,cloth);limb([.1,s*.35,.93],hand,2,armor);pixel(hand,2,2,skin);pixel([0,s*.3,1.13],3,2,light);
+  // A narrow flak-jacket silhouette and olive remap values sit beside the classic troops.
+  limb([lunge,0,.57],[lunge+.01,0,1.08],4,cloth);
+  stroke([lunge+.03,-.18,.7],[lunge+.03,.18,.7],1,dark);stroke([lunge+.03,-.18,.92],[lunge+.03,.18,.92],1,light);
+  pixel([lunge,far*.22,1.02],3,2,dark);pixel([lunge,-far*.22,1.02],3,2,cloth);
+  let hilt:Point=[lunge+.2,.04,.9],tip:Point=[lunge+.58,-.08,1.46];
+  if(attack){
+    const start:Point=[lunge-.34,-.58,1.82],end:Point=[lunge+1.02,.58,.56];
+    hilt=[lunge+.11+.23*swing,-.2+.36*swing,1.17-.34*swing];
+    tip=[start[0]+(end[0]-start[0])*swing,start[1]+(end[1]-start[1])*swing,start[2]+(end[2]-start[2])*swing];
+    if(follow>.65){const recovery=(follow-.65)/.35;tip=[tip[0]+(.58-tip[0])*recovery,tip[1]+(-.08-tip[1])*recovery,tip[2]+(1.46-tip[2])*recovery];}
   }
-  pixel([.05,0,1.3],4,4,ink);pixel([.08,0,1.3],3,3,skin);
-  pixel([0,0,1.5],7,3,ink);pixel([0,0,1.52],5,2,armor);pixel([0,0,1.61],3,1,light);
-  for(const s of [-1,1])stroke([0,s*.27,1.53],[.04,s*.4,1.7],1,light);
-  const hand:Point=[attack?.3:.23,0,attack?1.36-swing*.63:.91];
-  const sword:Point=[attack?.18+Math.sin(swing*Math.PI)*1.1:.62,attack?-.5+1.1*swing:.1,attack?1.95-swing*1.35:1.52];
-  stroke(hand,sword,3,ink);stroke(hand,sword,1,steel);
-  pixel(hand,2,2,'#c0a24f');
+  for(const s of [far,-far]){const hand:Point=[hilt[0]-.08*Math.max(0,s),hilt[1]+s*.07,hilt[2]+s*.035];limb([lunge,s*.2,1.02],[lunge+.07,s*.24,.91],1,cloth);limb([lunge+.07,s*.24,.91],hand,1,dark);pixel(hand,2,2,skin);}
+  // Small face and cloth head wrap replace the oversized fantasy helmet.
+  pixel([lunge+.03,0,1.25],4,4,ink);pixel([lunge+.08,0,1.25],3,3,skin);
+  stroke([lunge+.02,-.2,1.37],[lunge+.02,.2,1.37],2,band);pixel([lunge-.03,far*.23,1.36],2,2,band);
+  stroke(hilt,tip,3,ink);stroke(hilt,tip,1,steel);pixel(hilt,2,2,'#a98535');
 }
 
 /** Normalize all troops to a common foot pivot; never rotate a flat sprite in screen space. */

@@ -7,8 +7,8 @@ import {makeGameWindow} from '../ui/windows.ts';
 
 export function createInfantryController(root:HTMLElement,run:RunController,getMap:()=>WorldMap,changed:()=>void,message:(text:string)=>void,cancelTools:()=>void){
   let buildKind:InfantryKind='rifle';
-  let selected:number|null=null,tool:'build'|'rally'|null=null,fieldKey='';
-  const fields=new Map<number,NavigationField>();
+  let selected:number|null=null,tool:'build'|'rally'|null=null,fieldKey='',commandTarget:Vec2|null=null;
+  const fields=new Map<number,NavigationField>(),orderFields=new Map<number,NavigationField>(),selectedSoldiers=new Set<number>();
   const state=()=>run.model.infantry??(run.model.infantry=freshInfantry());
   const map=()=>infantryMap(mapWithTurretObstacles(getMap(),run.model.towers),state());
   const panel=document.createElement('section');panel.className='card infantry-panel buildings';panel.hidden=true;panel.innerHTML=`<label>INFANTRY COMMAND</label><div class="infantry-details"></div>${(Object.keys(INFANTRY) as InfantryKind[]).map(kind=>`<button data-infantry="build" data-kind="${kind}"><b>${INFANTRY[kind].building.toUpperCase()} · ${INFANTRY[kind].cost}</b><small>${INFANTRY[kind].name} · ${INFANTRY[kind].interval}s / recruit</small><small>${INFANTRY[kind].role}</small></button>`).join("")}<p class="infantry-summary"></p>`;
@@ -44,10 +44,33 @@ export function createInfantryController(root:HTMLElement,run:RunController,getM
     update();
   };
   panel.addEventListener('click',handleClick);inspector.addEventListener('click',handleClick);
-  function ensureFields(){const active=map(),key=JSON.stringify([active.obstacles,state().buildings.map(b=>[b.id,b.rally])]);if(key!==fieldKey){fields.clear();for(const b of state().buildings)fields.set(b.id,infantryField(active,b.rally));fieldKey=key;}return active;}
-  return {state,fields,ensureFields,update,inspector,get selected(){return selected;},get tool(){return tool;},cancel(){tool=null;selected=null;},reset(){tool=null;selected=null;fieldKey='';fields.clear();},
+  const livingSelected=()=>state().soldiers.filter(s=>s.health>0&&selectedSoldiers.has(s.id));
+  const fieldReaches=(field:NavigationField,s:Vec2)=>{const x=Math.max(0,Math.min(field.width-1,Math.floor(s.x/field.cellSize))),y=Math.max(0,Math.min(field.height-1,Math.floor(s.y/field.cellSize)));return Number.isFinite(field.distances[y*field.width+x]);};
+  const clearSoldierSelection=()=>{selectedSoldiers.clear();commandTarget=null;};
+  const selectAt=(p:Vec2,additive=false)=>{
+    const soldier=state().soldiers.filter(s=>s.health>0&&Math.hypot(s.x-p.x,s.y-p.y)<=1.35).sort((a,b)=>Math.hypot(a.x-p.x,a.y-p.y)-Math.hypot(b.x-p.x,b.y-p.y))[0];
+    if(!soldier){if(!additive)clearSoldierSelection();return false;}
+    if(!additive)selectedSoldiers.clear();
+    if(additive&&selectedSoldiers.has(soldier.id))selectedSoldiers.delete(soldier.id);else selectedSoldiers.add(soldier.id);
+    selected=null;tool=null;commandTarget=null;cancelTools();update();message(`${selectedSoldiers.size} infantry selected. Right-click to move.`);return true;
+  };
+  const selectBox=(from:Vec2,to:Vec2,additive=false)=>{
+    const minX=Math.min(from.x,to.x),maxX=Math.max(from.x,to.x),minY=Math.min(from.y,to.y),maxY=Math.max(from.y,to.y),inside=state().soldiers.filter(s=>s.health>0&&s.x>=minX&&s.x<=maxX&&s.y>=minY&&s.y<=maxY);
+    if(!additive)selectedSoldiers.clear();for(const s of inside)selectedSoldiers.add(s.id);
+    if(inside.length){selected=null;tool=null;commandTarget=null;cancelTools();update();message(`${selectedSoldiers.size} infantry selected. Right-click to move.`);}
+    return inside.length;
+  };
+  const command=(target:Vec2)=>{
+    const soldiers=livingSelected().sort((a,b)=>a.id-b.id);if(!soldiers.length)return false;
+    const active=map();if(!clearForSoldier(active,target)){message('Infantry need a clear destination.');return true;}
+    const field=infantryField(active,target);let ordered=0;orderFields.clear();
+    for(const [slot,soldier] of soldiers.entries()){delete soldier.moveTarget;delete soldier.moveSlot;if(!fieldReaches(field,soldier))continue;soldier.moveTarget={...target};soldier.moveSlot=slot;orderFields.set(soldier.id,field);ordered++;}
+    fieldKey='';commandTarget={...target};changed();message(ordered===soldiers.length?`${ordered} infantry moving.`:`${ordered} of ${soldiers.length} infantry can reach that position.`);return true;
+  };
+  function ensureFields(){const active=map(),orders=state().soldiers.filter(s=>s.health>0&&s.moveTarget),key=JSON.stringify([active.obstacles,state().buildings.map(b=>[b.id,b.rally]),orders.map(s=>[s.id,s.moveTarget])]);if(key!==fieldKey){fields.clear();orderFields.clear();for(const b of state().buildings)fields.set(b.id,infantryField(active,b.rally));const cached=new Map<string,NavigationField>();for(const s of orders){const targetKey=`${s.moveTarget!.x},${s.moveTarget!.y}`;let field=cached.get(targetKey);if(!field){field=infantryField(active,s.moveTarget!);cached.set(targetKey,field);}orderFields.set(s.id,field);}fieldKey=key;}const living=new Set(state().soldiers.filter(s=>s.health>0).map(s=>s.id));for(const id of selectedSoldiers)if(!living.has(id))selectedSoldiers.delete(id);return active;}
+  return {state,fields,orderFields,ensureFields,update,inspector,selectAt,selectBox,command,get selected(){return selected;},get selectedSoldiers(){return selectedSoldiers as ReadonlySet<number>;},get commandTarget(){return commandTarget;},get tool(){return tool;},cancel(){tool=null;selected=null;clearSoldierSelection();},reset(){tool=null;selected=null;clearSoldierSelection();fieldKey='';fields.clear();orderFields.clear();},
     preview(p:Vec2){const at={x:Math.floor(p.x)+.5,y:Math.floor(p.y)+.5};return {...at,valid:!ended()&&run.model.metal>=INFANTRY[buildKind].cost&&clearForSoldier(map(),at,2.5)&&Math.hypot(at.x-getMap().goal.x,at.y-getMap().goal.y)>=getMap().goalRadius+3};},
-    click(p:Vec2,select=true):boolean {
+    click(p:Vec2,select=true,additive=false):boolean {
       if(ended())return !!tool;
       if(tool==='build'){
         const at={x:Math.floor(p.x)+.5,y:Math.floor(p.y)+.5};
@@ -65,7 +88,8 @@ export function createInfantryController(root:HTMLElement,run:RunController,getM
         if(b&&clearForSoldier(active,target)){const field=infantryField(active,target);if(exitPoint(active,b,field)){b.rally=target;fieldKey='';tool=null;changed();message('Rally point set. Troops will regroup at the yellow flag.');update();return true;}}
         message('Choose clear ground that recruits can reach from the barracks.');return true;
       }
-      if(select){const b=state().buildings.find(b=>Math.abs(b.x-p.x)<=2.5&&Math.abs(b.y-p.y)<=2.5);selected=b?.id??null;if(b){cancelTools();windowControls.expand();update();return true;}}
+      if(select&&selectAt(p,additive))return true;
+      if(select){const b=state().buildings.find(b=>Math.abs(b.x-p.x)<=2.5&&Math.abs(b.y-p.y)<=2.5);selected=b?.id??null;if(b){clearSoldierSelection();cancelTools();windowControls.expand();update();return true;}if(!additive)clearSoldierSelection();}
       return false;
     }
   };

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {ENEMIES, DEFAULT_MAP, MAX_VETERANCY, TOWERS, barbedWireStats, compileTower, createParticles, metalWallStats, towerBehavior, validateContent, veterancyLevel, veterancyMultiplier, veterancyXpForLevel} from './index.ts';
+import {ENEMIES, DEFAULT_MAP, MAX_VETERANCY, TOWERS, barbedWireStats, compileTower, createParticles, metalWallStats, towerBehavior, towerRequiresLineOfSight, validateContent, veterancyLevel, veterancyMultiplier, veterancyXpForLevel} from './index.ts';
 import {P, PARTICLE_FLOATS, type Tower} from '../contracts/index.ts';
 
 test('content registry is valid and has six readable enemy roles',()=>{ validateContent(); assert.equal(Object.keys(TOWERS).length,8);assert.equal(Object.keys(ENEMIES).length,6);assert.ok(ENEMIES.rager.drive>ENEMIES.shambler.drive);assert.ok(ENEMIES.husk.pressureLimit<ENEMIES.brute.pressureLimit); });
@@ -55,6 +55,8 @@ test('tower identities use dedicated combat behaviours where required',()=>{
  assert.equal(towerBehavior('rocket'),12);
  assert.equal(towerBehavior('incinerator'),14);
  assert.notEqual(towerBehavior('rocket'),towerBehavior('mortar'));
+ assert.ok(['autocannon','rocket','railgun','incinerator'].every(kind=>towerRequiresLineOfSight(kind as keyof typeof TOWERS)));
+ assert.equal(towerRequiresLineOfSight('mortar'),false);
  assert.match(TOWERS.autocannon.description,/knocks them back/i);
 });
 test('veterancy compounds small rank bonuses into meaningful late-service performance',()=>{

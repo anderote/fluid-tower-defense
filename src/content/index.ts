@@ -38,6 +38,8 @@ export const metalWallStats=(upgrades:readonly string[])=>{const multiplier=rese
 
 /** Packs authored towers into the supported GPU weapon behaviours. */
 export const towerBehavior=(kind:TowerKind):number=>({repulsor:0,mortar:1,autocannon:2,cryo:3,tesla:13,rocket:12,railgun:2,incinerator:14}[kind]);
+/** Direct-fire weapons whose targeting is occluded by solid map geometry. */
+export const towerRequiresLineOfSight=(kind:TowerKind):boolean=>kind==='autocannon'||kind==='rocket'||kind==='railgun'||kind==='incinerator';
 export const MAX_VETERANCY=100;
 /** 64.8 XP per squared rank: rank 10 requires 6,480 credited kills, rank 50 162,000, and rank 100 648,000. */
 export const veterancyXpForLevel=(level:number):number=>64.8*Math.max(0,Math.min(MAX_VETERANCY,Math.ceil(level)))**2;

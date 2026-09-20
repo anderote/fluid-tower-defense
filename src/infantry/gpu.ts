@@ -43,7 +43,7 @@ fn visible(a:vec2f,b:vec2f)->bool {
  }return true;
 }
 @compute @workgroup_size(64) fn sense(@builtin(global_invocation_id) gid:vec3u){
- let u=gid.x;if(u>=params.counts.y){return;}let unit=units[u];var best=max(unit.position.z,select(0.,12.,unit.position.w>=3.));var result=Result(vec4f(-1,0,0,0),vec4f(0));
+ let u=gid.x;if(u>=params.counts.y){return;}let unit=units[u];var best=unit.position.z+select(8.,12.,unit.position.w>=3.);var result=Result(vec4f(-1,0,0,0),vec4f(0));
  let low=cell(unit.position.xy-vec2f(best+4.));let high=cell(unit.position.xy+vec2f(best+4.));
  for(var y=low.y;y<=high.y;y++){for(var x=low.x;x<=high.x;x++){
  var link=atomicLoad(&heads[index(vec2i(x,y))]);
@@ -67,7 +67,7 @@ fn visible(a:vec2f,b:vec2f)->bool {
   if(unit.shot.z<=0.){continue;}
   var hit=unit.shot.x==f32(i)&&unit.shot.y==p.status.w&&d<=unit.position.z;
   if(kind==1.){hit=distance(p.pos.xy,unit.impact.xy)<=3.5&&visible(unit.impact.xy,p.pos.xy);}
-  if(kind==2.||kind==3.){let alignment=dot(delta/max(d,.001),vec2f(cos(unit.impact.z),sin(unit.impact.z)));hit=d<=unit.position.z&&alignment>=select(.65,-.3,kind==3.);}
+  if(kind==2.||kind==3.){let alignment=dot(delta/max(d,.001),vec2f(cos(unit.impact.z),sin(unit.impact.z)));hit=d<=unit.position.z&&alignment>=select(.65,.35,kind==3.);}
   if(hit&&visible(unit.position.xy,p.pos.xy)){p.body.z-=unit.shot.z;atomicStore(&owners[i],u32(unit.shot.w));}
  }}}particles[i]=p;
 }`});
