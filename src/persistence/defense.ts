@@ -6,11 +6,13 @@ import {clearPlayerTerrain,terrainMounts,wallMountCells} from '../game/terrain.t
 export const AUTOSAVE_KEY = 'pressure-front.autosave.v1';
 export const CHECKPOINT_KEY = 'pressure-front.checkpoint.v1';
 export type Wire = Rect & {health:number; maxHealth:number; breached:boolean};
+export type Fence = Rect & {health:number; maxHealth:number};
 export interface Defense {
   map:WorldMap;
   spawnBaseline:Rect;
   builtWalls:Rect[];
   builtWires:Wire[];
+  builtFences?:Fence[];
   difficulty:number;
   streamWidth?:number;
 }
@@ -20,8 +22,8 @@ const finite = (value:unknown):value is number => typeof value === 'number' && N
 const object = (value:unknown):value is Record<string, unknown> => !!value && typeof value === 'object';
 const rect = (value:unknown):value is Rect => object(value) && finite(value.x) && finite(value.y) && finite(value.width) && finite(value.height) && value.x >= 0 && value.y >= 0 && value.width > 0 && value.height > 0;
 const same = (a:Rect, b:Rect) => a.x===b.x && a.y===b.y && a.width===b.width && a.height===b.height;
-const defenseMounts=(defense:Pick<Defense,'map'|'builtWalls'|'builtWires'>)=>[
-  ...terrainMounts(clearPlayerTerrain(defense.map,defense.builtWalls,defense.builtWires)),
+const defenseMounts=(defense:Pick<Defense,'map'|'builtWalls'|'builtWires'|'builtFences'>)=>[
+  ...terrainMounts(clearPlayerTerrain(defense.map,defense.builtWalls,defense.builtWires,defense.builtFences??[])),
   ...wallMountCells(defense.builtWalls),
 ];
 
@@ -31,15 +33,16 @@ export function decodeDefense(raw:string):SavedDefense {
   if (!object(saved) || (saved.version !== undefined && saved.version !== 1) || typeof saved.runState !== 'string') throw new Error('Invalid saved defense.');
   const map = saved.map;
   if (!object(map) || typeof map.id !== 'string' || !finite(map.width) || !finite(map.height) || map.width <= 0 || map.height <= 0 || !Array.isArray(map.obstacles) || !map.obstacles.every(rect) || !rect(map.spawn) || !object(map.goal) || !finite(map.goal.x) || !finite(map.goal.y) || map.goal.x < 0 || map.goal.x > map.width || map.goal.y < 0 || map.goal.y > map.height || !finite(map.goalRadius) || map.goalRadius <= 0) throw new Error('Invalid saved map.');
-  if (!rect(saved.spawnBaseline) || !Array.isArray(saved.builtWalls) || !saved.builtWalls.every(rect) || !Array.isArray(saved.builtWires) || !saved.builtWires.every(wire => object(wire) && finite(wire.health) && finite(wire.maxHealth) && wire.health > 0 && wire.maxHealth > 0 && wire.health <= wire.maxHealth && typeof wire.breached === 'boolean' && rect(wire)) || !finite(saved.difficulty) || !Number.isInteger(saved.difficulty) || saved.difficulty < 1 || saved.difficulty > 40 || (saved.streamWidth !== undefined && (!finite(saved.streamWidth) || !Number.isInteger(saved.streamWidth) || saved.streamWidth < 1 || saved.streamWidth > 100))) throw new Error('Invalid saved structures or flow setting.');
+  if (!rect(saved.spawnBaseline) || !Array.isArray(saved.builtWalls) || !saved.builtWalls.every(rect) || !Array.isArray(saved.builtWires) || !saved.builtWires.every(wire => object(wire) && finite(wire.health) && finite(wire.maxHealth) && wire.health > 0 && wire.maxHealth > 0 && wire.health <= wire.maxHealth && typeof wire.breached === 'boolean' && rect(wire)) || (saved.builtFences!==undefined&&(!Array.isArray(saved.builtFences)||!saved.builtFences.every(fence=>object(fence)&&finite(fence.health)&&finite(fence.maxHealth)&&fence.health>0&&fence.maxHealth>0&&fence.health<=fence.maxHealth&&rect(fence)))) || !finite(saved.difficulty) || !Number.isInteger(saved.difficulty) || saved.difficulty < 1 || saved.difficulty > 40 || (saved.streamWidth !== undefined && (!finite(saved.streamWidth) || !Number.isInteger(saved.streamWidth) || saved.streamWidth < 1 || saved.streamWidth > 100))) throw new Error('Invalid saved structures or flow setting.');
+  saved.builtFences??=[];
   const defense = saved as unknown as SavedDefense;
-  const dynamic = [...defense.builtWalls, ...defense.builtWires];
-  // Collision/removal code uses object identity. Reconnect walls to map obstacles;
-  // wire intentionally remains outside the collision/navigation map, including for
-  // legacy snapshots that serialized intact wire as an obstacle.
+  const dynamic = [...defense.builtWalls, ...defense.builtWires, ...(defense.builtFences??[])];
+  // Collision/removal code uses object identity. Reconnect solid walls and fences
+  // to map obstacles; wire intentionally remains outside the collision/navigation
+  // map, including for legacy snapshots that serialized intact wire as an obstacle.
   defense.map.obstacles = [
     ...defense.map.obstacles.filter(obstacle => !dynamic.some(segment => same(obstacle,segment))),
-    ...defense.builtWalls,
+    ...defense.builtWalls,...(defense.builtFences??[]),
   ];
   const issue = validateEditorMap(defense.map);
   if (issue) throw new Error(issue);

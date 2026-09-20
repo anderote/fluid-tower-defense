@@ -113,7 +113,7 @@ struct Out{@builtin(position) pos:vec4<f32>,@location(0) uv:vec2<f32>,@location(
     const scenery=scene.map.scenery,biome=scenery?.biome;
     if(previousScenery!==scenery){previousScenery=scenery;sceneryVersion++;}
     const landscapeAvailable=biome&&biome!=='interior'&&atlas.sprites[`${biome}:clear1`]?.length;
-    const obstacles=scene.map.obstacles.filter(o=>!(scene.wires??[]).some(w=>!w.breached&&same(o,w))&&!((landscapeAvailable||biome==='interior')&&scenery?.solids.some(r=>same(r,o))));
+    const obstacles=scene.map.obstacles.filter(o=>!(scene.wires??[]).some(w=>!w.breached&&same(o,w))&&!(scene.fences??[]).some(f=>same(o,f))&&!((landscapeAvailable||biome==='interior')&&scenery?.solids.some(r=>same(r,o))));
     const key=JSON.stringify([scene.map.width,scene.map.height,sceneryVersion,obstacles]);
     if(key!==terrainKey){
       const data:number[]=[],floor=landscapeAvailable?atlas.sprites[`${biome}:clear1`]:floorSprites(atlas.sprites,floorStyle);
