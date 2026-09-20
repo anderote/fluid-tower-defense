@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><title>Red Alert asset inspection</title>
+<style>body{background:#292927;color:#ddd;font:14px monospace;margin:24px}main{display:grid;grid-template-columns:repeat(8,140px);gap:14px}canvas{image-rendering:pixelated;background:#171716}figure{margin:0}h1{font-size:20px}</style>
+<h1>Original Red Alert — interior tiles and defenses</h1><main></main>
+<script type="module">
+const atlas=await fetch('/assets/red-alert/atlas.json').then(r=>r.json()),image=new Image();image.src='/assets/red-alert/atlas.png';await image.decode();
+for(const [name,ids] of Object.entries(atlas.sprites)){
+  const figure=document.createElement('figure'),canvas=document.createElement('canvas'),label=document.createElement('figcaption');
+  const cols=name.startsWith('wall')?(ids.length===9?3:ids.length===6?(Number(name.slice(4))>=43?3:2):ids.length===4?2:1):4;
+  const show=name==='gun'?[ids[0],ids[8],ids[16],ids[24]]:name==='sam'?ids.slice(4,8):name==='tsla'||name==='ftur'?ids.slice(0,1):ids;
+  const width=atlas.frames[ids[0]].width,height=atlas.frames[ids[0]].height;
+  canvas.width=cols*width;canvas.height=Math.ceil(show.length/cols)*height;canvas.style.width=cols===1?'96px':'136px';
+  const ctx=canvas.getContext('2d');for(let i=0;i<show.length;i++){const f=atlas.frames[show[i]];ctx.drawImage(image,f.x,f.y,f.width,f.height,(i%cols)*width,Math.floor(i/cols)*height,f.width,f.height);}
+  label.textContent=name;figure.append(canvas,label);document.querySelector('main').append(figure);
+}
+</script></html>
