@@ -31,6 +31,7 @@ export class CommandProgression {
   award(amount:number):void{this.state.xp+=Math.max(0,Math.floor(amount));this.save();}
   unlockForLevel(level:number):boolean{const next=Math.floor((Math.max(1,level)-1)/10)+1;if(next<=this.state.unlockedTier)return false;this.state.unlockedTier=next;this.save();return true;}
   buy(id:string):ActionResult{const def=META_DEFS.find(candidate=>candidate.id===id);if(!def)return {ok:false,reason:'Unknown Command upgrade.'};const rank=this.state.ranks[id]??0;if(rank>=def.maxRank)return {ok:false,reason:'This Command upgrade is fully researched.'};const cost=Math.round(def.cost*(1+rank*.55));if(this.state.xp<cost)return {ok:false,reason:`Requires ${cost} Command XP.`};this.state.xp-=cost;this.state.ranks[id]=rank+1;this.save();return {ok:true};}
+  reset():void{this.state=emptyProfile();try{if(typeof window!=='undefined')window.localStorage.removeItem(PROFILE_KEY);}catch{/* Persistence is optional. */}}
   private save():void{try{if(typeof window!=='undefined')window.localStorage.setItem(PROFILE_KEY,JSON.stringify(this.state));}catch{/* Persistence is optional. */}}
 }
 export const createCommandProgression=()=>new CommandProgression();
@@ -215,6 +216,7 @@ export class RunController {
     for(const tower of this.model.towers){tower.veterancyXp=(tower.veterancyXp??0)+seconds*1.8;tower.veterancy=veterancyLevel(tower.veterancyXp);}
   }
   reset():void { Object.assign(this.model,fresh()); this.nextTowerId=1; this.runEpoch++; this.applied=emptyApplied(); this.live=0;this.waveStartBaseHealth=this.model.baseHealth; }
+  clearSave():void { try { if(typeof window!=='undefined')window.localStorage.removeItem(SAVE_KEY); } catch {/* Persistence is optional. */} }
   resetTowerAttribution():void { this.applied.towerKills=Array(MAX_TOWERS).fill(0); }
   setMap(map:WorldMap):void { this.map=map; }
   setBuildMounts(mounts:readonly Rect[]):void { this.buildMounts=mounts.map(mount=>({...mount})); }

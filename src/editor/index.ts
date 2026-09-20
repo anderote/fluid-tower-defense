@@ -47,6 +47,7 @@ export function createLevelEditor(mount:HTMLElement, initial:WorldMap, onApply:(
   button('Cancel',()=>{map=clone(applied);setActive(false);}); panel.append(status); root.append(toggle,panel); mount.append(root); panel.hidden=true; panel.style.display='none';
   return {
     get active(){return active;}, get map(){return clone(map);},
+    resetToDefault(){applied=clone(DEFAULT_MAP);map=clone(DEFAULT_MAP);erase=false;note('Default map restored.');},
     paint(point:Vec2, requestedErase=erase) {
       const wall=wallAtPoint(map,point),{x,y}=wall;
       const index=map.obstacles.findIndex(existing=>x>=existing.x&&x<existing.x+existing.width&&y>=existing.y&&y<existing.y+existing.height);

@@ -28,6 +28,11 @@ test('Command XP permanently purchases base stat upgrades and unlocks a new tier
   assert.equal(profile.unlockForLevel(11),true);
   assert.equal(profile.unlockedTier,2);
 });
+test('Command progression can be completely reset for a new game',()=>{
+  const profile=new CommandProgression();profile.award(200);assert.equal(profile.buy('damage').ok,true);profile.unlockForLevel(11);
+  profile.reset();
+  assert.equal(profile.xp,0);assert.equal(profile.unlockedTier,1);assert.deepEqual(profile.ranks(),[]);
+});
 test('branches lock and preparation saves restore',()=>{
   const run=createRun(), result=run.place('repulsor',{x:84,y:50}); assert.ok(result.ok && result.tower); const tower=result.tower;
   assert.equal(run.upgrade(tower.id,0).ok,true); assert.equal(run.upgrade(tower.id,1).ok,false);
