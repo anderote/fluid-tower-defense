@@ -117,6 +117,15 @@ export function compileTower(tower: Tower, bonuses: readonly string[] = [], comm
 }
 
 function random(seed:number):()=>number { let state=(seed >>> 0) || 1; return ()=>{ state=(Math.imul(state,1664525)+1013904223)>>>0; return state / 0x1_0000_0000; }; }
+function shuffledCell(index:number,capacity:number):number {
+  if(capacity<=1)return 0;
+  const bits=Math.ceil(Math.log2(capacity)),mask=2**bits-1,shift=Math.max(1,Math.floor(bits/2));
+  let cell=index%capacity;
+  // Cycle-walk a reversible integer mix: every cell appears exactly once per cycle,
+  // but adjacent stream slots land in visibly unrelated parts of the spawn area.
+  do {cell=(cell+0x9e3779)&mask;cell^=cell>>>shift;cell=Math.imul(cell,0x45d9f3b)&mask;cell^=cell>>>shift;} while(cell>=capacity);
+  return cell;
+}
 
 /** Encodes only the populated prefix. Callers must use `particles.length / PARTICLE_FLOATS`. */
 export function createParticles(batches: readonly SpawnBatch[], map: WorldMap, capacity: number, spawnSlot=0): Float32Array {
@@ -136,19 +145,11 @@ export function createParticles(batches: readonly SpawnBatch[], map: WorldMap, c
   // Randomly sample the inlet lattice without replacement so streamed arrivals pop up
   // across the whole spawn region instead of visibly sweeping through rows.
   const columns=maxColumns;
-  const cellRandom=random(batches.reduce((seed,batch,index)=>Math.imul(seed^batch.seed^Math.imul(batch.count,index+1),16777619),(spawnSlot+1)>>>0));
-  const remappedCells=new Map<number,number>();
-  const takeCell=(used:number)=>{
-    const remaining=latticeCapacity-used,picked=Math.floor(cellRandom()*remaining),last=remaining-1;
-    const cell=remappedCells.get(picked)??picked,replacement=remappedCells.get(last)??last;
-    remappedCells.set(picked,replacement);remappedCells.delete(last);
-    return cell;
-  };
   let cursor=0, slot=0;
   for (const batch of batches) {
     const count=Math.max(0,Math.floor(batch.count)), enemy=ENEMIES[batch.kind], jitter=random(batch.seed);
     for (let i=0;i<count && slot<actual;i++,slot++) {
-      const cell=takeCell(slot),col=cell%columns,row=Math.floor(cell/columns);
+      const cell=shuffledCell(spawnSlot+slot,latticeCapacity),col=cell%columns,row=Math.floor(cell/columns);
       const baseX=map.spawn.x+(col+.5)*spacing, baseY=map.spawn.y+(row+.5)*spacing;
       // A tiny deterministic jitter is safely smaller than the lattice clearance.
       const offset=(jitter()-.5)*.008;

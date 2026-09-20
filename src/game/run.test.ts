@@ -22,6 +22,11 @@ test('tower and wall Metal spending remains available during combat',()=>{
   assert.equal(run.place('repulsor',{x:84,y:50}).ok,true);
   assert.equal(run.spendMetal(60).ok,true);
 });
+test('placing a tower leaves the inspector closed',()=>{
+  const run=createRun();
+  assert.equal(run.place('repulsor',{x:84,y:50}).ok,true);
+  assert.equal(run.model.selected,null);
+});
 test('difficulty multiplier scales continuous zombie production and clamps to 1–40',()=>{
   const baseline=createRun(), intense=createRun();
   baseline.startWave(); intense.startWave();
