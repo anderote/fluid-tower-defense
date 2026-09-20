@@ -33,5 +33,18 @@ try{
   assert(result[38]===100&&result[54]===100,kind+' spares zombies outside its attack footprint');
   writeEnemy();assert((await shoot(7,[{x:11,y:9,width:.5,height:3}]))[6]===20,kind+' cannot attack through a wall');
  }
+ soldier.kind='dog';soldier.x=10.5;writeEnemy();assert((await shoot(7,[],24))[6]===-4,'dog bites a nearby live target');
+ soldier.x=8;writeEnemy();assert((await shoot(7,[],24))[6]===20,'dogs cannot bite outside melee range');
+ soldier.kind='rifle';soldier.x=10;
+ const army=Array.from({length:2048},(_,i)=>({...soldier,id:i+1,x:10,y:10}));
+ writeEnemy();const mass=device.createCommandEncoder();const done=infantry.encode(mass,army,[{soldier:2048,target:0,generation:7,damage:5,x:12,y:10}],map,1,true);device.queue.submit([mass.finish()]);await done?.();
+ assert(new Float32Array(await read(shared.particles,64))[6]===15,'soldier 2048 fights after GPU buffers grow');
+ for(let i=0;i<100&&!infantry.threats.has(2048);i++)await new Promise(r=>setTimeout(r,10));
+ assert(infantry.threats.size===2048,'every soldier in a 2048-unit army receives targeting');
+ device.queue.writeBuffer(shared.particles,0,new Float32Array([10.8,10,0,0,.5,1,20,20,2,120,0,1,0,0,0,7]));
+ const pressure=device.createCommandEncoder(),pressureDone=infantry.encode(pressure,[soldier],[],map,1,true);device.queue.submit([pressure.finish()]);await pressureDone?.();await device.queue.onSubmittedWorkDone();
+ for(let i=0;i<100&&(infantry.threats.get(1)?.pressure??0)!==120;i++)await new Promise(r=>setTimeout(r,10));
+ assert((infantry.threats.get(1)?.pushX??0)<0&&infantry.threats.get(1)?.pressure===120,'crowd pressure pushes infantry away from contact');
+ assert(new Float32Array(await read(shared.particles,64))[2]>0,'infantry physically resists zombie penetration');
  assert(gpuErrors.length===0,'no GPU validation errors');infantry.destroy();combat.destroy();shared.particles.destroy();shared.counters.destroy();device.destroy();output.textContent+='\nALL CHECKS PASSED';
 }catch(error){output.textContent+='\nFAIL '+String(error);console.error(error);}

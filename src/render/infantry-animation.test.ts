@@ -1,6 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {createInfantryAnimator,classicInfantryFacing,infantryFacing,infantryMuzzle,INFANTRY_ATTACK,INFANTRY_DEATH} from './infantry-animation.ts';
+import {createInfantryAnimator,classicInfantryFacing,classicDogFrame,infantryFacing,infantryMuzzle,INFANTRY_ATTACK,INFANTRY_DEATH} from './infantry-animation.ts';
+import {readFileSync} from 'node:fs';
 import {infantryStats,type Soldier} from '../infantry/model.ts';
 const soldier=():Soldier=>({id:1,home:1,x:10,y:10,quality:0,health:40,cooldown:0,angle:0,flash:0,walk:0,dead:0});
 
@@ -22,13 +23,18 @@ test('rifle firing animates past the short muzzle flash and returns to idle duri
   s.cooldown=.1;assert.equal(animate.prepare([s],.7)[0].frame,0);
 });
 test('all troop roles collapse to a held final frame and fade without looping',()=>{
-  for(const kind of ['rifle','rocket','flame','samurai'] as const){
+  for(const kind of ['rifle','rocket','flame','samurai','dog'] as const){
     const animate=createInfantryAnimator(),s={...soldier(),kind,health:0};
     assert.equal(animate.prepare([s],0)[0].frame,INFANTRY_DEATH);
     s.dead=.8;const fallen=animate.prepare([s],.8)[0];assert.equal(fallen.frame,INFANTRY_DEATH+7);assert.equal(fallen.alpha,1);
     s.dead=2.6;assert.ok(Math.abs(animate.prepare([s],2.6)[0].alpha-.5)<1e-6);
     s.dead=3;assert.equal(animate.prepare([s],3)[0].alpha,0);
   }
+});
+test('all dog poses use existing original dog and pounce frames',()=>{
+ const atlas=JSON.parse(readFileSync(new URL('../../public/assets/red-alert/atlas.json',import.meta.url),'utf8'));
+ for(let facing=0;facing<8;facing++)for(let frame=0;frame<31;frame++){const pose=classicDogFrame(facing,frame);assert.ok(atlas.sprites[pose.sprite][pose.frame]!==undefined);}
+ assert.equal(classicDogFrame(0,0).frame,6);assert.equal(classicDogFrame(0,INFANTRY_ATTACK).sprite,'dogbullt');assert.equal(classicDogFrame(0,30).frame,241);assert.ok(atlas.sprites.kenn.length>=2);
 });
 test('animation does not mutate model/save data, including upgraded weapon timing',()=>{
   const s={...soldier(),quality:5};s.cooldown=infantryStats('rifle',5).cooldown;

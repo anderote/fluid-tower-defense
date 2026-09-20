@@ -1,13 +1,12 @@
 import type {RenderScene} from '../contracts/index.ts';
 import {createInfantryAtlas} from './infantry-art.ts';
 import {createInfantryAnimator,INFANTRY_FRAME,INFANTRY_KINDS,INFANTRY_PIVOT,INFANTRY_PIXEL} from './infantry-animation.ts';
-import {MAX_INFANTRY} from '../infantry/model.ts';
 
 export async function createInfantrySprites(device:GPUDevice,format:GPUTextureFormat,camera:GPUBuffer){
   const atlas=await createInfantryAtlas();
   const texture=device.createTexture({label:'Directional Red Alert infantry',size:[atlas.width,atlas.height],format:'rgba8unorm',usage:GPUTextureUsage.TEXTURE_BINDING|GPUTextureUsage.COPY_DST|GPUTextureUsage.RENDER_ATTACHMENT});
   device.queue.copyExternalImageToTexture({source:atlas},{texture},[atlas.width,atlas.height]);
-  const instances=device.createBuffer({label:'Infantry sprite instances',size:MAX_INFANTRY*2*64,usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST});
+  let capacity=128,instances=device.createBuffer({label:'Infantry sprite instances',size:capacity*64,usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST});
   const shader=device.createShaderModule({label:'Foot-sorted infantry sprites',code:`
 struct Camera{viewport:vec4<f32>,world:vec4<f32>,time:vec4<f32>};
 @group(0) @binding(0) var<uniform> camera:Camera;
@@ -26,8 +25,9 @@ fn clip(p:vec2<f32>)->vec2<f32>{let aspect=camera.viewport.x/camera.viewport.y;l
   const animator=createInfantryAnimator();let count=0;
   return {
     prepare(scene:RenderScene){
-      const soldiers=(scene.infantry?.soldiers??[]).slice(0,MAX_INFANTRY*2),poses=animator.prepare(soldiers,scene.time);
+      const soldiers=scene.infantry?.soldiers??[],poses=animator.prepare(soldiers,scene.time);
       count=soldiers.length;if(!count)return;
+      if(count>capacity){instances.destroy();capacity=2**Math.ceil(Math.log2(count));instances=device.createBuffer({label:'Infantry sprite instances',size:capacity*64,usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST});}
       const data=new Float32Array(count*16);
       soldiers.forEach((s,i)=>{const p=poses[i],row=INFANTRY_KINDS.indexOf(s.kind??'rifle')*8+p.facing;
         data.set([s.x-INFANTRY_PIVOT.x*INFANTRY_PIXEL,s.y-INFANTRY_PIVOT.y*INFANTRY_PIXEL,INFANTRY_FRAME*INFANTRY_PIXEL,INFANTRY_FRAME*INFANTRY_PIXEL,p.frame*INFANTRY_FRAME,row*INFANTRY_FRAME,INFANTRY_FRAME,INFANTRY_FRAME,1,1,1,p.alpha,s.y,s.health<=0?1:0,0,0],i*16);

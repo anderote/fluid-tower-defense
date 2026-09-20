@@ -1,4 +1,4 @@
-import {INFANTRY_FRAME,INFANTRY_FRAMES,INFANTRY_FACINGS,INFANTRY_PIVOT,INFANTRY_KINDS,INFANTRY_ATTACK,INFANTRY_DEATH,classicInfantryFacing,attackFrames} from './infantry-animation.ts';
+import {INFANTRY_FRAME,INFANTRY_FRAMES,INFANTRY_FACINGS,INFANTRY_PIVOT,INFANTRY_KINDS,INFANTRY_ATTACK,INFANTRY_DEATH,classicInfantryFacing,classicDogFrame,attackFrames} from './infantry-animation.ts';
 type Point=[number,number,number];
 type Atlas={frames:{x:number;y:number;width:number;height:number}[];sprites:Record<string,number[]>};
 const assetBase=(import.meta as ImportMeta&{env?:{BASE_URL?:string}}).env?.BASE_URL??'/';
@@ -49,6 +49,9 @@ export async function createInfantryAtlas(){
   const [metadata,response]=await Promise.all([fetch(`${assetBase}assets/red-alert/infantry/atlas.json`),fetch(`${assetBase}assets/red-alert/infantry/atlas.png`)]);
   if(!metadata.ok||!response.ok)throw Error('Red Alert infantry atlas is missing');
   const atlas:Atlas=await metadata.json(),bitmap=await createImageBitmap(await response.blob(),{premultiplyAlpha:'none',colorSpaceConversion:'none'});
+  const [dogMetadata,dogResponse]=await Promise.all([fetch(`${assetBase}assets/red-alert/atlas.json`),fetch(`${assetBase}assets/red-alert/atlas.png`)]);
+  if(!dogMetadata.ok||!dogResponse.ok){bitmap.close();throw Error('Red Alert dog atlas is missing');}
+  const dogAtlas:Atlas=await dogMetadata.json(),dogBitmap=await createImageBitmap(await dogResponse.blob(),{premultiplyAlpha:'none',colorSpaceConversion:'none'});
   const canvas=document.createElement('canvas');canvas.width=INFANTRY_FRAME*INFANTRY_FRAMES;canvas.height=INFANTRY_FRAME*INFANTRY_FACINGS*INFANTRY_KINDS.length;
   const ctx=canvas.getContext('2d')!;ctx.imageSmoothingEnabled=false;
   const tile=document.createElement('canvas');tile.width=tile.height=INFANTRY_FRAME;const brush=tile.getContext('2d')!;brush.imageSmoothingEnabled=false;
@@ -56,6 +59,11 @@ export async function createInfantryAtlas(){
     for(const [row,kind] of INFANTRY_KINDS.entries())for(let facing=0;facing<8;facing++)for(let frame=0;frame<INFANTRY_FRAMES;frame++){
       const x=frame*INFANTRY_FRAME,y=(row*8+facing)*INFANTRY_FRAME;
       if(kind==='samurai'){drawSamuraiFrame(brush,facing,frame);ctx.drawImage(tile,x,y);continue;}
+      if(kind==='dog'){
+        const pose=classicDogFrame(facing,frame),f=dogAtlas.frames[dogAtlas.sprites[pose.sprite]?.[pose.frame]];
+        if(!f)throw Error(`Missing dog frame ${pose.sprite}/${pose.frame}`);
+        ctx.drawImage(dogBitmap,f.x,f.y,f.width,f.height,x+INFANTRY_PIVOT.x-25,y+INFANTRY_PIVOT.y-20,f.width,f.height);continue;
+      }
       const direction=classicInfantryFacing(facing),shootLength=attackFrames(kind);
       const source=frame===0?direction:frame<INFANTRY_ATTACK?16+direction*6+frame-1:frame<INFANTRY_DEATH?64+direction*shootLength+Math.min(shootLength-1,frame-INFANTRY_ATTACK):64+shootLength*8+frame-INFANTRY_DEATH;
       const f=atlas.frames[atlas.sprites[kind]?.[source]];
@@ -63,6 +71,6 @@ export async function createInfantryAtlas(){
       // Native 50×39 Westwood canvas: its foot pivot is (25,20), not its center.
       ctx.drawImage(bitmap,f.x,f.y,f.width,f.height,x+INFANTRY_PIVOT.x-25,y+INFANTRY_PIVOT.y-20,f.width,f.height);
     }
-  }finally{bitmap.close();}
+  }finally{bitmap.close();dogBitmap.close();}
   return canvas;
 }

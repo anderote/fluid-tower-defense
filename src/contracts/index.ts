@@ -30,7 +30,7 @@ export const PARTICLE_FLOATS = 16;
 export const PARTICLE_BYTES = PARTICLE_FLOATS * 4;
 export const MAX_EFFECTS = 64;
 export const MAX_TOWERS = 64;
-export const MAX_INFANTRY_KILL_SLOTS = 64;
+export const MAX_INFANTRY_KILL_SLOTS = 65536;
 export const TOWER_KILL_COUNTER_OFFSET = 16;
 export const INFANTRY_KILL_COUNTER_OFFSET = TOWER_KILL_COUNTER_OFFSET + MAX_TOWERS;
 // Global settlement telemetry plus the fixed tower attribution range. Obstacle telemetry
@@ -54,7 +54,7 @@ export interface BonusChoice { id:string; name:string; description:string }
 export interface CommandUpgrade { id:string; name:string; description:string; cost:number; requires?:string }
 export interface StatUpgrade {id:string;name:string;description:string;cost:number;rank:number;maxRank:number}
 export interface TowerUnlock {kind:TowerKind;cost:number;unlocked:boolean}
-export interface UIState { mapTitle?:string;nextMapTitle?:string;mode:'lab'|'game'; phase:'preparation'|'combat'|'settling'|'checkpoint'|'won'|'lost'; paused:boolean; fps:number; frameMs:number; population:number; capacity:number; kills:number; crushKills:number; leaks:number; earned:number; maxPressure:number; metal:number; baseHealth:number; level:number; wave:number; waveCount:number; difficulty:number; streamWidth:number; selected:Tower|null; upgradeTarget:Tower|null; selectedKind:TowerKind|null; buildTool:'wall'|'wire'|'demolish'|null; upgradeMode:boolean; moveMode:boolean; targetMode:boolean; heatmap:boolean; tool:'blast'|'push'|'inspect'; message:string; adapter:string; bonusChoices:readonly BonusChoice[]; bonuses:readonly string[]; commandUpgrades:readonly string[]; statUpgrades:readonly StatUpgrade[]; towerUnlocks:readonly TowerUnlock[]; boss?:Settlement['boss']; bossHealth?:number; }
+export interface UIState { casualties?:number;friendlyFire?:number;mapTitle?:string;nextMapTitle?:string;mode:'lab'|'game'; phase:'preparation'|'combat'|'settling'|'checkpoint'|'won'|'lost'; paused:boolean; fps:number; frameMs:number; population:number; capacity:number; kills:number; crushKills:number; leaks:number; earned:number; maxPressure:number; metal:number; baseHealth:number; level:number; wave:number; waveCount:number; difficulty:number; streamWidth:number; selected:Tower|null; upgradeTarget:Tower|null; selectedKind:TowerKind|null; buildTool:'wall'|'wire'|'demolish'|null; upgradeMode:boolean; moveMode:boolean; targetMode:boolean; heatmap:boolean; tool:'blast'|'push'|'inspect'; message:string; adapter:string; bonusChoices:readonly BonusChoice[]; bonuses:readonly string[]; commandUpgrades:readonly string[]; statUpgrades:readonly StatUpgrade[]; towerUnlocks:readonly TowerUnlock[]; boss?:Settlement['boss']; bossHealth?:number; }
 export interface GameUI { canvas:HTMLCanvasElement; update(state:UIState):void; destroy():void }
 export type SpawnBand = 'full' | 'upper' | 'center' | 'lower' | 'inlet';
 export interface SpawnBatch { count:number; kind:EnemyKind; seed:number; start?:number; rate?:number; burst?:number; band?:SpawnBand; healthScale?:number; credit?:number }

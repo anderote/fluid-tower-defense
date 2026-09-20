@@ -1,6 +1,7 @@
 import {COUNTER_WORDS, DEFAULT_TUNING, P, PARTICLE_FLOATS, type Effect, type PhysicsFrame, type SharedGPU, type WorldMap} from '../contracts/index.ts';
 import {createCombat} from '../sim/combat/index.ts';
 import {createPhysics} from '../sim/physics/index.ts';
+import {ENEMIES,ENEMY_BOUNTY_DIVISOR} from '../content/index.ts';
 
 export type GPUValidationResult = {name:string; passed:boolean; details:string};
 
@@ -26,7 +27,7 @@ async function readParticles(device:GPUDevice, source:GPUBuffer, count:number):P
   const result=new Float32Array(staging.getMappedRange()).slice(); staging.unmap(); staging.destroy(); return result;
 }
 
-async function scenario(device:GPUDevice, initial:number[][], frames:readonly {effects?:readonly Effect[]; tuning?:Partial<PhysicsFrame['tuning']>; lab?:boolean}[]) {
+async function scenario(device:GPUDevice, initial:number[][], frames:readonly {effects?:readonly Effect[]; tuning?:Partial<PhysicsFrame['tuning']>; lab?:boolean}[],world=map) {
   const capacity=Math.max(1,initial.length);
   const shared:SharedGPU={
     particles:device.createBuffer({size:capacity*PARTICLE_FLOATS*4,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST|GPUBufferUsage.COPY_SRC}),
@@ -38,7 +39,7 @@ async function scenario(device:GPUDevice, initial:number[][], frames:readonly {e
     device.queue.writeBuffer(shared.counters,0,new Uint32Array(16));
     const history:Uint32Array[]=[];
     for (let tick=0;tick<frames.length;tick++) {
-      const step=frames[tick], frame:PhysicsFrame={dt:1/30,tick,count:initial.length,map,effects:step.effects??[],tuning:{...DEFAULT_TUNING,...step.tuning},lab:step.lab??true};
+      const step=frames[tick], frame:PhysicsFrame={dt:1/30,tick,count:initial.length,map:world,effects:step.effects??[],tuning:{...DEFAULT_TUNING,...step.tuning},lab:step.lab??true};
       const encoder=device.createCommandEncoder(); combat.encodeBefore(encoder,{...frame,towers:[]}); physics.encode(encoder,frame); combat.encodeAfter(encoder,{...frame,towers:[]}); device.queue.submit([encoder.finish()]);
       await device.queue.onSubmittedWorkDone();
       history.push(await read(device,shared.counters,64));
@@ -59,10 +60,10 @@ export async function runGPUValidation(device:GPUDevice):Promise<GPUValidationRe
       const out=await scenario(device,[particle(20,20),particle(30,20)],[{tuning:{drive:0,pressure:0,crushDamage:100}}]);
       return !finiteParticles(out.particles) ? 'particle buffer contains non-finite values' : out.counters[0]!==0 ? `unexpected kills ${out.counters[0]}` : undefined;
     }),
-    check('compressed cluster crushes once',async()=>{
+    check('terrain-compressed cluster crushes once',async()=>{
       const cluster=Array.from({length:12},(_,i)=>particle(50+(i%4)*.03,50+Math.floor(i/4)*.03,2,20));
-      const first=await scenario(device,cluster,Array.from({length:5},()=>({tuning:{drive:0,pressure:36,damagePressure:0,crushPressure:1,crushDamage:800}})));
-      const before=first.history[3], after=first.history[4];
+      const first=await scenario(device,cluster,Array.from({length:10},()=>({tuning:{drive:0,pressure:36,damagePressure:0,crushPressure:1,crushDamage:800}})),{...map,obstacles:[{x:49,y:49,width:.7,height:3},{x:50.4,y:49,width:.7,height:3}]});
+      const before=first.history.at(-2)!, after=first.history.at(-1)!;
       if (first.counters[0]===0 || first.counters[1]!==first.counters[0]) return `expected crush kills, got kills=${first.counters[0]} crush=${first.counters[1]}`;
       return after[0]!==before[0] ? `kills changed after dead-particle tick (${before[0]} to ${after[0]})` : undefined;
     }),
@@ -70,13 +71,14 @@ export async function runGPUValidation(device:GPUDevice):Promise<GPUValidationRe
       const out=await scenario(device,[particle(50,50)],[{effects:[effect('blast',45,50,18,0)],tuning:{drive:0,pressure:0}}]);
       return !finiteParticles(out.particles) ? 'blast produced non-finite particle data' : out.particles[P.vx]<=0 ? `expected positive x impulse, got ${out.particles[P.vx]}` : undefined;
     }),
-    check('enemy bounty pays at one-hundredth rate',async()=>{
+    check('enemy bounty pays at the configured rate',async()=>{
       const frames=[{effects:[effect('shot',40,50,0,100)],tuning:{drive:0,pressure:0}},{tuning:{drive:0,pressure:0}}];
       const single=await scenario(device,[particle(40,50)],frames);
       if(single.counters[0]!==1 || single.counters[3]!==0) return `expected one kill and no whole Metal, got kills=${single.counters[0]} earned=${single.counters[3]}`;
       const pack=Array.from({length:34},()=>particle(40,50));
       const aggregate=await scenario(device,pack,frames);
-      return aggregate.counters[0]!==34 || aggregate.counters[3]!==1 ? `expected 34 kills to pay one Metal, got kills=${aggregate.counters[0]} earned=${aggregate.counters[3]}` : undefined;
+      const expected=Math.floor(34*ENEMIES.shambler.bounty/ENEMY_BOUNTY_DIVISOR);
+      return aggregate.counters[0]!==34 || aggregate.counters[3]!==expected ? `expected 34 kills to pay ${expected} Metal, got kills=${aggregate.counters[0]} earned=${aggregate.counters[3]}` : undefined;
     }),
     check('base arrival leaks once',async()=>{
       const out=await scenario(device,[particle(150,50)],[{tuning:{drive:0,pressure:0},lab:false},{tuning:{drive:0,pressure:0},lab:false}]);

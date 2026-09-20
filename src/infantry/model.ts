@@ -2,21 +2,34 @@ import type {NavigationField,Vec2,WorldMap} from '../contracts/index.ts';
 import {MAX_VETERANCY,veterancyLevel,veterancyMultiplier} from '../content/index.ts';
 import {buildNavigation} from '../navigation/index.ts';
 
-export const BARRACKS_COST=600,MAX_BARRACKS=8,SQUAD_SIZE=8,MAX_INFANTRY=MAX_BARRACKS*SQUAD_SIZE;
-export type InfantryKind='rifle'|'rocket'|'flame'|'samurai';
+export const BARRACKS_COST=120;
+export type InfantryKind='rifle'|'rocket'|'flame'|'samurai'|'dog';
 export const INFANTRY={
- rifle:{building:'Rifle Barracks',name:'Riflemen',cost:600,interval:8,health:40,damage:12,range:14,cooldown:1.05,armor:0,speed:3,role:'Single-shot rifles from a pressure-aware firing line'},
- rocket:{building:'Rocket Academy',name:'Rocket troops',cost:850,interval:12,health:55,damage:32,range:19,cooldown:2.5,armor:.1,speed:2.7,role:'Explosive splash against dense hordes'},
- flame:{building:'Flame Depot',name:'Flamethrowers',cost:750,interval:10,health:80,damage:8,range:7,cooldown:.3,armor:.2,speed:3,role:'Close-range cones of fire'},
- samurai:{building:'Samurai Dojo',name:'Samurai',cost:950,interval:12,health:150,damage:30,range:3.5,cooldown:.65,armor:.35,speed:6,role:'Armored melee fighters with sweeping sword slashes'},
+ rifle:{building:'Rifle Barracks',name:'Riflemen',cost:120,interval:1,health:40,damage:12,range:14,cooldown:1.05,armor:0,speed:4,role:'Mass rifle infantry · free continuous recruitment'},
+ rocket:{building:'Rocket Academy',name:'Rocket troops',cost:200,interval:2,health:55,damage:32,range:19,cooldown:2.5,armor:.1,speed:3.5,role:'Explosive splash against dense hordes'},
+ flame:{building:'Flame Depot',name:'Flamethrowers',cost:160,interval:1.5,health:80,damage:8,range:7,cooldown:.3,armor:.2,speed:4,role:'Close-range cones of fire'},
+ samurai:{building:'Samurai Dojo',name:'Samurai',cost:240,interval:2.5,health:150,damage:30,range:3.5,cooldown:.65,armor:.35,speed:6,role:'Armored melee fighters with sweeping sword slashes'},
+ dog:{building:'Dog Kennel',name:'Attack dogs',cost:60,interval:.75,health:25,damage:24,range:1.8,cooldown:.6,armor:0,speed:8,role:'Fast packs that chase and bite nearby zombies'},
 } as const;
 export const infantryStats=(kind:InfantryKind='rifle',quality=0,defense=0,veterancy=0,research:readonly string[]=[] )=>{const v=INFANTRY[kind],ranks=(id:string)=>research.filter(upgrade=>upgrade===id).length,experience=veterancyMultiplier(veterancy);return {...v,health:v.health+quality*12+defense*20,damage:v.damage*(1+quality/3)*experience*(1+ranks('damage')*.04),range:v.range*(1+ranks('range')*.03),cooldown:v.cooldown/(1+quality*.08)/(1+ranks('rate')*.035),armor:Math.min(.7,v.armor+defense*.06)};};
 export interface Barracks extends Vec2 {kind?:InfantryKind;defense?:number;id:number;rally:Vec2;production:number;training:number;progress:number;spent:number}
-export interface Soldier extends Vec2 {kind?:InfantryKind;defense?:number;id:number;home:number;quality:number;health:number;cooldown:number;angle:number;flash:number;walk:number;dead:number;kills?:number;veterancy?:number;veterancyXp?:number}
-export interface InfantryState {nextId:number;buildings:Barracks[];soldiers:Soldier[]}
-export interface Threat extends Vec2 {target:number;generation:number;contact:number;age:number}
+export interface Soldier extends Vec2 {kind?:InfantryKind;defense?:number;id:number;home:number;quality:number;health:number;cooldown:number;angle:number;flash:number;walk:number;dead:number;kills?:number;veterancy?:number;veterancyXp?:number;casualtyRecorded?:boolean;deathCause?:'enemy'|'friendly-fire';attackAge?:number;moving?:boolean;pressure?:number}
+export interface InfantryState {casualties?:number;friendlyFire?:number;nextId:number;buildings:Barracks[];soldiers:Soldier[]}
+export interface Threat extends Vec2 {target:number;generation:number;contact:number;age:number;pushX?:number;pushY?:number;pressure?:number}
 export interface RifleShot {soldier:number;target:number;generation:number;damage:number;x:number;y:number}
-export const freshInfantry=():InfantryState=>({nextId:1,buildings:[],soldiers:[]});
+export const freshInfantry=():InfantryState=>({nextId:1,buildings:[],soldiers:[],casualties:0,friendlyFire:0});
+/** Count the living-to-dead transition once, even while its corpse remains visible. */
+export function recordInfantryCasualty(state:InfantryState,s:Soldier,cause:'enemy'|'friendly-fire'){
+  if(s.health>0||s.casualtyRecorded)return;
+  s.casualtyRecorded=true;s.deathCause=cause;
+  state.casualties=(state.casualties??0)+1;
+  if(cause==='friendly-fire')state.friendlyFire=(state.friendlyFire??0)+1;
+}
+export function damageInfantry(state:InfantryState,s:Soldier,damage:number,cause:'enemy'|'friendly-fire'){
+  if(s.health<=0||!Number.isFinite(damage)||damage<=0)return;
+  s.health=Math.max(0,s.health-damage);
+  if(s.health===0)recordInfantryCasualty(state,s,cause);
+}
 export const recruitInterval=(rank:number,kind:InfantryKind='rifle')=>INFANTRY[kind].interval*Math.pow(.82,rank);
 export const rifleStats=(rank:number)=>({health:40+rank*12,damage:9+rank*3,range:14,cooldown:.8/(1+rank*.08)});
 export const infantryUpgradeCost=(rank:number)=>200+rank*150;
@@ -28,57 +41,70 @@ export function exitPoint(map:WorldMap,b:Barracks,field:NavigationField):Vec2|un
   return [{x:b.x,y:b.y+3},{x:b.x-3,y:b.y},{x:b.x+3,y:b.y},{x:b.x,y:b.y-3}].find(p=>clearForSoldier(map,p)&&Number.isFinite(field.distances[Math.floor(p.y)*field.width+Math.floor(p.x)]));
 }
 
-/** Small friendly squads use CPU navigation; threats and confirmed damage use GPU particle handles. */
+/** Spatial crowd separation and navigation; GPU supplies horde pressure and combat handles. */
 export function advanceInfantry(state:InfantryState,map:WorldMap,fields:Map<number,NavigationField>,threats:Map<number,Threat>,dt:number,combat:boolean,research:readonly string[]=[]):RifleShot[]{
   if(!combat)return [];
   const shots:RifleShot[]=[];
   for(const b of state.buildings){
     const field=fields.get(b.id);if(!field)continue;
-    if(state.soldiers.filter(s=>s.home===b.id&&s.health>0).length>=SQUAD_SIZE)continue;
     b.progress=Math.min(1,b.progress+dt/recruitInterval(b.production,b.kind));
     if(b.progress>=1){const p=exitPoint(map,b,field);if(p){state.soldiers.push({...p,id:state.nextId++,home:b.id,kind:b.kind??'rifle',defense:b.defense??0,quality:b.training,health:infantryStats(b.kind,b.training,b.defense,0,research).health,cooldown:0,angle:Math.PI,flash:0,walk:0,dead:0,kills:0,veterancy:0,veterancyXp:0});b.progress=0;}}
   }
+  const homes=new Map(state.buildings.map(b=>[b.id,b]));
+  const cells=new Map<string,Soldier[]>(),key=(x:number,y:number)=>`${Math.floor(x/2)},${Math.floor(y/2)}`;
+  for(const s of state.soldiers)if(s.health>0){const k=key(s.x,s.y),cell=cells.get(k);if(cell)cell.push(s);else cells.set(k,[s]);}
   for(const s of state.soldiers){
+    s.moving=false;if(s.attackAge!==undefined)s.attackAge+=dt;
     s.flash=Math.max(0,s.flash-dt);
-    if(s.health<=0){s.dead+=dt;continue;}
-    const b=state.buildings.find(b=>b.id===s.home),field=fields.get(s.home);if(!b||!field)continue;
+    if(s.health<=0){recordInfantryCasualty(state,s,s.deathCause??'enemy');s.dead+=dt;continue;}
+    const b=homes.get(s.home),field=fields.get(s.home);if(!b||!field)continue;
     const threat=threats.get(s.id);if(threat)threat.age+=dt;
     const fresh=threat&&threat.age<.35?threat:undefined;
+    s.pressure=fresh?.pressure??0;
     s.health=Math.max(0,s.health-(fresh?.contact??0)*dt*(1-infantryStats(s.kind,s.quality,s.defense,s.veterancy,research).armor));
-    if(s.health<=0){s.flash=0;continue;}
+    if(s.health<=0){recordInfantryCasualty(state,s,'enemy');s.flash=0;continue;}
     const stats=infantryStats(s.kind,s.quality,s.defense,s.veterancy,research),distance=fresh&&fresh.target>=0?Math.hypot(fresh.x-s.x,fresh.y-s.y):Infinity;
     s.cooldown=Math.max(0,s.cooldown-dt);
     if(fresh&&fresh.target>=0&&distance<=stats.range){
       s.angle=Math.atan2(fresh.y-s.y,fresh.x-s.x);
-      if(s.cooldown===0){shots.push({soldier:s.id,target:fresh.target,generation:fresh.generation,damage:stats.damage,x:fresh.x,y:fresh.y});s.cooldown=stats.cooldown;s.flash=s.kind==='samurai'?.28:s.kind==='flame'?.2:.1;}
+      if(s.cooldown===0){shots.push({soldier:s.id,target:fresh.target,generation:fresh.generation,damage:stats.damage,x:fresh.x,y:fresh.y});s.cooldown=stats.cooldown;s.attackAge=0;s.flash=s.kind==='samurai'?.28:s.kind==='dog'?.32:s.kind==='flame'?.2:.1;}
     }
-    const squad=state.soldiers.filter(other=>other.home===b.id&&other.health>0).sort((a,c)=>a.id-c.id),slot=Math.max(0,squad.findIndex(other=>other.id===s.id)),formation={x:b.rally.x+(slot%4-1.5)*1.25,y:b.rally.y+(Math.floor(slot/4)-.5)*1.4},rallyDistance=Math.hypot(s.x-formation.x,s.y-formation.y);
+    const rallyDistance=Math.hypot(s.x-b.rally.x,s.y-b.rally.y),melee=s.kind==='samurai'||s.kind==='dog';
     let dx=0,dy=0;
-    if(s.kind==='samurai'&&fresh&&distance>2&&distance<12&&rallyDistance<10){dx=(fresh.x-s.x)/distance;dy=(fresh.y-s.y)/distance;}
-    else if(s.kind!=='samurai'&&fresh&&distance<2.5&&rallyDistance<6){dx=(s.x-fresh.x)/Math.max(.01,distance);dy=(s.y-fresh.y)/Math.max(.01,distance);}
+    if(melee&&fresh&&distance>stats.range*.7&&distance<12&&rallyDistance<16){dx=(fresh.x-s.x)/distance;dy=(fresh.y-s.y)/distance;}
+    else if(!melee&&fresh&&distance<2.5&&rallyDistance<6){dx=(s.x-fresh.x)/Math.max(.01,distance);dy=(s.y-fresh.y)/Math.max(.01,distance);}
     else if(rallyDistance>1.1&&(distance>stats.range||rallyDistance>5)){
-      const toFlag=Math.hypot(b.rally.x-s.x,b.rally.y-s.y);if(toFlag>.01){dx=(b.rally.x-s.x)/toFlag;dy=(b.rally.y-s.y)/toFlag;}
-      const at=Math.floor(s.y)*field.width+Math.floor(s.x);dx+=(field.vectors[at*2]??0)*.7;dy+=(field.vectors[at*2+1]??0)*.7;
+      const at=Math.floor(s.y)*field.width+Math.floor(s.x);dx=field.vectors[at*2]??0;dy=field.vectors[at*2+1]??0;
     }
-    // Gentle separation makes a firing line without making friendly units solid.
-    if(rallyDistance<8)for(const other of state.soldiers){if(other.id===s.id||other.health<=0)continue;const d=Math.hypot(s.x-other.x,s.y-other.y);if(d>0&&d<1.25){dx+=(s.x-other.x)/d*.48;dy+=(s.y-other.y)/d*.48;}}
-    const length=Math.hypot(dx,dy);if(length>0){dx/=Math.max(1,length);dy/=Math.max(1,length);const step=stats.speed*dt,p={x:s.x+dx*step,y:s.y+dy*step};if(clearForSoldier(map,p)){s.x=p.x;s.y=p.y;s.walk+=dt*10;if(distance>stats.range)s.angle=Math.atan2(dy,dx);}}
+    // Local soft-body pressure: dense crowds spread without fixed formation slots.
+    for(let cy=-1;cy<=1;cy++)for(let cx=-1;cx<=1;cx++)for(const other of cells.get(key(s.x+cx*2,s.y+cy*2))??[]){
+      if(other.id===s.id)continue;const ox=s.x-other.x,oy=s.y-other.y,d=Math.hypot(ox,oy);
+      if(d<.95){const angle=(s.id<other.id?1:-1),force=(.95-d)*1.8;dx+=(d>.001?ox/d:angle)*force;dy+=(d>.001?oy/d:0)*force;}
+    }
+    dx+=(fresh?.pushX??0);dy+=(fresh?.pushY??0);
+    const length=Math.hypot(dx,dy);if(length>.04){dx/=Math.max(1,length);dy/=Math.max(1,length);const step=stats.speed*dt,oldX=s.x,oldY=s.y;
+      if(clearForSoldier(map,{x:s.x+dx*step,y:s.y}))s.x+=dx*step;
+      if(clearForSoldier(map,{x:s.x,y:s.y+dy*step}))s.y+=dy*step;
+      s.moving=Math.hypot(s.x-oldX,s.y-oldY)>.001;if(s.moving){s.walk+=dt*10;if(distance>stats.range)s.angle=Math.atan2(dy,dx);}
+    }
   }
   state.soldiers=state.soldiers.filter(s=>s.health>0||s.dead<3);
   return shots;
 }
 
 export function awardInfantryKills(state:InfantryState,ids:readonly number[],kills:readonly number[]){
-  ids.forEach((id,index)=>{const earned=Math.max(0,Math.floor(kills[index]??0)),soldier=state.soldiers.find(candidate=>candidate.id===id);if(!soldier||!earned)return;soldier.kills=(soldier.kills??0)+earned;soldier.veterancyXp=(soldier.veterancyXp??0)+earned;soldier.veterancy=veterancyLevel(soldier.veterancyXp);});
+  const soldiers=new Map(state.soldiers.map(s=>[s.id,s]));
+  ids.forEach((id,index)=>{const earned=Math.max(0,Math.floor(kills[index]??0));if(!earned)return;const soldier=soldiers.get(id);if(!soldier)return;soldier.kills=(soldier.kills??0)+earned;soldier.veterancyXp=(soldier.veterancyXp??0)+earned;soldier.veterancy=veterancyLevel(soldier.veterancyXp);});
 }
 
 export function validInfantry(value:unknown,map:WorldMap):value is InfantryState{
   if(!value||typeof value!=='object')return false;const v=value as InfantryState;
   const n=(x:number)=>Number.isFinite(x)&&x>=0,rank=(x:number)=>Number.isInteger(x)&&x>=0&&x<=5;
-  if(!Number.isSafeInteger(v.nextId)||v.nextId<1||!Array.isArray(v.buildings)||v.buildings.length>MAX_BARRACKS||!Array.isArray(v.soldiers)||v.soldiers.length>MAX_INFANTRY*2)return false;
+  if(!Number.isSafeInteger(v.nextId)||v.nextId<1||!Array.isArray(v.buildings)||!Array.isArray(v.soldiers))return false;
+  if(!Number.isSafeInteger(v.casualties??0)||(v.casualties??0)<0||!Number.isSafeInteger(v.friendlyFire??0)||(v.friendlyFire??0)<0||(v.friendlyFire??0)>(v.casualties??0))return false;
   const ids=new Set<number>();const id=(x:number)=>Number.isSafeInteger(x)&&x>0&&x<v.nextId&&!ids.has(x)&&!!ids.add(x);
-  for(const b of v.buildings){if(!b||!id(b.id)||!(b.kind===undefined||Object.hasOwn(INFANTRY,b.kind))||!rank(b.defense??0)||!rank(b.production)||!rank(b.training)||!n(b.progress)||b.progress>1||!b.rally||!clearForSoldier(map,b,2)||!clearForSoldier(map,b.rally)||!Number.isInteger(b.spent))return false;let spent:number=INFANTRY[b.kind??'rifle'].cost;for(const rank of [b.production,b.training,b.defense??0])for(let i=0;i<rank;i++)spent+=infantryUpgradeCost(i);if(b.spent!==spent)return false;}
+  for(const b of v.buildings){if(!b||!id(b.id)||!(b.kind===undefined||Object.hasOwn(INFANTRY,b.kind))||!rank(b.defense??0)||!rank(b.production)||!rank(b.training)||!n(b.progress)||b.progress>1||!b.rally||!clearForSoldier(map,b,2)||!clearForSoldier(map,b.rally)||!Number.isInteger(b.spent))return false;let spent:number=INFANTRY[b.kind??'rifle'].cost;for(const rank of [b.production,b.training,b.defense??0])for(let i=0;i<rank;i++)spent+=infantryUpgradeCost(i);const legacy={rifle:600,rocket:850,flame:750,samurai:950,dog:60}[b.kind??'rifle'];if(b.spent!==spent&&b.spent!==spent-INFANTRY[b.kind??'rifle'].cost+legacy)return false;}
   if(v.buildings.some((b,i)=>v.buildings.slice(i+1).some(o=>Math.abs(b.x-o.x)<4&&Math.abs(b.y-o.y)<4)))return false;
-  for(const s of v.soldiers){if(!s||!id(s.id)||!v.buildings.some(b=>b.id===s.home&&(b.kind??'rifle')===(s.kind??'rifle'))||!rank(s.defense??0)||!rank(s.quality)||!n(s.x)||!n(s.y)||s.x>=map.width||s.y>=map.height||!n(s.health)||s.health>infantryStats(s.kind,s.quality,s.defense,s.veterancy??0).health||!n(s.cooldown)||!Number.isFinite(s.angle)||!n(s.flash)||!n(s.walk)||!n(s.dead)||!n(s.kills??0)||!n(s.veterancyXp??0)||!Number.isInteger(s.veterancy??0)||(s.veterancy??0)<0||(s.veterancy??0)>MAX_VETERANCY)return false;}
-  return v.buildings.every(b=>v.soldiers.filter(s=>s.home===b.id&&s.health>0).length<=SQUAD_SIZE);
+  for(const s of v.soldiers){if(!s||(s.casualtyRecorded!==undefined&&typeof s.casualtyRecorded!=='boolean')||(s.deathCause!==undefined&&!['enemy','friendly-fire'].includes(s.deathCause))||!id(s.id)||!v.buildings.some(b=>b.id===s.home&&(b.kind??'rifle')===(s.kind??'rifle'))||!rank(s.defense??0)||!rank(s.quality)||!n(s.x)||!n(s.y)||s.x>=map.width||s.y>=map.height||!n(s.health)||s.health>infantryStats(s.kind,s.quality,s.defense,s.veterancy??0).health||!n(s.cooldown)||!Number.isFinite(s.angle)||!n(s.flash)||!n(s.walk)||!n(s.dead)||!n(s.kills??0)||!n(s.veterancyXp??0)||!Number.isInteger(s.veterancy??0)||(s.veterancy??0)<0||(s.veterancy??0)>MAX_VETERANCY)return false;}
+  return true;
 }
