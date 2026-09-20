@@ -1,4 +1,5 @@
 import {commandUpgradeAvailability} from "../game/research.ts";
+import {TOWER_MOVE_COST} from "../game/index.ts";
 import {bossStatus} from "./boss-status.ts";
 import type { GameAction, GameUI, UIState } from "../contracts/index.ts";
 import {
@@ -35,6 +36,8 @@ export function createUI(
     return `<button data-tower="${id}"><span class="tower-shape" aria-hidden="true"></span><b>${t.name.toUpperCase()} <em></em></b><span class="cost">${t.cost}</span></button>`;
   };
   root.innerHTML = `<main class="pf"><header><div class="brand">PRESSURE <i>FRONT</i><small>FLUID DEFENSE COMMAND</small></div><div class="hud" aria-label="Run telemetry"><div><span>METAL</span><b id="metal">000</b></div><div><span>INTEGRITY</span><b id="base">100%</b></div><div><span>LEVEL</span><b id="level">01</b></div><div class="kill-counts" aria-label="Kill counts"><b><strong id="kills">0000</strong> TOTAL KILLS</b><small><strong id="pressure-kills">0000</strong> PRESSURE KILLS</small></div><div><span>WAVE</span><b id="wave">00 / 10</b></div><div><span>MAX PRESSURE</span><b id="pressure">0 kPa</b></div><div><span>LIVE</span><b id="live">--</b></div></div><div class="status"><span class="led"></span><b id="phase">PREPARATION</b></div><div class="metrics"><b id="fps">-- FPS</b><b id="ms">-- MS</b></div><div class="simulation-controls" role="group" aria-label="Simulation controls"><button data-action="pause">PAUSE</button><button data-action="restart-wave">RESTART WAVE</button><button data-action="reset">RESTART LEVEL</button><section class="soundtrack" aria-label="Red Alert music player"></section></div><div class="view-actions"><button class="view-menu-toggle" aria-label="More options" aria-expanded="false" aria-controls="view-menu" title="More options"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button><div id="view-menu" class="view-menu" hidden><button data-settings-open>SETTINGS</button><button data-action="new-game">NEW GAME</button><button data-view="hide">HIDE UI</button><button data-view="full">FULLSCREEN</button></div></div><button class="start-wave-top" data-action="start-wave">START WAVE</button></header><section class="body"><div class="arena"><canvas aria-label="Pressure Front battle arena"></canvas></div><aside><div class="tabs"><button id="build-tab" class="active">BUILD</button><button id="research-tab">RESEARCH</button></div><section class="card extraction" id="extraction" hidden><label>EXTRACTION WINDOW</label><p>Secure the level now, or retain every defense and push into endless escalation.</p><div><button data-action="finish-run" id="finish-run">FINISH LEVEL</button><button data-action="continue-run">CONTINUE</button></div></section><section class="card tower"><label>DEFENSE BUILD ARRAY <span>1–8 SHORTCUTS</span></label><div class="defense-tools"><button data-action="wall-tool"><b>METAL WALL <em>[Q]</em></b><small>${formatPressure(BASE_WALL_PRESSURE_RESISTANCE)} STRUCTURAL YIELD</small><span class="cost">60</span></button><button data-action="wire-tool"><b>BARBED WIRE <em>[E]</em></b><small>7.0 kPa BREACH RATING</small><span class="cost">45</span></button><button data-action="upgrade-tool"><b>UPGRADE <em>[U]</em></b><small>HOVER TOWERS</small></button><button class="danger" data-action="demolish-tool"><b>DEMOLISH <em>[R]</em></b><small>WALLS + WIRE</small></button></div><div class="build-divider"><span>EMPLACEMENTS</span></div><div class="tower-grid">${(Object.keys(TOWERS) as (keyof typeof TOWERS)[]).map(tower).join("")}</div></section><section class="card bonuses" id="bonuses" hidden><label>COMMAND BOON — CHOOSE ONE</label><div id="bonus-choices"></div></section><section class="card selected"><label id="selected-name">TOWER INSPECTOR</label><div id="tower-stats" class="tower-stats">Select a deployed tower to view its combat record and upgrades.</div><div class="upgrade-buttons"><button data-upgrade="0">BRANCH A</button><button data-upgrade="1">BRANCH B</button></div><button class="danger wide" data-action="sell">SELL / RECOVER</button></section><section class="card command"><label>RUN UPGRADES <span id="research-metal">0 METAL</span></label><p class="research-help">Upgrades use Metal and last for this run.</p><div id="stat-upgrades"></div><label>LOCAL RESEARCH <span id="research-count">0 INSTALLED</span></label><div id="commands"></div></section></aside></section><footer><div class="run-summary"><span>RUN RECORD</span><b id="crush">CRUSH 000</b><b id="leaks">BREACHES 000</b><b id="earned">SALVAGE +000</b></div><div class="spacer"></div><button data-action="save">SAVE</button><button data-action="load">LOAD</button></footer></main>`;
+  const sellButton=root.querySelector<HTMLButtonElement>('[data-action="sell"]')!,towerActions=document.createElement('div'),moveButton=document.createElement('button');
+  towerActions.className='tower-actions';moveButton.dataset.action='move';towerActions.append(moveButton,sellButton);sellButton.before(towerActions);
   root.insertAdjacentHTML('beforeend','<div class="settings-gate" id="settings-gate" hidden role="dialog" aria-modal="true" aria-labelledby="settings-title"><section><header><label id="settings-title">AUDIO SETTINGS</label><button data-settings-close aria-label="Close settings">×</button></header><p>Changes are saved on this device.</p><label class="audio-setting">MUSIC <output data-audio-value="music">30%</output><input data-audio-setting="music" type="range" min="0" max="1" step="0.05" aria-label="Music volume"></label><label class="audio-setting">SOUND EFFECTS <output data-audio-value="effects">48%</output><input data-audio-setting="effects" type="range" min="0" max="1" step="0.05" aria-label="Sound effects volume"></label><button data-settings-close>DONE</button></section></div>');
   root.insertAdjacentHTML('beforeend','<div class="reset-gate" id="reset-gate" hidden role="dialog" aria-modal="true" aria-labelledby="reset-title"><section><label id="reset-title">RESTART CURRENT LEVEL?</label><p>Restart this level from wave one with starting Metal. This removes placed towers, Metal Walls, Barbed Wire, and run research upgrades.</p><div><button data-reset-choice="cancel">CANCEL</button><button class="danger" data-reset-choice="confirm">RESTART LEVEL</button></div></section></div>');
   const canvas = root.querySelector("canvas")!,
@@ -85,11 +88,12 @@ export function createUI(
   headerActions.className = "header-actions";
   telemetry.append($(".hud"), difficulty, streamWidth, $(".status"), $(".metrics"));
   $(".simulation-controls [data-action=\"pause\"]").remove();
+  // Preserve the wave control before replacing the header, then dock it by the build tools.
+  const waveButton = $<HTMLButtonElement>(".start-wave-top");
   headerStack.append(telemetry, $(".simulation-controls"));
   headerActions.append($(".view-actions"));
   header.replaceChildren($(".brand"), headerStack, headerActions);
-  const waveButton = $<HTMLButtonElement>(".start-wave-top"),
-    buildDock = root.querySelector<HTMLElement>("aside")!;
+  const buildDock = root.querySelector<HTMLElement>("aside")!;
   waveButton.classList.add("wave-control");
   buildDock.insertBefore(waveButton, buildDock.firstChild);
   root
@@ -198,7 +202,7 @@ export function createUI(
     const value=(before:string,after:string)=>`<b><span>${before}</span><i>→</i><strong>${after}</strong></b>`,
       row=(label:string,before:number,after:number,format:(value:number)=>string,threshold=.001)=>Math.abs(after-before)<=threshold?"":`<div><span>${label}</span>${value(format(before),format(after))}</div>`,
       stats=next?[row("DAMAGE",current.damage,next.damage,value=>value.toFixed(1)),row("PRESSURE",current.peakPressureKpa,next.peakPressureKpa,formatPressure,.5),row("RANGE",current.range,next.range,value=>value.toFixed(1)),row("RATE",1/current.cooldown,1/next.cooldown,value=>`${value.toFixed(1)}/s`),row("IMPULSE",current.force,next.force,value=>value.toFixed(1)),row("RADIUS",current.radius,next.radius,value=>value.toFixed(1))].join(""):"<p>MAXIMUM OUTPUT</p>",
-      button=(candidate:number,label:string)=>`<button data-quick-upgrade="${tower.id}" data-quick-branch="${candidate}" ${blocked?"disabled":""}><b>${label}</b><span>${maxed?"MAX":`${cost.toLocaleString()} M`}</span></button>`;
+      button=(candidate:number,label:string)=>`<button data-quick-upgrade="${tower.id}" data-quick-branch="${candidate}" ${blocked?"disabled":""}><b>${label} <em>[${candidate===0?'Q':'E'}]</em></b><span>${maxed?"MAX":`${cost.toLocaleString()} M`}</span></button>`;
     renderMarkup(upgradeCard,`<header><span>${chosen.name.toUpperCase()}</span><b>LV ${tower.level}${maxed?" · MAX":` → ${tower.level+1}`}</b></header><div class="quick-stats">${stats}</div><div class="quick-upgrade-actions">${tower.branch<0?chosen.branches.map((name,index)=>button(index,name.toUpperCase())).join(""):button(tower.branch,"UPGRADE")}</div>`);
   };
   const setPanel = (next: boolean) => {
@@ -256,7 +260,8 @@ export function createUI(
           | "wall-tool"
           | "wire-tool"
           | "demolish-tool"
-          | "upgrade-tool",
+          | "upgrade-tool"
+          | "move",
       });
     if (button.dataset.unlock) {
       onAction({
@@ -365,6 +370,8 @@ export function createUI(
           else{delete button.dataset.unlock;button.querySelector("em")!.textContent=`[${index+1}]`;button.querySelector(".cost")!.textContent=`${TOWERS[kind].cost} METAL`;}
         });
       const activeBuildAction=s.upgradeMode?'upgrade-tool':s.buildTool?`${s.buildTool}-tool`:'';
+      root.querySelector<HTMLButtonElement>('[data-action="wall-tool"] em')!.textContent=s.upgradeMode?'[Q] BRANCH A':'[Q]';
+      root.querySelector<HTMLButtonElement>('[data-action="wire-tool"] em')!.textContent=s.upgradeMode?'[E] BRANCH B':'[E]';
       root.querySelectorAll<HTMLElement>('[data-action$="-tool"]').forEach(element=>
         element.classList.toggle('active',element.dataset.action===activeBuildAction),
       );
@@ -385,8 +392,10 @@ export function createUI(
       root.querySelector<HTMLButtonElement>(
         '[data-action="restart-wave"]',
       )!.disabled = s.mode !== "game" || !["combat", "settling", "lost"].includes(s.phase);
-      root.querySelector<HTMLButtonElement>('[data-action="sell"]')!.disabled =
-        !chosen;
+      moveButton.disabled=!chosen||s.metal<TOWER_MOVE_COST;
+      moveButton.textContent=s.moveMode?`PLACE TOWER · ${TOWER_MOVE_COST} METAL`:`MOVE · ${TOWER_MOVE_COST} METAL`;
+      moveButton.classList.toggle('active',s.moveMode);
+      sellButton.disabled = !chosen;
       root.classList.toggle("upgrade-mode", s.upgradeMode);
       waveButton.dataset.action = waveControl.action ?? "start-wave";
       waveButton.classList.toggle("is-active", waveActive);
