@@ -76,7 +76,10 @@ export function canPlace(map: WorldMap, towers: readonly Tower[], position: Vec2
   const circleRect=(rect:{x:number;y:number;width:number;height:number})=>{ const x=Math.max(rect.x,Math.min(position.x,rect.x+rect.width)),y=Math.max(rect.y,Math.min(position.y,rect.y+rect.height)); return Math.hypot(position.x-x,position.y-y) < footprint; };
   const mount=mountedAt(position,mounts);
   const containsRect=(outer:{x:number;y:number;width:number;height:number},inner:{x:number;y:number;width:number;height:number})=>inner.x>=outer.x&&inner.y>=outer.y&&inner.x+inner.width<=outer.x+outer.width&&inner.y+inner.height<=outer.y+outer.height;
-  if (map.obstacles.some(rect=>(!mount||!containsRect(rect,mount))&&circleRect(rect))) return false;
+  // A shared hardpoint can straddle the seam between connected wall cells.
+  // Any obstacle carrying a hardpoint is part of the supporting wall cap.
+  const supportsMount=(rect:{x:number;y:number;width:number;height:number})=>mount&&mounts.some(candidate=>containsRect(rect,candidate));
+  if (map.obstacles.some(rect=>!supportsMount(rect)&&circleRect(rect))) return false;
   if (Math.hypot(position.x-map.goal.x,position.y-map.goal.y) < footprint+map.goalRadius) return false;
   return towers.every(tower=>{
     const otherMount=mountedAt(tower,mounts);

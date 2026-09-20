@@ -10,7 +10,7 @@ function fixture() {
   const wire={x:28,y:20,width:4,height:4,health:70,maxHealth:140,breached:false};
   const breached={x:36,y:20,width:4,height:4,health:30,maxHealth:140,breached:true};
   const map={...structuredClone(DEFAULT_MAP),id:'checkpoint-map'};
-  map.obstacles.push(wall,wire);
+  map.obstacles.push(wall);
   const defense:Defense={map,spawnBaseline:{...map.spawn},builtWalls:[wall],builtWires:[wire,breached],difficulty:7};
   const run=createRun(map);run.setBuildMounts(wallMountCells([wall]));
   assert.equal(run.place('repulsor',{x:21.2,y:21.5}).ok,true);
@@ -31,7 +31,7 @@ test('full checkpoint restores mounted towers, custom map, wire condition, econo
   assert.equal(saved.map.id,'checkpoint-map');
   assert.equal(saved.difficulty,7);
   assert.ok(saved.map.obstacles.includes(saved.builtWalls[0]),'demolition needs shared object identity');
-  assert.ok(saved.map.obstacles.includes(saved.builtWires[0]));
+  assert.ok(!saved.map.obstacles.includes(saved.builtWires[0]),'intact wire must not block the route');
   assert.ok(!saved.map.obstacles.includes(saved.builtWires[1]),'breached wire must not block the route');
   assert.deepEqual(saved.builtWires,defense.builtWires);
   assert.deepEqual(saved.spawnBaseline,defense.spawnBaseline);
@@ -89,11 +89,12 @@ test('storage failures are surfaced and serialization cannot save an active wave
   assert.throws(()=>run.serialize(),/between waves/);
 });
 
-test('existing unversioned full autosaves remain readable and reconnect breached wire safely',()=>{
+test('existing unversioned full autosaves remove all legacy wire collisions',()=>{
   const {run,defense}=fixture();
   const legacy={...defense,runState:run.serialize()};
   legacy.map.obstacles.push(defense.builtWires[1]);
   const saved=decodeDefense(JSON.stringify(legacy));
   assert.equal(saved.difficulty,7);
+  assert.ok(!saved.map.obstacles.includes(saved.builtWires[0]));
   assert.ok(!saved.map.obstacles.includes(saved.builtWires[1]));
 });
