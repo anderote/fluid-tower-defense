@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "assets:red-alert": "node --openssl-legacy-provider scripts/import-red-alert.mjs",
-    "dev": "vite --host 127.0.0.1",
+    "dev": "vite --host 127.0.0.1 --port 5174 --strictPort",
+    "play:update": "node scripts/stable-local.mjs update",
+    "test:stable": "node --test tests/stable-local/*.test.mjs",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-strip-types --test \"src/**/*.test.ts\" \"tests/**/*.test.ts\"",

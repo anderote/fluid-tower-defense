@@ -1,8 +1,11 @@
-# Development Workflow
+# Development and Release Workflow
 
-- Keep local `main` stable and runnable. The local development server intended for normal use runs from `main`.
-- Keep a local `dev` branch as the integration branch for active feature work. Do not push it unless the user explicitly asks.
-- Keep the repository root worktree checked out on `main` at all times. Check out and manage local `dev` only from its dedicated integration worktree; never switch the root directory to `dev`.
-- For every new feature request, create a dedicated git worktree and feature branch from local `dev` (never from `main`). Do all implementation, validation, and iteration in that worktree.
-- Once requested feature work is complete and validation passes, automatically commit it and integrate its branch into local `dev`. Keep `main` unchanged unless the user explicitly asks to promote or release it.
-- Promote local `dev` into local `main` only when the user explicitly asks to promote or release it. Validate before promotion so `main` remains a stable server target.
+- **“Update the game server”** (including typos such as “update teh game server”) is the release command: validate the latest committed local `dev`, merge that validated revision into local `main`, then publish a tested build of committed `main` with `~/.local/bin/pressure-front update`. Verify the published game in a dedicated browser tab. No remote fetch or push is implied.
+- The release chain is strictly **feature branches → local dev → local main → published game server**. Main only takes changes through dev. The game server only takes builds from committed main. Never cherry-pick feature work directly onto main or publish a feature/dev worktree.
+- The stable game runs at **http://127.0.0.1:5173**, from **~/Library/Application Support/Pressure Front/current**, outside the repository. Immutable builds are in its `releases/` directory. macOS LaunchAgent `local.pressure-front.game` runs the standalone `stable-server.mjs` from that same application-support directory and starts it on login. Logs: `server.log` and `server-error.log` there. Service definition: `~/Library/LaunchAgents/local.pressure-front.game.plist`.
+- Never restart, stop, or replace the stable service for Git operations, branch changes, ordinary builds, or feature testing. Publishing atomically swaps the release files without restarting the server or forcing browser reloads. The user refreshes when ready. Existing saves retain the same browser origin.
+- Feature work does not publish the game. A request only to promote dev to main does not publish either; “update the game server” explicitly authorizes both promotion and publishing. Crash repairs also wait for a release request before changing main or the published game.
+- Keep the repository root worktree on main at all times. Keep local dev in its dedicated integration worktree. Do not push dev unless explicitly requested.
+- Create every feature branch and dedicated worktree from local dev. Implement and validate there, then automatically commit and integrate completed work into local dev. Do not change main until promotion/release is requested.
+- Use Vite on port 5174 or another free port in feature worktrees for active development and browser testing. Reserve 5173 for the stable game. Never switch the root worktree to dev or a feature branch.
+- `~/.local/bin/pressure-front update` is the low-level publish command: it archives committed main into a temporary directory, installs its locked dependencies, tests/builds it, and publishes only after success. It does not merge branches; the release workflow above must merge validated dev into main first. Use `pressure-front status`, `start`, or `stop` for deliberate service administration only.
