@@ -1,3 +1,5 @@
+import {audioSettings,onAudioSettingsChange,setAudioSetting} from './settings.ts';
+
 const STATE_KEY='pressure-front.red-alert-soundtrack.v1';
 
 const FILES=[
@@ -31,7 +33,7 @@ export function mountRedAlertSoundtrack(root:HTMLElement):()=>void{
   if(!panel.children.length)panel.innerHTML=RED_ALERT_SOUNDTRACK_MARKUP;
   if(!panel.isConnected)root.querySelector('.simulation-controls')?.append(panel);
   const toggle=panel.querySelector<HTMLButtonElement>('[data-music="toggle"]')!,next=panel.querySelector<HTMLButtonElement>('[data-music="next"]')!,volume=panel.querySelector<HTMLInputElement>('#music-volume')!,count=panel.querySelector<HTMLElement>('#music-count')!,title=panel.querySelector<HTMLElement>('#music-track')!;
-  const saved=savedPlayback(),audio=new Audio();audio.preload='metadata';audio.volume=saved.volume;volume.value=String(saved.volume);
+  const saved=savedPlayback(),audio=new Audio();audio.preload='metadata';audio.volume=audioSettings().music;volume.value=String(audio.volume);
   let index=saved.track,wantsPlay=saved.wasPlaying,destroyed=false,lastSave=0;
   const save=()=>{if(destroyed)return;try{localStorage.setItem(STATE_KEY,JSON.stringify({track:index,time:Number.isFinite(audio.currentTime)?audio.currentTime:0,volume:audio.volume,wasPlaying:wantsPlay&&!audio.ended} satisfies SavedPlayback));}catch{/* Playback persistence is optional. */}};
   const render=(message?:string,error=false)=>{
@@ -49,8 +51,9 @@ export function mountRedAlertSoundtrack(root:HTMLElement):()=>void{
   const togglePlayback=()=>{if(audio.paused)void play();else{wantsPlay=false;audio.pause();save();}};
   const resumeAfterGesture=()=>{if(wantsPlay&&audio.paused)void play();};
   select(index,saved.time);render(wantsPlay?'Soundtrack restored. Click anywhere to resume.':undefined);
-  toggle.addEventListener('click',togglePlayback);next.addEventListener('click',advance);volume.addEventListener('input',()=>{audio.volume=Number(volume.value);save();});
+  const stopListening=onAudioSettingsChange(settings=>{audio.volume=settings.music;volume.value=String(settings.music);save();});
+  toggle.addEventListener('click',togglePlayback);next.addEventListener('click',advance);volume.addEventListener('input',()=>{setAudioSetting('music',Number(volume.value));});
   audio.addEventListener('ended',advance);audio.addEventListener('play',()=>{wantsPlay=true;render();save();});audio.addEventListener('pause',()=>{render();save();});audio.addEventListener('timeupdate',()=>{const now=performance.now();if(now-lastSave>1000){save();lastSave=now;}});audio.addEventListener('error',()=>render(`Could not play ${redAlertTracks[index].title}.`,true));
   document.addEventListener('pointerdown',resumeAfterGesture);document.addEventListener('keydown',resumeAfterGesture);window.addEventListener('pagehide',save);
-  return()=>{save();destroyed=true;audio.pause();audio.removeAttribute('src');audio.load();toggle.removeEventListener('click',togglePlayback);next.removeEventListener('click',advance);document.removeEventListener('pointerdown',resumeAfterGesture);document.removeEventListener('keydown',resumeAfterGesture);window.removeEventListener('pagehide',save);panel.remove();};
+  return()=>{save();destroyed=true;stopListening();audio.pause();audio.removeAttribute('src');audio.load();toggle.removeEventListener('click',togglePlayback);next.removeEventListener('click',advance);document.removeEventListener('pointerdown',resumeAfterGesture);document.removeEventListener('keydown',resumeAfterGesture);window.removeEventListener('pagehide',save);panel.remove();};
 }
