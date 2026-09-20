@@ -1,0 +1,8 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Battlefield aftermath</title>
+<style>body{margin:24px;background:#181918;color:#d5d4c6;font:14px monospace}button,select{padding:9px;background:#30342c;color:inherit;border:1px solid #72765c;margin:0 8px 8px 0}canvas{display:block;width:min(1150px,94vw);height:620px}#status{color:#b6ce8f}</style>
+<h1>Blood, bodies and battlefield aftermath</h1>
+<p>Left: bullet casualties. Center: blast fragments. Right: pressure casualties. New zombies reuse the original slots.</p>
+<label>Time after impact <select id="age"><option value="auto">Animate</option><option value="0.08">80 ms</option><option value="0.3">300 ms</option><option value="0.8">800 ms</option><option value="2">2 seconds</option><option value="8">8 seconds</option><option value="35">35 seconds</option></select></label>
+<button id="reuse">Reuse dead slots</button><button id="clear">Clear aftermath</button><button id="replay">Replay</button>
+<p id="status">Checking GPU aftermath…</p><canvas></canvas><pre id="checks"></pre>
+<script type="module" src="./runner.ts"></script></html>

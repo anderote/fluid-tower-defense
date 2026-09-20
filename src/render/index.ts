@@ -1,5 +1,6 @@
 import {AUTOCANNON_MUZZLE_LIFT,SOLDAT_FACINGS} from './soldat-art.ts';
 import {createTeslaEffects} from './tesla.ts';
+import {createAftermathRenderer} from './aftermath.ts';
 import {TESLA_STATE_WGSL,TESLA_HEADER_BYTES,TESLA_PARTICLE_BYTES} from '../effects/tesla.ts';
 import { ENEMY_WGSL, towerBehavior } from '../content/index.ts';
 import { PARTICLE_WGSL, type RenderScene, type Renderer, type SharedGPU, type TowerKind, type Vec2 } from '../contracts/index.ts';
@@ -32,6 +33,7 @@ export async function createRenderer(device: GPUDevice, context: GPUCanvasContex
   const emptyTesla=shared.teslaState?null:device.createBuffer({label:'Empty Tesla status',size:TESLA_HEADER_BYTES+shared.capacity*TESLA_PARTICLE_BYTES,usage:GPUBufferUsage.STORAGE});
   const teslaState=shared.teslaState??emptyTesla!;
   const shamblers=await createShamblers(device,format,uniform,{...shared,teslaState});
+  const aftermath=shared.aftermath?await createAftermathRenderer(device,format,uniform,shared.aftermath,shamblers.texture):null;
   let overlayCapacity=1;
   let overlays = device.createBuffer({ label:'Tactical overlays', size:24, usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST });
   let foregroundCapacity=1;
@@ -61,6 +63,7 @@ fn pressureColor(value:f32)->vec3<f32>{
   let corners=array<vec2<f32>,6>(vec2(-1,-1),vec2(1,-1),vec2(-1,1),vec2(-1,1),vec2(1,-1),vec2(1,1));
   let shard=vi/6u; let c=corners[vi%6u]; let p=particles[ii]; let dead=p.state.w<-.5; var radius=max(.27,p.body.x*1.18);
   var o:Out; o.local=c; o.bloodMode=0.;
+  if(dead&&${shared.aftermath?'true':'false'}){o.pos=vec4(2.,2.,0.,1.);o.color=vec4(0.);return o;}
   let shock=electricity.victims[ii].shock;let shockAge=teslaAge(shock,p.status.w,camera.time.x);
   if((dead&&shock.x>0.&&shock.y==p.status.w&&shock.z>.5)||(!dead&&shockAge<.24)){o.pos=vec4(2.,2.,0.,1.);o.color=vec4(0.);return o;}
   if(dead){ let age=max(0.,camera.time.x-(-p.body.w)/60.);let seed=f32(ii)*17.+f32(shard)*2.4;let flight=clamp(age/.78,0.,1.);let dir=vec2(cos(seed),sin(seed));let stain=shard==0u;let mist=shard>4u;let speed=select(.85+fract(seed*3.1)*2.2,.38+fract(seed)*.8,mist);let center=select(p.pos.xy+dir*(.18+speed*flight)+vec2(0.,age*age*.7),p.pos.xy,stain);radius=select(max(.07,p.body.x*(.36+.72*(1.-flight))*select(1.,.62,mist)),max(.38,p.body.x*3.25),stain);let life=select(max(0.,1.-age/select(.95,.62,mist)),max(0.,1.-age/18.),stain);o.pos=vec4(world(center+c*radius),0,1);o.color=vec4(select(.42+.3*sin(seed),.7+.18*sin(seed*2.),mist),.008,.004,life*select(.9,.42,stain));o.bloodMode=select(2.,1.,stain);return o; }
@@ -303,11 +306,11 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
       }
     }
     for(const explosion of scene.heavyExplosions??[]){
-      const t=Math.max(0,Math.min(1,explosion.age/explosion.life)),s=explosion.scale,flash=Math.max(0,1-t/.17),fire=Math.max(0,1-t/.55),smoke=Math.sin(Math.PI*Math.min(1,t*1.12));
-      if(flash>0){disc(a,explosion.x,explosion.y,(1.1+t*8)*s,[1,1,.78,.68*flash],14);disc(a,explosion.x,explosion.y,(.52+t*3.5)*s,[1,1,1,.92*flash],12);}
-      if(fire>0){ring(a,explosion.x,explosion.y,(1.25+t*8.2)*s,[1,.38,.035,.72*fire],Math.max(.16,(.58-t*.32)*s));disc(a,explosion.x,explosion.y,(1.35+t*3.4)*s,[1,.19,.018,.28*fire],12);}
+      const t=Math.max(0,Math.min(1,explosion.age/explosion.life)),age=explosion.age,s=explosion.scale,flash=Math.max(0,1-age/.075),fire=Math.max(0,1-age/.38),smoke=Math.sin(Math.PI*Math.min(1,t*1.12));
+      if(flash>0){disc(a,explosion.x,explosion.y,(.65+age*19)*s,[1,1,.78,.68*flash],14);disc(a,explosion.x,explosion.y,(.35+age*10)*s,[1,1,1,.92*flash],12);}
+      if(fire>0){ring(a,explosion.x,explosion.y,(1.25+age*10)*s,[1,.38,.035,.72*fire],Math.max(.16,(.58-age)*s));disc(a,explosion.x,explosion.y,(1.35+age*5)*s,[1,.19,.018,.28*fire],12);}
       for(let j=0;j<7;j++){const angle=j/7*Math.PI*2+explosion.serial*.73,radius=(.35+t*(2.3+(j%3)*.48))*s,x=explosion.x+Math.cos(angle)*radius,y=explosion.y+Math.sin(angle)*radius,cloud=(.72+t*(1.6+(j%2)*.42))*s;disc(a,x,y,cloud,[.2+(j%2)*.035,.19,.18,.2*smoke*(1-t*.72)],10);if(t<.5)disc(a,x-Math.cos(angle)*.16,y-Math.sin(angle)*.16,cloud*.48,[1,.42,.045,.26*fire],8);}
-      if(t>.12)ring(a,explosion.x,explosion.y,(1.8+t*10.5)*s,[.75,.68,.55,.18*(1-t)],Math.max(.08,.22*(1-t)));
+      if(age>.035&&age<.42)ring(a,explosion.x,explosion.y,(1.8+age*22)*s,[.75,.68,.55,.18*(1-age/.42)],Math.max(.08,.22*(1-age/.42)));
     }
     for(const p of scene.visualParticles??[]){const t=Math.max(0,Math.min(1,p.age/p.life)),x=p.x+p.vx*p.age*(1-p.drag*t),y=p.y+p.vy*p.age+.5*p.gravity*p.age*p.age,fade=(1-t)*(1-t),c:[number,number,number,number]=[p.color[0],p.color[1],p.color[2],fade];if(p.style==='smoke'){const bloom=Math.sin(Math.PI*t),size=p.size*(.55+1.55*t);disc(a,x,y,size,[c[0],c[1],c[2],bloom*.22],10);disc(a,x-size*.28,y+size*.12,size*.62,[c[0]*.7,c[1]*.72,c[2]*.75,bloom*.14],9);}else if(p.style==='mist'){const size=p.size*(.7+1.15*t);disc(a,x,y,size,[c[0],c[1],c[2],fade*.16],10);ring(a,x,y,size,[c[0],c[1],c[2],fade*.28],Math.max(.08,size*.14));}else if(p.style==='shell'){casing(a,x,y,p.size*(1-.16*t),p.spin*p.age,c);}else if(p.style==='debris'){shard(a,x,y,p.size*(1-.3*t),p.spin*p.age,c);}else{streak(a,x,y,p.vx,p.vy,Math.max(.35,p.size*3.2*(1-t)),Math.max(.06,p.size*.22),c);disc(a,x,y,p.size*.52,[1,Math.min(1,p.color[1]+.18),Math.min(1,p.color[2]+.1),fade*.9],7);}}
     const data=new Float32Array(a.length*6);a.forEach((v,i)=>data.set([v.x,v.y,v.r,v.g,v.b,v.a],i*6));return data;
@@ -320,6 +323,7 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
       scene.towers.slice(0,MAX_TOWERS).forEach((t,i)=>visual.set([t.x,t.y,t.id,towerBehavior(t.kind)+WEAPON_KINDS.indexOf(t.kind)/100],i*4));device.queue.writeBuffer(towerVisuals,0,visual);
       redAlert?.prepare(scene);
       shamblers.prepare(encoder,scene);
+      if(scene.aftermathVisible!==false)aftermath?.prepare(scene);
       const data=geometry(scene),fx=foregroundGeometry(scene);
       if(data.length/6>overlayCapacity){const previous=overlays;overlayCapacity=2**Math.ceil(Math.log2(data.length/6));overlays=device.createBuffer({label:'Tactical overlays',size:overlayCapacity*24,usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST});previous.destroy();}
       if(fx.length/6>foregroundCapacity){const previous=foreground;foregroundCapacity=2**Math.ceil(Math.log2(fx.length/6));foreground=device.createBuffer({label:'Foreground effects',size:foregroundCapacity*24,usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST});previous.destroy();}
@@ -328,11 +332,13 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
       let pass=encoder.beginRenderPass({colorAttachments:[{view:target,clearValue:{r:.075,g:.075,b:.078,a:1},loadOp:'clear',storeOp:'store'}]});
       pass.setPipeline(bg);pass.setBindGroup(0,cameraBG);pass.draw(3);
       redAlert?.drawTerrain(pass);
+      if(scene.aftermathVisible!==false)aftermath?.ground(pass);
       pass.setPipeline(overlay);pass.setBindGroup(0,cameraOverlay);pass.setVertexBuffer(0,overlays);pass.draw(data.length/6);
       redAlert?.drawTowers(pass);
       pass.setPipeline(particles);pass.setBindGroup(0,cameraParticles);pass.draw(48,Math.min(scene.count,shared.capacity));
       pass.end();shamblers.draw(encoder,target,pixelW,pixelH,scene.count);
       pass=encoder.beginRenderPass({colorAttachments:[{view:target,loadOp:'load',storeOp:'store'}]});
+      if(scene.aftermathVisible!==false)aftermath?.air(pass);
       pass.setPipeline(overlay);pass.setBindGroup(0,cameraOverlay);pass.setVertexBuffer(0,foreground);pass.draw(fx.length/6);
       if(shared.shotState){pass.setPipeline(cues);pass.setBindGroup(0,cameraCues);pass.draw(72,Math.min(MAX_TOWERS,scene.towers.length));}tesla?.draw(pass,scene.count,scene.towers.length);pass.end();
     },
@@ -340,6 +346,7 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
     worldToScreen,
     pan(dx,dy){camera.x+=dx;camera.y+=dy;clampCamera();},
     zoomAt(factor,clientX,clientY){const before=screenToWorld(clientX,clientY);camera.zoom=Math.max(1,Math.min(5,camera.zoom*factor));const after=screenToWorld(clientX,clientY);camera.x+=before.x-after.x;camera.y+=before.y-after.y;clampCamera();},
-    destroy(){tesla?.destroy();emptyTesla?.destroy();shamblers.destroy();redAlert?.destroy();uniform.destroy();overlays.destroy();foreground.destroy();towerVisuals.destroy();emptyShots.destroy();}
+    clearAftermath(){aftermath?.reset();},
+    destroy(){aftermath?.destroy();tesla?.destroy();emptyTesla?.destroy();shamblers.destroy();redAlert?.destroy();uniform.destroy();overlays.destroy();foreground.destroy();towerVisuals.destroy();emptyShots.destroy();}
   };
 }
