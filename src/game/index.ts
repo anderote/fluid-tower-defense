@@ -4,31 +4,48 @@ import type {BonusChoice, RunModel, Settlement, SpawnBatch, Tower, TowerKind, Ve
 
 export type ActionResult = {ok:true} | {ok:false; reason:string};
 export type PlaceResult = ActionResult & {tower?:Tower};
-type Wave = {spawns:readonly SpawnBatch[]; payment:number; bonus:boolean; peakRate:number; rampSeconds:number};
-type Applied = Pick<Settlement,'kills'|'crushKills'|'leaks'|'earned'> & {tick:number};
+type Wave = {spawns:readonly SpawnBatch[]; payment:number; bonus:boolean; peakRate:number; rampSeconds:number; boss:boolean};
+type Applied = Pick<Settlement,'kills'|'crushKills'|'leaks'|'earned'> & {tick:number;towerKills:number[]};
 type SavedRun = {version:1; contentVersion:string; mapId?:string; model:RunModel; epoch:number; applied:Applied};
 
-export const CONTENT_VERSION = 'pressure-front-2';
+export const CONTENT_VERSION = 'pressure-front-3';
 const SAVE_KEY = 'pressure-front.run.v1';
 const MAX_TOWERS = 64;
-const WAVES: readonly Wave[] = [
-  {spawns:[{kind:'shambler',count:28_000,seed:101}],payment:300,bonus:false,peakRate:250,rampSeconds:12},
-  {spawns:[{kind:'runner',count:12_000,seed:201},{kind:'shambler',count:33_000,seed:202}],payment:520,bonus:true,peakRate:380,rampSeconds:16},
-  {spawns:[{kind:'brute',count:4_000,seed:301},{kind:'shambler',count:56_000,seed:302}],payment:820,bonus:false,peakRate:500,rampSeconds:20},
-  {spawns:[{kind:'runner',count:24_000,seed:401},{kind:'brute',count:7_000,seed:402},{kind:'shambler',count:34_000,seed:403}],payment:1_250,bonus:true,peakRate:550,rampSeconds:22},
-  {spawns:[{kind:'shambler',count:34_000,seed:501},{kind:'runner',count:23_000,seed:502},{kind:'brute',count:8_000,seed:503}],payment:1_800,bonus:false,peakRate:550,rampSeconds:24},
-];
+export const WAVES_PER_LEVEL=10;
 const BONUSES: readonly BonusChoice[] = [
   {id:'hydraulic-advantage',name:'Hydraulic Advantage',description:'Repulsors push harder but pulse a little slower.'},
   {id:'cold-field',name:'Cold Field',description:'Cryo emitters cover a wider field.'},
   {id:'salvage-contract',name:'Salvage Contract',description:'Gain 35 Metal now.'},
+  {id:'kinetic-feed',name:'Kinetic Feed',description:'Autocannons fire 15% faster.'},
+  {id:'blast-casing',name:'Blast Casing',description:'Mortars and rocket pods deal 15% more damage.'},
 ];
-const emptyApplied = ():Applied => ({kills:0,crushKills:0,leaks:0,earned:0,tick:-1});
+const emptyApplied = ():Applied => ({kills:0,crushKills:0,leaks:0,earned:0,tick:-1,towerKills:Array(MAX_TOWERS).fill(0)});
 const isFiniteInteger = (value:unknown):value is number => typeof value === 'number' && Number.isFinite(value) && Number.isInteger(value);
 const isNonNegative = (value:unknown):value is number => typeof value === 'number' && Number.isFinite(value) && value >= 0;
 const isTowerKind = (value:unknown):value is TowerKind => typeof value === 'string' && Object.hasOwn(TOWERS,value);
 const copy = (model:RunModel):RunModel => ({...model,towers:model.towers.map(t=>({...t})),pending:model.pending.map(b=>({...b})),bonusChoices:model.bonusChoices.map(b=>({...b})),bonuses:[...model.bonuses],commandUpgrades:[...model.commandUpgrades]});
-const fresh = ():RunModel => ({phase:'preparation',metal:650,baseHealth:20,wave:0,waveCount:WAVES.length,towers:[],selected:null,pending:[],bonusChoices:[],bonuses:[],commandUpgrades:[]});
+const fresh = ():RunModel => ({phase:'preparation',metal:650,baseHealth:20,level:1,wave:0,waveCount:WAVES_PER_LEVEL,towers:[],selected:null,pending:[],bonusChoices:[],bonuses:[],commandUpgrades:[]});
+
+/** Deterministic procedural compositions: each level introduces denser, faster mixed pressure. */
+export function waveFor(level:number,wave:number):Wave {
+  const levelIndex=Math.max(0,level-1), waveIndex=Math.max(0,wave-1), threat=levelIndex*WAVES_PER_LEVEL+waveIndex;
+  const total=Math.min(62_000,Math.round(1_500+threat*550+Math.pow(threat,1.42)*130));
+  const runnerWeight=waveIndex<1?0:Math.min(.38,.08+threat*.012);
+  const bruteWeight=waveIndex<3?0:Math.min(.28,.035+Math.max(0,threat-3)*.009);
+  const shamblerWeight=Math.max(.24,1-runnerWeight-bruteWeight);
+  const seed=(level*10_000+wave*977)>>>0;
+  const shamblers=Math.round(total*shamblerWeight), runners=Math.round(total*runnerWeight), brutes=Math.max(0,total-shamblers-runners);
+  const spawns:SpawnBatch[]=[];
+  if(shamblers)spawns.push({kind:'shambler',count:shamblers,seed});
+  if(runners)spawns.push({kind:'runner',count:runners,seed:seed+1});
+  if(brutes)spawns.push({kind:'brute',count:brutes,seed:seed+2});
+  return {spawns,payment:Math.round(210+threat*82+Math.pow(threat,1.28)*12),bonus:wave%2===0||wave===WAVES_PER_LEVEL,peakRate:Math.min(1_200,170+threat*38),rampSeconds:Math.min(30,8+waveIndex*1.6+levelIndex),boss:wave===WAVES_PER_LEVEL};
+}
+const offeredBonuses=(level:number,wave:number,owned:readonly string[]):BonusChoice[]=>{
+  const available=BONUSES.filter(choice=>choice.id==='salvage-contract'||!owned.includes(choice.id));
+  const offset=(level*7+wave*3)%available.length;
+  return Array.from({length:Math.min(3,available.length)},(_,index)=>available[(offset+index)%available.length]);
+};
 const spentAtLevel = (kind:TowerKind, level:number):number => {
   let spent=TOWERS[kind].cost;
   for (let upgrade=0;upgrade<level;upgrade++) spent+=45+upgrade*35;
@@ -44,7 +61,7 @@ function validTower(map:WorldMap, tower:unknown, prior:readonly Tower[]): tower 
 function validApplied(value:unknown): value is Applied {
   if (!value || typeof value !== 'object') return false;
   const applied=value as Applied;
-  return isFiniteInteger(applied.tick) && applied.tick>=-1 && isFiniteInteger(applied.kills) && applied.kills>=0 && isFiniteInteger(applied.crushKills) && applied.crushKills>=0 && isFiniteInteger(applied.leaks) && applied.leaks>=0 && isFiniteInteger(applied.earned) && applied.earned>=0;
+  return isFiniteInteger(applied.tick) && applied.tick>=-1 && isFiniteInteger(applied.kills) && applied.kills>=0 && isFiniteInteger(applied.crushKills) && applied.crushKills>=0 && isFiniteInteger(applied.leaks) && applied.leaks>=0 && isFiniteInteger(applied.earned) && applied.earned>=0 && Array.isArray(applied.towerKills) && applied.towerKills.length===MAX_TOWERS && applied.towerKills.every(value=>isFiniteInteger(value)&&value>=0);
 }
 
 export class RunController {
@@ -97,13 +114,13 @@ export class RunController {
   }
   startWave():ActionResult {
     if (this.model.phase!=='preparation') return {ok:false,reason:'The current wave is not ready to start.'};
-    if (this.model.wave>=WAVES.length) return {ok:false,reason:'All waves are complete.'};
-    const wave=WAVES[this.model.wave++]; this.model.pending=wave.spawns.map(batch=>({...batch})); this.model.phase='combat'; this.live=0;this.spawnElapsed=0;this.spawnCredit=0;
+    if (this.model.bonusChoices.length) return {ok:false,reason:'Choose a command boon before starting the next wave.'};
+    const wave=waveFor(this.model.level,this.model.wave+1); this.model.wave++; this.model.pending=wave.spawns.map(batch=>({...batch})); this.model.phase='combat'; this.live=0;this.spawnElapsed=0;this.spawnCredit=0;
     return {ok:true};
   }
   takeSpawns(capacity:number, seconds=0):SpawnBatch[] {
     if (this.model.phase!=='combat' || !isFiniteInteger(capacity) || capacity<=0) return [];
-    const wave=WAVES[this.model.wave-1];this.spawnElapsed+=Math.max(0,seconds);const ramp=Math.min(1,this.spawnElapsed/wave.rampSeconds);this.spawnCredit+=wave.peakRate*this.spawnMultiplier*(.2+.8*ramp)*Math.max(0,seconds);
+    const wave=waveFor(this.model.level,this.model.wave);this.spawnElapsed+=Math.max(0,seconds);const ramp=Math.min(1,this.spawnElapsed/wave.rampSeconds);this.spawnCredit+=wave.peakRate*this.spawnMultiplier*(.2+.8*ramp)*Math.max(0,seconds);
     let available=seconds===0?capacity:Math.min(capacity,Math.floor(this.spawnCredit)); const accepted:SpawnBatch[]=[];
     while (available>0 && this.model.pending.length) {
       const batch=this.model.pending[0], count=Math.min(batch.count,available);
@@ -118,23 +135,23 @@ export class RunController {
     if (settlement.epoch>this.runEpoch) { this.runEpoch=settlement.epoch; this.applied=emptyApplied(); }
     if (settlement.kills<this.applied.kills || settlement.crushKills<this.applied.crushKills || settlement.leaks<this.applied.leaks || settlement.earned<this.applied.earned) return;
     const kills=settlement.kills-this.applied.kills, leaks=settlement.leaks-this.applied.leaks, earned=settlement.earned-this.applied.earned;
-    this.applied={kills:settlement.kills,crushKills:settlement.crushKills,leaks:settlement.leaks,earned:settlement.earned,tick:settlement.tick};
+    const priorTowerKills=this.applied.towerKills;
+    this.applied={kills:settlement.kills,crushKills:settlement.crushKills,leaks:settlement.leaks,earned:settlement.earned,tick:settlement.tick,towerKills:priorTowerKills};
     this.model.metal+=Math.floor(earned*(this.model.commandUpgrades.includes('salvage-magnets')?1.25:1)); this.model.baseHealth=Math.max(0,this.model.baseHealth-leaks); this.live=settlement.live;
-    // GPU settlement reports aggregate deaths. Credit them across active defenses by their
-    // authored damage throughput so the selected-tower telemetry stays useful at swarm scale.
-    if(kills>0 && this.model.towers.length){
-      const weighted=this.model.towers.map(tower=>Math.max(.1,TOWERS[tower.kind].damage/TOWERS[tower.kind].cooldown));
-      const total=weighted.reduce((sum,value)=>sum+value,0);let assigned=0;
-      this.model.towers.forEach((tower,index)=>{const credit=index===this.model.towers.length-1?kills-assigned:Math.floor(kills*weighted[index]/total);tower.kills=(tower.kills??0)+credit;assigned+=credit;});
+    const reported=settlement.towerKills??[];
+    for(let index=0;index<this.model.towers.length;index++){
+      const total=Math.max(0,Math.floor(reported[index]??0)), previous=priorTowerKills[index]??0;
+      if(total>=previous)this.model.towers[index].kills=(this.model.towers[index].kills??0)+(total-previous);
     }
+    this.applied.towerKills=Array.from({length:MAX_TOWERS},(_,index)=>Math.max(this.applied.towerKills[index]??0,Math.floor(reported[index]??0)));
     if (this.model.baseHealth===0) this.model.phase='lost';
   }
   finishSettling():ActionResult {
     if (this.model.phase!=='combat' && this.model.phase!=='settling') return {ok:false,reason:'There is no wave to settle.'};
     if (this.model.pending.length || this.live>0) return {ok:false,reason:'Waiting for live enemies or queued spawns.'};
-    const completed=WAVES[this.model.wave-1]; this.model.metal+=completed.payment;
-    if (this.model.wave===this.model.waveCount) { this.model.phase='won'; return {ok:true}; }
-    this.model.phase='preparation'; this.model.bonusChoices=[];
+    const completed=waveFor(this.model.level,this.model.wave); this.model.metal+=completed.payment;
+    if (this.model.wave===this.model.waveCount) { this.model.level++; this.model.wave=0; }
+    this.model.phase='preparation'; this.model.bonusChoices=completed.bonus?offeredBonuses(this.model.level,this.model.wave||WAVES_PER_LEVEL,this.model.bonuses):[];
     return {ok:true};
   }
   chooseBonus(id:string):ActionResult {
@@ -165,6 +182,7 @@ export class RunController {
     for(const tower of this.model.towers){tower.veterancyXp=(tower.veterancyXp??0)+seconds*1.8;tower.veterancy=veterancyLevel(tower.veterancyXp);}
   }
   reset():void { Object.assign(this.model,fresh()); this.nextTowerId=1; this.runEpoch++; this.applied=emptyApplied(); this.live=0; }
+  resetTowerAttribution():void { this.applied.towerKills=Array(MAX_TOWERS).fill(0); }
   setMap(map:WorldMap):void { this.map=map; }
   save():string {
     if (this.model.phase!=='preparation') throw new Error('Runs can only be saved between waves.');
@@ -191,7 +209,7 @@ export class RunController {
   private validSave(value:unknown):value is SavedRun {
     if (!value || typeof value!=='object') return false;
     const saved=value as SavedRun, model=saved.model;
-    if (saved.version!==1 || saved.contentVersion!==CONTENT_VERSION || (saved.mapId!==this.map.id && !(saved.mapId===undefined && this.map.id===DEFAULT_MAP.id)) || !isFiniteInteger(saved.epoch) || saved.epoch<0 || !validApplied(saved.applied) || !model || typeof model!=='object' || model.phase!=='preparation' || !isFiniteInteger(model.metal) || model.metal<0 || !isFiniteInteger(model.baseHealth) || model.baseHealth<0 || model.baseHealth>30 || !isFiniteInteger(model.wave) || model.wave<0 || model.wave>=WAVES.length || model.waveCount!==WAVES.length || !Array.isArray(model.towers) || model.towers.length>MAX_TOWERS || !Array.isArray(model.pending) || model.pending.length!==0 || !Array.isArray(model.bonuses) || !Array.isArray(model.commandUpgrades) || !Array.isArray(model.bonusChoices) || model.bonusChoices.some(choice=>!BONUSES.some(known=>choice.id===known.id))) return false;
+    if (saved.version!==1 || saved.contentVersion!==CONTENT_VERSION || (saved.mapId!==this.map.id && !(saved.mapId===undefined && this.map.id===DEFAULT_MAP.id)) || !isFiniteInteger(saved.epoch) || saved.epoch<0 || !validApplied(saved.applied) || !model || typeof model!=='object' || model.phase!=='preparation' || !isFiniteInteger(model.metal) || model.metal<0 || !isFiniteInteger(model.baseHealth) || model.baseHealth<0 || model.baseHealth>30 || !isFiniteInteger(model.level) || model.level<1 || !isFiniteInteger(model.wave) || model.wave<0 || model.wave>=WAVES_PER_LEVEL || model.waveCount!==WAVES_PER_LEVEL || !Array.isArray(model.towers) || model.towers.length>MAX_TOWERS || !Array.isArray(model.pending) || model.pending.length!==0 || !Array.isArray(model.bonuses) || !Array.isArray(model.commandUpgrades) || !Array.isArray(model.bonusChoices) || model.bonusChoices.some(choice=>!BONUSES.some(known=>choice.id===known.id))) return false;
     const towers:Tower[]=[];
     for (const tower of model.towers) { if (!validTower(this.map,tower,towers)) return false; towers.push(tower); }
     if (model.selected!==null && (!isFiniteInteger(model.selected) || !towers.some(tower=>tower.id===model.selected))) return false;

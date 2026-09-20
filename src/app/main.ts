@@ -13,7 +13,7 @@ import { createCombat, type CombatFrame } from '../sim/combat/index.ts';
 import { barbedWireStats, createParticles, DEFAULT_MAP, compileTower, TOWERS } from '../content/index.ts';
 import { buildNavigation, canPlace } from '../navigation/index.ts';
 import { createRun } from '../game/index.ts';
-import { DEFAULT_TUNING, PARTICLE_FLOATS, type UIState, type GameAction, type Effect, type Vec2, type Rect, type Settlement, type VisualParticle, type VisualParticleStyle, type WorldMap } from '../contracts/index.ts';
+import { COUNTER_WORDS, DEFAULT_TUNING, PARTICLE_FLOATS, type UIState, type GameAction, type Effect, type Vec2, type Rect, type Settlement, type VisualParticle, type VisualParticleStyle, type WorldMap } from '../contracts/index.ts';
 
 const root=document.querySelector<HTMLElement>('#app')!;
 const params=new URLSearchParams(location.search);
@@ -21,7 +21,7 @@ if(params.has('validate')) {
  const {showValidation}=await import('./validation-page.ts');await showValidation(root);
 } else {
 const run=createRun();
-const state:UIState={mode:params.get('mode')==='lab'?'lab':'game',phase:'preparation',paused:false,fps:0,frameMs:0,population:10000,capacity:65536,kills:0,crushKills:0,leaks:0,earned:0,maxPressure:0,metal:650,baseHealth:100,wave:0,waveCount:5,difficulty:1,selected:null,selectedKind:null,heatmap:false,tool:'blast',message:'Connecting to local GPU…',adapter:'WebGPU',bonusChoices:[],commandUpgrades:[]};
+const state:UIState={mode:params.get('mode')==='lab'?'lab':'game',phase:'preparation',paused:false,fps:0,frameMs:0,population:10000,capacity:65536,kills:0,crushKills:0,leaks:0,earned:0,maxPressure:0,metal:650,baseHealth:100,level:1,wave:0,waveCount:10,difficulty:1,selected:null,selectedKind:null,heatmap:false,tool:'blast',message:'Connecting to local GPU…',adapter:'WebGPU',bonusChoices:[],commandUpgrades:[]};
 let handleAction:(action:GameAction)=>void=()=>{};
 const ui=createUI(root,action=>handleAction(action));
 try {
@@ -67,14 +67,14 @@ try {
    if(state.mode==='game'){
      run.applySettlement(s);
      if(s.live===0&&count>0&&s.tick>=waveStartTick&&run.model.pending.length===0&&run.model.phase==='combat'){
-       const result=run.finishSettling();if(result.ok){state.message=(run.model.phase as string)==='won'?'Containment held. All waves defeated.':'Wave cleared. Reinforce your defense.';count=0;}
+       const priorLevel=run.model.level, result=run.finishSettling();if(result.ok){state.message=run.model.level>priorLevel?`Level ${priorLevel} contained. Level ${run.model.level} escalation begins.`:run.model.bonusChoices.length?'Wave cleared. Choose a command boon.':'Wave cleared. Reinforce your defense.';count=0;}
      }
    }
  },error=>errors.push(String(error)));
  function resetWorld(resetRun=true){
    if(resetRun)run.reset();epoch=run.epoch;
    physics.reset();combat.reset();boss.reset(false);clock.reset();metrics.reset();lastTickSample=0;waveStartTick=0;simulatedTime=0;
-   gpu.device.queue.writeBuffer(gpu.shared.counters,0,new Uint32Array(16));
+   gpu.device.queue.writeBuffer(gpu.shared.counters,0,new Uint32Array(COUNTER_WORDS));
    commands=[];visuals=[];visualParticles=[];count=0;spawnSlot=0;state.kills=state.crushKills=state.leaks=state.earned=state.maxPressure=0;state.selectedKind=null;state.selected=null;state.paused=false;
    latest={epoch,tick:0,kills:0,crushKills:0,leaks:0,earned:0,live:0,invalid:0,maxPacking:0};
    if(state.mode==='lab'){
@@ -105,7 +105,7 @@ try {
      }
      case 'upgrade':if(run.model.selected!==null)actionResult(run.upgrade(run.model.selected,action.branch),'Tower upgraded.');break;
      case 'buy-command':actionResult(run.buyCommandUpgrade(action.id),'Command upgrade installed.');break;
-     case 'sell':if(run.model.selected!==null)actionResult(run.sell(run.model.selected),'Tower sold.');break;
+     case 'sell':if(run.model.selected!==null){const result=run.sell(run.model.selected);if(result.ok){combat.resetAttribution();run.resetTowerAttribution();}actionResult(result,'Tower sold.');}break;
      case 'difficulty':state.difficulty=run.setSpawnMultiplier(action.value);resizeSpawn();state.message=`Zombie production set to ${state.difficulty}×. Inlet expanded to protect spawn density.`;break;
      case 'bonus':actionResult(run.chooseBonus(action.id),'Bonus installed for this run.');break;
      case 'save':try{saveSession();state.message='Saved between waves on this browser.';}catch(error){state.message=String(error);}break;
@@ -137,7 +137,7 @@ try {
    if(state.mode==='game'){
      if(wallTool){if(event.button===2)removeWall(point);else placeWall(wallAt(point));return;}
      if(wireTool){if(event.button===2)removeWire(point);else placeWire(wallAt(point));return;}
-     if(state.selectedKind){const result=run.place(state.selectedKind,point);actionResult(result,result.tower?`${TOWERS[result.tower.kind].name} deployed.`:'Tower deployed.');}
+     if(state.selectedKind){const result=run.place(state.selectedKind,point);if(result.ok){combat.resetAttribution();run.resetTowerAttribution();}actionResult(result,result.tower?`${TOWERS[result.tower.kind].name} deployed.`:'Tower deployed.');}
      else{run.model.selected=run.model.towers.find(t=>Math.hypot(t.x-point.x,t.y-point.y)<3.5)?.id??null;}
    }else if(state.tool!=='inspect'){
      if(commands.length>=64){state.message='Effect queue full; advance the simulation.';return;}
@@ -158,7 +158,7 @@ try {
  window.addEventListener('keyup',event=>panKeys.delete(event.key.toLowerCase()));
  function updateUI(now:number){
    const report=metrics.report();state.fps=report.fps;state.frameMs=report.medianMs;
-   state.metal=run.model.metal;state.baseHealth=run.model.baseHealth/20*100;state.wave=run.model.wave;state.waveCount=run.model.waveCount;state.phase=state.mode==='lab'?'combat':run.model.phase;
+   state.metal=run.model.metal;state.baseHealth=run.model.baseHealth/20*100;state.level=run.model.level;state.wave=run.model.wave;state.waveCount=run.model.waveCount;state.phase=state.mode==='lab'?'combat':run.model.phase;
    state.selected=run.model.towers.find(t=>t.id===run.model.selected)??null;state.bonusChoices=state.mode==='game'?run.model.bonusChoices:[];
    state.bossHealth=latest.boss?.active?latest.boss.health/latest.boss.maxHealth*100:undefined;state.commandUpgrades=state.mode==='game'?run.model.commandUpgrades:[];
    ui.update(state);positionInspector();if(now-lastAutosave>1500){saveSession();lastAutosave=now;}lastUI=now;

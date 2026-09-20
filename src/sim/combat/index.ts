@@ -4,7 +4,7 @@ import { towerBehavior } from '../../content/index.ts';
 const MAX_TOWERS=64;
 export interface CombatFrame extends PhysicsFrame { towers:readonly {tower:Tower;definition:TowerDef}[] }
 export interface ShotSnapshot { id:number;x:number;y:number;angle:number;fired:boolean }
-export interface CombatModule { encodeBefore(encoder:GPUCommandEncoder,frame:CombatFrame):void;encodeAfter(encoder:GPUCommandEncoder,frame:CombatFrame):void;reset():void;destroy():void;readonly shotState:GPUBuffer }
+export interface CombatModule { encodeBefore(encoder:GPUCommandEncoder,frame:CombatFrame):void;encodeAfter(encoder:GPUCommandEncoder,frame:CombatFrame):void;reset():void;resetAttribution():void;destroy():void;readonly shotState:GPUBuffer }
 
 /** GPU targeting and damage. Physics receives tower impulses directly in particle velocity. */
 export async function createCombat(device:GPUDevice,shared:SharedGPU):Promise<CombatModule>{
@@ -13,6 +13,7 @@ export async function createCombat(device:GPUDevice,shared:SharedGPU):Promise<Co
   const state=device.createBuffer({label:'Tower firing state',size:MAX_TOWERS*48,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST|GPUBufferUsage.COPY_SRC});
   const effects=device.createBuffer({label:'Manual damage effects',size:MAX_EFFECTS*48,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
   const heat=device.createBuffer({label:'Burn status',size:shared.capacity*8,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
+  const ownership=device.createBuffer({label:'Last tower damage owner',size:shared.capacity*4,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
   const ownedBoss=!shared.bossState;
   const bossBuffer=shared.bossState??device.createBuffer({label:'Inactive boss placeholder',size:64,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
   const preamble=`${PARTICLE_WGSL}
@@ -30,6 +31,7 @@ struct Boss { motion:vec4f, body:vec4f, mode:vec4f, flags:vec4f };
 @group(0) @binding(5) var<storage,read_write> counters:array<atomic<u32>>;
 @group(0) @binding(6) var<storage,read_write> boss:array<Boss>;
 @group(0) @binding(7) var<storage,read_write> heat:array<Heat>;
+@group(0) @binding(8) var<storage,read_write> owners:array<atomic<u32>>;
 fn safeDir(delta:vec2f)->vec2f { return delta/max(length(delta),0.0001); }
 `;
   const shader=device.createShaderModule({label:'Combat compute',code:preamble+`
@@ -59,10 +61,10 @@ fn safeDir(delta:vec2f)->vec2f { return delta/max(length(delta),0.0001); }
  let i=gid.x;if(i>=u32(params.clock.z)){return;}var p=particles[i];if(p.state.w<0.5||p.body.z<=0){return;}
  for(var t=0u;t<u32(params.clock.w);t++){
   let s=states[t];if(s.shot.x<.5){continue;}let def=towers[t];let kind=u32(def.position.w);
-  if(kind==2u){let rail=def.flags.w>.5;let forward=vec2f(cos(s.shot.w),sin(s.shot.w));if(rail){let offset=p.pos.xy-def.position.xy;let along=dot(offset,forward);let across=abs(offset.x*forward.y-offset.y*forward.x);if(along>=0.&&along<=def.position.z&&across<=1.05){let fall=max(.35,1.-along/max(def.position.z,.001));let kick=forward*def.weapon.z*fall/max(.1,p.body.y);p.body.z-=def.weapon.y*fall;p.pos.z=p.pos.z+kick.x;p.pos.w=p.pos.w+kick.y;}}else if(s.shot.y>=0&&u32(s.shot.y)==i&&s.shot.z==p.status.w){let kick=forward*def.weapon.z/max(.1,p.body.y);p.body.z-=def.weapon.y;p.pos.z=p.pos.z+kick.x;p.pos.w=p.pos.w+kick.y;p.status.x=max(p.status.x,select(.18,.55,def.flags.y==1));}continue;}
-  if(kind==13u){let primary=s.shot.y>=0&&u32(s.shot.y)==i&&s.shot.z==p.status.w;let chainDistance=distance(p.pos.xy,s.timing.zw);let random=fract(sin(f32(i)*12.9898+f32(t)*78.233+params.clock.y*4.37)*43758.5453);let chained=!primary&&chainDistance<=def.weapon.w*1.35&&random<.075;if(primary||chained){let power=select(.52,1.,primary);p.body.z-=def.weapon.y*power;p.status.y=max(p.status.y,.8);p.status.x=max(p.status.x,.32);}continue;}
-  if(kind==14u){let delta=p.pos.xy-def.position.xy;let dist=length(delta);let forward=vec2f(cos(s.shot.w),sin(s.shot.w));if(dist<=def.position.z&&dot(safeDir(delta),forward)>=cos(clamp(def.weapon.w*.18,.25,1.35))){let fall=max(.2,1.-dist/max(def.position.z,.001));heat[i].burn=vec2f(max(heat[i].burn.x,1.5),max(heat[i].burn.y,def.weapon.y*fall));}continue;}
-  if(kind==12u){let side=vec2f(-sin(s.shot.w),cos(s.shot.w));let spread=def.weapon.w*.48;let blastRadius=def.weapon.w*.55;var best=0.;var blastDirection=vec2f(0.);for(var salvo=0u;salvo<3u;salvo++){let center=s.timing.zw+side*(f32(salvo)-1.)*spread;let delta=p.pos.xy-center;let dist=length(delta);let fall=max(0.,1.-dist/max(blastRadius,.001));if(fall>best){best=fall;blastDirection=safeDir(delta);}}if(best>0.){p.body.z-=def.weapon.y*max(.16,best);let kick=blastDirection*def.weapon.z*best/max(.1,p.body.y);p.pos.z+=kick.x;p.pos.w+=kick.y;}continue;}
+  if(kind==2u){let rail=def.flags.w>.5;let forward=vec2f(cos(s.shot.w),sin(s.shot.w));if(rail){let offset=p.pos.xy-def.position.xy;let along=dot(offset,forward);let across=abs(offset.x*forward.y-offset.y*forward.x);if(along>=0.&&along<=def.position.z&&across<=1.05){let fall=max(.35,1.-along/max(def.position.z,.001));let kick=forward*def.weapon.z*fall/max(.1,p.body.y);p.body.z-=def.weapon.y*fall;atomicStore(&owners[i],t+1u);p.pos.z=p.pos.z+kick.x;p.pos.w=p.pos.w+kick.y;}}else if(s.shot.y>=0&&u32(s.shot.y)==i&&s.shot.z==p.status.w){let kick=forward*def.weapon.z/max(.1,p.body.y);p.body.z-=def.weapon.y;atomicStore(&owners[i],t+1u);p.pos.z=p.pos.z+kick.x;p.pos.w=p.pos.w+kick.y;p.status.x=max(p.status.x,select(.18,.55,def.flags.y==1));}continue;}
+  if(kind==13u){let primary=s.shot.y>=0&&u32(s.shot.y)==i&&s.shot.z==p.status.w;let chainDistance=distance(p.pos.xy,s.timing.zw);let random=fract(sin(f32(i)*12.9898+f32(t)*78.233+params.clock.y*4.37)*43758.5453);let chained=!primary&&chainDistance<=def.weapon.w*1.35&&random<.075;if(primary||chained){let power=select(.52,1.,primary);p.body.z-=def.weapon.y*power;atomicStore(&owners[i],t+1u);p.status.y=max(p.status.y,.8);p.status.x=max(p.status.x,.32);}continue;}
+  if(kind==14u){let delta=p.pos.xy-def.position.xy;let dist=length(delta);let forward=vec2f(cos(s.shot.w),sin(s.shot.w));if(dist<=def.position.z&&dot(safeDir(delta),forward)>=cos(clamp(def.weapon.w*.18,.25,1.35))){let fall=max(.2,1.-dist/max(def.position.z,.001));heat[i].burn=vec2f(max(heat[i].burn.x,1.5),max(heat[i].burn.y,def.weapon.y*fall));atomicStore(&owners[i],t+1u);}continue;}
+  if(kind==12u){let side=vec2f(-sin(s.shot.w),cos(s.shot.w));let spread=def.weapon.w*.48;let blastRadius=def.weapon.w*.55;var best=0.;var blastDirection=vec2f(0.);for(var salvo=0u;salvo<3u;salvo++){let center=s.timing.zw+side*(f32(salvo)-1.)*spread;let delta=p.pos.xy-center;let dist=length(delta);let fall=max(0.,1.-dist/max(blastRadius,.001));if(fall>best){best=fall;blastDirection=safeDir(delta);}}if(best>0.){p.body.z-=def.weapon.y*max(.16,best);atomicStore(&owners[i],t+1u);let kick=blastDirection*def.weapon.z*best/max(.1,p.body.y);p.pos.z+=kick.x;p.pos.w+=kick.y;}continue;}
   var origin=def.position.xy;var rad=def.position.z;
   if(kind==1u){origin=s.timing.zw;rad=def.weapon.w;}
   let delta=p.pos.xy-origin;let dist=length(delta);if(dist>rad){continue;}
@@ -71,6 +73,7 @@ fn safeDir(delta:vec2f)->vec2f { return delta/max(length(delta),0.0001); }
   if(kind!=1u&&dot(safeDir(delta),forward)<coneCos){continue;}
   let falloff=max(.12,1.0-dist/max(rad,.001));
   p.body.z-=def.weapon.y*falloff;
+  atomicStore(&owners[i],t+1u);
   if(kind==3u){let kick=forward*def.weapon.z*falloff/max(.1,p.body.y);p.status.x=max(p.status.x,2.2);p.status.y=max(p.status.y,1.6);p.pos.z=p.pos.z+kick.x;p.pos.w=p.pos.w+kick.y;}else{
    let direction=select(forward,safeDir(delta),kind==1u);p.pos.z+=direction.x*def.weapon.z*falloff/max(.1,p.body.y);p.pos.w+=direction.y*def.weapon.z*falloff/max(.1,p.body.y);
   }
@@ -109,7 +112,7 @@ fn safeDir(delta:vec2f)->vec2f { return delta/max(length(delta),0.0001); }
  let brittle=select(1.0,1.7,p.status.y>0.0);
  let crush=max(0.0,p.status.z)*brittle/tolerance;
  let wasAlive=p.body.z>0.0;p.body.z-=crush;p.status.z=0;
- if(p.body.z<=0.0){p.body.z=0;p.body.w=-params.clock.y;p.state.w=-1;atomicAdd(&counters[0],1u);if(wasAlive&&crush>0){atomicAdd(&counters[1],1u);}atomicAdd(&counters[3],select(3u,8u,kind==2u));}
+ if(p.body.z<=0.0){p.body.z=0;p.body.w=-params.clock.y;p.state.w=-1;atomicAdd(&counters[0],1u);if(wasAlive&&crush>0){atomicAdd(&counters[1],1u);}else{let owner=atomicLoad(&owners[i]);if(owner>0u&&owner<=64u){atomicAdd(&counters[16u+owner-1u],1u);}}atomicAdd(&counters[3],select(3u,8u,kind==2u));}
  else if(params.goal.w<.5&&distance(p.pos.xy,params.goal.xy)<params.goal.z){p.state.w=0;atomicAdd(&counters[2],select(1u,3u,kind==2u));}
  else{atomicAdd(&counters[4],1u);atomicMax(&counters[6],u32(clamp(p.state.x,0.0,1000.0)*1000.0));}
  p.status.y=max(0.0,p.status.y-params.clock.x);
@@ -125,10 +128,11 @@ fn safeDir(delta:vec2f)->vec2f { return delta/max(length(delta),0.0001); }
     {binding:5,visibility:GPUShaderStage.COMPUTE,buffer:{type:'storage'}},
     {binding:6,visibility:GPUShaderStage.COMPUTE,buffer:{type:'storage'}},
     {binding:7,visibility:GPUShaderStage.COMPUTE,buffer:{type:'storage'}},
+    {binding:8,visibility:GPUShaderStage.COMPUTE,buffer:{type:'storage'}},
   ]});
   const pipelineLayout=device.createPipelineLayout({bindGroupLayouts:[layout]});
   const pipelines=await Promise.all(['acquire','burn','hit','settle','hitBoss'].map(entryPoint=>device.createComputePipelineAsync({label:`Combat ${entryPoint}`,layout:pipelineLayout,compute:{module:shader,entryPoint}})));
-  const bind=device.createBindGroup({layout,entries:[uniforms,shared.particles,towers,state,effects,shared.counters,bossBuffer,heat].map((buffer,binding)=>({binding,resource:{buffer}}))});
+  const bind=device.createBindGroup({layout,entries:[uniforms,shared.particles,towers,state,effects,shared.counters,bossBuffer,heat,ownership].map((buffer,binding)=>({binding,resource:{buffer}}))});
   function dispatch(encoder:GPUCommandEncoder,index:number,groups:number){if(!groups)return;const pass=encoder.beginComputePass({label:['Target selection','Burn damage','Weapon effects','Settlement','Boss damage'][index]});pass.setPipeline(pipelines[index]);pass.setBindGroup(0,bind);pass.dispatchWorkgroups(groups);pass.end();}
   return {
     shotState:state,
@@ -141,7 +145,8 @@ fn safeDir(delta:vec2f)->vec2f { return delta/max(length(delta),0.0001); }
       dispatch(encoder,0,Math.ceil(frame.towers.length/64));dispatch(encoder,1,Math.ceil(frame.count/128));dispatch(encoder,2,Math.ceil(frame.count/128));dispatch(encoder,4,1);
     },
     encodeAfter(encoder,frame){encoder.clearBuffer(shared.counters,16,4);encoder.clearBuffer(shared.counters,24,4);dispatch(encoder,3,Math.ceil(frame.count/128));},
-    reset(){device.queue.writeBuffer(state,0,new Float32Array(MAX_TOWERS*12));device.queue.writeBuffer(heat,0,new Float32Array(shared.capacity*2));},
-    destroy(){uniforms.destroy();towers.destroy();state.destroy();effects.destroy();heat.destroy();if(ownedBoss)bossBuffer.destroy();},
+    reset(){device.queue.writeBuffer(state,0,new Float32Array(MAX_TOWERS*12));device.queue.writeBuffer(heat,0,new Float32Array(shared.capacity*2));device.queue.writeBuffer(ownership,0,new Uint32Array(shared.capacity));},
+    resetAttribution(){device.queue.writeBuffer(shared.counters,16*4,new Uint32Array(MAX_TOWERS));},
+    destroy(){uniforms.destroy();towers.destroy();state.destroy();effects.destroy();heat.destroy();ownership.destroy();if(ownedBoss)bossBuffer.destroy();},
   };
 }
