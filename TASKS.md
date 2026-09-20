@@ -79,3 +79,8 @@ Validation: 58 CPU tests, production build, and 9/9 browser scenarios passed. A 
 Reject malformed kills, veterancy ranks, and experience before applying a checkpoint. Failed loads preserve the current defense; older saves without optional combat-record fields remain supported.
 
 Validation: a new CPU test reproduced invalid-record acceptance before the fix. All 59 CPU tests, production build, and 10/10 browser E2E cases passed, including rejection through the actual Load button without changing Metal or deployed towers.
+## Run Metal economy and Repulsor balance
+
+Weapon unlocks and repeatable stat research now spend Metal and are owned by the run. Saves retain purchases; reset clears them. Legacy saves retain deployed weapon types and Metal without applying account-wide XP bonuses. Retained the concurrently integrated 100× enemy-bounty reduction, including fractional reward accumulation. Repulsors have range 10, force 16, 1.35-second pulses, a narrower cone, weaker branch bonuses, and reduced per-level range growth.
+
+Validation: unit tests and production build passed; the focused `/tests/economy/` browser suite passed 4/4 scenarios covering unlock/place/reload/reset, stat affordability and combat purchases, exactly-once GPU bounties, and actual Repulsor range/impulse.
