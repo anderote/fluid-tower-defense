@@ -98,6 +98,15 @@ const cases:{name:string;run:()=>Promise<void>}[]=[
   assert(Math.abs(popup.top+popup.height/2-(canvas.top+canvas.height/2))<2,'Inspector is vertically detached from its tower');
   assert(popup.left>=arena.left&&popup.right<=arena.right&&popup.top>=arena.top&&popup.bottom<=arena.bottom,'Inspector escaped the arena');
  }},
+ {name:'Turrets can focus a ground point and return to automatic targeting',run:async()=>{
+  await fresh();click('[data-tower="repulsor"]');point(84,50);await until(()=>text('#metal')==='2880','Tower was not placed');
+  click('[data-tower="repulsor"]');point(84,50);await until(()=>element('.selected-popup').classList.contains('has-selection'),'Inspector did not open');
+  click('[data-action="set-ground-target"]');assert(element('.selected-popup').hidden,'Inspector should move out of the targeting surface');point(90,50);
+  await until(()=>text('.tower-config').includes('FOCUS: 90.0, 50.0'),'Ground focus did not appear in the inspector');
+  let saved=snapshot(),model=JSON.parse(saved.runState);assert(model.model.towers[0].groundTarget.x===90&&model.model.towers[0].groundTarget.y===50,'Ground focus did not persist');
+  click('[data-action="clear-ground-target"]');await until(()=>text('.tower-config').includes('TARGETING: AUTO'),'Automatic targeting was not restored');
+  saved=snapshot();model=JSON.parse(saved.runState);assert(model.model.towers[0].groundTarget===undefined,'Cleared ground focus remained in the save');
+ }},
  {name:'Run stat upgrades spend Metal and survive reload',run:async()=>{
   await fresh();click('#research-tab');
   click('[data-stat="damage"]');await until(()=>text('#metal')==='2925','Stat upgrade did not spend Metal');
