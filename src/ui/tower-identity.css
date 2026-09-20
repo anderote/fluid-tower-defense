@@ -1,0 +1,4 @@
+[data-tower="incinerator"] .tower-shape {
+  background: #ff7848;
+  clip-path: polygon(50% 0, 72% 42%, 100% 52%, 70% 100%, 50% 78%, 30% 100%, 0 52%, 28% 42%);
+}
