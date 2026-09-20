@@ -17,3 +17,5 @@
 .level-editor button { padding: 7px 8px; border: 1px solid var(--term-border-strong); border-radius: 0; background: transparent; color: var(--term-muted); cursor: pointer; }
 .level-editor button:hover { border-color: var(--term-accent); color: var(--term-fg); }
 .level-editor p { margin: 4px 0 0; color: var(--term-muted); line-height: 1.5; }
+.level-editor .map-size { display:flex; align-items:center; gap:4px; color:var(--term-muted); }
+.level-editor input { width:54px; padding:5px; border:1px solid var(--term-border-strong); background:transparent; color:var(--term-fg); font:inherit; }

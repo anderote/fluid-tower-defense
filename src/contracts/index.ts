@@ -14,27 +14,21 @@ export interface Tower extends Vec2 { id: number; kind: TowerKind; level: number
 export interface NavigationField { width: number; height: number; cellSize: number; vectors: Float32Array; alternateVectors: Float32Array; distances: Float32Array; version: number }
 export interface Tuning { pressure: number; viscosity: number; drive: number; damagePressure: number; crushPressure: number; crushDamage: number }
 export const DEFAULT_TUNING: Tuning = { pressure: 36, viscosity: 2, drive: 5, damagePressure: 24, crushPressure: 96, crushDamage: 18 };
-export const WORLD_WIDTH = 160;
-export const WORLD_HEIGHT = 100;
 export const MAX_PARTICLES = 65536;
 export const PARTICLE_FLOATS = 16;
 export const PARTICLE_BYTES = PARTICLE_FLOATS * 4;
 export const MAX_EFFECTS = 64;
-export const MAX_OBSTACLES = 64;
 export const MAX_TOWERS = 64;
 export const TOWER_KILL_COUNTER_OFFSET = 16;
-export const OBSTACLE_CONTACT_COUNTER_OFFSET = TOWER_KILL_COUNTER_OFFSET + MAX_TOWERS;
-export const OBSTACLE_PACKING_COUNTER_OFFSET = OBSTACLE_CONTACT_COUNTER_OFFSET + MAX_OBSTACLES;
-export const OBSTACLE_PRESSURE_COUNTER_OFFSET = OBSTACLE_PACKING_COUNTER_OFFSET + MAX_OBSTACLES;
-// The first 16 words are global settlement telemetry. The remaining words are
-// per-tower kill totals followed by local obstacle contact, packing, and pressure telemetry.
-export const COUNTER_WORDS = OBSTACLE_PRESSURE_COUNTER_OFFSET + MAX_OBSTACLES;
+// Global settlement telemetry plus the fixed tower attribution range. Obstacle telemetry
+// lives in a separate buffer that grows with the active map.
+export const COUNTER_WORDS = TOWER_KILL_COUNTER_OFFSET + MAX_TOWERS;
 // Shared packed layout: four vec4<f32>. All fields are floats, including kind/alive.
 // pos=(x,y,vx,vy), body=(radius,mass,hp,maxHp), state=(packing,pressure,kind,alive), status=(slowRemaining,brittleRemaining,crushExposure,generation).
 export const PARTICLE_WGSL = `struct Particle { pos: vec4<f32>, body: vec4<f32>, state: vec4<f32>, status: vec4<f32> };`;
 export const P = { x:0,y:1,vx:2,vy:3,radius:4,mass:5,hp:6,maxHp:7,packing:8,pressure:9,kind:10,alive:11,slow:12,brittle:13,exposure:14,generation:15 } as const;
 // Root owns particles/counters. Modules may allocate private scratch; they encode, never submit.
-export interface SharedGPU { particles: GPUBuffer; counters: GPUBuffer; capacity: number; shotState?: GPUBuffer; bossState?: GPUBuffer }
+export interface SharedGPU { particles: GPUBuffer; counters: GPUBuffer; capacity: number; obstacleCounters?:GPUBuffer; obstacleCapacity?:number; shotState?: GPUBuffer; bossState?: GPUBuffer }
 export interface PhysicsFrame { dt: number; tick: number; count: number; map: WorldMap; effects: readonly Effect[]; tuning: Tuning; navigation?: NavigationField; lab: boolean }
 export interface PhysicsModule { encode(encoder: GPUCommandEncoder, frame: PhysicsFrame): void; reset(): void; destroy(): void }
 export interface Settlement { epoch: number; tick: number; kills: number; crushKills: number; leaks: number; earned: number; live: number; invalid: number; maxPacking: number; maxPressure?:number; towerKills?:readonly number[]; obstacleContacts?:readonly number[]; obstaclePacking?:readonly number[]; obstaclePressure?:readonly number[]; boss?:{x:number;y:number;health:number;maxHealth:number;phase:number;active:boolean} }

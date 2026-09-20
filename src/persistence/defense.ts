@@ -16,7 +16,7 @@ export interface SavedDefense extends Defense {version?:1; runState:string}
 type Storage = Pick<globalThis.Storage, 'getItem' | 'setItem'>;
 const finite = (value:unknown):value is number => typeof value === 'number' && Number.isFinite(value);
 const object = (value:unknown):value is Record<string, unknown> => !!value && typeof value === 'object';
-const rect = (value:unknown):value is Rect => object(value) && finite(value.x) && finite(value.y) && finite(value.width) && finite(value.height) && value.x >= 0 && value.y >= 0 && value.width > 0 && value.height > 0 && value.x + value.width <= 160 && value.y + value.height <= 100;
+const rect = (value:unknown):value is Rect => object(value) && finite(value.x) && finite(value.y) && finite(value.width) && finite(value.height) && value.x >= 0 && value.y >= 0 && value.width > 0 && value.height > 0;
 const same = (a:Rect, b:Rect) => a.x===b.x && a.y===b.y && a.width===b.width && a.height===b.height;
 
 /** Validate a detached snapshot before any part of the running defense changes. */
@@ -24,8 +24,8 @@ export function decodeDefense(raw:string):SavedDefense {
   const saved:unknown = JSON.parse(raw);
   if (!object(saved) || (saved.version !== undefined && saved.version !== 1) || typeof saved.runState !== 'string') throw new Error('Invalid saved defense.');
   const map = saved.map;
-  if (!object(map) || typeof map.id !== 'string' || map.width !== 160 || map.height !== 100 || !Array.isArray(map.obstacles) || map.obstacles.length > 64 || !map.obstacles.every(rect) || !rect(map.spawn) || !object(map.goal) || !finite(map.goal.x) || !finite(map.goal.y) || map.goal.x < 0 || map.goal.x > 160 || map.goal.y < 0 || map.goal.y > 100 || !finite(map.goalRadius) || map.goalRadius <= 0 || map.goalRadius > 100) throw new Error('Invalid saved map.');
-  if (!rect(saved.spawnBaseline) || !Array.isArray(saved.builtWalls) || !saved.builtWalls.every(rect) || !Array.isArray(saved.builtWires) || !saved.builtWires.every(wire => object(wire) && finite(wire.health) && finite(wire.maxHealth) && wire.health > 0 && wire.maxHealth > 0 && wire.health <= wire.maxHealth && typeof wire.breached === 'boolean' && rect(wire)) || saved.builtWalls.length + saved.builtWires.length > 64 || !finite(saved.difficulty) || !Number.isInteger(saved.difficulty) || saved.difficulty < 1 || saved.difficulty > 40) throw new Error('Invalid saved structures or flow setting.');
+  if (!object(map) || typeof map.id !== 'string' || !finite(map.width) || !finite(map.height) || map.width <= 0 || map.height <= 0 || !Array.isArray(map.obstacles) || !map.obstacles.every(rect) || !rect(map.spawn) || !object(map.goal) || !finite(map.goal.x) || !finite(map.goal.y) || map.goal.x < 0 || map.goal.x > map.width || map.goal.y < 0 || map.goal.y > map.height || !finite(map.goalRadius) || map.goalRadius <= 0) throw new Error('Invalid saved map.');
+  if (!rect(saved.spawnBaseline) || !Array.isArray(saved.builtWalls) || !saved.builtWalls.every(rect) || !Array.isArray(saved.builtWires) || !saved.builtWires.every(wire => object(wire) && finite(wire.health) && finite(wire.maxHealth) && wire.health > 0 && wire.maxHealth > 0 && wire.health <= wire.maxHealth && typeof wire.breached === 'boolean' && rect(wire)) || !finite(saved.difficulty) || !Number.isInteger(saved.difficulty) || saved.difficulty < 1 || saved.difficulty > 40) throw new Error('Invalid saved structures or flow setting.');
   const defense = saved as unknown as SavedDefense;
   const dynamic = [...defense.builtWalls, ...defense.builtWires];
   // Collision/removal code uses object identity. Reconnect structures to map obstacles,

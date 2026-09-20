@@ -32,7 +32,7 @@ struct Params {
   kernelRadius: f32,
   substepIndex: u32,
   substepCount: u32,
-  _pad0: u32,
+  obstacleCapacity: u32,
   _pad1: u32,
 }
 
@@ -52,14 +52,12 @@ struct Effect {
 @group(0) @binding(6) var<storage, read> effects: array<Effect>;
 @group(0) @binding(7) var<storage, read> navigation: array<vec4<f32>>;
 @group(0) @binding(8) var<storage, read_write> counters: array<atomic<u32>>;
+@group(0) @binding(9) var<storage, read_write> obstacleCounters: array<atomic<u32>>;
 
 const PI: f32 = 3.141592653589793;
 const MAX_FORCE: f32 = 90.0;
 const MAX_SPEED: f32 = 30.0;
 const MAX_DISPLACEMENT: f32 = 0.24;
-const OBSTACLE_CONTACT_COUNTER_OFFSET: u32 = 80u;
-const OBSTACLE_PACKING_COUNTER_OFFSET: u32 = 144u;
-const OBSTACLE_PRESSURE_COUNTER_OFFSET: u32 = 208u;
 
 fn finite1(v: f32) -> bool { return v == v && abs(v) < 1e20; }
 fn finite2(v: vec2<f32>) -> bool { return finite1(v.x) && finite1(v.y); }
@@ -191,9 +189,9 @@ fn measureDensity(@builtin(global_invocation_id) gid: vec3<u32>) {
       let rect = obstacles[obstacleIndex].rect;
       let nearest = clamp(particle.pos.xy, rect.xy, rect.xy + rect.zw);
       if (distance(particle.pos.xy, nearest) <= radius + 0.18) {
-        atomicAdd(&counters[OBSTACLE_CONTACT_COUNTER_OFFSET + obstacleIndex], 1u);
-        atomicMax(&counters[OBSTACLE_PACKING_COUNTER_OFFSET + obstacleIndex], u32(packing * 1000.0));
-        atomicMax(&counters[OBSTACLE_PRESSURE_COUNTER_OFFSET + obstacleIndex], u32(pressure * 100.0));
+        atomicAdd(&obstacleCounters[obstacleIndex], 1u);
+        atomicMax(&obstacleCounters[params.obstacleCapacity + obstacleIndex], u32(packing * 1000.0));
+        atomicMax(&obstacleCounters[params.obstacleCapacity * 2u + obstacleIndex], u32(pressure * 100.0));
       }
     }
   }

@@ -16,9 +16,9 @@ function customId(map:WorldMap):string {
 }
 
 export function validateEditorMap(map:WorldMap):string|undefined {
-  if (map.width!==160||map.height!==100||map.obstacles.length>64) return 'Maps must be 160 × 100 with at most 64 walls.';
+  if(!Number.isFinite(map.width)||!Number.isFinite(map.height)||map.width<GRID||map.height<GRID) return `Maps must be at least ${GRID} × ${GRID}.`;
   for(const wall of map.obstacles) {
-    if (!Number.isFinite(wall.x)||!Number.isFinite(wall.y)||!Number.isFinite(wall.width)||!Number.isFinite(wall.height)||wall.width<=0||wall.height<=0||wall.x<0||wall.y<0||wall.x+wall.width>160||wall.y+wall.height>100) return 'Walls must stay inside the map.';
+    if (!Number.isFinite(wall.x)||!Number.isFinite(wall.y)||!Number.isFinite(wall.width)||!Number.isFinite(wall.height)||wall.width<=0||wall.height<=0||wall.x<0||wall.y<0||wall.x+wall.width>map.width||wall.y+wall.height>map.height) return 'Walls must stay inside the map.';
     if(Math.hypot(wall.x+wall.width/2-map.goal.x,wall.y+wall.height/2-map.goal.y)<map.goalRadius+Math.hypot(wall.width,wall.height)/2) return 'Walls cannot cover the goal.';
   }
   const field=buildNavigation(map), minX=Math.floor(map.spawn.x/field.cellSize),maxX=Math.ceil((map.spawn.x+map.spawn.width)/field.cellSize),minY=Math.floor(map.spawn.y/field.cellSize),maxY=Math.ceil((map.spawn.y+map.spawn.height)/field.cellSize);
@@ -36,11 +36,17 @@ export function createLevelEditor(mount:HTMLElement, initial:WorldMap, onApply:(
   const setActive=(next:boolean)=>{if(next)map=clone(applied);active=next;panel.hidden=!next;panel.style.display=next?'grid':'none';onActive(next);};
   const note=(message:string)=>{status.textContent=message;};
   toggle.onclick=()=>setActive(!active);
-  panel.append(Object.assign(document.createElement('strong'),{textContent:'Walls snap to 4 × 4 cells'}));
+  const mapSize=document.createElement('div');mapSize.className='map-size';
+  const width=document.createElement('input'),height=document.createElement('input');
+  for(const input of [width,height]){input.type='number';input.min=String(GRID);input.step=String(GRID);input.inputMode='numeric';}
+  const syncSize=()=>{width.value=String(map.width);height.value=String(map.height);};syncSize();
+  mapSize.append('MAP ',width,' × ',height);panel.append(mapSize);
+  button('Resize map',()=>{const nextWidth=Math.floor(Number(width.value)/GRID)*GRID,nextHeight=Math.floor(Number(height.value)/GRID)*GRID;if(!Number.isFinite(nextWidth)||!Number.isFinite(nextHeight)||nextWidth<GRID||nextHeight<GRID){note(`Use whole ${GRID}-cell dimensions.`);return;}if(map.obstacles.some(wall=>wall.x+wall.width>nextWidth||wall.y+wall.height>nextHeight)||map.spawn.x+map.spawn.width>nextWidth||map.spawn.y+map.spawn.height>nextHeight){note('Resize would cut off existing walls or the spawn area. Remove them first.');return;}map={...map,width:nextWidth,height:nextHeight,goal:{x:Math.min(map.goal.x,nextWidth),y:Math.min(map.goal.y,nextHeight)}};map.id=customId(map);syncSize();note(`Map resized to ${nextWidth} × ${nextHeight}.`);});
+  panel.append(Object.assign(document.createElement('strong'),{textContent:'Walls snap to 4 × 4 cells — no wall limit'}));
   button('Wall tool',()=>{erase=false;note('Wall tool active. Keep at least one route from spawn to goal.');});
   button('Erase tool',()=>{erase=true;note('Erase tool active.');});
   button('Clear walls',()=>{const next={...map,obstacles:[]};map={...next,id:customId(next)};note('Walls cleared.');});
-  button('Reset default',()=>{map=clone(DEFAULT_MAP);note('Default map restored.');});
+  button('Reset default',()=>{map=clone(DEFAULT_MAP);syncSize();note('Default map restored.');});
   button('Save level',()=>{try{localStorage.setItem(SAVE_KEY,JSON.stringify(map));note('Saved locally.');}catch{note('Could not save this level.');}});
   button('Load level',()=>{try{const raw=localStorage.getItem(SAVE_KEY);if(!raw)throw new Error();const candidate=JSON.parse(raw) as WorldMap;const issue=validateEditorMap(candidate);if(issue)throw new Error(issue);map=clone(candidate);note('Loaded local level.');}catch(error){note(error instanceof Error&&error.message?error.message:'No valid saved level.');}});
   button('Apply & Play',()=>{const issue=validateEditorMap(map);if(issue){note(issue);return;}applied=clone(map);onApply(clone(map));setActive(false);});
@@ -48,12 +54,12 @@ export function createLevelEditor(mount:HTMLElement, initial:WorldMap, onApply:(
   return {
     setMap(next:WorldMap){applied=clone(next);map=clone(next);},
     get active(){return active;}, get map(){return clone(map);},
-    resetToDefault(){applied=clone(DEFAULT_MAP);map=clone(DEFAULT_MAP);erase=false;note('Default map restored.');},
+    resetToDefault(){applied=clone(DEFAULT_MAP);map=clone(DEFAULT_MAP);syncSize();erase=false;note('Default map restored.');},
     paint(point:Vec2, requestedErase=erase) {
       const wall=wallAtPoint(map,point),{x,y}=wall;
       const index=map.obstacles.findIndex(existing=>x>=existing.x&&x<existing.x+existing.width&&y>=existing.y&&y<existing.y+existing.height);
       if(requestedErase){if(index>=0){map.obstacles.splice(index,1);map.id=customId(map);}return;}
-      if(index>=0||map.obstacles.length>=64)return;
+      if(index>=0)return;
       const candidate=clone(map);candidate.obstacles.push(wall);const issue=validateEditorMap(candidate);
       if(issue){note(issue);return;}map={...candidate,id:customId(candidate)};
     },

@@ -1,10 +1,5 @@
 import {
   MAX_EFFECTS,
-  MAX_OBSTACLES,
-  OBSTACLE_CONTACT_COUNTER_OFFSET,
-  OBSTACLE_PRESSURE_COUNTER_OFFSET,
-  WORLD_HEIGHT,
-  WORLD_WIDTH,
   type Effect,
   type NavigationField,
   type PhysicsFrame,
@@ -24,7 +19,6 @@ const PARAM_BYTES = 128;
 const OBSTACLE_BYTES = 16;
 const EFFECT_BYTES = 48;
 const NAV_BYTES = 16;
-const MAX_GRID_CELLS = Math.ceil(WORLD_WIDTH / PHYSICS_CELL_SIZE) * Math.ceil(WORLD_HEIGHT / PHYSICS_CELL_SIZE);
 
 const EFFECT_KIND: Record<Effect['kind'], number> = { blast: 0, push: 1, slow: 2, shot: 3 };
 
@@ -126,6 +120,7 @@ function packParams(
   f32[23] = PHYSICS_KERNEL_RADIUS;
   u32[24] = substepIndex;
   u32[25] = PHYSICS_SUBSTEPS;
+  u32[26] = frame.map.obstacles.length;
   return storage;
 }
 
@@ -136,11 +131,8 @@ function validateFrame(frame: PhysicsFrame, shared: SharedGPU): void {
   if (!(frame.dt > 0) || !Number.isFinite(frame.dt) || frame.dt > 0.1) {
     throw new RangeError(`Physics dt must be finite and in (0, 0.1], received ${frame.dt}.`);
   }
-  if (!(frame.map.width > 0) || !(frame.map.height > 0) || frame.map.width > WORLD_WIDTH || frame.map.height > WORLD_HEIGHT) {
-    throw new RangeError(`Physics map must fit the ${WORLD_WIDTH}x${WORLD_HEIGHT} world contract.`);
-  }
-  if (frame.map.obstacles.length > MAX_OBSTACLES) {
-    throw new RangeError(`Physics received ${frame.map.obstacles.length} obstacles; maximum is ${MAX_OBSTACLES}.`);
+  if (!(frame.map.width > 0) || !(frame.map.height > 0) || !Number.isFinite(frame.map.width) || !Number.isFinite(frame.map.height)) {
+    throw new RangeError('Physics map dimensions must be finite and positive.');
   }
   if (frame.effects.length > MAX_EFFECTS) {
     throw new RangeError(`Physics received ${frame.effects.length} effects; maximum is ${MAX_EFFECTS}.`);
@@ -159,9 +151,9 @@ export async function createPhysics(device: GPUDevice, shared: SharedGPU): Promi
     return buffer;
   };
 
-  const cellHeads = makeBuffer({
+  let cellHeads = makeBuffer({
     label: 'Physics cell heads',
-    size: MAX_GRID_CELLS * 4,
+    size: 4,
     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
   });
   const nextParticle = makeBuffer({
@@ -174,9 +166,9 @@ export async function createPhysics(device: GPUDevice, shared: SharedGPU): Promi
     size: shared.capacity * 16,
     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
   });
-  const obstacleBuffer = makeBuffer({
+  let obstacleBuffer = makeBuffer({
     label: 'Physics obstacles',
-    size: MAX_OBSTACLES * OBSTACLE_BYTES,
+    size: OBSTACLE_BYTES,
     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
   });
   const effectBuffer = makeBuffer({
@@ -196,6 +188,8 @@ export async function createPhysics(device: GPUDevice, shared: SharedGPU): Promi
     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
   });
   let navigationCapacity = 1;
+  let gridCapacity = 1;
+  let obstacleCapacity = 1;
   let navigationVersion = Number.NaN;
   let navigationWidth = 0;
   let navigationHeight = 0;
@@ -213,6 +207,7 @@ export async function createPhysics(device: GPUDevice, shared: SharedGPU): Promi
       { binding: 6, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } },
       { binding: 7, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } },
       { binding: 8, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
+      { binding: 9, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
     ],
   });
   const pipelineLayout = device.createPipelineLayout({ label: 'Physics pipeline layout', bindGroupLayouts: [bindGroupLayout] });
@@ -247,9 +242,27 @@ export async function createPhysics(device: GPUDevice, shared: SharedGPU): Promi
         { binding: 6, resource: { buffer: effectBuffer } },
         { binding: 7, resource: { buffer: navigationBuffer } },
         { binding: 8, resource: { buffer: shared.counters } },
+        { binding: 9, resource: { buffer: shared.obstacleCounters! } },
       ],
     }));
   };
+  const ensureGridCapacity = (cells:number) => {
+    if(cells<=gridCapacity)return;
+    const previous=cellHeads;gridCapacity=nextPowerOfTwo(cells);
+    cellHeads=makeBuffer({label:'Physics cell heads',size:gridCapacity*4,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
+    rebuildBindGroups();previous.destroy();
+  };
+  const ensureObstacleCapacity = (count:number) => {
+    if(count<=obstacleCapacity)return;
+    const previousObstacles=obstacleBuffer,previousCounters=shared.obstacleCounters;
+    obstacleCapacity=nextPowerOfTwo(count);
+    obstacleBuffer=makeBuffer({label:'Physics obstacles',size:obstacleCapacity*OBSTACLE_BYTES,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
+    shared.obstacleCounters=device.createBuffer({label:'Obstacle telemetry',size:obstacleCapacity*3*4,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST|GPUBufferUsage.COPY_SRC});
+    shared.obstacleCapacity=obstacleCapacity;
+    rebuildBindGroups();previousObstacles.destroy();previousCounters?.destroy();
+  };
+  shared.obstacleCounters=device.createBuffer({label:'Obstacle telemetry',size:3*4,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST|GPUBufferUsage.COPY_SRC});
+  shared.obstacleCapacity=1;
   rebuildBindGroups();
 
   const ensureNavigationCapacity = (cells: number) => {
@@ -272,6 +285,8 @@ export async function createPhysics(device: GPUDevice, shared: SharedGPU): Promi
       const gridWidth = Math.ceil(frame.map.width / PHYSICS_CELL_SIZE);
       const gridHeight = Math.ceil(frame.map.height / PHYSICS_CELL_SIZE);
       const gridCells = gridWidth * gridHeight;
+      ensureGridCapacity(gridCells);
+      ensureObstacleCapacity(frame.map.obstacles.length);
 
       if (frame.navigation) {
         const navCells = frame.navigation.width * frame.navigation.height;
@@ -301,7 +316,7 @@ export async function createPhysics(device: GPUDevice, shared: SharedGPU): Promi
         device.queue.writeBuffer(buffer, 0, packParams(frame, shared.capacity, gridWidth, gridHeight, index));
       });
 
-      encoder.clearBuffer(shared.counters,OBSTACLE_CONTACT_COUNTER_OFFSET*4,(OBSTACLE_PRESSURE_COUNTER_OFFSET+MAX_OBSTACLES-OBSTACLE_CONTACT_COUNTER_OFFSET)*4);
+      encoder.clearBuffer(shared.obstacleCounters!,0,frame.map.obstacles.length*3*4);
 
       if (frame.count === 0) return;
       const workgroups = Math.ceil(frame.count / WORKGROUP_SIZE);
@@ -332,6 +347,7 @@ export async function createPhysics(device: GPUDevice, shared: SharedGPU): Promi
       if (destroyed) return;
       destroyed = true;
       for (const buffer of buffers) buffer.destroy();
+      shared.obstacleCounters?.destroy();
     },
   };
 }
