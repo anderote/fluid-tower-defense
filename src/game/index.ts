@@ -281,7 +281,7 @@ export class RunController {
     if(this.model.phase!=='combat'||!Number.isFinite(seconds)||seconds<=0)return;
     for(const tower of this.model.towers){tower.veterancyXp=(tower.veterancyXp??0)+seconds*1.8;tower.veterancy=veterancyLevel(tower.veterancyXp);}
   }
-  reset():void { Object.assign(this.model,fresh()); this.nextTowerId=1; this.runEpoch++; this.applied=emptyApplied(); this.live=0;this.waveStartBaseHealth=this.model.baseHealth; }
+  reset(level=1):void { Object.assign(this.model,fresh(),{level}); this.nextTowerId=1; this.runEpoch++; this.applied=emptyApplied(); this.live=0;this.waveStartBaseHealth=this.model.baseHealth; }
   clearSave():void { try { if(typeof window!=='undefined')window.localStorage.removeItem(SAVE_KEY); } catch {/* Persistence is optional. */} }
   resetTowerAttribution():void { this.applied.towerKills=Array(MAX_TOWERS).fill(0); }
   setMap(map:WorldMap):void { this.map=map; }

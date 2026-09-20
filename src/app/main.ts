@@ -98,10 +98,10 @@ try {
      }
    }
  },error=>errors.push(String(error)));
- function resetWorld(resetRun=true){
+ function resetWorld(resetRun=true,level=1){
    if(resetRun){
      map=clearPlayerTerrain(map,builtWalls,builtWires);builtWalls=[];builtWires=[];
-     navigation=buildNavigation(map);run.setMap(map);syncTowerMounts();run.reset();
+     navigation=buildNavigation(map);run.setMap(map);syncTowerMounts();run.reset(level);
    }
    epoch=run.epoch;
    physics.reset();combat.reset();resetHorde();shotReader.reset();boss.reset(false);clock.reset();metrics.reset();lastTickSample=0;waveStartTick=0;simulatedTime=0;
@@ -129,7 +129,7 @@ try {
    switch(action.type){
      case 'mode':state.mode=action.mode;resetWorld();break;
      case 'pause':state.paused=!state.paused;break;
-     case 'reset':clearPlayerStructures();resetWorld();state.message='Run reset. Placed walls and wire were removed.';break;
+     case 'reset':clearPlayerStructures();resetWorld(true,run.model.level);state.message='Level restarted. Placed defenses and run upgrades were removed.';break;
      case 'restart-wave':{
        const result=run.restartWave();actionResult(result,'Wave restarted. Defenses remain in position.');if(!result.ok)break;
        epoch=run.epoch;count=0;spawnSlot=0;commands=[];visuals=[];visualParticles=[];heavyProjectiles=[];heavyExplosions=[];for(const popup of pressurePopups)popup.element.remove();pressurePopups=[];lastTowerPressurePopup.clear();cameraShake=0;state.population=0;state.kills=state.crushKills=state.leaks=state.earned=state.maxPressure=0;

@@ -224,3 +224,20 @@ test('corrupt tower combat records reject atomically while legacy optional field
   const legacy=JSON.parse(before);delete legacy.model.towers[0].kills;delete legacy.model.towers[0].veterancy;delete legacy.model.towers[0].veterancyXp;
   assert.equal(createRun().load(JSON.stringify(legacy)).ok,true);
 });
+
+test('restarting a level resets its run state without returning to level one',()=>{
+  const run=createRun();
+  run.model.level=3;
+  run.model.metal=500;
+  run.startWave();
+  const epoch=run.epoch;
+  run.reset(run.model.level);
+  assert.equal(run.model.level,3);
+  assert.equal(run.model.wave,0);
+  assert.equal(run.model.phase,'preparation');
+  assert.equal(run.model.metal,STARTING_METAL);
+  assert.equal(run.model.towers.length,0);
+  assert.ok(run.epoch>epoch);
+  run.reset();
+  assert.equal(run.model.level,1);
+});
