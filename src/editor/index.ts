@@ -25,11 +25,11 @@ export function validateEditorMap(map:WorldMap):string|undefined {
 
 export function createLevelEditor(mount:HTMLElement, initial:WorldMap, onApply:(map:WorldMap)=>void, onActive:(active:boolean)=>void) {
   let applied=clone(initial), map=clone(initial), active=false, erase=false;
-  const root=document.createElement('section'); root.className='level-editor'; root.style.cssText='position:relative;z-index:20;font:12px system-ui';
+  const root=document.createElement('section'); root.className='level-editor';
   const toggle=document.createElement('button'); toggle.textContent='LEVEL EDITOR';
-  const panel=document.createElement('div'); panel.className='level-editor-panel'; panel.style.cssText='position:absolute;right:0;top:100%;display:grid;gap:6px;width:210px;margin-top:6px;padding:10px;background:#101827;color:#e8f2ff;border:1px solid #4d6d8f;border-radius:8px';
+  const panel=document.createElement('div'); panel.className='level-editor-panel';
   const status=document.createElement('p');
-  const button=(label:string, handler:()=>void)=>{const element=document.createElement('button');element.textContent=label;element.style.cssText='padding:6px 8px;background:#1d3754;color:#fff;border:1px solid #6095c5;border-radius:4px;cursor:pointer';element.onclick=handler;panel.append(element);return element;};
+  const button=(label:string, handler:()=>void)=>{const element=document.createElement('button');element.textContent=label;element.onclick=handler;panel.append(element);return element;};
   const setActive=(next:boolean)=>{if(next)map=clone(applied);active=next;panel.hidden=!next;panel.style.display=next?'grid':'none';onActive(next);};
   const note=(message:string)=>{status.textContent=message;};
   toggle.onclick=()=>setActive(!active);
