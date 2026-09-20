@@ -1,11 +1,13 @@
 import type {Rect,RenderScene,TowerKind} from '../contracts/index.ts';
+import {createSoldatAtlas,soldatFacing,SOLDAT_WORLD_SIZE} from './soldat-art.ts';
+export type TurretArtStyle='soldat'|'red-alert';
 
 type Frame={x:number;y:number;width:number;height:number};
 type Atlas={size:number;frames:Frame[];sprites:Record<string,number[]>};
 export const RA_TILE_WORLD=4;
 const DEFENSES:Partial<Record<TowerKind,string>>={autocannon:'gun',tesla:'tsla',incinerator:'ftur'};
 export const redAlertFacing=(angle:number)=>((24-Math.round(angle*16/Math.PI))%32+32)%32;
-export const hasRedAlertSprite=(kind:TowerKind)=>kind in DEFENSES;
+export const hasRedAlertSprite=(kind:TowerKind,style:TurretArtStyle='soldat')=>style==='soldat'||kind in DEFENSES;
 const same=(a:Rect,b:Rect)=>a.x===b.x&&a.y===b.y&&a.width===b.width&&a.height===b.height;
 
 /** Split authored rectangles at the tile grid, retaining exact collision bounds. */
@@ -25,7 +27,7 @@ export function wallTiles(obstacles:readonly Rect[]){
 }
 
 /** Original palette sprites, drawn with nearest texel access and fixed pivots. */
-export async function createRedAlertArt(device:GPUDevice,format:GPUTextureFormat,camera:GPUBuffer){
+export async function createRedAlertArt(device:GPUDevice,format:GPUTextureFormat,camera:GPUBuffer,style:TurretArtStyle='soldat'){
   const response=await fetch('/assets/red-alert/atlas.json');
   if(!response.ok)throw Error('Red Alert atlas is missing. Run npm run assets:red-alert.');
   const atlas:Atlas=await response.json();
@@ -33,8 +35,16 @@ export async function createRedAlertArt(device:GPUDevice,format:GPUTextureFormat
   const imageResponse=await fetch('/assets/red-alert/atlas.png');
   if(!imageResponse.ok)throw Error('Red Alert texture is missing');
   const bitmap=await createImageBitmap(await imageResponse.blob(),{premultiplyAlpha:'none',colorSpaceConversion:'none'});
+  let customSprites:Record<string,number[]>|undefined;
+  let customCanvas:HTMLCanvasElement|undefined;
+  if(style==='soldat'){
+    const custom=createSoldatAtlas(),offset=atlas.frames.length;customCanvas=custom.canvas;
+    customSprites=Object.fromEntries(Object.entries(custom.sprites).map(([kind,ids])=>[kind,ids.map(id=>id+offset)]));
+    atlas.frames.push(...custom.frames.map(frame=>({...frame,y:frame.y+1024})));atlas.size=2048;
+  }
   const texture=device.createTexture({label:'Original Red Alert sprite atlas',size:[atlas.size,atlas.size],format:'rgba8unorm',usage:GPUTextureUsage.TEXTURE_BINDING|GPUTextureUsage.COPY_DST|GPUTextureUsage.RENDER_ATTACHMENT});
-  device.queue.copyExternalImageToTexture({source:bitmap},{texture},[atlas.size,atlas.size]);bitmap.close();
+  device.queue.copyExternalImageToTexture({source:bitmap},{texture},[bitmap.width,bitmap.height]);bitmap.close();
+  if(customCanvas)device.queue.copyExternalImageToTexture({source:customCanvas},{texture,origin:[0,1024]},[customCanvas.width,customCanvas.height]);
   const shader=device.createShaderModule({label:'Red Alert nearest-pixel sprites',code:`
 struct Camera{viewport:vec4<f32>,world:vec4<f32>,time:vec4<f32>};
 @group(0) @binding(0) var<uniform> camera:Camera;
@@ -81,6 +91,9 @@ struct Out{@builtin(position) pos:vec4<f32>,@location(0) uv:vec2<f32>,@location(
     }
     const data:number[]=[];
     const draw=(t:{kind:TowerKind;x:number;y:number;angle?:number},tint?:number[])=>{
+      if(customSprites){
+        sprite(data,customSprites[t.kind][soldatFacing(t.angle??0)],t.x-SOLDAT_WORLD_SIZE/2,t.y-SOLDAT_WORLD_SIZE/2,SOLDAT_WORLD_SIZE,SOLDAT_WORLD_SIZE,tint);return;
+      }
       const name=DEFENSES[t.kind];if(!name)return;
       const frameIndex=name==='gun'?redAlertFacing(t.angle??0):0,id=atlas.sprites[name][frameIndex],f=atlas.frames[id];
       // Six source pixels per world unit matches the 24-pixel/4-world-cell floor.

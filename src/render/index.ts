@@ -2,16 +2,17 @@ import { ENEMY_WGSL, towerBehavior } from '../content/index.ts';
 import { PARTICLE_WGSL, type RenderScene, type Renderer, type SharedGPU, type TowerKind, type Vec2 } from '../contracts/index.ts';
 import {screenToWorld as unproject, worldToScreen as project} from './camera.ts';
 import {TURRET_GRID, turretPixelRects, type TurretInk} from './turret-art.ts';
-import {createRedAlertArt,hasRedAlertSprite} from './red-alert.ts';
+import {createRedAlertArt,hasRedAlertSprite,type TurretArtStyle} from './red-alert.ts';
 
 const MAX_TOWERS = 64;
 type V = { x:number; y:number; r:number; g:number; b:number; a:number };
 const sameRect=(left:{x:number;y:number;width:number;height:number},right:{x:number;y:number;width:number;height:number})=>left.x===right.x&&left.y===right.y&&left.width===right.width&&left.height===right.height;
 
 /** GPU-only visualizer. Particle bodies remain in the shared simulation buffer. */
-export async function createRenderer(device: GPUDevice, context: GPUCanvasContext, format: GPUTextureFormat, shared: SharedGPU, canvas: HTMLCanvasElement): Promise<Renderer> {
+export async function createRenderer(device: GPUDevice, context: GPUCanvasContext, format: GPUTextureFormat, shared: SharedGPU, canvas: HTMLCanvasElement,options:{turretArt?:TurretArtStyle}={}): Promise<Renderer> {
   const uniform = device.createBuffer({ label:'Render camera', size:64, usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST });
-  const redAlert=await createRedAlertArt(device,format,uniform).catch(error=>{console.warn('Original artwork unavailable; using fallback graphics.',error);return null;});
+  const turretArt=options.turretArt??'soldat';
+  const redAlert=await createRedAlertArt(device,format,uniform,turretArt).catch(error=>{console.warn('Facility artwork unavailable; using fallback graphics.',error);return null;});
   let overlayCapacity=1;
   let overlays = device.createBuffer({ label:'Tactical overlays', size:24, usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST });
   let foregroundCapacity=1;
@@ -139,7 +140,7 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
   const casing=(a:V[],x:number,y:number,size:number,angle:number,c:[number,number,number,number])=>{const f={x:Math.cos(angle)*size,y:Math.sin(angle)*size},s={x:-Math.sin(angle)*size*.28,y:Math.cos(angle)*size*.28};tri(a,{x:x+f.x,y:y+f.y},{x:x+s.x,y:y+s.y},{x:x-f.x+s.x,y:y-f.y+s.y},c);tri(a,{x:x+f.x,y:y+f.y},{x:x-f.x+s.x,y:y-f.y+s.y},{x:x-f.x-s.x,y:y-f.y-s.y},c);tri(a,{x:x+f.x,y:y+f.y},{x:x-f.x-s.x,y:y-f.y-s.y},{x:x-s.x,y:y-s.y},[Math.min(1,c[0]*1.3),Math.min(1,c[1]*1.35),Math.min(1,c[2]*1.2),c[3]*.85]);};
   const orientedRect=(a:V[],x:number,y:number,halfLength:number,halfWidth:number,angle:number,c:[number,number,number,number])=>{const f={x:Math.cos(angle)*halfLength,y:Math.sin(angle)*halfLength},s={x:-Math.sin(angle)*halfWidth,y:Math.cos(angle)*halfWidth};tri(a,{x:x+f.x+s.x,y:y+f.y+s.y},{x:x-f.x+s.x,y:y-f.y+s.y},{x:x-f.x-s.x,y:y-f.y-s.y},c);tri(a,{x:x+f.x+s.x,y:y+f.y+s.y},{x:x-f.x-s.x,y:y-f.y-s.y},{x:x+f.x-s.x,y:y+f.y-s.y},c);};
   const towerShape=(a:V[],t:Vec2 & {kind:TowerKind;angle?:number},c:[number,number,number,number])=>{
-    if(redAlert&&hasRedAlertSprite(t.kind))return;
+    if(redAlert&&hasRedAlertSprite(t.kind,turretArt))return;
     const angle=t.angle??0,cell=4/TURRET_GRID;
     const palette:Record<TurretInk,[number,number,number,number]>={
       shadow:[.008,.01,.014,c[3]*.72],base:[.12,.14,.17,c[3]],dark:[c[0]*.18,c[1]*.2,c[2]*.22,c[3]],
