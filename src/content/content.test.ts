@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {ENEMIES, DEFAULT_MAP, TOWERS, compileTower, createParticles, towerBehavior, validateContent} from './index.ts';
+import {ENEMIES, DEFAULT_MAP, TOWERS, barbedWireStats, compileTower, createParticles, metalWallStats, towerBehavior, validateContent} from './index.ts';
 import {P, PARTICLE_FLOATS, type Tower} from '../contracts/index.ts';
 
 test('content registry is valid and has six readable enemy roles',()=>{ validateContent(); assert.equal(Object.keys(TOWERS).length,8);assert.equal(Object.keys(ENEMIES).length,6);assert.ok(ENEMIES.rager.drive>ENEMIES.shambler.drive);assert.ok(ENEMIES.husk.pressureLimit<ENEMIES.brute.pressureLimit); });
@@ -49,4 +49,14 @@ test('Repulsor upgrades retain a short-range control role',()=>{
  const wave=compileTower({...tower,level:0,branch:1,veterancy:0});
  assert.ok(wave.cooldown>=1,'Wave specialization must not restore rapid pulse spam');
  assert.ok(wave.radius<4,'Wave specialization must keep a limited cone');
+});
+test('fortifications withstand sustained swarm pressure at base research',()=>{
+ const wall=metalWallStats([]),wire=barbedWireStats([]);
+ assert.deepEqual(wall,{durability:960,resistance:72});
+ assert.equal(wire.durability,560);
+ assert.equal(wire.resistance,7);
+ assert.ok(wire.wear<wire.damage,'wire wear must be independent from its outgoing damage');
+ const researched=barbedWireStats(Array.from({length:20},(_,index)=>`barbed-wire-${index+1}`));
+ assert.ok(researched.durability>wire.durability&&researched.resistance>wire.resistance);
+ assert.equal(researched.wear,wire.wear);
 });

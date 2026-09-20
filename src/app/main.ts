@@ -295,7 +295,7 @@ try {
      const obstacleSnapshot=map.obstacles,telemetry=(segment:Rect)=>{const index=obstacleSnapshot.indexOf(segment);return index<0?{contact:0,packing:0,pressure:0}:{contact:Math.min(1,(latest.obstacleContacts?.[index]??0)/6),packing:latest.obstaclePacking?.[index]??0,pressure:latest.obstaclePressure?.[index]??0};};
      const wallLevel=run.model.commandUpgrades.filter(id=>/^wall-engineering-\d+$/.test(id)).length;
      const collapsed=builtWalls.filter(wall=>{const sample=telemetry(wall);wall.health=wallHealthAfterPressure(wall.health,sample.pressure,sample.contact,clock.step,wallLevel);return wall.health<=0;});
-     const breached=builtWires.filter(wire=>{if(wire.breached)return false;const sample=telemetry(wire);wire.health-=clock.step*wireStats.damage*sample.contact*(1+Math.max(0,sample.packing-1)*.4);if(sample.contact>0&&sample.packing>=wireStats.resistance){wire.breached=true;return true;}return false;});
+     const breached=builtWires.filter(wire=>{if(wire.breached)return false;const sample=telemetry(wire);wire.health-=clock.step*wireStats.wear*sample.contact*(1+Math.max(0,sample.packing-1)*.4);if(sample.contact>0&&sample.packing>=wireStats.resistance){wire.breached=true;return true;}return false;});
      for(const wire of builtWires)if(wire.breached)wire.health-=wire.maxHealth*clock.step*.45;
      const spent=builtWires.filter(wire=>wire.health<=0);
      if(collapsed.length||breached.length||spent.length){
