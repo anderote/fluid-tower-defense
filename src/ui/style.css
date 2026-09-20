@@ -124,6 +124,9 @@ button small { margin-top: 5px; color: var(--term-faint); font-size: 8px; line-h
 .tower-stats span { display: block; color: var(--term-faint); font-size: 7px; letter-spacing: .14em; }
 .tower-stats b { color: var(--term-fg); font-size: 9px; }
 .tower-stats small { color: var(--term-muted); }
+.tower-stats .stat-delta { margin-left: 2px; font-style: normal; font-weight: 700; }
+.tower-stats .stat-delta.gain { color: #78e86f; }
+.tower-stats .stat-delta.loss { color: var(--term-error); }
 .wide { width: 100%; margin-top: 7px; }
 .danger { border-color: color-mix(in srgb, var(--term-error) 50%, transparent); color: var(--term-error); }
 .danger:hover:not(:disabled) { border-color: var(--term-error); background: color-mix(in srgb, var(--term-error) 10%, transparent); color: var(--term-error); }

@@ -73,6 +73,39 @@ export function createUI(
   const buildTab = $<HTMLButtonElement>("#build-tab"),
     researchTab = $<HTMLButtonElement>("#research-tab");
   let research = false;
+  let hoveredUpgrade: number | null = null;
+  let latestState: UIState | null = null;
+  const statDelta = (value: number, precision: number) => {
+    const rounded = Number(value.toFixed(precision));
+    if (!rounded) return "";
+    return `<em class="stat-delta ${rounded > 0 ? "gain" : "loss"}">${rounded > 0 ? "+" : ""}${rounded.toFixed(precision)}</em>`;
+  };
+  const renderTowerStats = (s: UIState) => {
+    const chosen = s.selected ? TOWERS[s.selected.kind] : undefined;
+    const stats = $("#tower-stats");
+    if (!s.selected || !chosen) {
+      stats.textContent = "Select a deployed tower to view its combat record and upgrades.";
+      return;
+    }
+    const t = s.selected,
+      metaUpgrades = s.metaUpgrades.flatMap((upgrade) => Array(upgrade.rank).fill(upgrade.id)),
+      d = compileTower(t, [], s.commandUpgrades, metaUpgrades),
+      preview = hoveredUpgrade !== null && t.level < MAX_TOWER_LEVEL
+        ? compileTower({...t, level:t.level + 1, branch:t.branch < 0 ? hoveredUpgrade : t.branch}, [], s.commandUpgrades, metaUpgrades)
+        : undefined,
+      rank = t.veterancy ?? veterancyLevel(t.veterancyXp ?? 0),
+      xp = t.veterancyXp ?? 0,
+      next = rank >= MAX_VETERANCY
+        ? "MAX RANK"
+        : `${Math.ceil(40 * (Math.pow(1.42, rank + 1) - 1) - xp)} XP TO RANK ${rank + 1}`,
+      mods = [
+        t.level ? `BRANCH: ${chosen.branches[t.branch]}` : "BASE CONFIGURATION",
+        ...s.commandUpgrades
+          .filter((id) => id === "targeting-grid" || id === "ammunition-forge" || id.startsWith("repulsor-impact-"))
+          .map((id) => COMMAND_UPGRADES.find((x) => x.id)?.name ?? id),
+      ];
+    stats.innerHTML = `<div><span>KILLS</span><b>${(t.kills ?? 0).toLocaleString()}</b></div><div><span>VETERANCY</span><b>RANK ${rank} / ${MAX_VETERANCY}</b><small>${next}</small></div><div><span>OUTPUT${preview ? " · NEXT UPGRADE" : ""}</span><b>${d.damage.toFixed(1)} DMG ${preview ? statDelta(preview.damage - d.damage, 1) : ""} · ${d.range.toFixed(0)} RANGE ${preview ? statDelta(preview.range - d.range, 0) : ""}</b><small>${d.force.toFixed(0)} FORCE ${preview ? statDelta(preview.force - d.force, 0) : ""} · ${(1 / d.cooldown).toFixed(1)} PULSES/S ${preview ? statDelta(1 / preview.cooldown - 1 / d.cooldown, 1) : ""} · ${d.radius.toFixed(1)} RADIUS ${preview ? statDelta(preview.radius - d.radius, 1) : ""}</small></div><div><span>MODIFIERS</span><small>${mods.join(" · ")}</small></div>`;
+  };
   const setPanel = (next: boolean) => {
     research = next;
     buildTab.classList.toggle("active", !next);
@@ -149,9 +182,23 @@ export function createUI(
     if (button.dataset.bonus)
       onAction({ type: "bonus", id: button.dataset.bonus });
   });
+  root.addEventListener("pointerover", (event) => {
+    const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-upgrade]");
+    if (!button || button.disabled || hoveredUpgrade === +button.dataset.upgrade!) return;
+    hoveredUpgrade = +button.dataset.upgrade!;
+    if (latestState) renderTowerStats(latestState);
+  });
+  root.addEventListener("pointerout", (event) => {
+    const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-upgrade]");
+    const next = event.relatedTarget instanceof Element && event.relatedTarget.closest("[data-upgrade]");
+    if (!button || next === button || hoveredUpgrade === null) return;
+    hoveredUpgrade = null;
+    if (latestState) renderTowerStats(latestState);
+  });
   return {
     canvas,
     update(s: UIState) {
+      latestState = s;
       const locked = s.phase === "settling" || s.phase === "combat",
         chosen = s.selected ? TOWERS[s.selected.kind] : undefined,
         upgrade = 45 + (s.selected?.level ?? 0) * 35;
@@ -188,33 +235,7 @@ export function createUI(
       $("#selected-name").textContent = chosen
         ? `${chosen.name.toUpperCase()} / LV ${s.selected!.level}`
         : "TOWER INSPECTOR";
-      const stats = $("#tower-stats");
-      if (s.selected && chosen) {
-        const t = s.selected,
-          d = compileTower(t, [], s.commandUpgrades, s.metaUpgrades.flatMap(upgrade=>Array(upgrade.rank).fill(upgrade.id))),
-          rank = t.veterancy ?? veterancyLevel(t.veterancyXp ?? 0),
-          xp = t.veterancyXp ?? 0,
-          next =
-            rank >= MAX_VETERANCY
-              ? "MAX RANK"
-              : `${Math.ceil(40 * (Math.pow(1.42, rank + 1) - 1) - xp)} XP TO RANK ${rank + 1}`,
-          mods = [
-            t.level
-              ? `BRANCH: ${chosen.branches[t.branch]}`
-              : "BASE CONFIGURATION",
-            ...s.commandUpgrades
-              .filter(
-                (id) =>
-                  id === "targeting-grid" ||
-                  id === "ammunition-forge" ||
-                  id.startsWith("repulsor-impact-"),
-              )
-              .map((id) => COMMAND_UPGRADES.find((x) => x.id)?.name ?? id),
-          ];
-        stats.innerHTML = `<div><span>KILLS</span><b>${(t.kills ?? 0).toLocaleString()}</b></div><div><span>VETERANCY</span><b>RANK ${rank} / ${MAX_VETERANCY}</b><small>${next}</small></div><div><span>OUTPUT</span><b>${d.damage.toFixed(1)} DMG · ${d.range.toFixed(0)} RANGE</b><small>${d.force.toFixed(0)} FORCE · ${(1 / d.cooldown).toFixed(1)} PULSES/S</small></div><div><span>MODIFIERS</span><small>${mods.join(" · ")}</small></div>`;
-      } else
-        stats.textContent =
-          "Select a deployed tower to view its combat record and upgrades.";
+      renderTowerStats(s);
       root
         .querySelectorAll<HTMLButtonElement>("[data-tower]")
         .forEach((button, index) => {
