@@ -4,8 +4,6 @@ import type {Rect, Vec2, WorldMap} from '../contracts/index.ts';
 
 const GRID=4, SAVE_KEY='pressure-front.customlevel.v1';
 const clone=(map:WorldMap):WorldMap=>({...map,spawn:{...map.spawn},goal:{...map.goal},obstacles:map.obstacles.map(rect=>({...rect}))});
-const intersects=(a:Rect,b:Rect)=>a.x<b.x+b.width&&a.x+a.width>b.x&&a.y<b.y+b.height&&a.y+a.height>b.y;
-const bossLane=(rect:Rect)=>rect.y<52.5&&rect.y+rect.height>47.5;
 function customId(map:WorldMap):string {
   let hash=2166136261;
   for (const wall of [...map.obstacles].sort((a,b)=>a.x-b.x||a.y-b.y)) for (const value of [wall.x,wall.y,wall.width,wall.height]) { hash^=Math.round(value*100);hash=Math.imul(hash,16777619); }
@@ -16,11 +14,11 @@ export function validateEditorMap(map:WorldMap):string|undefined {
   if (map.width!==160||map.height!==100||map.obstacles.length>64) return 'Maps must be 160 × 100 with at most 64 walls.';
   for(const wall of map.obstacles) {
     if (!Number.isFinite(wall.x)||!Number.isFinite(wall.y)||!Number.isFinite(wall.width)||!Number.isFinite(wall.height)||wall.width<=0||wall.height<=0||wall.x<0||wall.y<0||wall.x+wall.width>160||wall.y+wall.height>100) return 'Walls must stay inside the map.';
-    if(intersects(wall,map.spawn)||Math.hypot(wall.x+2-map.goal.x,wall.y+2-map.goal.y)<map.goalRadius+2.5) return 'Walls cannot cover the spawn or goal.';
-    if(bossLane(wall)) return 'The y=50 boss corridor must remain clear.';
+    if(Math.hypot(wall.x+wall.width/2-map.goal.x,wall.y+wall.height/2-map.goal.y)<map.goalRadius+Math.hypot(wall.width,wall.height)/2) return 'Walls cannot cover the goal.';
   }
-  const field=buildNavigation(map), x=Math.floor((map.spawn.x+map.spawn.width/2)/field.cellSize), y=Math.floor((map.spawn.y+map.spawn.height/2)/field.cellSize);
-  return Number.isFinite(field.distances[y*field.width+x]) ? undefined : 'Walls must leave a route from spawn to goal.';
+  const field=buildNavigation(map), minX=Math.floor(map.spawn.x/field.cellSize),maxX=Math.ceil((map.spawn.x+map.spawn.width)/field.cellSize),minY=Math.floor(map.spawn.y/field.cellSize),maxY=Math.ceil((map.spawn.y+map.spawn.height)/field.cellSize);
+  for(let y=minY;y<maxY;y++)for(let x=minX;x<maxX;x++)if(Number.isFinite(field.distances[y*field.width+x]))return undefined;
+  return 'Walls must leave a route from the spawn area to the goal.';
 }
 
 export function createLevelEditor(mount:HTMLElement, initial:WorldMap, onApply:(map:WorldMap)=>void, onActive:(active:boolean)=>void) {
@@ -34,7 +32,7 @@ export function createLevelEditor(mount:HTMLElement, initial:WorldMap, onApply:(
   const note=(message:string)=>{status.textContent=message;};
   toggle.onclick=()=>setActive(!active);
   panel.append(Object.assign(document.createElement('strong'),{textContent:'Walls snap to 4 × 4 cells'}));
-  button('Wall tool',()=>{erase=false;note('Wall tool active. Boss lane at y=50 stays clear.');});
+  button('Wall tool',()=>{erase=false;note('Wall tool active. Keep at least one route from spawn to goal.');});
   button('Erase tool',()=>{erase=true;note('Erase tool active.');});
   button('Clear walls',()=>{const next={...map,obstacles:[]};map={...next,id:customId(next)};note('Walls cleared.');});
   button('Reset default',()=>{map=clone(DEFAULT_MAP);note('Default map restored.');});

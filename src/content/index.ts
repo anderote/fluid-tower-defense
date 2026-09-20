@@ -45,7 +45,7 @@ export const ENEMIES: Record<EnemyKind, EnemyDef> = {
   brute: {id:'brute', index:2, name:'Brute', radius:.32, mass:3, health:100, speed:1.55, crushTolerance:2.1, bounty:8, leak:3, color:'#cf6d68'},
 };
 
-// Three staged gates form a pressure corridor while leaving the boss lane clear.
+// Three staged gates form a pressure corridor through the arena.
 export const DEFAULT_MAP: WorldMap = {
   id:'pressure-front-bastion', width:160, height:100,
   obstacles:[
@@ -133,13 +133,22 @@ export function createParticles(batches: readonly SpawnBatch[], map: WorldMap, c
   const actual = Math.min(limit,latticeCapacity);
   if (limit > actual) console.warn(`Particle spawn region holds ${actual} non-overlapping particles; ${limit - actual} remain pending`);
   const output = new Float32Array(actual * PARTICLE_FLOATS);
-  // Streamed batches rotate through an inlet lattice rather than restacking on a single cell.
+  // Randomly sample the inlet lattice without replacement so streamed arrivals pop up
+  // across the whole spawn region instead of visibly sweeping through rows.
   const columns=maxColumns;
+  const cellRandom=random(batches.reduce((seed,batch,index)=>Math.imul(seed^batch.seed^Math.imul(batch.count,index+1),16777619),(spawnSlot+1)>>>0));
+  const remappedCells=new Map<number,number>();
+  const takeCell=(used:number)=>{
+    const remaining=latticeCapacity-used,picked=Math.floor(cellRandom()*remaining),last=remaining-1;
+    const cell=remappedCells.get(picked)??picked,replacement=remappedCells.get(last)??last;
+    remappedCells.set(picked,replacement);remappedCells.delete(last);
+    return cell;
+  };
   let cursor=0, slot=0;
   for (const batch of batches) {
     const count=Math.max(0,Math.floor(batch.count)), enemy=ENEMIES[batch.kind], jitter=random(batch.seed);
     for (let i=0;i<count && slot<actual;i++,slot++) {
-      const cell=(spawnSlot+slot)%latticeCapacity,col=cell%columns,row=Math.floor(cell/columns);
+      const cell=takeCell(slot),col=cell%columns,row=Math.floor(cell/columns);
       const baseX=map.spawn.x+(col+.5)*spacing, baseY=map.spawn.y+(row+.5)*spacing;
       // A tiny deterministic jitter is safely smaller than the lattice clearance.
       const offset=(jitter()-.5)*.008;
