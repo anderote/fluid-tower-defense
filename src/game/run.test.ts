@@ -3,6 +3,11 @@ import {test} from 'node:test';
 import {DEFAULT_MAP, MAX_TOWER_LEVEL, TOWERS, towerUpgradeCost} from '../content/index.ts';
 import {createRun, STARTING_METAL, WAVES_PER_LEVEL, waveFor} from './index.ts';
 
+test('fresh runs start with 3,000 Metal',()=>{
+  assert.equal(STARTING_METAL,3_000);
+  assert.equal(createRun().model.metal,3_000);
+});
+
 test('cumulative settlements pay only newly reported totals',()=>{
   const run=createRun(); run.startWave(); run.takeSpawns(200);
   run.applySettlement({epoch:1,tick:3,kills:2,crushKills:1,leaks:1,earned:6,live:1,invalid:0,maxPacking:0});
