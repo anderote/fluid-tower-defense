@@ -33,6 +33,12 @@ export function wallMountCells(walls:readonly Rect[],size=4):Rect[] {
   return cells;
 }
 
+/** Scenery is solid, but trees, houses and cliffs are not turret foundations. */
+export function terrainMounts(map:WorldMap):Rect[]{
+  const natural=map.scenery?.solids??[];
+  return wallMountCells(map.obstacles.filter(rect=>!natural.some(other=>rect.x===other.x&&rect.y===other.y&&rect.width===other.width&&rect.height===other.height)));
+}
+
 export function snapToMount(point:Vec2,mounts:readonly Rect[]):Vec2 {
   const wall=mounts.find(rect=>point.x>=rect.x&&point.x<rect.x+rect.width&&point.y>=rect.y&&point.y<rect.y+rect.height);
   return wall?{x:wall.x+wall.width/2,y:wall.y+wall.height/2}:point;

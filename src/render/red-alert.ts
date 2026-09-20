@@ -68,7 +68,7 @@ struct Out{@builtin(position) pos:vec4<f32>,@location(0) uv:vec2<f32>,@location(
   const pipeline=device.createRenderPipeline({label:'Red Alert sprites',layout:'auto',vertex:{module:shader,entryPoint:'vs',buffers:[{arrayStride:48,stepMode:'instance',attributes:[{shaderLocation:0,offset:0,format:'float32x4'},{shaderLocation:1,offset:16,format:'float32x4'},{shaderLocation:2,offset:32,format:'float32x4'}]}]},fragment:{module:shader,entryPoint:'fs',targets:[{format,blend:{color:{srcFactor:'src-alpha',dstFactor:'one-minus-src-alpha',operation:'add'},alpha:{srcFactor:'one',dstFactor:'one-minus-src-alpha',operation:'add'}}}]},primitive:{topology:'triangle-list'}});
   const bindings=device.createBindGroup({layout:pipeline.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:camera}},{binding:1,resource:texture.createView()}]});
   const createBatch=(label:string)=>({buffer:device.createBuffer({label,size:48,usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST}),capacity:1,count:0});
-  const terrain=createBatch('Facility tiles'),towers=createBatch('Original defense sprites'),wireBatch=createBatch('Connected Red Alert wire'),wireGhost=createBatch('Wire placement preview');
+  const terrain=createBatch('Facility tiles'),sceneryProps=createBatch('Landscape trees and buildings'),towers=createBatch('Original defense sprites'),wireBatch=createBatch('Connected Red Alert wire'),wireGhost=createBatch('Wire placement preview');
   const upload=(batch:ReturnType<typeof createBatch>,data:number[])=>{
     batch.count=data.length/12;if(batch.count>batch.capacity){batch.buffer.destroy();batch.capacity=2**Math.ceil(Math.log2(batch.count));batch.buffer=device.createBuffer({size:batch.capacity*48,usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST});}
     if(data.length)device.queue.writeBuffer(batch.buffer,0,new Float32Array(data));
@@ -76,17 +76,28 @@ struct Out{@builtin(position) pos:vec4<f32>,@location(0) uv:vec2<f32>,@location(
   function sprite(data:number[],id:number,x:number,y:number,width:number,height:number,tint=[1,1,1,1],crop?:Frame){
     const f=crop??atlas.frames[id];data.push(x,y,width,height,f.x,f.y,f.width,f.height,...tint);
   }
-  let terrainKey='',wireKey='';
+  let terrainKey='',wireKey='',previousScenery:RenderScene['map']['scenery'],sceneryVersion=0;
   function prepare(scene:RenderScene){
-    const obstacles=scene.map.obstacles.filter(o=>!(scene.wires??[]).some(w=>!w.breached&&same(o,w)));
-    const key=JSON.stringify([scene.map.width,scene.map.height,obstacles]);
+    const scenery=scene.map.scenery,biome=scenery?.biome;
+    if(previousScenery!==scenery){previousScenery=scenery;sceneryVersion++;}
+    const landscapeAvailable=biome&&biome!=='interior'&&atlas.sprites[`${biome}:clear1`]?.length;
+    const obstacles=scene.map.obstacles.filter(o=>!(scene.wires??[]).some(w=>!w.breached&&same(o,w))&&!((landscapeAvailable||biome==='interior')&&scenery?.solids.some(r=>same(r,o))));
+    const key=JSON.stringify([scene.map.width,scene.map.height,sceneryVersion,obstacles]);
     if(key!==terrainKey){
-      const data:number[]=[],floor=floorSprites(atlas.sprites,floorStyle);
+      const data:number[]=[],floor=landscapeAvailable?atlas.sprites[`${biome}:clear1`]:floorSprites(atlas.sprites,floorStyle);
       for(let y=0;y<scene.map.height;y+=4)for(let x=0;x<scene.map.width;x+=4){
         // Keep most plates clean; the original set's scorched variants are sparse.
-        const hash=((Math.imul(x+7,73856093)^Math.imul(y+11,19349663))>>>0),variant=hash%13===0?hash%floor.length:hash%2;
+        const hash=((Math.imul(x+7,73856093)^Math.imul(y+11,19349663))>>>0),variant=landscapeAvailable?hash%floor.length:hash%13===0?hash%floor.length:hash%2;
         const width=Math.min(4,scene.map.width-x),height=Math.min(4,scene.map.height-y),frame=atlas.frames[floor[variant]];
         sprite(data,floor[variant],x,y,width,height,[1,1,1,1],{...frame,width:width*6,height:height*6});
+      }
+      for(const region of scenery?.regions??[]){
+        const ids=atlas.sprites[region.sprite];if(!ids)continue;
+        for(let y=region.y;y<region.y+region.height;y+=4)for(let x=region.x;x<region.x+region.width;x+=4){const id=ids[0],frame=atlas.frames[id],width=Math.min(4,region.x+region.width-x),height=Math.min(4,region.y+region.height-y);sprite(data,id,x,y,width,height,[1,1,1,1],{...frame,width:width*6,height:height*6});}
+      }
+      for(const stamp of scenery?.tiles??[]){
+        const ids=atlas.sprites[stamp.sprite];if(!ids)continue;
+        for(let i=0;i<Math.min(ids.length,stamp.columns*stamp.rows);i++)sprite(data,ids[i],stamp.x+(i%stamp.columns)*4,stamp.y+Math.floor(i/stamp.columns)*4,4,4);
       }
       for(const tile of wallTiles(obstacles)){
         // The original vertical cap tile connects continuously. South-facing ends
@@ -95,6 +106,12 @@ struct Out{@builtin(position) pos:vec4<f32>,@location(0) uv:vec2<f32>,@location(
         sprite(data,id,tile.x,tile.y,tile.width,tile.height,[1,1,1,1],{...frame,width:tile.width*6,height:tile.height*6});
       }
       upload(terrain,data);terrainKey=key;
+      const props:number[]=[];
+      for(const prop of [...scenery?.props??[]].sort((a,b)=>a.y-b.y)){
+        const id=atlas.sprites[prop.sprite]?.[0];if(id===undefined)continue;const f=atlas.frames[id];
+        sprite(props,id,prop.x-f.width/12,prop.y-f.height/6,f.width/6,f.height/6);
+      }
+      upload(sceneryProps,props);
     }
     const wires=scene.wires??[];
     const nextWireKey=JSON.stringify(wires.map(w=>[w.x,w.y,w.width,w.height,wireDamage(w)]));
@@ -142,5 +159,5 @@ struct Out{@builtin(position) pos:vec4<f32>,@location(0) uv:vec2<f32>,@location(
     upload(towers,data);
   }
   function draw(pass:GPURenderPassEncoder,batch:ReturnType<typeof createBatch>){if(!batch.count)return;pass.setPipeline(pipeline);pass.setBindGroup(0,bindings);pass.setVertexBuffer(0,batch.buffer);pass.draw(6,batch.count);}
-  return {prepare,hasWireSprites,drawTerrain:(pass:GPURenderPassEncoder)=>{draw(pass,terrain);draw(pass,wireBatch);},drawTowers:(pass:GPURenderPassEncoder)=>{draw(pass,towers);draw(pass,wireGhost);},destroy(){terrain.buffer.destroy();towers.buffer.destroy();wireBatch.buffer.destroy();wireGhost.buffer.destroy();texture.destroy();}};
+  return {prepare,hasWireSprites,drawTerrain:(pass:GPURenderPassEncoder)=>{draw(pass,terrain);draw(pass,wireBatch);draw(pass,sceneryProps);},drawTowers:(pass:GPURenderPassEncoder)=>{draw(pass,towers);draw(pass,wireGhost);},destroy(){terrain.buffer.destroy();sceneryProps.buffer.destroy();towers.buffer.destroy();wireBatch.buffer.destroy();wireGhost.buffer.destroy();texture.destroy();}};
 }

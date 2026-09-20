@@ -1,6 +1,8 @@
 export type Vec2 = { x: number; y: number };
 export type Rect = Vec2 & { width: number; height: number };
-export interface WorldMap { id: string; width: number; height: number; obstacles: Rect[]; spawn: Rect; goal: Vec2; goalRadius: number }
+export type Biome='forest'|'winter'|'interior';
+export interface MapScenery { biome:Biome; title:string; briefing:string; solids:Rect[]; mounts:Rect[]; tiles:(Vec2&{sprite:string;columns:number;rows:number})[]; props:(Vec2&{sprite:string})[]; regions:(Rect&{sprite:string})[] }
+export interface WorldMap { id: string; width: number; height: number; obstacles: Rect[]; spawn: Rect; goal: Vec2; goalRadius: number; scenery?:MapScenery }
 export type TowerKind = 'repulsor' | 'mortar' | 'autocannon' | 'cryo' | 'tesla' | 'rocket' | 'railgun' | 'incinerator';
 export type EnemyKind = 'shambler' | 'runner' | 'brute' | 'rager' | 'softbody' | 'husk';
 export type EffectKind = 'blast' | 'push' | 'slow' | 'shot';
@@ -34,7 +36,7 @@ export const COUNTER_WORDS = HORDE_PRESSURE_COUNTER + 1;
 export const PARTICLE_WGSL = `struct Particle { pos: vec4<f32>, body: vec4<f32>, state: vec4<f32>, status: vec4<f32> };`;
 export const P = { x:0,y:1,vx:2,vy:3,radius:4,mass:5,hp:6,maxHp:7,packing:8,pressure:9,kind:10,alive:11,slow:12,brittle:13,exposure:14,generation:15 } as const;
 // Root owns particles/counters. Modules may allocate private scratch; they encode, never submit.
-export interface SharedGPU { particles: GPUBuffer; counters: GPUBuffer; capacity: number; obstacleCounters?:GPUBuffer; obstacleCapacity?:number; shotState?: GPUBuffer; bossState?: GPUBuffer }
+export interface SharedGPU { particles: GPUBuffer; counters: GPUBuffer; capacity: number; obstacleCounters?:GPUBuffer; obstacleCapacity?:number; shotState?: GPUBuffer; teslaState?:GPUBuffer; bossState?: GPUBuffer }
 export interface PhysicsFrame { dt: number; tick: number; count: number; map: WorldMap; effects: readonly Effect[]; tuning: Tuning; navigation?: NavigationField; lab: boolean }
 export interface PhysicsModule { encode(encoder: GPUCommandEncoder, frame: PhysicsFrame): void; reset(): void; destroy(): void }
 export interface Settlement { epoch: number; tick: number; kills: number; crushKills: number; leaks: number; earned: number; live: number; invalid: number; maxPacking: number; maxPressure?:number; inletBlocked?:boolean; towerKills?:readonly number[]; obstacleContacts?:readonly number[]; obstaclePacking?:readonly number[]; obstaclePressure?:readonly number[]; boss?:{x:number;y:number;health:number;maxHealth:number;phase:number;active:boolean} }
@@ -46,7 +48,7 @@ export interface BonusChoice { id:string; name:string; description:string }
 export interface CommandUpgrade { id:string; name:string; description:string; cost:number; requires?:string }
 export interface StatUpgrade {id:string;name:string;description:string;cost:number;rank:number;maxRank:number}
 export interface TowerUnlock {kind:TowerKind;cost:number;unlocked:boolean}
-export interface UIState { mode:'lab'|'game'; phase:'preparation'|'combat'|'settling'|'checkpoint'|'won'|'lost'; paused:boolean; fps:number; frameMs:number; population:number; capacity:number; kills:number; crushKills:number; leaks:number; earned:number; maxPressure:number; metal:number; baseHealth:number; level:number; wave:number; waveCount:number; difficulty:number; streamWidth:number; selected:Tower|null; upgradeTarget:Tower|null; selectedKind:TowerKind|null; buildTool:'wall'|'wire'|'demolish'|null; upgradeMode:boolean; heatmap:boolean; tool:'blast'|'push'|'inspect'; message:string; adapter:string; bonusChoices:readonly BonusChoice[]; bonuses:readonly string[]; commandUpgrades:readonly string[]; statUpgrades:readonly StatUpgrade[]; towerUnlocks:readonly TowerUnlock[]; boss?:Settlement['boss']; bossHealth?:number; }
+export interface UIState { mapTitle?:string;nextMapTitle?:string;mode:'lab'|'game'; phase:'preparation'|'combat'|'settling'|'checkpoint'|'won'|'lost'; paused:boolean; fps:number; frameMs:number; population:number; capacity:number; kills:number; crushKills:number; leaks:number; earned:number; maxPressure:number; metal:number; baseHealth:number; level:number; wave:number; waveCount:number; difficulty:number; streamWidth:number; selected:Tower|null; upgradeTarget:Tower|null; selectedKind:TowerKind|null; buildTool:'wall'|'wire'|'demolish'|null; upgradeMode:boolean; heatmap:boolean; tool:'blast'|'push'|'inspect'; message:string; adapter:string; bonusChoices:readonly BonusChoice[]; bonuses:readonly string[]; commandUpgrades:readonly string[]; statUpgrades:readonly StatUpgrade[]; towerUnlocks:readonly TowerUnlock[]; boss?:Settlement['boss']; bossHealth?:number; }
 export interface GameUI { canvas:HTMLCanvasElement; update(state:UIState):void; destroy():void }
 export type SpawnBand = 'full' | 'upper' | 'center' | 'lower' | 'inlet';
 export interface SpawnBatch { count:number; kind:EnemyKind; seed:number; start?:number; rate?:number; burst?:number; band?:SpawnBand; healthScale?:number; credit?:number }

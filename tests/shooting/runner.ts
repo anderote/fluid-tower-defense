@@ -54,7 +54,10 @@ try{
   const scene:RenderScene={count:0,time:1,heatmap:false,selection:null,effects:[],map:{id:'shooting',width:100,height:56,obstacles:[],spawn:{x:0,y:0,width:0,height:0},goal:{x:100,y:56},goalRadius:0},towers:kinds.map((kind,i)=>({id:i+1,kind,x:13+i%4*25,y:14+Math.floor(i/4)*28,angle:i*Math.PI/4,level:0,branch:-1,cooldown:0,spent:0}))};
   const draw=()=>{
     const elapsed=Number((document.querySelector('#age') as HTMLSelectElement).value),range=Number((document.querySelector('#range') as HTMLSelectElement).value),data=new Float32Array(64*12);
-    scene.towers.forEach((t,i)=>data.set([1,1+elapsed,t.x+Math.cos(t.angle)*range,t.y+Math.sin(t.angle)*range,1,0,0,t.angle,t.id,1,0,0],i*12));
+    scene.towers.forEach((t,i)=>{
+      t.kind=(document.querySelector('#preview') as HTMLSelectElement).value==='autocannon'?'autocannon':kinds[i];
+      data.set([1,1+elapsed,t.x+Math.cos(t.angle)*range,t.y+Math.sin(t.angle)*range,1,0,0,t.angle,t.id,1,0,0],i*12);
+    });
     device.queue.writeBuffer(shots,0,data);const encoder=device.createCommandEncoder();renderer.encode(encoder,scene);device.queue.submit([encoder.finish()]);
   };
   document.querySelectorAll('select').forEach(select=>select.addEventListener('change',draw));draw();

@@ -1,3 +1,4 @@
+import {TESLA_STATE_WGSL} from '../effects/tesla.ts';
 import {PARTICLE_WGSL,type RenderScene,type SharedGPU} from '../contracts/index.ts';
 import {createZombieAtlas} from './zombie-art.ts';
 import {ZOMBIE_FRAME,ZOMBIE_PIVOT,ZOMBIE_ROSTER_WGSL} from './zombie-roster.ts';
@@ -11,12 +12,13 @@ export async function createShamblers(device:GPUDevice,format:GPUTextureFormat,c
   const clock=device.createBuffer({label:'Shambler animation clock',size:16,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST});
   const update=await device.createComputePipelineAsync({layout:'auto',compute:{module:device.createShaderModule({label:'Shambler animation',code:SHAMBLER_ANIMATION_WGSL}),entryPoint:'update'}});
   const updateBindings=device.createBindGroup({layout:update.getBindGroupLayout(0),entries:[shared.particles,state,clock].map((buffer,binding)=>({binding,resource:{buffer}}))});
-  const shader=device.createShaderModule({label:'Zombie roster sprites',code:`${PARTICLE_WGSL}${SHAMBLER_STATE_WGSL}${ZOMBIE_ROSTER_WGSL}
+  const shader=device.createShaderModule({label:'Zombie roster sprites',code:`${PARTICLE_WGSL}${SHAMBLER_STATE_WGSL}${ZOMBIE_ROSTER_WGSL}${TESLA_STATE_WGSL}
 struct Camera { viewport:vec4<f32>, world:vec4<f32>, time:vec4<f32> };
 @group(0) @binding(0) var<uniform> camera:Camera;
 @group(0) @binding(1) var<storage,read> particles:array<Particle>;
 @group(0) @binding(2) var<storage,read> animation:array<Animation>;
 @group(0) @binding(3) var atlas:texture_2d<f32>;
+@group(0) @binding(4) var<storage,read> electricity:TeslaState;
 struct Out { @builtin(position) pos:vec4<f32>, @location(0) uv:vec2<f32>, @location(1) tint:vec4<f32>, @location(2) pressure:f32 };
 fn clip(p:vec2<f32>)->vec2<f32>{let aspect=camera.viewport.x/max(1.,camera.viewport.y);let worldAspect=camera.world.z/camera.world.w;return vec2((((p.x-camera.world.x)/camera.world.z)*2.-1.)*min(1.,worldAspect/aspect),(1.-((p.y-camera.world.y)/camera.world.w)*2.)*min(1.,aspect/worldAspect));}
 @vertex fn vs(@builtin(vertex_index) vi:u32,@builtin(instance_index) i:u32)->Out{
@@ -25,6 +27,8 @@ fn clip(p:vec2<f32>)->vec2<f32>{let aspect=camera.viewport.x/max(1.,camera.viewp
  let dead=p.state.w<-.5;let deathAge=max(0.,camera.time.x+p.body.w/60.);
  let kind=u32(max(0.,round(p.state.z)));let sprite=zombieAtlas(kind);
  if(sprite<0.||abs(p.state.w)<.5||(dead&&deathAge>4.)){return o;}
+ let shock=electricity.victims[i].shock;let shockAge=teslaAge(shock,p.status.w,camera.time.x);
+ if((dead&&shock.x>0.&&shock.y==p.status.w&&shock.z>.5)||(!dead&&shockAge<.24)){return o;}
  let facing=f32((i32(round(a.pose.x/0.7853981634))+16)%8);
  var frame=0.;if(a.pose.w>.5){frame=1.+floor(a.pose.y*8.);}if(a.pose.w>1.5){frame=9.;}
  if(dead){frame=10.+floor(min(5.,deathAge/zombieCollapseStep(kind)));}
@@ -41,11 +45,11 @@ fn clip(p:vec2<f32>)->vec2<f32>{let aspect=camera.viewport.x/max(1.,camera.viewp
 @fragment fn fs(i:Out)->@location(0) vec4<f32>{
  let texel=textureLoad(atlas,vec2<i32>(floor(i.uv)),0);if(texel.a<.5||i.tint.a<.01){discard;}
  var color=texel.rgb*i.tint.rgb;
- if(i.pressure>.001){let warm=mix(vec3(.02,.88,1.),vec3(1.,.9,.08),clamp(i.pressure*2.,0.,1.));let hot=mix(vec3(1.,.3,.015),vec3(.92,.015,.08),clamp((i.pressure-.8)*5.,0.,1.));color=mix(color,mix(warm,hot,smoothstep(.5,.8,i.pressure)),.35+.55*i.pressure);}
+ if(i.pressure>.001){let warm=mix(vec3(.02,.88,1.),vec3(1.,.9,.08),clamp(i.pressure*2.,0.,1.));let hot=mix(vec3(1.,.3,.015),vec3(.92,.015,.08),clamp((i.pressure-.8)*5.,0.,1.));color=mix(color,mix(warm,hot,smoothstep(.5,.8,i.pressure)),.22+.35*i.pressure);}
  return vec4(color,i.tint.a);
 }`});
   const pipeline=await device.createRenderPipelineAsync({layout:'auto',vertex:{module:shader,entryPoint:'vs'},fragment:{module:shader,entryPoint:'fs',targets:[{format,blend:{color:{srcFactor:'src-alpha',dstFactor:'one-minus-src-alpha',operation:'add'},alpha:{srcFactor:'one',dstFactor:'one-minus-src-alpha',operation:'add'}}}]},primitive:{topology:'triangle-list'},depthStencil:{format:'depth32float',depthWriteEnabled:true,depthCompare:'less-equal'}});
-  const bindings=device.createBindGroup({layout:pipeline.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:camera}},{binding:1,resource:{buffer:shared.particles}},{binding:2,resource:{buffer:state}},{binding:3,resource:texture.createView()}]});
+  const bindings=device.createBindGroup({layout:pipeline.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:camera}},{binding:1,resource:{buffer:shared.particles}},{binding:2,resource:{buffer:state}},{binding:3,resource:texture.createView()},{binding:4,resource:{buffer:shared.teslaState!}}]});
   let depth:GPUTexture|undefined,width=0,height=0,lastTime=-1;
   return {
     prepare(encoder:GPUCommandEncoder,scene:RenderScene){

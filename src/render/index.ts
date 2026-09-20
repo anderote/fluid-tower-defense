@@ -1,3 +1,6 @@
+import {AUTOCANNON_MUZZLE_LIFT,SOLDAT_FACINGS} from './soldat-art.ts';
+import {createTeslaEffects} from './tesla.ts';
+import {TESLA_STATE_WGSL,TESLA_HEADER_BYTES,TESLA_PARTICLE_BYTES} from '../effects/tesla.ts';
 import { ENEMY_WGSL, towerBehavior } from '../content/index.ts';
 import { PARTICLE_WGSL, type RenderScene, type Renderer, type SharedGPU, type TowerKind, type Vec2 } from '../contracts/index.ts';
 import {screenToWorld as unproject, worldToScreen as project} from './camera.ts';
@@ -26,20 +29,25 @@ export async function createRenderer(device: GPUDevice, context: GPUCanvasContex
   const uniform = device.createBuffer({ label:'Render camera', size:64, usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST });
   const turretArt=options.turretArt??'soldat';
   const redAlert=await createRedAlertArt(device,format,uniform,turretArt,options.wireArt,options.floorArt).catch(error=>{console.warn('Facility artwork unavailable; using fallback graphics.',error);return null;});
-  const shamblers=await createShamblers(device,format,uniform,shared);
+  const emptyTesla=shared.teslaState?null:device.createBuffer({label:'Empty Tesla status',size:TESLA_HEADER_BYTES+shared.capacity*TESLA_PARTICLE_BYTES,usage:GPUBufferUsage.STORAGE});
+  const teslaState=shared.teslaState??emptyTesla!;
+  const shamblers=await createShamblers(device,format,uniform,{...shared,teslaState});
   let overlayCapacity=1;
   let overlays = device.createBuffer({ label:'Tactical overlays', size:24, usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST });
   let foregroundCapacity=1;
   let foreground = device.createBuffer({ label:'Foreground effects', size:24, usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST });
   const towerVisuals = device.createBuffer({ label:'Tower visual state', size:MAX_TOWERS * 16, usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST });
   const emptyShots = device.createBuffer({ label:'Empty firing state', size:MAX_TOWERS * 48, usage:GPUBufferUsage.STORAGE });
+  const tesla=await createTeslaEffects(device,format,uniform,towerVisuals,shared,turretArt);
   const particleModule = device.createShaderModule({code:`
 ${PARTICLE_WGSL}
 ${ENEMY_WGSL}
+${TESLA_STATE_WGSL}
 ${ZOMBIE_ROSTER_WGSL}
 struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> };
 @group(0) @binding(0) var<uniform> camera: Camera;
 @group(0) @binding(1) var<storage,read> particles: array<Particle>;
+@group(0) @binding(2) var<storage,read> electricity:TeslaState;
 struct Out { @builtin(position) pos: vec4<f32>, @location(0) local: vec2<f32>, @location(1) color: vec4<f32>, @location(2) bloodMode: f32 };
 fn world(p:vec2<f32>)->vec2<f32>{ let aspect=camera.viewport.x/max(1.0,camera.viewport.y); let targetAspect=camera.world.z/camera.world.w; let sx=min(1.0,targetAspect/aspect); let sy=min(1.0,aspect/targetAspect); return vec2((((p.x-camera.world.x)/camera.world.z)*2.0-1.0)*sx, (1.0-((p.y-camera.world.y)/camera.world.w)*2.0)*sy); }
 fn pressureColor(value:f32)->vec3<f32>{
@@ -53,13 +61,15 @@ fn pressureColor(value:f32)->vec3<f32>{
   let corners=array<vec2<f32>,6>(vec2(-1,-1),vec2(1,-1),vec2(-1,1),vec2(-1,1),vec2(1,-1),vec2(1,1));
   let shard=vi/6u; let c=corners[vi%6u]; let p=particles[ii]; let dead=p.state.w<-.5; var radius=max(.27,p.body.x*1.18);
   var o:Out; o.local=c; o.bloodMode=0.;
+  let shock=electricity.victims[ii].shock;let shockAge=teslaAge(shock,p.status.w,camera.time.x);
+  if((dead&&shock.x>0.&&shock.y==p.status.w&&shock.z>.5)||(!dead&&shockAge<.24)){o.pos=vec4(2.,2.,0.,1.);o.color=vec4(0.);return o;}
   if(dead){ let age=max(0.,camera.time.x-(-p.body.w)/60.);let seed=f32(ii)*17.+f32(shard)*2.4;let flight=clamp(age/.78,0.,1.);let dir=vec2(cos(seed),sin(seed));let stain=shard==0u;let mist=shard>4u;let speed=select(.85+fract(seed*3.1)*2.2,.38+fract(seed)*.8,mist);let center=select(p.pos.xy+dir*(.18+speed*flight)+vec2(0.,age*age*.7),p.pos.xy,stain);radius=select(max(.07,p.body.x*(.36+.72*(1.-flight))*select(1.,.62,mist)),max(.38,p.body.x*3.25),stain);let life=select(max(0.,1.-age/select(.95,.62,mist)),max(0.,1.-age/18.),stain);o.pos=vec4(world(center+c*radius),0,1);o.color=vec4(select(.42+.3*sin(seed),.7+.18*sin(seed*2.),mist),.008,.004,life*select(.9,.42,stain));o.bloodMode=select(2.,1.,stain);return o; }
   if(shard>0u||zombieAtlas(u32(max(0.,round(p.state.z))))>=0.){o.pos=vec4(2.,2.,0.,1.);o.color=vec4(0.);return o;}
   let speed=length(p.pos.zw);let forward=select(vec2(1.,0.),p.pos.zw/max(.001,speed),speed>.02);let side=vec2(-forward.y,forward.x);let breathe=1.+.055*sin(camera.time.x*5.5+f32(ii)*.37);let offset=(forward*c.x*(1.03+min(.28,speed*.035))+side*c.y*.92)*radius*breathe;let q=world(p.pos.xy+offset);o.pos=vec4(q,0,1);
   let k=u32(clamp(p.state.z,0.0,5.0)+0.5); var col=enemyColor(k);
   let hp=clamp(p.body.z/max(0.001,p.body.w),0.0,1.0);let rawPressure=max(0.,p.state.y);let pressure=clamp(log2(1.+rawPressure)/7.,0.,1.);
   // time.y is the heatmap switch: data comes solely from this particle's pressure/packing fields.
-  if(camera.time.y > .5&&pressure>.001){col=mix(col,pressureColor(pressure),.35+.65*pressure);}
+  if(camera.time.y > .5&&pressure>.001){col=mix(col,pressureColor(pressure),.22+.42*pressure);}
   o.color=vec4(col*(.42+.58*hp),p.state.w); return o;
 }
 @fragment fn fs(i:Out)->@location(0) vec4<f32>{let d=length(i.local);let blood=i.bloodMode>.5;let irregular=.045*sin(i.local.x*13.+i.local.y*7.)+.035*sin(i.local.y*19.);let edge=select(1.,1.+irregular,blood);if(d>edge||i.color.a<.02){discard;}var alpha=i.color.a*(1.-smoothstep(edge-.16,edge,d));if(i.bloodMode>1.5){alpha*=.72+.28*sin((i.local.x-i.local.y)*12.);}let light=max(0.,dot(normalize(i.local+vec2(.001)),normalize(vec2(-.65,-.75))));let rim=smoothstep(.62,.98,d);let col=select(i.color.rgb*(.82+.18*light)+vec3(.07)*light*light,mix(i.color.rgb,vec3(.16,.002,0.),rim*.35),blood);return vec4(col,alpha);}
@@ -79,13 +89,19 @@ struct TowerState { timing:vec4<f32>, shot:vec4<f32>, flags:vec4<f32> };
 struct Out { @builtin(position) pos:vec4<f32>, @location(0) local:vec2<f32>, @location(1) kind:f32, @location(2) age:f32, @location(3) shard:f32, @location(4) weapon:f32, @location(5) elapsed:f32 };
 fn clip(p:vec2<f32>)->vec2<f32>{let aspect=camera.viewport.x/max(1.,camera.viewport.y);let targetAspect=camera.world.z/camera.world.w;let sx=min(1.,targetAspect/aspect);let sy=min(1.,aspect/targetAspect);return vec2((((p.x-camera.world.x)/camera.world.z)*2.-1.)*sx,(1.-((p.y-camera.world.y)/camera.world.w)*2.)*sy);}
 ${MUZZLE_OFFSETS_WGSL}
-fn muzzlePoint(origin:vec2<f32>,forward:vec2<f32>,weapon:f32,barrel:f32)->vec2<f32>{let offset=muzzleOffset(weapon,barrel);let side=vec2(-forward.y,forward.x);return origin+forward*offset.x+side*offset.y;}
+fn muzzlePoint(origin:vec2<f32>,forward:vec2<f32>,weapon:f32,barrel:f32)->vec2<f32>{let offset=muzzleOffset(weapon,barrel);var facing=forward;var lift=0.;
+ if(weapon==2.){
+  let step=6.283185307179586/${wgslFloat(SOLDAT_FACINGS)};
+  let angle=floor(atan2(forward.y,forward.x)/step+.5)*step;
+  facing=vec2(cos(angle),sin(angle));lift=${wgslFloat(AUTOCANNON_MUZZLE_LIFT)};
+ }
+ let side=vec2(-facing.y,facing.x);return origin+facing*offset.x+side*offset.y-vec2(0.,lift);}
 fn muzzleDistance(weapon:f32)->f32{return muzzleOffset(weapon,select(0.,1.,weapon>=4.5&&weapon<5.5)).x;}
 @vertex fn vs(@builtin(vertex_index) vi:u32,@builtin(instance_index) ii:u32)->Out {
  let corners=array<vec2<f32>,6>(vec2(-1.,-1.),vec2(1.,-1.),vec2(-1.,1.),vec2(-1.,1.),vec2(1.,-1.),vec2(1.,1.));
  let shard=vi/6u;let q=corners[vi%6u];let s=states[ii];let t=towers[ii];let kind=floor(t.w+.001);let weapon=round(fract(t.w)*100.);
  var life=.24;if(weapon==1.){life=.62;}else if(weapon==2.){life=.32;}else if(weapon==4.){life=.3;}else if(weapon==5.){life=.56;}else if(weapon==6.){life=.18;}else if(weapon==7.){life=.34;}
- let elapsed=max(0.,s.timing.y-s.timing.x);let valid=s.timing.y>0.&&elapsed<=life&&abs(s.flags.x-t.z)<.5;let age=select(2.,clamp(elapsed/life,0.,1.),valid);
+ let elapsed=max(0.,s.timing.y-s.timing.x);let valid=s.timing.y>0.&&elapsed<=life&&abs(s.flags.x-t.z)<.5&&weapon!=4.;let age=select(2.,clamp(elapsed/life,0.,1.),valid);
  let aim=s.timing.zw;let delta=aim-t.xy;let len=max(.1,length(delta));let forward=delta/len;let side=vec2(-forward.y,forward.x);let muzzle=muzzlePoint(t.xy,forward,weapon,0.);let seed=f32(shard)*2.399+f32(ii)*.71;let burst=vec2(cos(seed),sin(seed));var p:vec2<f32>;
  if(weapon==0.){
   let distance=.15+age*(4.5+len*.035);p=muzzle+burst*distance+q*(select(.22,1.05,shard==0u));
@@ -93,7 +109,7 @@ fn muzzleDistance(weapon:f32)->f32{return muzzleOffset(weapon,select(0.,1.,weapo
   if(shard==0u){p=muzzle+forward*q.x*(1.25-1.7*elapsed)+side*q.y*(.55-.6*elapsed);}else{let smokeAge=clamp(elapsed/.62,0.,1.);p=muzzle-forward*smokeAge*(.35+f32(shard)*.035)+burst*(.1+smokeAge*.45)+q*(.13+smokeAge*.2);}
  }else if(weapon==2.){
   if(shard==0u){p=muzzle+forward*q.x*(1.4-2.8*elapsed)+side*q.y*(.58-1.05*elapsed);}
-  else if(shard==1u){p=autocannonTracer(q,muzzle,forward,len-muzzleDistance(weapon),elapsed);}
+  else if(shard==1u){let travel=aim-muzzle;let distance=length(travel);p=autocannonTracer(q,muzzle,travel/max(.001,distance),select(0.,distance,len>muzzleDistance(weapon)),elapsed);}
   else if(shard<8u){let impactAge=clamp((elapsed-.04)/.24,0.,1.);let ricochet=normalize(burst-forward*(.65+.2*fract(seed)));p=aim+ricochet*impactAge*(1.3+f32(shard)*.3)+q*(.18-.08*impactAge);}
   else{let smokeAge=clamp(elapsed/.32,0.,1.);let drift=side*(f32(shard)-9.5)*.22-forward*smokeAge*.8;p=muzzle+drift+q*(.16+smokeAge*.38);}
  }else if(weapon==3.){
@@ -136,7 +152,7 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
   const overlay=device.createRenderPipeline({layout:'auto',vertex:{module:overlayModule,entryPoint:'vs',buffers:[{arrayStride:24,attributes:[{shaderLocation:0,offset:0,format:'float32x2'},{shaderLocation:1,offset:8,format:'float32x4'}]}]},fragment:{module:overlayModule,entryPoint:'fs',targets:[{format,blend:{color:{srcFactor:'src-alpha',dstFactor:'one-minus-src-alpha',operation:'add'},alpha:{srcFactor:'one',dstFactor:'one-minus-src-alpha',operation:'add'}}}]},primitive:{topology:'triangle-list'}});
   const cues=device.createRenderPipeline({layout:'auto',vertex:{module:cueModule,entryPoint:'vs'},fragment:{module:cueModule,entryPoint:'fs',targets:[{format,blend:{color:{srcFactor:'src-alpha',dstFactor:'one',operation:'add'},alpha:{srcFactor:'one',dstFactor:'one',operation:'add'}}}]},primitive:{topology:'triangle-list'}});
   const cameraBG=device.createBindGroup({layout:bg.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:uniform}}]});
-  const cameraParticles=device.createBindGroup({layout:particles.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:uniform}},{binding:1,resource:{buffer:shared.particles}}]});
+  const cameraParticles=device.createBindGroup({layout:particles.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:uniform}},{binding:1,resource:{buffer:shared.particles}},{binding:2,resource:{buffer:teslaState}}]});
   const cameraOverlay=device.createBindGroup({layout:overlay.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:uniform}}]});
   const cameraCues=device.createBindGroup({layout:cues.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:uniform}},{binding:1,resource:{buffer:shared.shotState ?? emptyShots}},{binding:2,resource:{buffer:towerVisuals}}]});
   let pixelW=0,pixelH=0;
@@ -318,12 +334,12 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
       pass.end();shamblers.draw(encoder,target,pixelW,pixelH,scene.count);
       pass=encoder.beginRenderPass({colorAttachments:[{view:target,loadOp:'load',storeOp:'store'}]});
       pass.setPipeline(overlay);pass.setBindGroup(0,cameraOverlay);pass.setVertexBuffer(0,foreground);pass.draw(fx.length/6);
-      if(shared.shotState){pass.setPipeline(cues);pass.setBindGroup(0,cameraCues);pass.draw(72,Math.min(MAX_TOWERS,scene.towers.length));}pass.end();
+      if(shared.shotState){pass.setPipeline(cues);pass.setBindGroup(0,cameraCues);pass.draw(72,Math.min(MAX_TOWERS,scene.towers.length));}tesla?.draw(pass,scene.count,scene.towers.length);pass.end();
     },
     screenToWorld,
     worldToScreen,
     pan(dx,dy){camera.x+=dx;camera.y+=dy;clampCamera();},
     zoomAt(factor,clientX,clientY){const before=screenToWorld(clientX,clientY);camera.zoom=Math.max(1,Math.min(5,camera.zoom*factor));const after=screenToWorld(clientX,clientY);camera.x+=before.x-after.x;camera.y+=before.y-after.y;clampCamera();},
-    destroy(){shamblers.destroy();redAlert?.destroy();uniform.destroy();overlays.destroy();foreground.destroy();towerVisuals.destroy();emptyShots.destroy();}
+    destroy(){tesla?.destroy();emptyTesla?.destroy();shamblers.destroy();redAlert?.destroy();uniform.destroy();overlays.destroy();foreground.destroy();towerVisuals.destroy();emptyShots.destroy();}
   };
 }

@@ -4,6 +4,9 @@ import type {TowerKind} from '../contracts/index.ts';
  * Geometry is baked from 64 views under fixed lighting; no Soldat art is copied.
  */
 export const SOLDAT_FACINGS=64;
+export const SOLDAT_HEIGHT_PROJECTION=.65;
+export const AUTOCANNON_BARREL={length:2,height:.68,depth:.16} as const;
+export const AUTOCANNON_MUZZLE_LIFT=(AUTOCANNON_BARREL.height+AUTOCANNON_BARREL.depth/2)*SOLDAT_HEIGHT_PROJECTION;
 export const SOLDAT_FRAME=64;
 // Padding includes north-facing barrels and the Tesla's elevated cap.
 export const SOLDAT_WORLD_SIZE=6;
@@ -64,7 +67,7 @@ function model(kind:TowerKind,angle:number,level:number):Face[]{
   disc(0,0,.83,.05,.22,dark,false);disc(0,0,.66,.27,.1,metal,false);
   if(kind==='autocannon'){
     // Exposed receiver, cooling jacket, ammunition box and short feed belt.
-    barrel(2,.18,0,.68);box(-.72,-.29,1.12,.58,.38,.35,paint);
+    barrel(AUTOCANNON_BARREL.length,.18,0,AUTOCANNON_BARREL.height);box(-.72,-.29,1.12,.58,.38,.35,paint);
     box(-.57,-.2,.59,.37,.73,.07,trim);box(-.88,.38,.65,.48,.2,.45,paint);
     for(let i=0;i<5;i++)box(-.46+i*.09,.23,.06,.22,.62,.045,copper);
     for(let i=0;i<4;i++)box(.45+i*.22,-.12,.07,.24,.78,.05,rubber);
@@ -164,7 +167,7 @@ export function drawSoldatFrame(ctx:CanvasRenderingContext2D,kind:TowerKind,angl
   const scale=SOLDAT_FRAME/SOLDAT_WORLD_SIZE,origin=32;
   ctx.clearRect(0,0,64,64);ctx.fillStyle='rgba(9,12,8,.48)';ctx.beginPath();ctx.ellipse(34,37,15,11,0,0,Math.PI*2);ctx.fill();
   for(const face of model(kind,angle,level)){
-    ctx.beginPath();face.points.forEach(([x,y,z],i)=>{const xx=origin+x*scale,yy=origin+(y-z*.65)*scale;i?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy);});ctx.closePath();
+    ctx.beginPath();face.points.forEach(([x,y,z],i)=>{const xx=origin+x*scale,yy=origin+(y-z*SOLDAT_HEIGHT_PROJECTION)*scale;i?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy);});ctx.closePath();
     ctx.fillStyle=`rgb(${face.color.map(v=>Math.round(v*face.shade)).join(',')})`;ctx.fill();ctx.lineWidth=.6;ctx.strokeStyle='rgba(15,19,15,.65)';ctx.stroke();
   }
   // Fine material grain, not a colored outline or a glow. Same seed for all views.

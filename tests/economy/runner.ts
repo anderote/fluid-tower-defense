@@ -55,7 +55,7 @@ async function reset() {
 
 async function gpuCheck(repulsor:boolean) {
   const adapter=await navigator.gpu.requestAdapter();assert(adapter,'WebGPU adapter unavailable');
-  const device=await adapter.requestDevice();
+  const device=await adapter.requestDevice({requiredLimits:{maxStorageBuffersPerShaderStage:9}});
   const errors:string[]=[];device.addEventListener('uncapturederror',event=>errors.push(event.error.message));
   const count=repulsor?2:34;
   const shared:SharedGPU={
@@ -101,17 +101,16 @@ async function gpuCheck(repulsor:boolean) {
 }
 
 const cases=[
-  {name:'Gun unlock, placement, reload, and reset use only run Metal',run:async()=>{
-    await fresh(3120);click('[data-unlock="mortar"]');
-    await until(()=>text('#metal')==='120','Unlock did not charge 3000 Metal');
-    assert(!element('[data-tower="mortar"]').hasAttribute('data-unlock'),'Unlocked gun still requests research');
+  {name:'All guns remain unlocked through placement, reload, and reset',run:async()=>{
+    await fresh(120);
+    assert(!element('[data-tower="mortar"]').hasAttribute('data-unlock'),'Mortar did not start unlocked');
     click('[data-tower="mortar"]');point(80,50);
     await until(()=>text('#metal')==='000','Mortar placement did not charge 120 Metal');
     await until(()=>savedModel()?.towers.length===1,'Autosave did not capture the mortar');
     await navigate('/');
-    assert(!element('[data-tower="mortar"]').hasAttribute('data-unlock'),'Reload lost the weapon unlock');
+    assert(!element('[data-tower="mortar"]').hasAttribute('data-unlock'),'Reload locked the mortar');
     await reset();
-    assert(element('[data-tower="mortar"]').hasAttribute('data-unlock'),'Reset retained a weapon unlock');
+    assert(!element('[data-tower="mortar"]').hasAttribute('data-unlock'),'Reset locked the mortar');
   }},
   {name:'Stat purchases, affordability, combat upgrades, and save/reset work',run:async()=>{
     await fresh(200);click('#research-tab');click('[data-stat="damage"]');
