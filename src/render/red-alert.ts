@@ -68,13 +68,22 @@ struct Out{@builtin(position) pos:vec4<f32>,@location(0) uv:vec2<f32>,@location(
 @vertex fn vs(@builtin(vertex_index) id:u32,@location(0) rect:vec4<f32>,@location(1) source:vec4<f32>,@location(2) tint:vec4<f32>)->Out{
  let corners=array<vec2<f32>,6>(vec2(0.,0.),vec2(1.,0.),vec2(0.,1.),vec2(0.,1.),vec2(1.,0.),vec2(1.,1.));let q=corners[id];let p=rect.xy+q*rect.zw;
  let aspect=camera.viewport.x/camera.viewport.y;let worldAspect=camera.world.z/camera.world.w;let scale=vec2(min(1.,worldAspect/aspect),min(1.,aspect/worldAspect));
- var o:Out;o.pos=vec4((vec2(2.,-2.)*(p-camera.world.xy)/camera.world.zw+vec2(-1.,1.))*scale,0.,1.);
+ // A sprite's full footprint shares one depth: its lowest world-space edge.
+ // Smaller depth is closer to the camera, matching the unit renderer.
+ let ground=rect.y+rect.w;
+ let depth=clamp(.95-(ground-camera.world.y)/camera.world.w*.8,.01,.99);
+ var o:Out;o.pos=vec4((vec2(2.,-2.)*(p-camera.world.xy)/camera.world.zw+vec2(-1.,1.))*scale,depth,1.);
  o.uv=source.xy+q*source.zw;o.tint=tint;return o;
 }
 @fragment fn fs(i:Out)->@location(0) vec4<f32>{let pixel=textureLoad(atlas,vec2<i32>(floor(i.uv)),0);if(pixel.a<.01){discard;}return pixel*i.tint;}`});
   const info=await shader.getCompilationInfo();if(info.messages.some(m=>m.type==='error'))throw Error(info.messages.map(m=>m.message).join('\n'));
-  const pipeline=device.createRenderPipeline({label:'Red Alert sprites',layout:'auto',vertex:{module:shader,entryPoint:'vs',buffers:[{arrayStride:48,stepMode:'instance',attributes:[{shaderLocation:0,offset:0,format:'float32x4'},{shaderLocation:1,offset:16,format:'float32x4'},{shaderLocation:2,offset:32,format:'float32x4'}]}]},fragment:{module:shader,entryPoint:'fs',targets:[{format,blend:{color:{srcFactor:'src-alpha',dstFactor:'one-minus-src-alpha',operation:'add'},alpha:{srcFactor:'one',dstFactor:'one-minus-src-alpha',operation:'add'}}}]},primitive:{topology:'triangle-list'}});
-  const bindings=device.createBindGroup({layout:pipeline.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:camera}},{binding:1,resource:texture.createView()}]});
+  const bindLayout=device.createBindGroupLayout({entries:[{binding:0,visibility:GPUShaderStage.VERTEX,buffer:{type:'uniform'}},{binding:1,visibility:GPUShaderStage.FRAGMENT,texture:{}}]});
+  const layout=device.createPipelineLayout({bindGroupLayouts:[bindLayout]});
+  const pipeline=device.createRenderPipeline({label:'Red Alert sprites',layout,vertex:{module:shader,entryPoint:'vs',buffers:[{arrayStride:48,stepMode:'instance',attributes:[{shaderLocation:0,offset:0,format:'float32x4'},{shaderLocation:1,offset:16,format:'float32x4'},{shaderLocation:2,offset:32,format:'float32x4'}]}]},fragment:{module:shader,entryPoint:'fs',targets:[{format,blend:{color:{srcFactor:'src-alpha',dstFactor:'one-minus-src-alpha',operation:'add'},alpha:{srcFactor:'one',dstFactor:'one-minus-src-alpha',operation:'add'}}}]},primitive:{topology:'triangle-list'}});
+  // Every tall object uses its ground-contact line as depth. This lets a unit
+  // naturally pass in front of or behind a tree, wall, or turret by map Y.
+  const depthPipeline=device.createRenderPipeline({label:'Ground-sorted Red Alert sprites',layout,vertex:{module:shader,entryPoint:'vs',buffers:[{arrayStride:48,stepMode:'instance',attributes:[{shaderLocation:0,offset:0,format:'float32x4'},{shaderLocation:1,offset:16,format:'float32x4'},{shaderLocation:2,offset:32,format:'float32x4'}]}]},fragment:{module:shader,entryPoint:'fs',targets:[{format,blend:{color:{srcFactor:'src-alpha',dstFactor:'one-minus-src-alpha',operation:'add'},alpha:{srcFactor:'one',dstFactor:'one-minus-src-alpha',operation:'add'}}}]},primitive:{topology:'triangle-list'},depthStencil:{format:'depth32float',depthWriteEnabled:true,depthCompare:'less-equal'}});
+  const bindings=device.createBindGroup({layout:bindLayout,entries:[{binding:0,resource:{buffer:camera}},{binding:1,resource:texture.createView()}]});
   const createBatch=(label:string)=>({buffer:device.createBuffer({label,size:48,usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST}),capacity:1,count:0});
   const terrain=createBatch('Facility floor'),walls=createBatch('Facility walls'),sceneryProps=createBatch('Landscape trees and buildings'),towers=createBatch('Original defense sprites'),wireBatch=createBatch('Connected Red Alert wire'),wireGhost=createBatch('Wire placement preview');
   const upload=(batch:ReturnType<typeof createBatch>,data:number[])=>{
@@ -169,6 +178,6 @@ struct Out{@builtin(position) pos:vec4<f32>,@location(0) uv:vec2<f32>,@location(
     if(scene.ghost)draw(scene.ghost,scene.ghost.valid?[.7,1,.7,.65]:[1,.3,.3,.65]);
     upload(towers,data);
   }
-  function draw(pass:GPURenderPassEncoder,batch:ReturnType<typeof createBatch>){if(!batch.count)return;pass.setPipeline(pipeline);pass.setBindGroup(0,bindings);pass.setVertexBuffer(0,batch.buffer);pass.draw(6,batch.count);}
-  return {prepare,hasWireSprites,drawFloor:(pass:GPURenderPassEncoder)=>draw(pass,terrain),drawStructures:(pass:GPURenderPassEncoder)=>{draw(pass,walls);draw(pass,wireBatch);draw(pass,sceneryProps);},drawTowers:(pass:GPURenderPassEncoder)=>{draw(pass,towers);draw(pass,wireGhost);},destroy(){terrain.buffer.destroy();walls.buffer.destroy();sceneryProps.buffer.destroy();towers.buffer.destroy();wireBatch.buffer.destroy();wireGhost.buffer.destroy();texture.destroy();}};
+  function draw(pass:GPURenderPassEncoder,batch:ReturnType<typeof createBatch>,groundSorted=false){if(!batch.count)return;pass.setPipeline(groundSorted?depthPipeline:pipeline);pass.setBindGroup(0,bindings);pass.setVertexBuffer(0,batch.buffer);pass.draw(6,batch.count);}
+  return {prepare,hasWireSprites,drawFloor:(pass:GPURenderPassEncoder)=>draw(pass,terrain),drawWires:(pass:GPURenderPassEncoder)=>{draw(pass,wireBatch);draw(pass,wireGhost);},drawOccluders:(pass:GPURenderPassEncoder)=>{draw(pass,walls,true);draw(pass,sceneryProps,true);},drawTowers:(pass:GPURenderPassEncoder)=>draw(pass,towers,true),destroy(){terrain.buffer.destroy();walls.buffer.destroy();sceneryProps.buffer.destroy();towers.buffer.destroy();wireBatch.buffer.destroy();wireGhost.buffer.destroy();texture.destroy();}};
 }

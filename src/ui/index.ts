@@ -76,6 +76,22 @@ export function createUI(
     streamWidth.querySelector("b")!.textContent = `${value} × 100K`;
     onAction({type:'stream-width',value});
   });
+  const header = shell.querySelector("header")!,
+    headerStack = document.createElement("div"),
+    telemetry = document.createElement("div"),
+    headerActions = document.createElement("div");
+  headerStack.className = "header-stack";
+  telemetry.className = "header-telemetry";
+  headerActions.className = "header-actions";
+  telemetry.append($(".hud"), difficulty, streamWidth, $(".status"), $(".metrics"));
+  $(".simulation-controls [data-action=\"pause\"]").remove();
+  headerStack.append(telemetry, $(".simulation-controls"));
+  headerActions.append($(".view-actions"));
+  header.replaceChildren($(".brand"), headerStack, headerActions);
+  const waveButton = $<HTMLButtonElement>(".start-wave-top"),
+    buildDock = root.querySelector<HTMLElement>("aside")!;
+  waveButton.classList.add("wave-control");
+  buildDock.insertBefore(waveButton, buildDock.firstChild);
   root
     .querySelectorAll<HTMLButtonElement>("[data-tower]")
     .forEach(
@@ -289,18 +305,21 @@ export function createUI(
       $("#fps").textContent = `${s.fps | 0} FPS`;
       $("#ms").textContent = `${s.frameMs.toFixed(1)} MS`;
       $("#live").textContent = s.population.toLocaleString();
-      const waveControl = s.mode === "lab"
+      const waveActive = s.mode === "game" && ["combat", "settling"].includes(s.phase),
+        waveControl = waveActive
+          ? {label: s.paused ? "RESUME WAVE" : "PAUSE WAVE", reason: "", action: "pause" as const}
+          : s.mode === "lab"
         ? {label: "LAB MODE", reason: "Lab mode runs continuously and has no waves."}
         : s.phase === "preparation"
           ? s.bonusChoices.length
             ? {label: "CHOOSE BOON", reason: "Choose a command boon at the top of the sidebar to unlock the next wave."}
-            : {label: "START WAVE", reason: ""}
+            : {label: "START WAVE", reason: "", action: "start-wave" as const}
           : s.phase === "checkpoint"
             ? {label: "EXTRACTION READY", reason: "Choose Continue in the sidebar to prepare the next wave, or Finish Run to extract."}
             : s.phase === "won"
               ? {label: "RUN COMPLETE", reason: "Run complete. Use Reset in the Build controls to begin another defense."}
-              : s.phase === "lost"
-                ? {label: "BASE LOST", reason: "The base was lost. Use Restart in the Build controls to retry with your defenses."}
+            : s.phase === "lost"
+                ? {label: "RESTART WAVE", reason: "", action: "restart-wave" as const}
                 : s.paused
                   ? {label: "WAVE PAUSED", reason: "This wave is paused. Use Resume in the top bar or press Space to continue."}
                   : {label: "WAVE ACTIVE", reason: "A wave is already running. Clear the remaining horde before starting the next wave."};
@@ -364,22 +383,16 @@ export function createUI(
         button.disabled = bad;
       });
       root.querySelector<HTMLButtonElement>(
-        '[data-action="pause"]',
-      )!.textContent = s.paused ? "RESUME" : "PAUSE";
-      root.querySelector<HTMLButtonElement>(
         '[data-action="restart-wave"]',
       )!.disabled = s.mode !== "game" || !["combat", "settling", "lost"].includes(s.phase);
       root.querySelector<HTMLButtonElement>('[data-action="sell"]')!.disabled =
         !chosen;
       root.classList.toggle("upgrade-mode", s.upgradeMode);
-      root
-        .querySelectorAll<HTMLButtonElement>('[data-action="start-wave"]')
-        .forEach(button => {
-          button.disabled = !!waveControl.reason;
-          button.textContent = waveControl.label;
-          button.title = waveControl.reason || "Start the next wave.";
-          button.setAttribute("aria-describedby", "help");
-        });
+      waveButton.dataset.action = waveControl.action ?? "start-wave";
+      waveButton.classList.toggle("is-active", waveActive);
+      waveButton.disabled = !!waveControl.reason;
+      waveButton.textContent = waveControl.label;
+      waveButton.title = waveControl.reason || (waveActive ? "Pause or resume the current wave." : "Start the next wave.");
       const bonusCard = $("#bonuses");
       bonusCard.hidden = !s.bonusChoices.length;
       renderMarkup($("#bonus-choices"), s.bonusChoices
