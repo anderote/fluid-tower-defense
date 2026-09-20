@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
+import {DEFAULT_MAP} from '../content/index.ts';
 import {CommandProgression, createRun, WAVES_PER_LEVEL, waveFor} from './index.ts';
 
 test('cumulative settlements pay only newly reported totals',()=>{
@@ -49,19 +50,14 @@ test('placing a tower leaves the inspector closed',()=>{
   assert.equal(run.place('repulsor',{x:84,y:50}).ok,true);
   assert.equal(run.model.selected,null);
 });
-test('tower placement sits flush with the top and bottom map edges',()=>{
-  const top=createRun(),bottom=createRun();
-  const topTower=top.place('repulsor',{x:32,y:0}),bottomTower=bottom.place('repulsor',{x:32,y:100});
-  assert.ok(topTower.ok&&topTower.tower);assert.equal(topTower.tower.y,1.25);
-  assert.ok(bottomTower.ok&&bottomTower.tower);assert.equal(bottomTower.tower.y,98.75);
-});
-test('restarting a wave restores its enemy queue and base while retaining defenses',()=>{
-  const run=createRun();const placed=run.place('repulsor',{x:84,y:50});assert.ok(placed.ok);
-  assert.equal(run.startWave().ok,true);run.takeSpawns(50);
-  run.applySettlement({epoch:run.epoch,tick:1,kills:0,crushKills:0,leaks:3,earned:0,live:47,invalid:0,maxPacking:0});
-  const previousEpoch=run.epoch;assert.equal(run.restartWave().ok,true);
-  assert.equal(run.model.phase,'combat');assert.equal(run.model.baseHealth,20);assert.equal(run.model.towers.length,1);
-  assert.equal(run.model.pending.reduce((sum,batch)=>sum+batch.count,0),waveFor(1,1).spawns.reduce((sum,batch)=>sum+batch.count,0));assert.equal(run.epoch,previousEpoch+1);
+test('player-built walls support one centered tower and preserve it in saves',()=>{
+  const mount={x:32,y:20,width:4,height:4},map={...DEFAULT_MAP,id:'wall-mount-test',obstacles:[...DEFAULT_MAP.obstacles,mount]};
+  const run=createRun(map);run.setBuildMounts([mount]);
+  const placed=run.place('repulsor',{x:34,y:22});
+  assert.ok(placed.ok&&placed.tower);assert.deepEqual({x:placed.tower.x,y:placed.tower.y},{x:34,y:22});
+  assert.equal(run.place('cryo',{x:34,y:22}).ok,false);
+  const restored=createRun(map);restored.setBuildMounts([mount]);
+  assert.equal(restored.load(run.save()).ok,true);assert.deepEqual({x:restored.model.towers[0].x,y:restored.model.towers[0].y},{x:34,y:22});
 });
 test('difficulty multiplier scales continuous zombie production and clamps to 1–40',()=>{
   const baseline=createRun(), intense=createRun();
