@@ -55,16 +55,50 @@ const PHASE_WEIGHTS:readonly (readonly [SpawnBatch['kind'],number])[][]=[
 // made even rate-based waves look like periodic mass spawns.
 const burstFor=(_kind:SpawnBatch['kind']):number=>1;
 
+type WaveStage={duration:number;from:number;to:number;mix:readonly (readonly [SpawnBatch['kind'],number])[]};
+const OPENING_STAGES:readonly WaveStage[]=[
+  {duration:20,from:0,to:300,mix:[['shambler',1]]},
+  {duration:10,from:300,to:300,mix:[['shambler',.95],['runner',.05]]},
+  {duration:10,from:300,to:900,mix:[['shambler',.85],['runner',.15]]},
+  {duration:10,from:900,to:1_500,mix:[['shambler',.65],['runner',.25],['husk',.1]]},
+  {duration:15,from:1_500,to:1_500,mix:[['shambler',.7],['runner',.2],['husk',.1]]},
+  {duration:10,from:1_500,to:500,mix:[['shambler',.9],['runner',.1]]},
+  {duration:10,from:500,to:1_100,mix:[['shambler',.6],['runner',.25],['husk',.15]]},
+  {duration:15,from:1_100,to:1_100,mix:[['shambler',.55],['runner',.25],['husk',.2]]},
+  {duration:10,from:1_100,to:2_700,mix:[['shambler',.5],['runner',.3],['husk',.2]]},
+];
+
+const stagedSpawns=(stages:readonly WaveStage[],seed:number,healthScale:number):SpawnBatch[]=>{
+  const spawns:SpawnBatch[]=[];
+  let start=0,batchIndex=0;
+  for(const stage of stages){
+    const total=Math.round(stage.duration*(stage.from+stage.to)/2);
+    const weightTotal=stage.mix.reduce((sum,[,weight])=>sum+weight,0);
+    let assigned=0;
+    for(let index=0;index<stage.mix.length;index++){
+      const [kind,weight]=stage.mix[index],last=index===stage.mix.length-1;
+      const count=last?total-assigned:Math.round(total*weight/weightTotal);assigned+=count;
+      const share=count/total;
+      spawns.push({kind,count,seed:seed+batchIndex++*17,start,duration:stage.duration,rate:stage.from*share,endRate:stage.to*share,burst:burstFor(kind),band:'inlet',healthScale});
+    }
+    start+=stage.duration;
+  }
+  return spawns;
+};
+
 /** Deterministic authored-pattern director with bounded population and unbounded stat scaling. */
-export function waveFor(level:number,wave:number,slider=1):Wave {
+export function waveFor(level:number,wave:number):Wave {
   const globalWave=Math.max(1,Math.floor(wave>WAVES_PER_LEVEL?wave:(Math.max(1,level)-1)*WAVES_PER_LEVEL+wave));
   const threat=globalWave-1,phase=(globalWave-1)%WAVES_PER_LEVEL,cycle=Math.floor((globalWave-1)/WAVES_PER_LEVEL);
   // The quota is intentionally far beyond the on-screen population. The inlet
   // keeps feeding until it is met, while the runtime pauses it when capacity is full.
-  const hordeScale=Math.max(1,Math.min(100,Math.round(slider)));
-  const total=Math.round(hordeScale*100_000*Math.pow(globalWave,1.67));
+  const total=Math.round(100_000*Math.pow(globalWave,1.67));
   const healthScale=1+Math.max(0,globalWave-WAVES_PER_LEVEL)*.035;
   const seed=(globalWave*10_000+globalWave*977)>>>0;
+  if(globalWave===1){
+    const spawns=stagedSpawns(OPENING_STAGES,seed,healthScale);
+    return {spawns,payment:210,boss:false,total,healthScale,peakRate:2_700,rampSeconds:110};
+  }
   const weights=new Map(PHASE_WEIGHTS[phase]);
   if(cycle>0){for(const kind of ['runner','brute','rager','softbody','husk'] as const)weights.set(kind,(weights.get(kind)??0)+.025);}
   const weightTotal=[...weights.values()].reduce((sum,value)=>sum+value,0);
@@ -115,7 +149,7 @@ export class RunController {
   private spawnElapsed=0;
   private spawnAllocation=0;
   private spawnMultiplier=1;
-  private hordeScale=1;
+  private spawnPeakRate=2_400;
   private waveStartBaseHealth=20;
   private map:WorldMap;
   private buildMounts:Rect[]=[];
@@ -125,7 +159,6 @@ export class RunController {
   get epoch():number { return this.runEpoch; }
   get isBossWave():boolean { return this.model.wave>0&&this.model.wave%WAVES_PER_LEVEL===0; }
   setSpawnMultiplier(value:number):number { this.spawnMultiplier=Math.max(1,Math.min(40,Math.round(value)||1)); return this.spawnMultiplier; }
-  setHordeScale(value:number):number { this.hordeScale=Math.max(1,Math.min(100,Math.round(value)||1)); return this.hordeScale; }
 
   statUpgrades():StatUpgrade[] {
     return STAT_DEFS.map(def=>({...def,rank:this.model.statRanks[def.id]??0}));
@@ -222,26 +255,37 @@ export class RunController {
   startWave():ActionResult {
     if (this.model.phase!=='preparation') return {ok:false,reason:'The current wave is not ready to start.'};
     if(this.model.bonusChoices.length)return {ok:false,reason:'Choose a command boon before starting the wave.'};
-    const wave=waveFor(this.model.level,this.model.wave+1,this.hordeScale); this.waveStartBaseHealth=this.model.baseHealth;this.model.wave++; this.model.pending=wave.spawns.map(batch=>({...batch,credit:0})); this.model.phase='combat'; this.live=0;this.spawnElapsed=0;this.spawnAllocation=0;
+    const wave=waveFor(this.model.level,this.model.wave+1); this.waveStartBaseHealth=this.model.baseHealth;this.model.wave++; this.model.pending=wave.spawns.map(batch=>({...batch,credit:0})); this.model.phase='combat'; this.live=0;this.spawnElapsed=0;this.spawnAllocation=0;this.spawnPeakRate=wave.peakRate;
     return {ok:true};
   }
   restartWave():ActionResult {
     if(this.model.wave<1||!['combat','settling','lost'].includes(this.model.phase))return {ok:false,reason:'There is no active wave to restart.'};
-    const wave=waveFor(this.model.level,this.model.wave,this.hordeScale);this.model.pending=wave.spawns.map(batch=>({...batch,credit:0}));this.model.phase='combat';this.model.baseHealth=this.waveStartBaseHealth;this.model.selected=null;
-    this.live=0;this.spawnElapsed=0;this.spawnAllocation=0;this.runEpoch++;this.applied=emptyApplied();
+    const wave=waveFor(this.model.level,this.model.wave);this.model.pending=wave.spawns.map(batch=>({...batch,credit:0}));this.model.phase='combat';this.model.baseHealth=this.waveStartBaseHealth;this.model.selected=null;
+    this.live=0;this.spawnElapsed=0;this.spawnAllocation=0;this.spawnPeakRate=wave.peakRate;this.runEpoch++;this.applied=emptyApplied();
     return {ok:true};
   }
   takeSpawns(capacity:number, seconds=0):SpawnBatch[] {
     if (this.model.phase!=='combat' || !isFiniteInteger(capacity) || capacity<0) return [];
-    const previous=this.spawnElapsed;this.spawnElapsed+=Math.max(0,seconds);
+    const previous=this.spawnElapsed;this.spawnElapsed+=Math.max(0,seconds)*this.spawnMultiplier;
     const accepted:SpawnBatch[]=[];
     const earned=this.model.pending.map(batch=>{
-      const active=Math.max(0,this.spawnElapsed-Math.max(previous,batch.start??0));
+      const start=batch.start??0,duration=batch.duration;
+      let demand=0;
+      if(duration===undefined){
+        demand=Math.max(0,this.spawnElapsed-Math.max(previous,start))*(batch.rate??1);
+      }else{
+        const from=Math.max(0,Math.min(duration,previous-start)),to=Math.max(0,Math.min(duration,this.spawnElapsed-start));
+        const first=batch.rate??1,last=batch.endRate??first,slope=(last-first)/duration;
+        demand=first*(to-from)+slope*(to*to-from*from)/2;
+        const tail=Math.max(0,this.spawnElapsed-start-duration)-Math.max(0,previous-start-duration);
+        demand+=tail*(first+last)/2;
+      }
       // Credit is bounded: a blocked entrance cannot accumulate a catch-up explosion.
-      batch.credit=seconds===0?batch.count:Math.min((batch.credit??0)+active*(batch.rate??1)*this.spawnMultiplier,Math.max(1,(batch.rate??1)*this.spawnMultiplier*.5));
+      const creditRate=Math.max(batch.rate??1,batch.endRate??batch.rate??1);
+      batch.credit=seconds===0?batch.count:Math.min((batch.credit??0)+demand,Math.max(1,creditRate*this.spawnMultiplier*.5));
       return Math.min(batch.count,Math.floor(batch.credit));
     });
-    const total=earned.reduce((sum,value)=>sum+value,0), budget=seconds===0?total:Math.min(capacity,total);
+    const total=earned.reduce((sum,value)=>sum+value,0), budget=seconds===0?total:Math.min(capacity,total,Math.max(1,Math.ceil(this.spawnPeakRate*this.spawnMultiplier*.5)));
     let allocated=0,cumulative=0;
     const phase=budget>0?(this.spawnAllocation++*.61803398875)%1:0;
     for(let index=0;index<this.model.pending.length;index++){
