@@ -72,6 +72,15 @@ const cases:{name:string;run:()=>Promise<void>}[]=[
   click('[data-meta="damage"]');await until(()=>text('#command-xp')==='125 XP','Recovered profile could not purchase an upgrade');
   await navigate();click('#research-tab');assert(text('[data-meta="damage"]').includes('1/10'),'Recovered purchase did not persist');
  }},
+ {name:'Keyboard shortcuts respect controls, browser modifiers, and held keys',run:async()=>{
+  await fresh();const research=element('#research-tab');research.focus();
+  const space=new KeyboardEvent('keydown',{key:' ',code:'Space',bubbles:true,cancelable:true});research.dispatchEvent(space);
+  assert(!space.defaultPrevented,'Space activation on a button was intercepted');await sleep(200);assert(text('#phase')==='PREPARATION','Button Space started combat');
+  doc().body.dispatchEvent(new KeyboardEvent('keydown',{key:'q',ctrlKey:true,bubbles:true}));await sleep(200);assert(!element('[data-action="wall-tool"]').classList.contains('active'),'Browser modifier selected a build tool');
+  doc().body.dispatchEvent(new KeyboardEvent('keydown',{key:'q',bubbles:true}));await until(()=>element('[data-action="wall-tool"]').classList.contains('active'),'Wall shortcut did not activate');
+  doc().body.dispatchEvent(new KeyboardEvent('keydown',{key:'q',repeat:true,bubbles:true}));await sleep(200);assert(element('[data-action="wall-tool"]').classList.contains('active'),'Held shortcut toggled the tool off');
+  doc().body.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));await until(()=>!element('[data-action="wall-tool"]').classList.contains('active'),'Escape did not cancel placement');
+ }},
  {name:'Research buttons retain keyboard focus between telemetry updates',run:async()=>{
   await fresh();click('#research-tab');const control=element<HTMLButtonElement>('[data-command="repulsor-impact-1"]');control.focus();
   await sleep(600);assert(control.isConnected,'Research controls were recreated during telemetry refresh');assert(doc().activeElement===control,'Keyboard focus was lost during telemetry refresh');

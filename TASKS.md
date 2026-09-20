@@ -55,3 +55,9 @@ Validation: the new browser focus check failed before the fix; 53 CPU tests, pro
 Validate saved Command XP, upgrade ranks, and unlocked tiers before using them. Known ranks recover as bounded integers; unknown or malformed values cannot create invalid arrays or poison gameplay. Valid progress survives recovery and subsequent purchases persist normally.
 
 Validation: malformed-profile unit test reproduced the issue; 55 CPU tests, production build, and 8/8 browser E2E scenarios passed, including damaged-profile startup, purchase, and reload.
+
+## Keyboard control handling
+
+Let focused buttons handle Space, preserve browser modifier shortcuts and text editing, suppress repeated toggle actions from held keys, and clear camera movement on blur, hidden tabs, or text-input focus.
+
+Validation: 55 CPU tests, production build, and 9/9 browser E2E scenarios passed. The keyboard case covers button Space, modifier shortcuts, held build keys, and Escape cancellation.

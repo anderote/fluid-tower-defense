@@ -177,8 +177,35 @@ try {
    }else state.message=`World position ${point.x.toFixed(1)}, ${point.y.toFixed(1)} · peak packing ${latest.maxPacking.toFixed(2)}`;
  });
  const panKeys=new Set<string>();
- window.addEventListener('keydown',event=>{if((event.target as HTMLElement).matches('input,textarea,select'))return;const key=event.key.toLowerCase();if(['w','a','s','d'].includes(key)){event.preventDefault();panKeys.add(key);return;}const towerIndex=Number(key)-1;if(Number.isInteger(towerIndex)&&towerIndex>=0&&towerIndex<Object.keys(TOWERS).length){event.preventDefault();handleAction({type:'select-tower',kind:Object.keys(TOWERS)[towerIndex] as keyof typeof TOWERS});return;}if(key==='q'){event.preventDefault();handleAction({type:'wall-tool'});return;}if(key==='e'){event.preventDefault();handleAction({type:'wire-tool'});return;}if(key==='r'){event.preventDefault();handleAction({type:'demolish-tool'});return;}if(event.code==='Space'){event.preventDefault();handleAction(state.mode==='game'&&run.model.phase==='preparation'?{type:'start-wave'}:{type:'pause'});}if(event.key==='Escape'){event.preventDefault();state.selectedKind=null;state.buildTool=null;run.model.selected=null;state.message='Placement cancelled.';}if(key==='h')handleAction({type:'heatmap',value:!state.heatmap});if(key==='+'||key==='=')renderer.zoomAt(1.13,ui.canvas.getBoundingClientRect().x+ui.canvas.clientWidth/2,ui.canvas.getBoundingClientRect().y+ui.canvas.clientHeight/2);if(key==='-')renderer.zoomAt(1/1.13,ui.canvas.getBoundingClientRect().x+ui.canvas.clientWidth/2,ui.canvas.getBoundingClientRect().y+ui.canvas.clientHeight/2);});
+ window.addEventListener('keydown',event=>{
+   if(event.defaultPrevented||event.ctrlKey||event.metaKey||event.altKey||event.isComposing)return;
+   const target=event.target;
+   if(target instanceof HTMLElement&&(target.isContentEditable||target.closest('input,textarea,select')))return;
+   if(event.code==='Space'&&target instanceof HTMLElement&&target.closest('button,a[href],[role=button]'))return;
+   const key=event.key.toLowerCase();
+   if(['w','a','s','d'].includes(key)){event.preventDefault();panKeys.add(key);return;}
+   if(event.repeat&&[' ','q','e','r','h','escape','1','2','3','4','5','6','7','8'].includes(key)){event.preventDefault();return;}
+   const towerIndex=Number(key)-1;
+   if(Number.isInteger(towerIndex)&&towerIndex>=0&&towerIndex<Object.keys(TOWERS).length){
+     event.preventDefault();handleAction({type:'select-tower',kind:Object.keys(TOWERS)[towerIndex] as keyof typeof TOWERS});return;
+   }
+   if(key==='q'){event.preventDefault();handleAction({type:'wall-tool'});return;}
+   if(key==='e'){event.preventDefault();handleAction({type:'wire-tool'});return;}
+   if(key==='r'){event.preventDefault();handleAction({type:'demolish-tool'});return;}
+   if(event.code==='Space'){
+     event.preventDefault();handleAction(state.mode==='game'&&run.model.phase==='preparation'?{type:'start-wave'}:{type:'pause'});
+   }
+   if(event.key==='Escape'){
+     event.preventDefault();state.selectedKind=null;state.buildTool=null;run.model.selected=null;state.message='Placement cancelled.';
+   }
+   if(key==='h')handleAction({type:'heatmap',value:!state.heatmap});
+   if(key==='+'||key==='=')renderer.zoomAt(1.13,ui.canvas.getBoundingClientRect().x+ui.canvas.clientWidth/2,ui.canvas.getBoundingClientRect().y+ui.canvas.clientHeight/2);
+   if(key==='-')renderer.zoomAt(1/1.13,ui.canvas.getBoundingClientRect().x+ui.canvas.clientWidth/2,ui.canvas.getBoundingClientRect().y+ui.canvas.clientHeight/2);
+ });
  window.addEventListener('keyup',event=>panKeys.delete(event.key.toLowerCase()));
+ window.addEventListener('blur',()=>panKeys.clear());
+ document.addEventListener('visibilitychange',()=>{if(document.hidden)panKeys.clear();});
+ document.addEventListener('focusin',event=>{const target=event.target;if(target instanceof HTMLElement&&(target.isContentEditable||target.closest('input,textarea,select')))panKeys.clear();});
  function updateUI(now:number){
    const report=metrics.report();state.fps=report.fps;state.frameMs=report.medianMs;
    state.metal=run.model.metal;state.baseHealth=run.model.baseHealth/20*100;state.level=run.model.level;state.wave=run.model.wave;state.waveCount=run.model.waveCount;state.phase=state.mode==='lab'?'combat':run.model.phase;
