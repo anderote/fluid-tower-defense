@@ -6,7 +6,9 @@ import {createStructurePreview,clearPlayerTerrain,snapToMount,structurePlacement
 
 test('reset clears player collisions while preserving authored terrain',()=>{
  const wall={x:20,y:20,width:4,height:4},wire={x:28,y:20,width:4,height:4};
- const map={...DEFAULT_MAP,obstacles:[...DEFAULT_MAP.obstacles,wall,wire]};
+ // Map snapshots and build records are serialized independently, so they need
+ // not share object identity when a run is reset.
+ const map={...DEFAULT_MAP,obstacles:[...DEFAULT_MAP.obstacles,{...wall},{...wire}]};
  const cleared=clearPlayerTerrain(map,[wall],[wire]);
  assert.deepEqual(cleared.obstacles,DEFAULT_MAP.obstacles);
  assert.equal(map.obstacles.length,DEFAULT_MAP.obstacles.length+2);
