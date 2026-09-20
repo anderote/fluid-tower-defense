@@ -34,7 +34,7 @@ const isFiniteInteger = (value:unknown):value is number => typeof value === 'num
 const isNonNegative = (value:unknown):value is number => typeof value === 'number' && Number.isFinite(value) && value >= 0;
 const isTowerKind = (value:unknown):value is TowerKind => typeof value === 'string' && Object.hasOwn(TOWERS,value);
 const copy = (model:RunModel):RunModel => ({...model,towers:model.towers.map(t=>({...t})),pending:model.pending.map(b=>({...b})),bonusChoices:model.bonusChoices.map(b=>({...b})),bonuses:[...model.bonuses],commandUpgrades:[...model.commandUpgrades],unlockedTowers:[...model.unlockedTowers],statRanks:{...model.statRanks}});
-const fresh = ():RunModel => ({phase:'preparation',metal:STARTING_METAL,baseHealth:20,level:1,wave:0,waveCount:WAVES_PER_LEVEL,towers:[],selected:null,pending:[],bonusChoices:[],bonuses:[],commandUpgrades:[],unlockedTowers:[...STARTER_TOWERS],statRanks:{}});
+const fresh = ():RunModel => ({phase:'preparation',metal:STARTING_METAL,salvageCredit:0,baseHealth:20,level:1,wave:0,waveCount:WAVES_PER_LEVEL,towers:[],selected:null,pending:[],bonusChoices:[],bonuses:[],commandUpgrades:[],unlockedTowers:[...STARTER_TOWERS],statRanks:{}});
 
 const PHASE_WEIGHTS:readonly (readonly [SpawnBatch['kind'],number])[][]=[
   [['shambler',1]],
@@ -227,14 +227,25 @@ export class RunController {
     if (!this.validSettlement(settlement) || settlement.epoch<this.runEpoch || (settlement.epoch===this.runEpoch && settlement.tick<=this.applied.tick)) return;
     if (settlement.epoch>this.runEpoch) { this.runEpoch=settlement.epoch; this.applied=emptyApplied(); }
     if (settlement.kills<this.applied.kills || settlement.crushKills<this.applied.crushKills || settlement.leaks<this.applied.leaks || settlement.earned<this.applied.earned) return;
-    const kills=settlement.kills-this.applied.kills, leaks=settlement.leaks-this.applied.leaks, earned=settlement.earned-this.applied.earned;
+    const leaks=settlement.leaks-this.applied.leaks, earned=settlement.earned-this.applied.earned;
     const priorTowerKills=this.applied.towerKills;
     this.applied={kills:settlement.kills,crushKills:settlement.crushKills,leaks:settlement.leaks,earned:settlement.earned,tick:settlement.tick,towerKills:priorTowerKills};
-    this.model.metal+=Math.floor(earned*(this.model.commandUpgrades.includes('salvage-magnets')?1.25:1)); this.model.baseHealth=Math.max(0,this.model.baseHealth-leaks); this.live=settlement.live;
+    this.model.metal+=earned;
+    if(this.model.commandUpgrades.includes('salvage-magnets')){
+      // Four base Metal earn one bonus Metal, independent of readback batch size.
+      const credit=(this.model.salvageCredit??0)+earned;
+      this.model.metal+=Math.floor(credit/4);this.model.salvageCredit=credit%4;
+    }
+    this.model.baseHealth=Math.max(0,this.model.baseHealth-leaks); this.live=settlement.live;
     const reported=settlement.towerKills??[];
     for(let index=0;index<this.model.towers.length;index++){
       const total=Math.max(0,Math.floor(reported[index]??0)), previous=priorTowerKills[index]??0;
-      if(total>=previous)this.model.towers[index].kills=(this.model.towers[index].kills??0)+(total-previous);
+      if(total>previous){
+        const tower=this.model.towers[index],kills=total-previous;
+        tower.kills=(tower.kills??0)+kills;
+        tower.veterancyXp=(tower.veterancyXp??0)+kills;
+        tower.veterancy=veterancyLevel(tower.veterancyXp);
+      }
     }
     this.applied.towerKills=Array.from({length:MAX_TOWERS},(_,index)=>Math.max(this.applied.towerKills[index]??0,Math.floor(reported[index]??0)));
     if (this.model.baseHealth===0) this.model.phase='lost';
@@ -311,7 +322,7 @@ export class RunController {
         saved.contentVersion=CONTENT_VERSION;
       }
       if (!this.validSave(saved,context?.map,context?.buildMounts)) return {ok:false,reason:'Invalid saved run.'};
-      const next=copy(saved.model);
+      const next=copy(saved.model);next.salvageCredit??=0;
       if(context){this.setMap(context.map);this.setBuildMounts(context.buildMounts);}
       Object.assign(this.model,next); this.nextTowerId=Math.max(0,...next.towers.map(t=>t.id))+1;
       this.runEpoch=Math.max(this.runEpoch+1,saved.epoch+1); this.applied=emptyApplied(); this.live=0;this.waveStartBaseHealth=this.model.baseHealth;
@@ -325,6 +336,7 @@ export class RunController {
     if (!value || typeof value!=='object') return false;
     const saved=value as SavedRun, model=saved.model;
     if (saved.version!==1 || saved.contentVersion!==CONTENT_VERSION || (saved.mapId!==map.id && !(saved.mapId===undefined && map.id===DEFAULT_MAP.id)) || !isFiniteInteger(saved.epoch) || saved.epoch<0 || !validApplied(saved.applied) || !model || typeof model!=='object' || !['preparation','checkpoint'].includes(model.phase) || !isFiniteInteger(model.metal) || model.metal<0 || !isFiniteInteger(model.baseHealth) || model.baseHealth<0 || model.baseHealth>30 || !isFiniteInteger(model.level) || model.level<1 || !isFiniteInteger(model.wave) || model.wave<0 || model.waveCount!==WAVES_PER_LEVEL || !Array.isArray(model.towers) || model.towers.length>MAX_TOWERS || !Array.isArray(model.pending) || model.pending.length!==0 || !Array.isArray(model.bonuses) || !Array.isArray(model.commandUpgrades) || !Array.isArray(model.bonusChoices) || model.bonusChoices.some(choice=>!BONUSES.some(known=>choice.id===known.id))) return false;
+    if(model.salvageCredit!==undefined&&(!isFiniteInteger(model.salvageCredit)||model.salvageCredit<0||model.salvageCredit>3))return false;
     if (!Array.isArray(model.unlockedTowers) || !STARTER_TOWERS.every(kind=>model.unlockedTowers.includes(kind)) || model.unlockedTowers.some((kind,index)=>!isTowerKind(kind)||model.unlockedTowers.indexOf(kind)!==index)) return false;
     if (!model.statRanks || typeof model.statRanks!=='object' || Array.isArray(model.statRanks) || Object.entries(model.statRanks).some(([id,rank])=>{
       const definition=STAT_DEFS.find(def=>def.id===id);

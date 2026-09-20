@@ -52,4 +52,4 @@ export interface UIState { mapTitle?:string;nextMapTitle?:string;mode:'lab'|'gam
 export interface GameUI { canvas:HTMLCanvasElement; update(state:UIState):void; destroy():void }
 export type SpawnBand = 'full' | 'upper' | 'center' | 'lower' | 'inlet';
 export interface SpawnBatch { count:number; kind:EnemyKind; seed:number; start?:number; rate?:number; burst?:number; band?:SpawnBand; healthScale?:number; credit?:number }
-export interface RunModel { phase:UIState['phase']; metal:number; baseHealth:number; level:number; wave:number; waveCount:number; towers:Tower[]; selected:number|null; pending:SpawnBatch[]; bonusChoices:BonusChoice[]; bonuses:string[]; commandUpgrades:string[]; unlockedTowers:TowerKind[]; statRanks:Record<string,number> }
+export interface RunModel { phase:UIState['phase']; metal:number; salvageCredit?:number; baseHealth:number; level:number; wave:number; waveCount:number; towers:Tower[]; selected:number|null; pending:SpawnBatch[]; bonusChoices:BonusChoice[]; bonuses:string[]; commandUpgrades:string[]; unlockedTowers:TowerKind[]; statRanks:Record<string,number> }

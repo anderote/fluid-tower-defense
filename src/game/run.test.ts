@@ -241,3 +241,37 @@ test('restarting a level resets its run state without returning to level one',()
   run.reset();
   assert.equal(run.model.level,1);
 });
+
+test('credited kills add turret XP once, alongside time XP, and survive saving',()=>{
+  const run=createRun();const placed=run.place('autocannon',{x:84,y:50});assert.ok(placed.ok&&placed.tower);
+  run.startWave();run.accrueVeterancy(10);
+  const report={epoch:run.epoch,tick:1,kills:100,crushKills:20,leaks:0,earned:30,live:0,invalid:0,maxPacking:0,towerKills:[80]};
+  run.applySettlement(report);run.applySettlement(report);run.applySettlement({...report,tick:2});
+  assert.equal(placed.tower.kills,80);assert.equal(placed.tower.veterancyXp,98);assert.equal(placed.tower.veterancy,3);
+  run.model.phase='checkpoint';run.model.pending=[];const restored=createRun();assert.equal(restored.load(run.save()).ok,true);
+  assert.equal(restored.model.towers[0].veterancyXp,98);
+  restored.startWave();restored.applySettlement({...report,epoch:restored.epoch,towerKills:[5],kills:5,crushKills:0});
+  assert.equal(restored.model.towers[0].veterancyXp,103);
+});
+
+test('Salvage Magnets pays identical rewards for burst and trickle readbacks',()=>{
+  const reward=(batches:number[])=>{const run=createRun();run.model.commandUpgrades.push('salvage-magnets');
+    batches.forEach((earned,index)=>run.applySettlement({epoch:run.epoch,tick:index+1,kills:earned*4,crushKills:0,leaks:0,earned,live:0,invalid:0,maxPacking:0}));
+    return run.model;
+  };
+  assert.equal(reward([1,2,3,4,5,6,7,8]).metal,STARTING_METAL+10);
+  assert.equal(reward([8]).metal,STARTING_METAL+10);
+  assert.equal(reward([1,1,2,2,3,4]).metal,STARTING_METAL+5);
+});
+
+test('fractional salvage survives save/load and resets with a new run',()=>{
+ const run=createRun();run.model.commandUpgrades.push('salvage-magnets');
+ const report={epoch:run.epoch,tick:1,kills:10,crushKills:0,leaks:0,earned:3,live:0,invalid:0,maxPacking:0};
+ run.applySettlement(report);assert.equal(run.model.salvageCredit,3);
+ const restored=createRun();assert.equal(restored.load(run.save()).ok,true);
+ restored.applySettlement({...report,epoch:restored.epoch,earned:1});
+ assert.equal(restored.model.metal,STARTING_METAL+5);assert.equal(restored.model.salvageCredit,0);
+ const saved=JSON.parse(run.save());saved.model.salvageCredit=4;assert.equal(restored.load(JSON.stringify(saved)).ok,false);
+ delete saved.model.salvageCredit;assert.equal(restored.load(JSON.stringify(saved)).ok,true);assert.equal(restored.model.salvageCredit,0);
+ restored.reset();assert.equal(restored.model.salvageCredit,0);
+});
