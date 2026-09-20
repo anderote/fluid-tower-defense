@@ -5,7 +5,7 @@ import {createRun} from '../game/index.ts';
 import type {WorldMap} from '../contracts/index.ts';
 const map:WorldMap={id:'infantry-test',width:50,height:40,spawn:{x:0,y:10,width:3,height:20},goal:{x:47,y:20},goalRadius:2,obstacles:[]};
 test('casualties count deaths once and friendly fire is a distinct subset',()=>{
- const f=setup();f.step(4.1);const [first,second]=f.state.soldiers;
+ const f=setup();f.step(recruitInterval(0)*2+.1);const [first,second]=f.state.soldiers;
  damageInfantry(f.state,first,10,'enemy');assert.equal(f.state.casualties,0);
  damageInfantry(f.state,first,100,'enemy');assert.equal(f.state.casualties,1);assert.equal(f.state.friendlyFire,0);
  damageInfantry(f.state,first,100,'friendly-fire');recordInfantryCasualty(f.state,first,'friendly-fire');assert.equal(f.state.casualties,1);assert.equal(f.state.friendlyFire,0);
@@ -17,6 +17,10 @@ test('casualties count deaths once and friendly fire is a distinct subset',()=>{
 });
 test('each specialized building produces only its own infantry at its configured rate',()=>{
   for(const kind of Object.keys(INFANTRY) as InfantryKind[]){const f=setup(kind);f.step(INFANTRY[kind].interval-.1);assert.equal(f.state.soldiers.length,0);f.step(.2);const s=f.state.soldiers[0];assert.equal(s.kind,kind);assert.equal(s.health,infantryStats(kind).health);assert.ok(validInfantry(f.state,map));}
+});
+test('starting rifleman recruitment takes five seconds',()=>{
+  assert.equal(INFANTRY.rifle.interval,5);
+  const f=setup('rifle');f.step(4.9);assert.equal(f.state.soldiers.length,0);f.step(.2);assert.equal(f.state.soldiers.length,1);
 });
 test('armor reduces zombie damage but even fully armored samurai can be killed',()=>{
   const f=setup('samurai');f.state.buildings[0].defense=5;f.step(12.1);const s=f.state.soldiers[0],hp=s.health;
@@ -55,14 +59,14 @@ test('dogs pursue nearby targets, bite in melee, and take horde pressure',()=>{
  assert.ok(validInfantry(f.state,map));
 });
 test('idle infantry search for nearby enemies while explicit move orders take priority',()=>{
- const f=setup();f.step(2.1);const s=f.state.soldiers[0];f.state.soldiers=[s];
+ const f=setup();f.step(recruitInterval(0)+.1);const s=f.state.soldiers[0];f.state.soldiers=[s];
  f.threats.set(s.id,{target:0,generation:1,x:s.x+18,y:s.y,contact:0,age:0});const beforeSearch=s.x;
  advanceInfantry(f.state,f.active,f.fields,f.threats,.1,true);assert.ok(s.x>beforeSearch);
  s.moveTarget={x:s.x-3,y:s.y};const orders=new Map([[s.id,infantryField(f.active,s.moveTarget)]]);f.threats.set(s.id,{target:0,generation:1,x:s.x+18,y:s.y,contact:0,age:0});const beforeOrder=s.x;
  advanceInfantry(f.state,f.active,f.fields,f.threats,.1,true,[],orders);assert.ok(s.x<beforeOrder);
 });
 test('legacy building purchase prices and armies over 128 soldiers survive save validation',()=>{
- const f=setup();f.state.buildings[0].spent=600;f.step(2.1);const template=f.state.soldiers[0];
+ const f=setup();f.state.buildings[0].spent=600;f.step(recruitInterval(0)+.1);const template=f.state.soldiers[0];
  f.state.soldiers=Array.from({length:1500},(_,i)=>({...template,id:i+2,x:5+i%35,y:5+Math.floor(i/35)%30}));f.state.nextId=1502;
  assert.ok(validInfantry(f.state,map));const run=createRun(map);run.model.infantry=f.state;const restored=createRun(map);assert.ok(restored.load(run.serialize()).ok);assert.equal(restored.model.infantry?.soldiers.length,1500);
 });
@@ -74,10 +78,10 @@ test('crowd movement routes around an obstacle without entering it',()=>{
  assert.ok(f.state.soldiers.some(s=>s.x<12));assert.ok(f.state.soldiers.every(s=>!(s.x>11.6&&s.x<14.4&&s.y>9.6&&s.y<28.4)));
 });
 test('recruitment pauses outside combat and grows beyond both former population caps',()=>{
-  const f=setup();f.step(80,false);assert.equal(f.state.soldiers.length,0);f.step(2.1);assert.equal(f.state.soldiers.length,1);f.step(130);assert.ok(f.state.soldiers.filter(s=>s.health>0).length>64);const first=f.state.soldiers[0],before=f.state.soldiers.length;first.health=0;f.step(4.1);assert.ok(f.state.soldiers.filter(s=>s.health>0).length>before);assert.ok(validInfantry(f.state,map));assert.ok(!f.state.soldiers.some(s=>s.id===first.id));
+  const f=setup();f.step(80,false);assert.equal(f.state.soldiers.length,0);f.step(recruitInterval(0)+.1);assert.equal(f.state.soldiers.length,1);f.step(recruitInterval(0)*66);assert.ok(f.state.soldiers.filter(s=>s.health>0).length>64);const first=f.state.soldiers[0],before=f.state.soldiers.length;first.health=0;f.step(recruitInterval(0)*2+.1);assert.ok(f.state.soldiers.filter(s=>s.health>0).length>before);assert.ok(validInfantry(f.state,map));assert.ok(!f.state.soldiers.some(s=>s.id===first.id));
 });
 test('training snapshots recruits and production upgrades preserve normalized progress',()=>{
-  const f=setup();f.step(2.1);const first=f.state.soldiers[0];f.state.buildings[0].training=3;f.state.buildings[0].production=5;f.step(recruitInterval(5)+.1);assert.equal(first.quality,0);assert.equal(first.health,40);assert.equal(f.state.soldiers[1].quality,3);assert.equal(f.state.soldiers[1].health,rifleStats(3).health);
+  const f=setup();f.step(recruitInterval(0)+.1);const first=f.state.soldiers[0];f.state.buildings[0].training=3;f.state.buildings[0].production=5;f.step(recruitInterval(5)+.1);assert.equal(first.quality,0);assert.equal(first.health,40);assert.equal(f.state.soldiers[1].quality,3);assert.equal(f.state.soldiers[1].health,rifleStats(3).health);
 });
 test('infantry ranks from credited kills and shares doctrine research with towers',()=>{
  const f=setup();f.step(8.1);const rifle=f.state.soldiers[0],base=infantryStats('rifle'),researched=infantryStats('rifle',0,0,0,['damage','range','rate']);
