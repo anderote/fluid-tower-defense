@@ -55,7 +55,7 @@ async function reset() {
 
 async function gpuCheck(repulsor:boolean) {
   const adapter=await navigator.gpu.requestAdapter();assert(adapter,'WebGPU adapter unavailable');
-  const device=await adapter.requestDevice();
+  const device=await adapter.requestDevice({requiredLimits:{maxStorageBuffersPerShaderStage:9}});
   const errors:string[]=[];device.addEventListener('uncapturederror',event=>errors.push(event.error.message));
   const count=repulsor?2:34;
   const shared:SharedGPU={

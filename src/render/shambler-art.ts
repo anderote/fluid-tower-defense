@@ -5,8 +5,8 @@ export const SHAMBLER_FRAMES=16; // idle, 8 walk, stagger, 6 death
 export const SHAMBLER_PIVOT={x:16,y:25};
 type Point=[number,number,number];
 
-export function drawShamblerFrame(ctx:CanvasRenderingContext2D,facing:number,frame:number){
-  ctx.clearRect(0,0,32,32);ctx.imageSmoothingEnabled=false;
+export function drawShamblerFrame(ctx:CanvasRenderingContext2D,facing:number,frame:number,pivot=SHAMBLER_PIVOT){
+  ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height);ctx.imageSmoothingEnabled=false;
   const angle=facing*Math.PI/4,forward=[Math.cos(angle),Math.sin(angle)],side=[-forward[1],forward[0]];
   const walking=frame>=1&&frame<=8,phase=(frame-1)*Math.PI/4;
   const stride=walking?Math.sin(phase):0,bob=walking?Math.abs(Math.cos(phase))*.045:0;
@@ -14,7 +14,7 @@ export function drawShamblerFrame(ctx:CanvasRenderingContext2D,facing:number,fra
   const lean=stagger?-.2:.1;
   const project=([x,y,z]:Point):[number,number]=>{
     const zz=z*(1-fall*.91),xx=x+z*fall*.72;
-    return [Math.round(16+(forward[0]*xx+side[0]*y)*10),Math.round(25+(forward[1]*xx+side[1]*y)*6-zz*11)];
+    return [Math.round(pivot.x+(forward[0]*xx+side[0]*y)*10),Math.round(pivot.y+(forward[1]*xx+side[1]*y)*6-zz*11)];
   };
   const line=(a:Point,b:Point,width:number,color:string)=>{
     const p=project(a),q=project(b);ctx.lineCap='square';ctx.lineJoin='miter';ctx.strokeStyle='#20251e';ctx.lineWidth=width+2;
@@ -52,7 +52,7 @@ export function drawShamblerFrame(ctx:CanvasRenderingContext2D,facing:number,fra
     ctx.fillStyle='#684739';ctx.fillRect(head[0]-1+faceX,head[1]+2,2,1);
   }
   // Quantize the painted outline to opaque pixels for clean depth-tested overlap.
-  const pixels=ctx.getImageData(0,0,32,32);
+  const pixels=ctx.getImageData(0,0,ctx.canvas.width,ctx.canvas.height);
   for(let i=0;i<pixels.data.length;i+=4)pixels.data[i+3]=pixels.data[i+3]>=128?255:0;
   ctx.putImageData(pixels,0,0);
 }

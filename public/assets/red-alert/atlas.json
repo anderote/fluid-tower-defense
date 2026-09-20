@@ -9264,6 +9264,90 @@
       "y": 691,
       "width": 24,
       "height": 24
+    },
+    {
+      "x": 799,
+      "y": 691,
+      "width": 50,
+      "height": 39
+    },
+    {
+      "x": 851,
+      "y": 691,
+      "width": 50,
+      "height": 39
+    },
+    {
+      "x": 903,
+      "y": 691,
+      "width": 50,
+      "height": 39
+    },
+    {
+      "x": 955,
+      "y": 691,
+      "width": 50,
+      "height": 39
+    },
+    {
+      "x": 1007,
+      "y": 691,
+      "width": 50,
+      "height": 39
+    },
+    {
+      "x": 1059,
+      "y": 691,
+      "width": 50,
+      "height": 39
+    },
+    {
+      "x": 1111,
+      "y": 691,
+      "width": 50,
+      "height": 39
+    },
+    {
+      "x": 1163,
+      "y": 691,
+      "width": 50,
+      "height": 39
+    },
+    {
+      "x": 1215,
+      "y": 691,
+      "width": 50,
+      "height": 39
+    },
+    {
+      "x": 1267,
+      "y": 691,
+      "width": 50,
+      "height": 39
+    },
+    {
+      "x": 1319,
+      "y": 691,
+      "width": 50,
+      "height": 39
+    },
+    {
+      "x": 1371,
+      "y": 691,
+      "width": 50,
+      "height": 39
+    },
+    {
+      "x": 1423,
+      "y": 691,
+      "width": 50,
+      "height": 39
+    },
+    {
+      "x": 1475,
+      "y": 691,
+      "width": 50,
+      "height": 39
     }
   ],
   "sprites": {
@@ -11448,12 +11532,28 @@
     ],
     "winter:v11": [
       1543
+    ],
+    "electro": [
+      1544,
+      1545,
+      1546,
+      1547,
+      1548,
+      1549,
+      1550,
+      1551,
+      1552,
+      1553,
+      1554,
+      1555,
+      1556,
+      1557
     ]
   },
   "source": {
     "package": "OpenRA ra-base.zip",
     "sha1": "aa022b208a3b45b4a45c00fdae22ccf3c6de3e5c",
-    "palette": "interior.pal",
+    "palette": "interior.pal (electro: temperat.pal)",
     "copyright": "Original Red Alert artwork © Electronic Arts. Not covered by OpenRA GPL.",
     "notice": "https://www.openra.net/legal/"
   }

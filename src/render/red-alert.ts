@@ -1,5 +1,5 @@
 import type {Rect,RenderScene,TowerKind} from '../contracts/index.ts';
-import {createSoldatAtlas,soldatFacing,SOLDAT_WORLD_SIZE} from './soldat-art.ts';
+import {createSoldatAtlas,soldatFacing,soldatSpriteKey,SOLDAT_WORLD_SIZE} from './soldat-art.ts';
 import {wireTiles,wireDamage,type WireArtStyle} from './wire-art.ts';
 export type TurretArtStyle='soldat'|'red-alert';
 export type FloorArtStyle='panels'|'grating';
@@ -41,15 +41,17 @@ export async function createRedAlertArt(device:GPUDevice,format:GPUTextureFormat
   const bitmap=await createImageBitmap(await imageResponse.blob(),{premultiplyAlpha:'none',colorSpaceConversion:'none'});
   let customSprites:Record<string,number[]>|undefined;
   let customCanvas:HTMLCanvasElement|undefined;
-  const customY=atlas.size;
+  const customOffset=bitmap.height;
+  let textureWidth=atlas.size,textureHeight=atlas.size;
   if(style==='soldat'){
     const custom=createSoldatAtlas(),offset=atlas.frames.length;customCanvas=custom.canvas;
     customSprites=Object.fromEntries(Object.entries(custom.sprites).map(([kind,ids])=>[kind,ids.map(id=>id+offset)]));
-    atlas.frames.push(...custom.frames.map(frame=>({...frame,y:frame.y+customY})));
+    atlas.frames.push(...custom.frames.map(frame=>({...frame,y:frame.y+customOffset})));
+    textureWidth=Math.max(textureWidth,custom.canvas.width);textureHeight=customOffset+custom.canvas.height;
   }
-  const texture=device.createTexture({label:'Original Red Alert sprite atlas',size:[Math.max(atlas.size,customCanvas?.width??0),atlas.size+(customCanvas?.height??0)],format:'rgba8unorm',usage:GPUTextureUsage.TEXTURE_BINDING|GPUTextureUsage.COPY_DST|GPUTextureUsage.RENDER_ATTACHMENT});
+  const texture=device.createTexture({label:'Original Red Alert sprite atlas',size:[textureWidth,textureHeight],format:'rgba8unorm',usage:GPUTextureUsage.TEXTURE_BINDING|GPUTextureUsage.COPY_DST|GPUTextureUsage.RENDER_ATTACHMENT});
   device.queue.copyExternalImageToTexture({source:bitmap},{texture},[bitmap.width,bitmap.height]);bitmap.close();
-  if(customCanvas)device.queue.copyExternalImageToTexture({source:customCanvas},{texture,origin:[0,customY]},[customCanvas.width,customCanvas.height]);
+  if(customCanvas)device.queue.copyExternalImageToTexture({source:customCanvas},{texture,origin:[0,customOffset]},[customCanvas.width,customCanvas.height]);
   const shader=device.createShaderModule({label:'Red Alert nearest-pixel sprites',code:`
 struct Camera{viewport:vec4<f32>,world:vec4<f32>,time:vec4<f32>};
 @group(0) @binding(0) var<uniform> camera:Camera;
@@ -142,9 +144,9 @@ struct Out{@builtin(position) pos:vec4<f32>,@location(0) uv:vec2<f32>,@location(
     }
     upload(wireGhost,preview);
     const data:number[]=[];
-    const draw=(t:{kind:TowerKind;x:number;y:number;angle?:number},tint?:number[])=>{
+    const draw=(t:{kind:TowerKind;x:number;y:number;angle?:number;level?:number},tint?:number[])=>{
       if(customSprites){
-        sprite(data,customSprites[t.kind][soldatFacing(t.angle??0)],t.x-SOLDAT_WORLD_SIZE/2,t.y-SOLDAT_WORLD_SIZE/2,SOLDAT_WORLD_SIZE,SOLDAT_WORLD_SIZE,tint);return;
+        sprite(data,customSprites[soldatSpriteKey(t.kind,t.level)][soldatFacing(t.angle??0)],t.x-SOLDAT_WORLD_SIZE/2,t.y-SOLDAT_WORLD_SIZE/2,SOLDAT_WORLD_SIZE,SOLDAT_WORLD_SIZE,tint);return;
       }
       const name=DEFENSES[t.kind];if(!name)return;
       const frameIndex=name==='gun'?redAlertFacing(t.angle??0):0,id=atlas.sprites[name][frameIndex],f=atlas.frames[id];
