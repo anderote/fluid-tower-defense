@@ -47,7 +47,7 @@ function mixIndex(mix){
   const entries=new Map();for(let i=0;i<count;i++){const p=start+6+i*12;entries.set(header.readUInt32LE(p),mix.subarray(base+header.readUInt32LE(p+4),base+header.readUInt32LE(p+4)+header.readUInt32LE(p+8)));}
   return entries;
 }
-const packages=['interior.mix','conquer.mix','local.mix','temperat.mix'].map(name=>mixIndex(zipFile(name)));
+const packages=['interior.mix','conquer.mix','local.mix','temperat.mix','snow.mix'].map(name=>mixIndex(zipFile(name)));
 function asset(name){
   for(const mix of packages){
     const file=mix.get(nameHash(name));if(file)return file;
@@ -94,22 +94,32 @@ function shp(data){
 }
 const palette=asset('interior.pal');
 const sprites={},images=[];
-function add(name,frames){sprites[name]=frames.map((frame,index)=>{const id=images.length;images.push({...frame,name,index});return id;});}
+function add(name,frames,colors=palette){sprites[name]=frames.map((frame,index)=>{const id=images.length;images.push({...frame,name,index,colors});return id;});}
 add('floor',tiles(asset('flor0001.int')));
 for(let i=1;i<=49;i++)add(`wall${i}`,tiles(asset(`wall${String(i).padStart(4,'0')}.int`)));
 for(const name of ['gun','tsla','ftur','sam','fenc','barb'])add(name,shp(asset(`${name}.shp`)));
 add('grating',tiles(asset('gflr0001.int')));
+for(const name of ['strp0001','strp0002','gstr0001','gstr0002','arro0001','arro0002'])add(name,tiles(asset(`${name}.int`)));
+for(const index of [1,3,5,7,9,10,11]){const name=`xtra${String(index).padStart(4,'0')}`;add(name,tiles(asset(`${name}.int`)));}
+for(let i=1;i<=9;i++){const name=`boxes${String(i).padStart(2,'0')}`;add(`interior:${name}`,shp(asset(`${name}.int`)).slice(0,1));}
+for(const name of ['barl','brl3'])add(`interior:${name}`,shp(asset(`${name}.shp`)).slice(0,1));
+const templates=JSON.parse(await readFile(new URL('./red-alert-terrain.json',import.meta.url),'utf8'));
+for(const [biome,extension,pal] of [['forest','tem','temperat.pal'],['winter','sno','snow.pal']]){
+  const colors=asset(pal);
+  for(const name of Object.keys(templates))add(`${biome}:${name}`,tiles(asset(`${name}.${extension}`)),colors);
+  for(const name of ['t01','t02','t03','t05','t06','t07','t08','t10','t11','t12','t13','t14','t15','t16','t17','tc01','tc02','tc03','tc04','tc05','v01','v02','v03','v04','v05','v06','v07','v08','v09','v10','v11'])add(`${biome}:${name}`,shp(asset(`${name}.${extension}`)).slice(0,1),colors);
+}
 // OpenRA's die6 uses the original 14-frame temperate electrocution sprite.
-add('electro',shp(asset('electro.tem')).map(frame=>({...frame,palette:asset('temperat.pal')})));
+add('electro',shp(asset('electro.tem')),asset('temperat.pal'));
 // Every frame retains its original canvas and pivot; transparent margins matter.
-const size=1024,rgba=Buffer.alloc(size*size*4);let x=0,y=0,row=0;
+const size=2048,rgba=Buffer.alloc(size*size*4);let x=0,y=0,row=0;
 const frames=images.map(im=>{
   if(x+im.width+2>size){x=0;y+=row+2;row=0;}if(y+im.height+2>size)throw Error('Atlas overflow');
   const entry={x:x+1,y:y+1,width:im.width,height:im.height};
   for(let py=0;py<im.height;py++)for(let px=0;px<im.width;px++){
     const index=im.pixels[py*im.width+px],at=((entry.y+py)*size+entry.x+px)*4;
     // Palette index 4 is the original translucent shadow; index 0 is transparent.
-    for(let channel=0;channel<3;channel++)rgba[at+channel]=index===4?0:(im.palette??palette)[index*3+channel]*4;
+    for(let channel=0;channel<3;channel++)rgba[at+channel]=index===4?0:im.colors[index*3+channel]*4;
     rgba[at+3]=index===0?0:index===4?128:255;
   }
   x+=im.width+2;row=Math.max(row,im.height);return entry;

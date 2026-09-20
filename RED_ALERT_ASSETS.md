@@ -15,6 +15,8 @@ not newly drawn artwork or an OpenRA engine integration.
   https://www.openra.net/packages/ra-base-mirrors.txt
 - Verified SHA-1: `aa022b208a3b45b4a45c00fdae22ccf3c6de3e5c`.
 - Source archives: `interior.mix`, `conquer.mix`, `local.mix`, `temperat.mix`.
+- Landscape extension: `snow.mix`, with original `temperat.pal` / `snow.pal`
+  used for their respective grass, snow, cliffs, roads, trees, and houses.
 - Palette: `interior.pal` (original six-bit channels expanded by four).
 - Artwork remains copyright Electronic Arts; it is **not** covered by OpenRA's
   GPL engine license. See https://www.openra.net/legal/ and
@@ -86,3 +88,10 @@ breach/reconnection, placement topology, saved footprints, and atlas dimensions.
 Collision bounds, health, costs, saves, and the approved Soldat turrets are
 unchanged. The former geometric wire renderer remains the fallback when the
 asset atlas is unavailable or lacks the wire frames.
+
+## Campaign landscapes
+
+See `CAMPAIGN_MAPS.md` for the three authored environments, gameplay integration,
+asset-catalog route, and validation coverage. The source atlas is now 2048 square;
+custom turret sprites are appended below its full height, avoiding overlap with
+the new terrain frames. The separate palettes are baked per sprite during import.

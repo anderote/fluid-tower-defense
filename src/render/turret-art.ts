@@ -1,3 +1,4 @@
+import {AUTOCANNON_BARREL,AUTOCANNON_MUZZLE_LIFT,SOLDAT_FACINGS,soldatFacing} from './soldat-art.ts';
 import type {TowerKind, Vec2} from '../contracts/index.ts';
 
 export const TURRET_FOOTPRINT_PIXELS=128;
@@ -135,7 +136,7 @@ export interface TurretHardpoints {
 const HARDPOINTS:Record<TowerKind,TurretHardpoints>={
   repulsor:{muzzles:[{x:1.45,y:0}]},
   mortar:{muzzles:[{x:1.7,y:0}]},
-  autocannon:{muzzles:[{x:2,y:0}],ejection:{port:{x:.08,y:-.2},direction:{x:-.22,y:-1}}},
+  autocannon:{muzzles:[{x:AUTOCANNON_BARREL.length+.01,y:0}],ejection:{port:{x:.08,y:-.2},direction:{x:-.22,y:-1}}},
   cryo:{muzzles:[{x:2,y:0}]},
   // The Tesla weapon is a vertical coil, so its arc starts at the pivot.
   tesla:{muzzles:[{x:0,y:0}]},
@@ -152,10 +153,18 @@ const rotateLocal=(origin:Vec2,angle:number,point:Vec2):Vec2=>{
 export const turretPixelRects=(kind:TowerKind):readonly TurretPixelRect[]=>ART[kind];
 export const turretHardpoints=(kind:TowerKind):TurretHardpoints=>HARDPOINTS[kind];
 export const turretMuzzleDistance=(kind:TowerKind):number=>HARDPOINTS[kind].muzzles[0].x;
-export const turretMuzzlePoints=(kind:TowerKind,origin:Vec2,angle:number):Vec2[]=>HARDPOINTS[kind].muzzles.map(point=>rotateLocal(origin,angle,point));
+const projectMuzzle=(kind:TowerKind,origin:Vec2,angle:number,point:Vec2):Vec2=>{
+  // Soldat sprites bake rotation before projecting height toward screen north.
+  if(kind==='autocannon'){
+    const projected=rotateLocal(origin,soldatFacing(angle)*Math.PI*2/SOLDAT_FACINGS,point);
+    return {x:projected.x,y:projected.y-AUTOCANNON_MUZZLE_LIFT};
+  }
+  return rotateLocal(origin,angle,point);
+};
+export const turretMuzzlePoints=(kind:TowerKind,origin:Vec2,angle:number):Vec2[]=>HARDPOINTS[kind].muzzles.map(point=>projectMuzzle(kind,origin,angle,point));
 export const turretMuzzlePoint=(kind:TowerKind,origin:Vec2,angle:number,barrel=0):Vec2=>{
   const muzzles=HARDPOINTS[kind].muzzles;
-  return rotateLocal(origin,angle,muzzles[Math.max(0,Math.min(muzzles.length-1,barrel))]);
+  return projectMuzzle(kind,origin,angle,muzzles[Math.max(0,Math.min(muzzles.length-1,barrel))]);
 };
 export const turretEjection=(kind:TowerKind,origin:Vec2,angle:number):{point:Vec2;direction:Vec2}|undefined=>{
   const ejection=HARDPOINTS[kind].ejection;if(!ejection)return;

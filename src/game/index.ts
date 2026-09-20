@@ -9,12 +9,12 @@ export type Wave = {spawns:readonly SpawnBatch[]; payment:number; boss:boolean; 
 type Applied = Pick<Settlement,'kills'|'crushKills'|'leaks'|'earned'> & {tick:number;towerKills:number[]};
 type SavedRun = {version:1; contentVersion:string; mapId?:string; model:RunModel; epoch:number; applied:Applied};
 
-export const CONTENT_VERSION = 'pressure-front-5';
+export const CONTENT_VERSION = 'pressure-front-6';
 const SAVE_KEY = 'pressure-front.run.v1';
 const MAX_TOWERS = 64;
 export const WAVES_PER_LEVEL=10;
 export const STARTING_METAL=3_000;
-const STARTER_TOWERS:readonly TowerKind[]=['repulsor','autocannon'];
+const STARTER_TOWERS:readonly TowerKind[]=Object.freeze(Object.keys(TOWERS) as TowerKind[]);
 const TOWER_UNLOCK_COSTS:Readonly<Partial<Record<TowerKind,number>>>=Object.freeze({mortar:3_000,cryo:4_000,tesla:6_000,incinerator:7_500,rocket:9_000,railgun:12_000});
 const STAT_DEFS=Object.freeze([
   {id:'damage',name:'Ballistics Doctrine',description:'+4% tower damage per rank.',cost:75,maxRank:10},
@@ -247,7 +247,17 @@ export class RunController {
     this.model.phase=this.model.wave>=WAVES_PER_LEVEL?'checkpoint':'preparation';
     return {ok:true};
   }
-  continueRun():ActionResult {if(this.model.phase!=='checkpoint')return {ok:false,reason:'Extraction is not currently available.'};this.model.level=Math.floor(this.model.wave/WAVES_PER_LEVEL)+1;this.model.phase='preparation';return {ok:true};}
+  continueRun(nextMap?:WorldMap,structureRefund=0):ActionResult {
+    if(this.model.phase!=='checkpoint')return {ok:false,reason:'Extraction is not currently available.'};
+    const nextLevel=Math.floor(this.model.wave/WAVES_PER_LEVEL)+1;
+    if(nextMap&&(nextLevel===this.model.level||!isFiniteInteger(structureRefund)||structureRefund<0))return {ok:false,reason:'Relocation is only available at the next level boundary.'};
+    if(nextMap){
+      this.model.metal+=this.model.towers.reduce((sum,tower)=>sum+tower.spent,0)+structureRefund;
+      this.model.towers=[];this.model.selected=null;this.nextTowerId=1;this.map=nextMap;this.buildMounts=[];
+      this.runEpoch++;this.applied=emptyApplied();this.live=0;
+    }
+    this.model.level=nextLevel;this.model.phase='preparation';return {ok:true};
+  }
   finishRun():ActionResult {if(this.model.phase!=='checkpoint')return {ok:false,reason:'Survive ten waves before extracting.'};this.model.phase='won';return {ok:true};}
   chooseBonus(id:string):ActionResult {
     if (!this.model.bonusChoices.some(choice=>choice.id===id)) return {ok:false,reason:'That bonus is not available.'};
@@ -271,7 +281,7 @@ export class RunController {
     if(this.model.phase!=='combat'||!Number.isFinite(seconds)||seconds<=0)return;
     for(const tower of this.model.towers){tower.veterancyXp=(tower.veterancyXp??0)+seconds*1.8;tower.veterancy=veterancyLevel(tower.veterancyXp);}
   }
-  reset():void { Object.assign(this.model,fresh()); this.nextTowerId=1; this.runEpoch++; this.applied=emptyApplied(); this.live=0;this.waveStartBaseHealth=this.model.baseHealth; }
+  reset(level=1):void { Object.assign(this.model,fresh(),{level}); this.nextTowerId=1; this.runEpoch++; this.applied=emptyApplied(); this.live=0;this.waveStartBaseHealth=this.model.baseHealth; }
   clearSave():void { try { if(typeof window!=='undefined')window.localStorage.removeItem(SAVE_KEY); } catch {/* Persistence is optional. */} }
   resetTowerAttribution():void { this.applied.towerKills=Array(MAX_TOWERS).fill(0); }
   setMap(map:WorldMap):void { this.map=map; }
@@ -292,13 +302,12 @@ export class RunController {
       const raw=text ?? (typeof window!=='undefined' ? window.localStorage.getItem(SAVE_KEY) : null);
       if (!raw) return {ok:false,reason:'No saved run found.'};
       const saved=JSON.parse(raw) as unknown;
-      // Old saves keep their defense and deployed weapon types. Account-wide XP
-      // and ranks are no longer used; new research belongs to the saved run.
-      if (saved && typeof saved==='object' && 'contentVersion' in saved && saved.contentVersion==='pressure-front-4' && 'model' in saved && saved.model && typeof saved.model==='object' && 'towers' in saved.model && Array.isArray(saved.model.towers)) {
-        Object.assign(saved.model,{
-          unlockedTowers:[...new Set([...STARTER_TOWERS,...saved.model.towers.filter(t=>t&&isTowerKind(t.kind)).map(t=>t.kind as TowerKind)])],
-          statRanks:{},
-        });
+      // Old saves keep their defense and run progress while gaining the full
+      // weapon roster. Account-wide ranks are no longer used.
+      if (saved && typeof saved==='object' && 'contentVersion' in saved && (saved.contentVersion==='pressure-front-4'||saved.contentVersion==='pressure-front-5') && 'model' in saved && saved.model && typeof saved.model==='object' && 'towers' in saved.model && Array.isArray(saved.model.towers)) {
+        const legacyModel=saved.model as Partial<RunModel> & {towers:unknown[]};
+        legacyModel.unlockedTowers=[...STARTER_TOWERS];
+        if(saved.contentVersion==='pressure-front-4')legacyModel.statRanks={};
         saved.contentVersion=CONTENT_VERSION;
       }
       if (!this.validSave(saved,context?.map,context?.buildMounts)) return {ok:false,reason:'Invalid saved run.'};
