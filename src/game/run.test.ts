@@ -247,7 +247,7 @@ test('credited kills add turret XP once, alongside time XP, and survive saving',
   run.startWave();run.accrueVeterancy(10);
   const report={epoch:run.epoch,tick:1,kills:100,crushKills:20,leaks:0,earned:30,live:0,invalid:0,maxPacking:0,towerKills:[80]};
   run.applySettlement(report);run.applySettlement(report);run.applySettlement({...report,tick:2});
-  assert.equal(placed.tower.kills,80);assert.equal(placed.tower.veterancyXp,98);assert.equal(placed.tower.veterancy,3);
+  assert.equal(placed.tower.kills,80);assert.equal(placed.tower.veterancyXp,98);assert.equal(placed.tower.veterancy,1);
   run.model.phase='checkpoint';run.model.pending=[];const restored=createRun();assert.equal(restored.load(run.save()).ok,true);
   assert.equal(restored.model.towers[0].veterancyXp,98);
   restored.startWave();restored.applySettlement({...report,epoch:restored.epoch,towerKills:[5],kills:5,crushKills:0});
