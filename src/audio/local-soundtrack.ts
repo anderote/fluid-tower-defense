@@ -60,9 +60,9 @@ async function filesInFolder(folder:DirectoryHandle,prefix=''):Promise<{file:Fil
 
 /** Mounts a browser-local jukebox. Selected audio never leaves the browser. */
 export function mountLocalSoundtrack(root:HTMLElement):()=>void{
-  const panel=document.createElement('section');panel.className='card soundtrack';
-  panel.innerHTML='<label>LOCAL SOUNDTRACK <span id="music-count">NO FILES</span></label><input id="music-folder" type="file" accept="audio/*,.aac,.flac,.m4a,.mp3,.oga,.ogg,.opus,.wav" multiple hidden webkitdirectory><div class="music-actions"><button data-music="load">CHOOSE FOLDER</button><button data-music="toggle" disabled>PLAY</button><button data-music="next" disabled>NEXT</button></div><p id="music-track">Choose a folder of local audio files. Nothing is uploaded.</p><label class="music-volume">VOLUME <input id="music-volume" type="range" min="0" max="1" step="0.05" value="0.3" aria-label="Music volume"></label>';
-  root.querySelector('.controls')?.insertAdjacentElement('afterend',panel);
+  const panel=document.createElement('section');panel.className='soundtrack';panel.setAttribute('aria-label','Music player');
+  panel.innerHTML='<div class="music-info"><label>LOCAL SOUNDTRACK <span id="music-count">NO FILES</span></label><p id="music-track">Choose a folder of local audio files. Nothing is uploaded.</p></div><input id="music-folder" type="file" accept="audio/*,.aac,.flac,.m4a,.mp3,.oga,.ogg,.opus,.wav" multiple hidden webkitdirectory><div class="music-actions"><button data-music="load">CHOOSE FOLDER</button><button data-music="toggle" disabled>PLAY</button><button data-music="next" disabled>NEXT</button></div><label class="music-volume">VOLUME <input id="music-volume" type="range" min="0" max="1" step="0.05" value="0.3" aria-label="Music volume"></label>';
+  root.querySelector('.view-actions')?.insertAdjacentElement('beforebegin',panel);
   const input=panel.querySelector<HTMLInputElement>('#music-folder')!,load=panel.querySelector<HTMLButtonElement>('[data-music="load"]')!,toggle=panel.querySelector<HTMLButtonElement>('[data-music="toggle"]')!,next=panel.querySelector<HTMLButtonElement>('[data-music="next"]')!,volume=panel.querySelector<HTMLInputElement>('#music-volume')!,count=panel.querySelector<HTMLElement>('#music-count')!,title=panel.querySelector<HTMLElement>('#music-track')!;
   const audio=new Audio();audio.preload='metadata';
   const saved=savedPlayback();audio.volume=saved.volume;volume.value=String(saved.volume);
@@ -72,7 +72,9 @@ export function mountLocalSoundtrack(root:HTMLElement):()=>void{
   const render=(message?:string,error=false)=>{
     count.textContent=tracks.length?`${index+1} / ${tracks.length}`:'NO FILES';
     title.textContent=message??(tracks[index]?displayName(tracks[index]):folder?'Folder access is needed to restore the soundtrack.':'Choose a folder of local audio files. Nothing is uploaded.');
-    title.classList.toggle('error',error);
+    title.classList.toggle('error',error);title.title=title.textContent;
+    toggle.setAttribute('aria-label',audio.paused?'Play music':'Pause music');
+    next.setAttribute('aria-label','Next track');
     toggle.disabled=next.disabled=!tracks.length;
     toggle.textContent=audio.paused?'PLAY':'PAUSE';
     load.textContent=folder&&!tracks.length?'RECONNECT FOLDER':'CHOOSE FOLDER';
