@@ -93,11 +93,22 @@ fn bodySpeed(kindValue: f32) -> f32 {
   return 3.1;
 }
 
-fn flowDirection(position: vec2<f32>) -> vec2<f32> {
+fn routeHash(index: u32, generation: f32, cell: vec2<i32>) -> u32 {
+  var value = index ^ (u32(max(0.0, generation) + 0.5) * 2246822519u);
+  value ^= (u32(cell.x / 12) * 3266489917u);
+  value ^= (u32(cell.y / 12) * 668265263u);
+  value ^= value >> 16u;
+  value *= 2246822519u;
+  return value ^ (value >> 13u);
+}
+
+fn flowDirection(position: vec2<f32>, index: u32, generation: f32) -> vec2<f32> {
   if (params.navWidth > 0u && params.navHeight > 0u && params.navCellSize > 0.0) {
     let cell = vec2<i32>(floor(position / params.navCellSize));
     if (cell.x >= 0 && cell.y >= 0 && cell.x < i32(params.navWidth) && cell.y < i32(params.navHeight)) {
-      let sample = navigation[u32(cell.y) * params.navWidth + u32(cell.x)].xy;
+      let routes = navigation[u32(cell.y) * params.navWidth + u32(cell.x)];
+      var sample = routes.xy;
+      if (length(routes.zw) > 0.0001 && routeHash(index, generation, cell) % 5u == 0u) { sample = routes.zw; }
       let sampleLength = length(sample);
       if (finite2(sample) && sampleLength > 0.0001) { return sample / sampleLength; }
     }
@@ -231,7 +242,7 @@ fn computeMotion(@builtin(global_invocation_id) gid: vec3<u32>) {
   let velocity = particle.pos.zw;
   let radius = safeRadius(particle.body.x);
   let mass = safeMass(particle.body.y);
-  let desiredVelocity = flowDirection(position) * bodySpeed(particle.state.z) * slowMultiplier(position, particle.status.x);
+  let desiredVelocity = flowDirection(position, index, particle.status.w) * bodySpeed(particle.state.z) * slowMultiplier(position, particle.status.x);
   var acceleration = (desiredVelocity - velocity) * max(0.0, params.drive) - velocity * 0.12;
   let centerCell = cellFor(position);
 

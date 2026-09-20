@@ -43,14 +43,15 @@ function packNavigation(field: NavigationField): Float32Array {
   if (!(field.cellSize > 0) || !Number.isFinite(field.cellSize)) {
     throw new RangeError('Navigation cellSize must be finite and positive.');
   }
-  if (field.vectors.length < cells * 2 || field.distances.length < cells) {
+  if (field.vectors.length < cells * 2 || field.alternateVectors.length < cells * 2 || field.distances.length < cells) {
     throw new RangeError('Navigation arrays are smaller than their declared dimensions.');
   }
   const packed = new Float32Array(cells * 4);
   for (let index = 0; index < cells; index += 1) {
     packed[index * 4] = finite(field.vectors[index * 2]);
     packed[index * 4 + 1] = finite(field.vectors[index * 2 + 1]);
-    packed[index * 4 + 2] = finite(field.distances[index]);
+    packed[index * 4 + 2] = finite(field.alternateVectors[index * 2]);
+    packed[index * 4 + 3] = finite(field.alternateVectors[index * 2 + 1]);
   }
   return packed;
 }

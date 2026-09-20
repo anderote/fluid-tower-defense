@@ -4,6 +4,11 @@ import type {Rect, Vec2, WorldMap} from '../contracts/index.ts';
 
 const GRID=4, SAVE_KEY='pressure-front.customlevel.v1';
 const clone=(map:WorldMap):WorldMap=>({...map,spawn:{...map.spawn},goal:{...map.goal},obstacles:map.obstacles.map(rect=>({...rect}))});
+export const wallAtPoint=(map:WorldMap,point:Vec2):Rect=>({
+  x:Math.max(0,Math.min(map.width-GRID,Math.floor(point.x/GRID)*GRID)),
+  y:Math.max(0,Math.min(map.height-GRID,Math.floor(point.y/GRID)*GRID)),
+  width:GRID,height:GRID,
+});
 function customId(map:WorldMap):string {
   let hash=2166136261;
   for (const wall of [...map.obstacles].sort((a,b)=>a.x-b.x||a.y-b.y)) for (const value of [wall.x,wall.y,wall.width,wall.height]) { hash^=Math.round(value*100);hash=Math.imul(hash,16777619); }
@@ -43,8 +48,7 @@ export function createLevelEditor(mount:HTMLElement, initial:WorldMap, onApply:(
   return {
     get active(){return active;}, get map(){return clone(map);},
     paint(point:Vec2, requestedErase=erase) {
-      const x=Math.floor(point.x/GRID)*GRID,y=Math.floor(point.y/GRID)*GRID, wall={x,y,width:GRID,height:GRID};
-      if(x<0||y<0||x+GRID>160||y+GRID>100)return;
+      const wall=wallAtPoint(map,point),{x,y}=wall;
       const index=map.obstacles.findIndex(existing=>x>=existing.x&&x<existing.x+existing.width&&y>=existing.y&&y<existing.y+existing.height);
       if(requestedErase){if(index>=0){map.obstacles.splice(index,1);map.id=customId(map);}return;}
       if(index>=0||map.obstacles.length>=64)return;
