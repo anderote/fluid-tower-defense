@@ -43,5 +43,5 @@ test('starting walls support one centered tower per wall cell',()=>{
   const mounts=wallMountCells(DEFAULT_MAP.obstacles);
   assert.deepEqual(resolvePlacement(DEFAULT_MAP,{x:50.8,y:22.9},1.25,mounts),{x:50,y:22});
   assert.equal(canPlace(DEFAULT_MAP,[],{x:50,y:22},1.25,mounts),true);
-  assert.equal(canPlace(DEFAULT_MAP,[{id:1,kind:'repulsor',x:50,y:22,level:0,branch:-1,angle:0,cooldown:0,spent:90}],{x:54,y:22},1.25,mounts),true);
+  assert.equal(canPlace(DEFAULT_MAP,[{id:1,kind:'repulsor',x:50,y:22,level:0,branch:-1,angle:0,cooldown:0,spent:120}],{x:54,y:22},1.25,mounts),true);
 });
