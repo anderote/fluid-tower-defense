@@ -15,8 +15,8 @@ test('packing is based on occupied area rather than mass', () => {
   assert.ok(Math.abs(large / small - 4) < 1e-12);
   assert.ok(Math.abs(occupiedArea(0.4) / occupiedArea(0.2) - 4) < 1e-12);
   assert.ok(Number.isFinite(occupiedArea(Number.NaN)));
-  assert.equal(MAX_BODY_RADIUS, 0.85);
-  assert.ok(Math.abs(occupiedArea(MAX_BODY_RADIUS) - Math.PI * 0.85 ** 2) < 1e-12);
+  assert.equal(MAX_BODY_RADIUS, 0.6375);
+  assert.ok(Math.abs(occupiedArea(MAX_BODY_RADIUS) - Math.PI * 0.6375 ** 2) < 1e-12);
 });
 
 test('pressure has no attractive branch below comfortable packing', () => {

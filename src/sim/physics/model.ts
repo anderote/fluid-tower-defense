@@ -1,5 +1,5 @@
 /** Shared numerical choices for the CPU reference checks and WGSL solver. */
-export const MAX_BODY_RADIUS = 0.85;
+export const MAX_BODY_RADIUS = 0.6375;
 // One cell spans the largest possible contact diameter, so the 3x3 neighbor
 // search always sees bodies close enough to repel one another.
 export const PHYSICS_CELL_SIZE = MAX_BODY_RADIUS * 2;
