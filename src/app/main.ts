@@ -10,6 +10,7 @@ import '../editor/style.css';
 import { createUI } from '../ui/index.ts';
 import { createRenderer } from '../render/index.ts';
 import {createAudio} from '../audio/index.ts';
+import {mountLocalSoundtrack} from '../audio/local-soundtrack.ts';
 import {createBoss} from '../sim/bosses/index.ts';
 import {createHorde} from '../sim/horde/index.ts';
 import {HordeFront,HordeCapacity,encodeHorde} from '../sim/horde/model.ts';
@@ -50,6 +51,7 @@ try {
  gpu.shared.shotState=combat.shotState;
  const renderer=await createRenderer(gpu.device,gpu.context,gpu.format,gpu.shared,ui.canvas);
  const audio=createAudio();
+ mountLocalSoundtrack(root);
  const selectedInspector=ui.canvas.parentElement!.querySelector<HTMLElement>('.selected-popup')!;
  const clock=new FixedClock(), metrics=new FrameMetrics();
  let map=DEFAULT_MAP, navigation=buildNavigation(map), spawnBaseline=DEFAULT_MAP.spawn;
