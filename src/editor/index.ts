@@ -26,11 +26,11 @@ export function validateEditorMap(map:WorldMap):string|undefined {
   return 'Walls must leave a route from the spawn area to the goal.';
 }
 
-export function createLevelEditor(mount:HTMLElement, initial:WorldMap, onApply:(map:WorldMap)=>void, onActive:(active:boolean)=>void) {
+export function createLevelEditor(mount:HTMLElement, initial:WorldMap, onApply:(map:WorldMap)=>void, onActive:(active:boolean)=>void, panelMount:HTMLElement=mount) {
   let applied=clone(initial), map=clone(initial), active=false, erase=false;
   const root=document.createElement('section'); root.className='level-editor';
   const toggle=document.createElement('button'); toggle.textContent='LEVEL EDITOR';
-  const panel=document.createElement('div'); panel.className='level-editor-panel';
+  const panel=document.createElement('div'); panel.className='level-editor level-editor-panel';
   const status=document.createElement('p');
   const button=(label:string, handler:()=>void)=>{const element=document.createElement('button');element.textContent=label;element.onclick=handler;panel.append(element);return element;};
   const setActive=(next:boolean)=>{if(next)map=clone(applied);active=next;panel.hidden=!next;panel.style.display=next?'grid':'none';onActive(next);};
@@ -50,7 +50,7 @@ export function createLevelEditor(mount:HTMLElement, initial:WorldMap, onApply:(
   button('Save level',()=>{try{localStorage.setItem(SAVE_KEY,JSON.stringify(map));note('Saved locally.');}catch{note('Could not save this level.');}});
   button('Load level',()=>{try{const raw=localStorage.getItem(SAVE_KEY);if(!raw)throw new Error();const candidate=JSON.parse(raw) as WorldMap;const issue=validateEditorMap(candidate);if(issue)throw new Error(issue);map=clone(candidate);note('Loaded local level.');}catch(error){note(error instanceof Error&&error.message?error.message:'No valid saved level.');}});
   button('Apply & Play',()=>{const issue=validateEditorMap(map);if(issue){note(issue);return;}applied=clone(map);onApply(clone(map));setActive(false);});
-  button('Cancel',()=>{map=clone(applied);setActive(false);}); panel.append(status); root.append(toggle,panel); mount.append(root); panel.hidden=true; panel.style.display='none';
+  button('Cancel',()=>{map=clone(applied);setActive(false);}); panel.append(status); root.append(toggle); mount.append(root); panelMount.append(panel); panel.hidden=true; panel.style.display='none';
   return {
     setMap(next:WorldMap){applied=clone(next);map=clone(next);},
     get active(){return active;}, get map(){return clone(map);},
@@ -63,6 +63,6 @@ export function createLevelEditor(mount:HTMLElement, initial:WorldMap, onApply:(
       const candidate=clone(map);candidate.obstacles.push(wall);const issue=validateEditorMap(candidate);
       if(issue){note(issue);return;}map={...candidate,id:customId(candidate)};
     },
-    destroy(){root.remove(); if(active)onActive(false);},
+    destroy(){root.remove();panel.remove(); if(active)onActive(false);},
   };
 }
