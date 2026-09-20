@@ -1,5 +1,5 @@
 import {commandUpgradeAvailability} from './research.ts';
-import {COMMAND_UPGRADES, DEFAULT_MAP, TOWERS, veterancyLevel} from '../content/index.ts';
+import {COMMAND_UPGRADES, DEFAULT_MAP, MAX_VETERANCY, TOWERS, veterancyLevel} from '../content/index.ts';
 import {canPlace} from '../navigation/index.ts';
 import type {BonusChoice, MetaUpgrade, Rect, RunModel, Settlement, SpawnBatch, Tower, TowerKind, Vec2, WorldMap} from '../contracts/index.ts';
 
@@ -89,6 +89,9 @@ function validTower(map:WorldMap, tower:unknown, prior:readonly Tower[], mounts:
   if (!tower || typeof tower !== 'object') return false;
   const value=tower as Tower;
   if (!isFiniteInteger(value.id) || value.id<=0 || !isTowerKind(value.kind) || !isNonNegative(value.x) || !isNonNegative(value.y) || !isFiniteInteger(value.level) || value.level<0 || value.level>3 || !isFiniteInteger(value.branch) || ![-1,0,1].includes(value.branch) || (value.level===0 && value.branch!==-1) || (value.level>0 && value.branch===-1) || !isNonNegative(value.angle) || !isNonNegative(value.cooldown) || !isFiniteInteger(value.spent) || value.spent!==spentAtLevel(value.kind,value.level) || prior.some(other=>other.id===value.id)) return false;
+  if(value.kills!==undefined&&(!isFiniteInteger(value.kills)||value.kills<0))return false;
+  if(value.veterancy!==undefined&&(!isFiniteInteger(value.veterancy)||value.veterancy<0||value.veterancy>MAX_VETERANCY))return false;
+  if(value.veterancyXp!==undefined&&!isNonNegative(value.veterancyXp))return false;
   return canPlace(map,prior,value,1.25,mounts);
 }
 function validApplied(value:unknown): value is Applied {

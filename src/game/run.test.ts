@@ -97,3 +97,17 @@ test('every level has ten escalating procedural waves without bonus-wave interru
   assert.equal(run.model.towers.length,0);
   const restored=createRun(); assert.equal(restored.load(run.save()).ok,true);
 });
+
+test('corrupt tower combat records reject atomically while legacy optional fields still load',()=>{
+  const run=createRun();assert.equal(run.place('repulsor',{x:22,y:22}).ok,true);
+  const before=run.save();
+  for(const [field,values] of Object.entries({kills:[-1,1.5,'oops',null],veterancy:[-1,1000,1.5,'oops',null],veterancyXp:[-1,'oops',null]})){
+    for(const value of values){
+      const saved=JSON.parse(before);saved.model.towers[0][field]=value;
+      assert.equal(run.load(JSON.stringify(saved)).ok,false,`${field}=${value} should reject`);
+      assert.equal(run.save(),before,'Rejected load changed current defenses');
+    }
+  }
+  const legacy=JSON.parse(before);delete legacy.model.towers[0].kills;delete legacy.model.towers[0].veterancy;delete legacy.model.towers[0].veterancyXp;
+  assert.equal(createRun().load(JSON.stringify(legacy)).ok,true);
+});

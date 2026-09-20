@@ -73,3 +73,9 @@ Validation: 57 CPU tests, production build, and 9/9 browser E2E checks passed. A
 Cache the last wall-placement validation by geometry, pointer cell, and tower positions. Unchanged previews avoid rebuilding the navigation field; terrain edits, goal/spawn changes, and tower placement still invalidate the result. Actual construction always validates afresh.
 
 Validation: 58 CPU tests, production build, and 9/9 browser scenarios passed. A local 120-preview microbenchmark measured 201.25 ms without caching and 1.68 ms with caching; this measures validation cost, not whole-game FPS.
+
+## Tower checkpoint validation
+
+Reject malformed kills, veterancy ranks, and experience before applying a checkpoint. Failed loads preserve the current defense; older saves without optional combat-record fields remain supported.
+
+Validation: a new CPU test reproduced invalid-record acceptance before the fix. All 59 CPU tests, production build, and 10/10 browser E2E cases passed, including rejection through the actual Load button without changing Metal or deployed towers.

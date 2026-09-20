@@ -46,6 +46,12 @@ const cases:{name:string;run:()=>Promise<void>}[]=[
   click('[data-action="load"]');await until(()=>text('#metal')==='590','Checkpoint did not restore Metal');assert(element<HTMLInputElement>('#difficulty').value==='2','Flow was not restored');
   const restored=snapshot();assert(restored.builtWalls.length===1&&restored.builtWires.length===0,'Wrong structures restored');
  }},
+ {name:'Corrupt tower checkpoints fail without changing the current defense',run:async()=>{
+  await fresh();click('[data-tower="repulsor"]');point(22,22);await until(()=>text('#metal')==='560','Tower was not placed');
+  const saved=snapshot(),run=JSON.parse(saved.runState);run.model.towers[0].veterancy='broken';saved.runState=JSON.stringify(run);localStorage.setItem(checkpointKey,JSON.stringify(saved));
+  click('[data-action="load"]');await until(()=>text('#message').toLowerCase().includes('invalid'),'Corrupt checkpoint did not report invalid data');
+  assert(text('#metal')==='560','Failed load changed Metal');const current=JSON.parse(snapshot().runState);assert(current.model.towers.length===1&&current.model.towers[0].veterancy===0,'Failed load changed the tower');
+ }},
  {name:'Demolishing wire removes its collision obstacle immediately',run:async()=>{
   await fresh();click('[data-action="wire-tool"]');point(30,22);await until(()=>text('#metal')==='605','Wire was not built');
   click('[data-action="demolish-tool"]');point(30,22);await until(()=>text('#metal')==='627','Wire refund was not paid');
