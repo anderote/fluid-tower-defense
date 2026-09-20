@@ -48,6 +48,6 @@ export interface MetaUpgrade {id:string;name:string;description:string;cost:numb
 export interface TowerUnlock {kind:TowerKind;cost:number;unlocked:boolean}
 export interface UIState { mode:'lab'|'game'; phase:'preparation'|'combat'|'settling'|'checkpoint'|'won'|'lost'; paused:boolean; fps:number; frameMs:number; population:number; capacity:number; kills:number; crushKills:number; leaks:number; earned:number; maxPressure:number; metal:number; baseHealth:number; level:number; wave:number; waveCount:number; difficulty:number; selected:Tower|null; selectedKind:TowerKind|null; buildTool:'wall'|'wire'|'demolish'|null; heatmap:boolean; tool:'blast'|'push'|'inspect'; message:string; adapter:string; bonusChoices:readonly BonusChoice[]; commandUpgrades:readonly string[]; commandXp:number; metaUpgrades:readonly MetaUpgrade[]; towerUnlocks:readonly TowerUnlock[]; extractionXp:number; bossHealth?:number; }
 export interface GameUI { canvas:HTMLCanvasElement; update(state:UIState):void; destroy():void }
-export type SpawnBand = 'full' | 'upper' | 'center' | 'lower';
+export type SpawnBand = 'full' | 'upper' | 'center' | 'lower' | 'inlet';
 export interface SpawnBatch { count:number; kind:EnemyKind; seed:number; start?:number; rate?:number; burst?:number; band?:SpawnBand; healthScale?:number; credit?:number }
 export interface RunModel { phase:UIState['phase']; metal:number; baseHealth:number; level:number; wave:number; waveCount:number; towers:Tower[]; selected:number|null; pending:SpawnBatch[]; bonusChoices:BonusChoice[]; bonuses:string[]; commandUpgrades:string[] }
