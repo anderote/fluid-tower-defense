@@ -20,9 +20,9 @@ export const TOWER_MOVE_COST=25;
 const STARTER_TOWERS:readonly TowerKind[]=Object.freeze(Object.keys(TOWERS) as TowerKind[]);
 const TOWER_UNLOCK_COSTS:Readonly<Partial<Record<TowerKind,number>>>=Object.freeze({mortar:3_000,cryo:4_000,tesla:6_000,incinerator:7_500,rocket:9_000,railgun:12_000});
 const STAT_DEFS=Object.freeze([
-  {id:'damage',name:'Ballistics Doctrine',description:'+4% tower damage per rank.',cost:75,maxRank:10},
-  {id:'rate',name:'Rapid Cycling',description:'+3.5% fire rate per rank.',cost:85,maxRank:10},
-  {id:'range',name:'Targeting Uplink',description:'+3% tower range per rank.',cost:70,maxRank:10},
+  {id:'damage',name:'Ballistics Doctrine',description:'+4% tower and infantry damage per rank.',cost:75,maxRank:10},
+  {id:'rate',name:'Rapid Cycling',description:'+3.5% tower and infantry fire rate per rank.',cost:85,maxRank:10},
+  {id:'range',name:'Targeting Uplink',description:'+3% tower and infantry range per rank.',cost:70,maxRank:10},
   {id:'force',name:'Hydraulic Overdrive',description:'+5% push force per rank.',cost:80,maxRank:10},
 ] as const);
 const BONUSES: readonly BonusChoice[] = [

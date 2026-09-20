@@ -308,7 +308,7 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
       if(b.id===scene.selectedBarracks){const distance=Math.hypot(b.rally.x-b.x,b.rally.y-b.y);for(let d=3;d<distance-1;d+=1.2){const t=d/distance;rect(a,b.x+(b.rally.x-b.x)*t-.08,b.y+(b.rally.y-b.y)*t-.08,.16,.16,[.85,.77,.3,.6]);}rectOutline(a,b.x-2.35,b.y-2.35,4.7,4.7,[.72,.93,.35,.95],.1);ring(a,b.rally.x,b.rally.y,2.5,[.65,.93,.35,.8],.12);rect(a,b.rally.x,b.rally.y-2,.1,2,[.8,.9,.5,1]);rect(a,b.rally.x+.1,b.rally.y-2,1,.6,[.85,.77,.19,1]);}
     }
     for(const s of scene.infantry?.soldiers??[]){
-      const kind=s.kind??'rifle',stats=infantryStats(s.kind,s.quality,s.defense);
+      const kind=s.kind??'rifle',stats=infantryStats(s.kind,s.quality,s.defense,s.veterancy);
       const x=s.x,y=s.y,dead=s.health<=0,alpha=dead?Math.max(0,1-s.dead/3):1;
       if(dead){rect(a,x-.65,y-.25,1.3,.5,[.29,.32,.18,alpha]);rect(a,x-.8,y-.2,.35,.35,[.55,.4,.27,alpha]);continue;}
       if(kind==='samurai'&&s.flash>0){for(let i=1;i<=4;i++){const fade=s.flash/.28*(1-i/5)*.32,tx=x-Math.cos(s.angle)*i*.65,ty=y-Math.sin(s.angle)*i*.65;rect(a,tx-.42,ty-1.25,.84,1.4,[.47,.63,.75,fade]);rect(a,tx-.32,ty-1.7,.64,.4,[.75,.86,.95,fade]);}}
@@ -330,7 +330,7 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
         else {disc(a,mx,my,.24,[1,.86,.29,.95],5);streak(a,mx+dx*2,my+dy*2,dx,dy,2,.025,[1,.89,.43,s.flash*6]);}
       }
       if(s.health<stats.health||scene.selectedBarracks===s.home){rect(a,x-.65,y-2.1,1.3,.13,[.12,.13,.1,1]);rect(a,x-.65,y-2.1,1.3*s.health/stats.health,.13,[.5,.85,.22,1]);}
-      for(let rank=0;rank<s.quality;rank++)rect(a,x-.4+rank*.18,y-1.02,.1,.1,[.95,.84,.3,1]);
+      for(let rank=0;rank<Math.min(5,Math.floor((s.veterancy??0)/20));rank++)rect(a,x-.4+rank*.18,y-1.02,.1,.1,[.95,.84,.3,1]);
     }
     for(const projectile of scene.heavyProjectiles??[]){
       const local=projectile.age-projectile.delay;if(local<0)continue;const t=Math.max(0,Math.min(1,local/projectile.flight));
