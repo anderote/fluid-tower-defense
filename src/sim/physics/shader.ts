@@ -422,6 +422,16 @@ fn integrateParticles(@builtin(global_invocation_id) gid: vec3<u32>) {
   if (clamped.y != position.y && velocity.y * (position.y - clamped.y) > 0.0) { velocity.y = 0.0; }
   position = clamped;
 
+  // Only compression against terrain can build lethal crush exposure. Crowd
+  // pressure remains fully physical (separation, steering, and compression),
+  // but open-field zombie-on-zombie packing cannot kill the swarm.
+  var obstacleContact = false;
+  for (var obstacleIndex = 0u; obstacleIndex < params.obstacleCount; obstacleIndex += 1u) {
+    let rect = obstacles[obstacleIndex].rect;
+    let nearest = clamp(position, rect.xy, rect.xy + rect.zw);
+    if (distance(position, nearest) <= radius + 0.2) { obstacleContact = true; }
+  }
+
   particles[index].pos = vec4<f32>(position, velocity);
   particles[index].status.x = slowDuration(position, previousSlow);
   let kind = u32(clamp(particle.state.z, 0.0, 5.0) + 0.5);
@@ -429,7 +439,8 @@ fn integrateParticles(@builtin(global_invocation_id) gid: vec3<u32>) {
   let damageEnd = damageStart + max(0.001, params.crushPressure - params.damagePressure);
   let ramp = clamp((max(0.0, particle.state.y) - damageStart) / (damageEnd - damageStart), 0.0, 1.0);
   let smoothRamp = ramp * ramp * (3.0 - 2.0 * ramp);
-  particles[index].status.z = max(0.0, previousExposure) + params.dt * max(0.0, params.crushDamage) * smoothRamp;
+  let obstacleCrush = select(0.0, 1.0, obstacleContact);
+  particles[index].status.z = max(0.0, previousExposure) + params.dt * max(0.0, params.crushDamage) * smoothRamp * obstacleCrush;
 
   if (invalid && params.substepIndex == 0u) { atomicAdd(&counters[5], 1u); }
   if (params.substepIndex + 1u == params.substepCount) { atomicAdd(&counters[4], 1u); }

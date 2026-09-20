@@ -67,30 +67,26 @@ const PHASE_WEIGHTS:readonly (readonly [SpawnBatch['kind'],number])[][]=[
   [['shambler',.26],['runner',.16],['brute',.16],['rager',.16],['softbody',.13],['husk',.13]],
   [['shambler',.3],['runner',.14],['brute',.2],['rager',.16],['softbody',.12],['husk',.08]],
 ];
-const bandFor=(kind:SpawnBatch['kind'],index:number):SpawnBatch['band']=>kind==='runner'?(index%2?'lower':'upper'):kind==='rager'||kind==='brute'?'center':kind==='husk'?(index%2?'upper':'lower'):'full';
-const burstFor=(kind:SpawnBatch['kind']):number=>({shambler:20,runner:28,brute:5,rager:12,softbody:7,husk:22})[kind];
+const burstFor=(kind:SpawnBatch['kind']):number=>({shambler:5,runner:6,brute:2,rager:4,softbody:3,husk:5})[kind];
 
 /** Deterministic authored-pattern director with bounded population and unbounded stat scaling. */
 export function waveFor(level:number,wave:number):Wave {
   const globalWave=Math.max(1,Math.floor(wave>WAVES_PER_LEVEL?wave:(Math.max(1,level)-1)*WAVES_PER_LEVEL+wave));
   const threat=globalWave-1,phase=(globalWave-1)%WAVES_PER_LEVEL,cycle=Math.floor((globalWave-1)/WAVES_PER_LEVEL);
-  const total=Math.min(62_000,Math.round(1_500+threat*620+Math.pow(threat,1.38)*145));
+  // Every role feeds the same inlet from the first second through the end of a
+  // wave, creating one sustained advancing front instead of delayed packets.
+  const total=Math.min(62_000,Math.round((1_500+threat*620+Math.pow(threat,1.38)*145)*1.55));
   const healthScale=1+Math.max(0,globalWave-WAVES_PER_LEVEL)*.035;
   const seed=(globalWave*10_000+globalWave*977)>>>0;
   const weights=new Map(PHASE_WEIGHTS[phase]);
   if(cycle>0){for(const kind of ['runner','brute','rager','softbody','husk'] as const)weights.set(kind,(weights.get(kind)??0)+.025);}
   const weightTotal=[...weights.values()].reduce((sum,value)=>sum+value,0);
-  const desiredRate=Math.min(1_200,180+threat*34),duration=Math.max(12,total/desiredRate);
+  const desiredRate=Math.min(1_500,240+threat*45),duration=Math.max(16,total/desiredRate);
   const spawns:SpawnBatch[]=[];
   let assigned=0,index=0;
   for(const [kind,weight] of weights){
     const last=index===weights.size-1,count=last?total-assigned:Math.round(total*weight/weightTotal);assigned+=count;
-    const packets=kind==='shambler'?2:kind==='runner'&&count>500?2:1;
-    for(let packet=0;packet<packets;packet++){
-      const packetCount=packet===packets-1?count-Math.floor(count/packets)*packet:Math.floor(count/packets);
-      const start=kind==='softbody'?0:kind==='brute'?5:kind==='runner'?3+packet*12:kind==='husk'?9:kind==='rager'?13:packet*10;
-      spawns.push({kind,count:packetCount,seed:seed+index*17+packet,start,rate:Math.max(1,packetCount/duration),burst:burstFor(kind),band:bandFor(kind,packet),healthScale});
-    }
+    spawns.push({kind,count,seed:seed+index*17,start:0,rate:Math.max(1,count/duration),burst:burstFor(kind),band:'inlet',healthScale});
     index++;
   }
   return {spawns,payment:Math.round(210+threat*86+Math.pow(threat,1.25)*14),boss:globalWave%WAVES_PER_LEVEL===0,total,healthScale};

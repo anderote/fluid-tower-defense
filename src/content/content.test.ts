@@ -16,6 +16,14 @@ test('streamed particles appear across randomized spawn cells',()=>{
  assert.ok(rows.size>1,'the first arrivals should not sweep across one lattice row');
  assert.notDeepEqual(Array.from(first),Array.from(later));
 });
+test('inlet streams use a safe central staging area',()=>{
+ const particles=createParticles([{count:20,kind:'shambler',seed:11,band:'inlet'}],DEFAULT_MAP,20);
+ for(let index=0;index<20;index++){
+  const x=particles[index*PARTICLE_FLOATS+P.x],y=particles[index*PARTICLE_FLOATS+P.y];
+  assert.ok(x>=DEFAULT_MAP.spawn.x+DEFAULT_MAP.spawn.width*.2&&x<=DEFAULT_MAP.spawn.x+DEFAULT_MAP.spawn.width*.8);
+  assert.ok(y>=DEFAULT_MAP.spawn.y+DEFAULT_MAP.spawn.height*.2&&y<=DEFAULT_MAP.spawn.y+DEFAULT_MAP.spawn.height*.8);
+ }
+});
 test('each tower branch changes a useful supported combat stat',()=>{
   for (const kind of Object.keys(TOWERS) as (keyof typeof TOWERS)[]) {
     const base={id:1,kind,x:84,y:50,level:1,branch:-1,angle:0,cooldown:0,spent:TOWERS[kind].cost};

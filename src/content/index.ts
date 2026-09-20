@@ -175,9 +175,12 @@ export function createParticles(batches: readonly SpawnBatch[], map: WorldMap, c
   let cursor=0, slot=0;
   const usedCells=new Set<number>();
   const cellsFor=(band:SpawnBatch['band']):number[]=>{
-    const [from,to]=band==='upper'?[0,.38]:band==='center'?[.31,.69]:band==='lower'?[.62,1]:[0,1];
-    const first=Math.max(0,Math.floor(maxRows*from)),last=Math.min(maxRows,Math.ceil(maxRows*to));
-    return Array.from({length:Math.max(0,last-first)*columns},(_,index)=>(first+Math.floor(index/columns))*columns+index%columns);
+    const [rowFrom,rowTo]=band==='upper'?[0,.38]:band==='center'?[.31,.69]:band==='lower'?[.62,1]:band==='inlet'?[.25,.75]:[0,1];
+    const [columnFrom,columnTo]=band==='inlet'?[.25,.75]:[0,1];
+    const firstRow=Math.max(0,Math.floor(maxRows*rowFrom)),lastRow=Math.min(maxRows,Math.ceil(maxRows*rowTo));
+    const firstColumn=Math.max(0,Math.floor(columns*columnFrom)),lastColumn=Math.min(columns,Math.ceil(columns*columnTo));
+    const width=Math.max(0,lastColumn-firstColumn);
+    return Array.from({length:Math.max(0,lastRow-firstRow)*width},(_,index)=>(firstRow+Math.floor(index/width))*columns+firstColumn+index%width);
   };
   for (const batch of batches) {
     const count=Math.max(0,Math.floor(batch.count)), enemy=ENEMIES[batch.kind], jitter=random(batch.seed),candidates=cellsFor(batch.band);
