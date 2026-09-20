@@ -1,0 +1,5 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Infantry facility art</title><style>body{background:#20281f;color:#d9ddc6;font:14px monospace;margin:30px}main{display:flex;gap:30px}canvas{image-rendering:pixelated;width:256px;height:320px;background:#303c2b}h2{font-size:16px}</style></head><body><h1>Infantry facilities — native pixel art</h1><main></main><script type="module">
+import {infantryBuildingPixels} from '/src/render/infantry-building-art.ts';
+import {INFANTRY} from '/src/infantry/model.ts';
+for(const kind of Object.keys(INFANTRY)){const section=document.createElement('section'),title=document.createElement('h2'),canvas=document.createElement('canvas');title.textContent=INFANTRY[kind].building;canvas.width=64;canvas.height=80;const ctx=canvas.getContext('2d');for(const p of infantryBuildingPixels(kind)){ctx.fillStyle=`rgba(${p.color.slice(0,3).map(c=>Math.round(c*255)).join(',')},${p.color[3]})`;ctx.fillRect(p.x,p.y,p.width,p.height);}section.append(title,canvas);document.querySelector('main').append(section);}
+</script></body></html>

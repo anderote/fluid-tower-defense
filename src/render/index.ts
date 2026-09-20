@@ -1,4 +1,5 @@
 import {createFireEffects} from './fire.ts';
+import {infantryBuildingPixels,BUILDING_PIXEL,BUILDING_ANCHOR} from './infantry-building-art.ts';
 import {infantryStats} from '../infantry/model.ts';
 import {FIRE_STATE_BYTES} from '../effects/fire.ts';
 import {AUTOCANNON_MUZZLE_LIFT,SOLDAT_FACINGS} from './soldat-art.ts';
@@ -298,19 +299,8 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
   function foregroundGeometry(scene:RenderScene):Float32Array {const a:V[]=[];
     if(scene.barracksGhost){const p=scene.barracksGhost,c:[number,number,number,number]=p.valid?[.6,.9,.3,.8]:[1,.2,.1,.8];rect(a,p.x-2,p.y-2,4,4,[...c.slice(0,3),.2] as [number,number,number,number]);rectOutline(a,p.x-2,p.y-2,4,4,c,.15);}
     for(const b of scene.infantry?.buildings??[]){
-      const kind=b.kind??'rifle';
-      rect(a,b.x-2.6,b.y-1.6,5.4,4.1,[.02,.025,.018,.55]);
-      rect(a,b.x-2,b.y-2,4,4,[.2,.24,.15,1]);
-      rect(a,b.x-2.2,b.y-2.8,4.4,3.4,[.36,.4,.24,1]);
-      rect(a,b.x-2.2,b.y-2.8,4.4,.3,[.57,.59,.38,1]);
-      for(let x=-1.8;x<2;x+=.65){rect(a,b.x+x,b.y-2.5,.16,2.8,[.18,.23,.14,1]);rect(a,b.x+x+.16,b.y-2.5,.08,2.8,[.49,.52,.31,1]);}
-      rect(a,b.x-.55,b.y+.6,1.1,1.4,[.035,.047,.032,1]);
-      rect(a,b.x-1.65,b.y+.8,.65,.55,[.68,.73,.48,1]);rect(a,b.x+1,b.y+.8,.65,.55,[.68,.73,.48,1]);
-      rect(a,b.x+1.7,b.y-4,.12,2.2,[.52,.53,.4,1]);rect(a,b.x+1.82,b.y-4,.95,.6,[.87,.77,.18,1]);
-      if(kind==='rocket'){for(const offset of [-1,1]){rect(a,b.x+offset-.35,b.y-3,.7,2.5,[.38,.43,.4,1]);disc(a,b.x+offset,b.y-3,.35,[.74,.24,.13,1],4);}}
-      if(kind==='flame'){for(const offset of [-1,1]){rect(a,b.x+offset-.4,b.y-2.5,.8,2,[.57,.23,.08,1]);rect(a,b.x+offset-.5,b.y-1.8,1,.25,[.88,.64,.14,1]);}rect(a,b.x-.25,b.y-4,.5,2,[.22,.24,.2,1]);}
-      if(kind==='samurai'){rect(a,b.x-2.5,b.y-2.9,5,.65,[.46,.1,.08,1]);rect(a,b.x-1.8,b.y-3.55,3.6,.65,[.65,.17,.1,1]);orientedRect(a,b.x,b.y-2.2,1.2,.12,.7,[.85,.9,.86,1]);orientedRect(a,b.x,b.y-2.2,1.2,.12,-.7,[.85,.9,.86,1]);}
-      if(b.id===scene.selectedBarracks){rectOutline(a,b.x-2.35,b.y-2.35,4.7,4.7,[.72,.93,.35,.95],.1);ring(a,b.rally.x,b.rally.y,2.5,[.65,.93,.35,.8],.12);rect(a,b.rally.x,b.rally.y-2,.1,2,[.8,.9,.5,1]);rect(a,b.rally.x+.1,b.rally.y-2,1,.6,[.85,.77,.19,1]);}
+      for(const p of infantryBuildingPixels(b.kind??'rifle'))rect(a,b.x+(p.x-BUILDING_ANCHOR.x)*BUILDING_PIXEL,b.y+(p.y-BUILDING_ANCHOR.y)*BUILDING_PIXEL,p.width*BUILDING_PIXEL,p.height*BUILDING_PIXEL,p.color);
+      if(b.id===scene.selectedBarracks){const distance=Math.hypot(b.rally.x-b.x,b.rally.y-b.y);for(let d=3;d<distance-1;d+=1.2){const t=d/distance;rect(a,b.x+(b.rally.x-b.x)*t-.08,b.y+(b.rally.y-b.y)*t-.08,.16,.16,[.85,.77,.3,.6]);}rectOutline(a,b.x-2.35,b.y-2.35,4.7,4.7,[.72,.93,.35,.95],.1);ring(a,b.rally.x,b.rally.y,2.5,[.65,.93,.35,.8],.12);rect(a,b.rally.x,b.rally.y-2,.1,2,[.8,.9,.5,1]);rect(a,b.rally.x+.1,b.rally.y-2,1,.6,[.85,.77,.19,1]);}
     }
     for(const s of scene.infantry?.soldiers??[]){
       const kind=s.kind??'rifle',stats=infantryStats(s.kind,s.quality,s.defense);

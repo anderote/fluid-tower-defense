@@ -4,3 +4,8 @@
 .infantry-panel p { font-size: 11px; line-height: 1.5; color: #a8b5a4; margin: 6px 0; }
 .infantry-panel small { display: block; color: #d7ce92; margin-top: 4px; }
 .infantry-panel b { font-size: 11px; }
+.infantry-details:not(:empty) { padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid #485343; }
+.infantry-panel .rally-action { border: 1px solid #a9b35e; background: #293522; color: #edf3c3; font-weight: bold; }
+.infantry-rally-hint { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); z-index: 15; width: min(470px,70%); padding: 12px 16px; border: 1px solid #d4c76c; background: #172117ed; color: #efe5a4; font: 12px/1.5 monospace; text-align: center; pointer-events: none; }
+.infantry-rally-hint[hidden] { display: none; }
+canvas.setting-infantry-rally { cursor: crosshair; }
