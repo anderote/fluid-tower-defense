@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {createRun, WAVES_PER_LEVEL, waveFor} from './index.ts';
+import {CommandProgression, createRun, WAVES_PER_LEVEL, waveFor} from './index.ts';
 
 test('cumulative settlements pay only newly reported totals',()=>{
   const run=createRun(); run.startWave(); run.takeSpawns(200);
@@ -19,6 +19,14 @@ test('tower records use reported GPU kill attribution rather than estimated dama
   assert.equal(run.model.towers[0].kills,2); assert.equal(run.model.towers[1].kills,5);
   run.applySettlement({epoch:1,tick:2,kills:10,crushKills:0,leaks:0,earned:30,live:1,invalid:0,maxPacking:0,towerKills:[3,7]});
   assert.equal(run.model.towers[0].kills,3); assert.equal(run.model.towers[1].kills,7);
+});
+test('Command XP permanently purchases base stat upgrades and unlocks a new tier after ten levels',()=>{
+  const profile=new CommandProgression(); profile.award(100);
+  assert.equal(profile.buy('damage').ok,true);
+  assert.equal(profile.ranks().filter(id=>id==='damage').length,1);
+  assert.equal(profile.unlockForLevel(10),false);
+  assert.equal(profile.unlockForLevel(11),true);
+  assert.equal(profile.unlockedTier,2);
 });
 test('branches lock and preparation saves restore',()=>{
   const run=createRun(), result=run.place('repulsor',{x:84,y:50}); assert.ok(result.ok && result.tower); const tower=result.tower;
@@ -61,7 +69,7 @@ test('counter rollback is ignored and settling keeps combat running while enemie
   assert.equal(run.model.metal,662);
   assert.equal(run.finishSettling().ok,false); assert.equal(run.model.phase,'combat');
 });
-test('every level has ten escalating procedural waves and milestone boons gate the next wave',()=>{
+test('every level has ten escalating procedural waves without bonus-wave interruptions',()=>{
   const run=createRun();
   const finish=(tick:number)=>{
     assert.equal(run.startWave().ok,true); run.takeSpawns(65_536);
@@ -72,13 +80,12 @@ test('every level has ten escalating procedural waves and milestone boons gate t
   assert.ok(waveFor(1,10).spawns.reduce((sum,batch)=>sum+batch.count,0)>waveFor(1,1).spawns.reduce((sum,batch)=>sum+batch.count,0));
   assert.ok(waveFor(2,1).spawns.reduce((sum,batch)=>sum+batch.count,0)>waveFor(1,10).spawns.reduce((sum,batch)=>sum+batch.count,0));
   finish(1); finish(2);
-  assert.equal(run.model.bonusChoices.length,3);
-  assert.equal(run.startWave().ok,false);
-  assert.equal(run.chooseBonus(run.model.bonusChoices[0].id).ok,true);
+  assert.deepEqual(run.model.bonusChoices,[]);
   for(let wave=3;wave<=WAVES_PER_LEVEL;wave++){
+    if(wave===WAVES_PER_LEVEL)assert.equal(run.place('repulsor',{x:84,y:50}).ok,true);
     finish(wave);
-    if(run.model.bonusChoices.length)assert.equal(run.chooseBonus(run.model.bonusChoices[0].id).ok,true);
   }
   assert.equal(run.model.level,2); assert.equal(run.model.wave,0);
+  assert.equal(run.model.towers.length,0);
   const restored=createRun(); assert.equal(restored.load(run.save()).ok,true);
 });

@@ -1,10 +1,10 @@
 import {COMMAND_UPGRADES, DEFAULT_MAP, TOWERS, veterancyLevel} from '../content/index.ts';
 import {canPlace} from '../navigation/index.ts';
-import type {BonusChoice, RunModel, Settlement, SpawnBatch, Tower, TowerKind, Vec2, WorldMap} from '../contracts/index.ts';
+import type {BonusChoice, MetaUpgrade, RunModel, Settlement, SpawnBatch, Tower, TowerKind, Vec2, WorldMap} from '../contracts/index.ts';
 
 export type ActionResult = {ok:true} | {ok:false; reason:string};
 export type PlaceResult = ActionResult & {tower?:Tower};
-type Wave = {spawns:readonly SpawnBatch[]; payment:number; bonus:boolean; peakRate:number; rampSeconds:number; boss:boolean};
+type Wave = {spawns:readonly SpawnBatch[]; payment:number; peakRate:number; rampSeconds:number; boss:boolean};
 type Applied = Pick<Settlement,'kills'|'crushKills'|'leaks'|'earned'> & {tick:number;towerKills:number[]};
 type SavedRun = {version:1; contentVersion:string; mapId?:string; model:RunModel; epoch:number; applied:Applied};
 
@@ -12,6 +12,28 @@ export const CONTENT_VERSION = 'pressure-front-3';
 const SAVE_KEY = 'pressure-front.run.v1';
 const MAX_TOWERS = 64;
 export const WAVES_PER_LEVEL=10;
+const PROFILE_KEY='pressure-front.command-profile.v1';
+const META_DEFS=Object.freeze([
+  {id:'damage',name:'Ballistics Doctrine',description:'+4% tower damage per rank.',cost:75,maxRank:10},
+  {id:'rate',name:'Rapid Cycling',description:'+3.5% fire rate per rank.',cost:85,maxRank:10},
+  {id:'range',name:'Targeting Uplink',description:'+3% tower range per rank.',cost:70,maxRank:10},
+  {id:'force',name:'Hydraulic Overdrive',description:'+5% push force per rank.',cost:80,maxRank:10},
+] as const);
+type ProfileState={version:1;xp:number;ranks:Record<string,number>;unlockedTier:number};
+const emptyProfile=():ProfileState=>({version:1,xp:0,ranks:{},unlockedTier:1});
+export class CommandProgression {
+  private state:ProfileState=emptyProfile();
+  constructor(){try{const saved=JSON.parse(typeof window==='undefined'?'':window.localStorage.getItem(PROFILE_KEY)??'') as ProfileState;if(saved?.version===1&&Number.isFinite(saved.xp)&&saved.xp>=0&&saved.ranks&&typeof saved.ranks==='object'){this.state={...emptyProfile(),...saved,xp:Math.floor(saved.xp),unlockedTier:Math.max(1,Math.floor(saved.unlockedTier||1))};}}catch{/* Fresh local profile. */}}
+  get xp():number{return this.state.xp;}
+  get unlockedTier():number{return this.state.unlockedTier;}
+  upgrades():MetaUpgrade[]{return META_DEFS.map(def=>({...def,rank:Math.min(def.maxRank,Math.max(0,this.state.ranks[def.id]??0))}));}
+  ranks():readonly string[]{return META_DEFS.flatMap(def=>Array(this.state.ranks[def.id]??0).fill(def.id));}
+  award(amount:number):void{this.state.xp+=Math.max(0,Math.floor(amount));this.save();}
+  unlockForLevel(level:number):boolean{const next=Math.floor((Math.max(1,level)-1)/10)+1;if(next<=this.state.unlockedTier)return false;this.state.unlockedTier=next;this.save();return true;}
+  buy(id:string):ActionResult{const def=META_DEFS.find(candidate=>candidate.id===id);if(!def)return {ok:false,reason:'Unknown Command upgrade.'};const rank=this.state.ranks[id]??0;if(rank>=def.maxRank)return {ok:false,reason:'This Command upgrade is fully researched.'};const cost=Math.round(def.cost*(1+rank*.55));if(this.state.xp<cost)return {ok:false,reason:`Requires ${cost} Command XP.`};this.state.xp-=cost;this.state.ranks[id]=rank+1;this.save();return {ok:true};}
+  private save():void{try{if(typeof window!=='undefined')window.localStorage.setItem(PROFILE_KEY,JSON.stringify(this.state));}catch{/* Persistence is optional. */}}
+}
+export const createCommandProgression=()=>new CommandProgression();
 const BONUSES: readonly BonusChoice[] = [
   {id:'hydraulic-advantage',name:'Hydraulic Advantage',description:'Repulsors push harder but pulse a little slower.'},
   {id:'cold-field',name:'Cold Field',description:'Cryo emitters cover a wider field.'},
@@ -39,7 +61,7 @@ export function waveFor(level:number,wave:number):Wave {
   if(shamblers)spawns.push({kind:'shambler',count:shamblers,seed});
   if(runners)spawns.push({kind:'runner',count:runners,seed:seed+1});
   if(brutes)spawns.push({kind:'brute',count:brutes,seed:seed+2});
-  return {spawns,payment:Math.round(210+threat*82+Math.pow(threat,1.28)*12),bonus:wave%2===0||wave===WAVES_PER_LEVEL,peakRate:Math.min(1_200,170+threat*38),rampSeconds:Math.min(30,8+waveIndex*1.6+levelIndex),boss:wave===WAVES_PER_LEVEL};
+  return {spawns,payment:Math.round(210+threat*82+Math.pow(threat,1.28)*12),peakRate:Math.min(1_200,170+threat*38),rampSeconds:Math.min(30,8+waveIndex*1.6+levelIndex),boss:wave===WAVES_PER_LEVEL};
 }
 const offeredBonuses=(level:number,wave:number,owned:readonly string[]):BonusChoice[]=>{
   const available=BONUSES.filter(choice=>choice.id==='salvage-contract'||!owned.includes(choice.id));
@@ -114,7 +136,6 @@ export class RunController {
   }
   startWave():ActionResult {
     if (this.model.phase!=='preparation') return {ok:false,reason:'The current wave is not ready to start.'};
-    if (this.model.bonusChoices.length) return {ok:false,reason:'Choose a command boon before starting the next wave.'};
     const wave=waveFor(this.model.level,this.model.wave+1); this.model.wave++; this.model.pending=wave.spawns.map(batch=>({...batch})); this.model.phase='combat'; this.live=0;this.spawnElapsed=0;this.spawnCredit=0;
     return {ok:true};
   }
@@ -150,8 +171,12 @@ export class RunController {
     if (this.model.phase!=='combat' && this.model.phase!=='settling') return {ok:false,reason:'There is no wave to settle.'};
     if (this.model.pending.length || this.live>0) return {ok:false,reason:'Waiting for live enemies or queued spawns.'};
     const completed=waveFor(this.model.level,this.model.wave); this.model.metal+=completed.payment;
-    if (this.model.wave===this.model.waveCount) { this.model.level++; this.model.wave=0; }
-    this.model.phase='preparation'; this.model.bonusChoices=completed.bonus?offeredBonuses(this.model.level,this.model.wave||WAVES_PER_LEVEL,this.model.bonuses):[];
+    if (this.model.wave===this.model.waveCount) {
+      this.model.level++; this.model.wave=0; this.model.towers=[]; this.model.selected=null;
+      this.model.metal=650+(this.model.level-1)*90; this.model.baseHealth=20;
+      this.model.bonuses=[]; this.model.commandUpgrades=[];
+    }
+    this.model.phase='preparation'; this.model.bonusChoices=[];
     return {ok:true};
   }
   chooseBonus(id:string):ActionResult {

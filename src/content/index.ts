@@ -75,7 +75,7 @@ export function validateContent(): void {
 }
 
 /** Compiles the small, supported progression set into a combat-ready definition. */
-export function compileTower(tower: Tower, bonuses: readonly string[] = [], commandUpgrades: readonly string[] = []): TowerDef {
+export function compileTower(tower: Tower, bonuses: readonly string[] = [], commandUpgrades: readonly string[] = [], metaUpgrades:readonly string[]=[]): TowerDef {
   const base=TOWERS[tower.kind];
   let range=base.range, cooldown=base.cooldown, damage=base.damage, force=base.force, radius=base.radius;
   const level=Math.max(0,tower.level);
@@ -115,6 +115,11 @@ export function compileTower(tower: Tower, bonuses: readonly string[] = [], comm
     for (let i=0;i<impactDamage.length;i++) if(commandUpgrades.includes(`repulsor-impact-${i+1}`)) damage+=impactDamage[i];
     if(commandUpgrades.includes('repulsor-impact-5')) force*=1.08;
   }
+  const ranks=(id:string)=>metaUpgrades.filter(upgrade=>upgrade===id).length;
+  damage*=1+ranks('damage')*.04;
+  range*=1+ranks('range')*.03;
+  cooldown/=1+ranks('rate')*.035;
+  force*=1+ranks('force')*.05;
   return {...base,range,cooldown,damage,force,radius};
 }
 
