@@ -314,11 +314,13 @@ try {
  });
  ui.canvas.addEventListener('pointerup',event=>{if(!infantryDrag||event.button!==0)return;const drag=infantryDrag;infantryDrag=undefined;if(Math.hypot(event.clientX-drag.clientX,event.clientY-drag.clientY)>5){infantry.selectBox(drag.start,drag.current,drag.additive);run.model.selected=null;}});
  const panKeys=new Set<string>();
+ let panFast=false;
  window.addEventListener('keydown',event=>{
    audio.arm();
    if(event.defaultPrevented||event.ctrlKey||event.metaKey||event.altKey||event.isComposing)return;
    const target=event.target;
    if(target instanceof HTMLElement&&(target.isContentEditable||target.closest('input,textarea,select')))return;
+   panFast=event.shiftKey;
    if(event.code==='Space'&&target instanceof HTMLElement&&target.closest('button,a[href],[role=button]'))return;
    const key=event.key.toLowerCase();
    if(['w','a','s','d'].includes(key)){event.preventDefault();panKeys.add(key);return;}
@@ -345,10 +347,10 @@ try {
    if(key==='+'||key==='=')renderer.zoomAt(1.13,ui.canvas.getBoundingClientRect().x+ui.canvas.clientWidth/2,ui.canvas.getBoundingClientRect().y+ui.canvas.clientHeight/2);
    if(key==='-')renderer.zoomAt(1/1.13,ui.canvas.getBoundingClientRect().x+ui.canvas.clientWidth/2,ui.canvas.getBoundingClientRect().y+ui.canvas.clientHeight/2);
  });
- window.addEventListener('keyup',event=>panKeys.delete(event.key.toLowerCase()));
- window.addEventListener('blur',()=>panKeys.clear());
- document.addEventListener('visibilitychange',()=>{if(document.hidden)panKeys.clear();});
- document.addEventListener('focusin',event=>{const target=event.target;if(target instanceof HTMLElement&&(target.isContentEditable||target.closest('input,textarea,select')))panKeys.clear();});
+ window.addEventListener('keyup',event=>{panKeys.delete(event.key.toLowerCase());panFast=event.shiftKey;});
+ window.addEventListener('blur',()=>{panKeys.clear();panFast=false;});
+ document.addEventListener('visibilitychange',()=>{if(document.hidden){panKeys.clear();panFast=false;}});
+ document.addEventListener('focusin',event=>{const target=event.target;if(target instanceof HTMLElement&&(target.isContentEditable||target.closest('input,textarea,select'))){panKeys.clear();panFast=false;}});
  function updateUI(now:number){
    wallInspector.update(now,builtWalls);
    infantry.update();
@@ -432,7 +434,7 @@ try {
    try{
      const elapsed=(now-previous)/1000;previous=now;metrics.push(elapsed*1000);
      const active=state.mode==='lab'||run.model.phase==='combat'||run.model.phase==='settling';
-     if(!editor.active&&panKeys.size){const speed=52*elapsed;renderer.pan((panKeys.has('d')?speed:0)-(panKeys.has('a')?speed:0),(panKeys.has('s')?speed:0)-(panKeys.has('w')?speed:0));}
+     if(!editor.active&&panKeys.size){const speed=52*(panFast?2:1)*elapsed;renderer.pan((panKeys.has('d')?speed:0)-(panKeys.has('a')?speed:0),(panKeys.has('s')?speed:0)-(panKeys.has('w')?speed:0));}
      const steps=editor.active?0:clock.advance(elapsed,state.paused||!active);
      for(let i=0;i<steps;i++)tick();
      if(!state.paused){for(const effect of visuals)effect.duration-=elapsed;visuals=visuals.filter(e=>e.duration>0);for(const particle of visualParticles)particle.age+=elapsed;visualParticles=visualParticles.filter(particle=>particle.age<particle.life);for(const explosion of heavyExplosions)explosion.age+=elapsed;heavyExplosions=heavyExplosions.filter(explosion=>explosion.age<explosion.life);const advanced=advanceHeavyProjectiles(heavyProjectiles,0,clock.tick);heavyProjectiles=advanced.active;for(const impact of advanced.impacts)detonateHeavy(impact);for(const popup of pressurePopups)popup.age+=elapsed;for(const popup of pressurePopups.filter(popup=>popup.age>=popup.life))popup.element.remove();pressurePopups=pressurePopups.filter(popup=>popup.age<popup.life);cameraShake*=Math.exp(-8.5*elapsed);}
