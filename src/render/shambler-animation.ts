@@ -15,7 +15,7 @@ export const SHAMBLER_ANIMATION_WGSL=`${PARTICLE_WGSL}${SHAMBLER_STATE_WGSL}${EN
 @group(0) @binding(2) var<uniform> clock:vec4<f32>;
 @compute @workgroup_size(128) fn update(@builtin(global_invocation_id) gid:vec3<u32>){
  let i=gid.x;if(i>=u32(clock.z)){return;}let p=particles[i];var a=animation[i];
- let kind=u32(max(0.,round(p.state.z)));let normalSpeed=enemySpeed(kind);
+ let kind=u32(max(0.,round(p.state.z)));let normalSpeed=enemySpeedFor(kind,p.body.w);
  if(zombieAtlas(kind)<0.||p.state.w<.5){a.previous.w=0.;animation[i]=a;return;}
  let speed=length(p.pos.zw);let delta=p.pos.xy-a.previous.xy;
  let fresh=a.motion.w<.5||a.previous.w<.5||a.previous.z!=p.status.w||clock.w>.5||length(delta)>6.;
