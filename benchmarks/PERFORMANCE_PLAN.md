@@ -111,3 +111,11 @@ service restart, or interaction with the user's existing game tab is required.
   (126 vs 83 in the choke check); retain experimental, do not promote to default.
   See HYBRID_CROWD.md. This decision closes the prototype stage without silently
   changing normal gameplay difficulty.
+- Stage 6: presentation-only automatic resolution trials, hysteresis, slow
+  recovery, and rollback of ineffective reductions; manual High/Balanced/
+  Performance settings persisted independently of saves. Hidden tabs/pauses do
+  not trigger adaptation. Unit tests cover reactions, rollback and manual modes.
+  Browser verified backing resolution 3426x1924 -> 1713x962 with unchanged game
+  epoch and zero profiler errors. 191 tests and production build pass.
+  Reduced-rate steering, collision dt changes and automatic hybrid simulation
+  rejected for this release because they lack demonstrated gameplay parity.

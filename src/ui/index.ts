@@ -66,7 +66,7 @@ export function createUI(
   arena.append(upgradeCard);
   const upgradeContent=document.createElement("div");upgradeCard.append(upgradeContent);
   const selectedWindow=makeGameWindow(selectedCard,"TOWER INSPECTOR");makeGameWindow(upgradeCard,"TOWER UPGRADES");
-  makeGameWindow(root.querySelector<HTMLElement>("#settings-gate > section")!,"AUDIO SETTINGS");
+  makeGameWindow(root.querySelector<HTMLElement>("#settings-gate > section")!,"SETTINGS");
   makeGameWindow(root.querySelector<HTMLElement>("#reset-gate > section")!,"RESTART LEVEL");
   const difficulty = document.createElement("label");
   difficulty.className = "difficulty";

@@ -11,6 +11,7 @@ import { FixedClock } from '../runtime/clock.ts';
 import { FrameMetrics, SimulationRate } from '../runtime/metrics.ts';
 import {GPUProfiler} from '../runtime/profiler.ts';
 import {createTowerDefinitionCache} from '../content/tower-cache.ts';
+import {mountGraphicsSettings} from '../ui/graphics.ts';
 import { SettlementReader } from '../runtime/readback.ts';
 import {makeGameWindow} from '../ui/windows.ts';
 import { createLevelEditor, gridRectAtPoint, wallAtPoint } from '../editor/index.ts';
@@ -50,6 +51,7 @@ try {
  const profiler=params.has('profile')?new GPUProfiler(gpu.device):undefined;
  const simulationRate=new SimulationRate();
  const cachedTower=createTowerDefinitionCache();
+ const graphics=mountGraphicsSettings(root);
  let failed=false;
  function fail(error:unknown){if(failed)return;failed=true;state.message=String(error instanceof Error?error.message:error);state.paused=true;ui.update(state);console.error(error);}
  gpu.device.addEventListener('uncapturederror',event=>fail(event.error.message));
@@ -447,6 +449,7 @@ try {
    if(failed)return;
    try{
      const elapsed=(now-previous)/1000;previous=now;metrics.push(elapsed*1000);
+     renderer.setResolutionScale?.(graphics.observe(elapsed*1000,!document.hidden&&!state.paused));
      const active=state.mode==='lab'||run.model.phase==='combat'||run.model.phase==='settling';
      if(!editor.active&&panKeys.size){const speed=52*(panFast?2:1)*elapsed;renderer.pan((panKeys.has('d')?speed:0)-(panKeys.has('a')?speed:0),(panKeys.has('s')?speed:0)-(panKeys.has('w')?speed:0));}
      const steps=editor.active?0:clock.advance(elapsed,state.paused||!active);
