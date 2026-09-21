@@ -71,6 +71,13 @@ test('idle infantry search for nearby enemies while explicit move orders take pr
  s.moveTarget={x:s.x-3,y:s.y};const orders=new Map([[s.id,infantryField(f.active,s.moveTarget)]]);f.threats.set(s.id,{target:0,generation:1,x:s.x+18,y:s.y,contact:0,age:0});const beforeOrder=s.x;
  advanceInfantry(f.state,f.active,f.fields,f.threats,.1,true,[],orders);assert.ok(s.x<beforeOrder);
 });
+test('ranged infantry holds its firing line until the target moves clearly away',()=>{
+ const f=setup();f.step(recruitInterval(0)+.1);const s=f.state.soldiers[0];f.state.soldiers=[s];
+ const holdX=s.x;f.threats.set(s.id,{target:0,generation:1,x:s.x+14.4,y:s.y,contact:0,age:0});
+ advanceInfantry(f.state,f.active,f.fields,f.threats,.1,true);assert.equal(s.x,holdX);
+ f.threats.set(s.id,{target:0,generation:2,x:s.x+15.2,y:s.y,contact:0,age:0});
+ advanceInfantry(f.state,f.active,f.fields,f.threats,.1,true);assert.ok(s.x>holdX);
+});
 test('legacy building purchase prices and armies over 128 soldiers survive save validation',()=>{
  const f=setup();f.state.buildings[0].spent=600;f.step(recruitInterval(0)+.1);const template=f.state.soldiers[0];
  f.state.soldiers=Array.from({length:1500},(_,i)=>({...template,id:i+2,x:5+i%35,y:5+Math.floor(i/35)%30}));f.state.nextId=1502;
