@@ -34,6 +34,7 @@ struct Params {
   substepCount: u32,
   obstacleCapacity: u32,
   approach: f32,
+  indexedObstacles: u32,
 }
 
 struct Obstacle { rect: vec4<f32> }
@@ -113,6 +114,14 @@ fn flowDirection(position: vec2<f32>, index: u32, generation: f32) -> vec2<f32> 
   return direct / max(length(direct), 0.0001);
 }
 
+fn obstacleRange(position:vec2f)->vec2u {
+ if(params.indexedObstacles==0u){return vec2u(0u,params.obstacleCount);}
+ let dimensions=vec2i(ceil(vec2f(params.worldWidth+params.approach,params.worldHeight)/8.));
+ let cell=clamp(vec2i(floor((position+vec2f(params.approach,0.))/8.)),vec2i(0),dimensions-1);
+ return vec2u(obstacles[params.obstacleCount+u32(cell.y*dimensions.x+cell.x)].rect.xy);
+}
+fn obstacleId(cursor:u32)->u32 {if(params.indexedObstacles==0u){return cursor;}return u32(obstacles[cursor].rect.x);}
+
 fn boundaryPacking(position: vec2<f32>, radius: f32) -> f32 {
   var result = 0.0;
   let area = occupiedArea(radius);
@@ -121,7 +130,9 @@ fn boundaryPacking(position: vec2<f32>, radius: f32) -> f32 {
     let mirroredDistance = 2.0 * max(0.0, distances[side]);
     if (mirroredDistance < params.kernelRadius) { result += area * kernel(mirroredDistance); }
   }
-  for (var obstacleIndex = 0u; obstacleIndex < params.obstacleCount; obstacleIndex += 1u) {
+  let nearby=obstacleRange(position);
+  for (var candidate=0u;candidate<nearby.y;candidate++) {
+    let obstacleIndex=obstacleId(nearby.x+candidate);
     let rect = obstacles[obstacleIndex].rect;
     let nearest = clamp(position, rect.xy, rect.xy + rect.zw);
     let distance = length(position - nearest);
@@ -186,7 +197,9 @@ fn measureDensity(@builtin(global_invocation_id) gid: vec3<u32>) {
   atomicMax(&counters[14], u32(pressure * 100.0));
   if (params.substepIndex == 0u) {
     let radius = safeRadius(particle.body.x);
-    for (var obstacleIndex = 0u; obstacleIndex < params.obstacleCount; obstacleIndex += 1u) {
+    let nearby=obstacleRange(particle.pos.xy);
+    for (var candidate=0u;candidate<nearby.y;candidate++) {
+      let obstacleIndex=obstacleId(nearby.x+candidate);
       let rect = obstacles[obstacleIndex].rect;
       let nearest = clamp(particle.pos.xy, rect.xy, rect.xy + rect.zw);
       if (distance(particle.pos.xy, nearest) <= radius + 0.18) {
@@ -415,7 +428,17 @@ fn integrateParticles(@builtin(global_invocation_id) gid: vec3<u32>) {
   let start = position;
   position += displacement;
 
-  for (var obstacleIndex = 0u; obstacleIndex < params.obstacleCount; obstacleIndex += 1u) {
+  let nearby=obstacleRange(start);
+  // Embedded starts can be projected farther than a normal step. Preserve the
+  // reference solver's ordered full scan for that exceptional recovery path.
+  var embedded=false;
+  for(var candidate=0u;candidate<nearby.y;candidate++){
+    let rect=obstacles[obstacleId(nearby.x+candidate)].rect;
+    if(all(start>rect.xy-vec2f(radius))&&all(start<rect.xy+rect.zw+vec2f(radius))){embedded=true;break;}
+  }
+  let candidates=select(nearby.y,params.obstacleCount,embedded);
+  for (var candidate=0u;candidate<candidates;candidate++) {
+    var obstacleIndex=candidate;if(!embedded){obstacleIndex=obstacleId(nearby.x+candidate);}
     let resolved = resolveObstacle(start, position, velocity, radius, obstacles[obstacleIndex].rect);
     position = resolved.xy;
     velocity = resolved.zw;
@@ -430,7 +453,9 @@ fn integrateParticles(@builtin(global_invocation_id) gid: vec3<u32>) {
   // pressure remains fully physical (separation, steering, and compression),
   // but open-field zombie-on-zombie packing cannot kill the swarm.
   var obstacleContact = false;
-  for (var obstacleIndex = 0u; obstacleIndex < params.obstacleCount; obstacleIndex += 1u) {
+  let contacts=obstacleRange(position);
+  for (var candidate=0u;candidate<contacts.y;candidate++) {
+    let obstacleIndex=obstacleId(contacts.x+candidate);
     let rect = obstacles[obstacleIndex].rect;
     let nearest = clamp(position, rect.xy, rect.xy + rect.zw);
     if (distance(position, nearest) <= radius + 0.2) { obstacleContact = true; }

@@ -80,3 +80,10 @@ service restart, or interaction with the user's existing game tab is required.
   opt-in profiling, deterministic five-scenario browser laboratory, and raw
   baseline evidence implemented. Apple timestamp support verified with no GPU
   errors; targeting, not density, dominates this initial mixed-tower fixture.
+- Stage 2: conservative indexed terrain queries and cached uploads implemented.
+  Retained the original exact narrow phase and an explicit full-scan reference.
+  Browser parity check over 24 steps including terrain edits: maximum difference
+  0, identical obstacle telemetry. Six existing GPU gameplay checks also pass;
+  184 unit tests and production build pass. Initial obstacle fixture substeps
+  fell from 0.262/0.197 ms medians to 0.131/0.131 ms, but concurrent load changed
+  rendering costs substantially; final comparisons must run paired trials.

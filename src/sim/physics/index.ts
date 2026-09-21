@@ -13,6 +13,7 @@ import {
   PHYSICS_SUBSTEPS,
 } from './model.ts';
 import { PHYSICS_WGSL } from './shader.ts';
+import {packObstacleGrid,sameObstacles} from './obstacles.ts';
 
 const WORKGROUP_SIZE = 128;
 // WGSL Params contains 29 scalar words and uniform bindings align the struct to 16 bytes.
@@ -91,6 +92,7 @@ function packParams(
   gridWidth: number,
   gridHeight: number,
   substepIndex: number,
+  indexedObstacles:boolean,
 ): ArrayBuffer {
   const storage = new ArrayBuffer(PARAM_BYTES);
   const u32 = new Uint32Array(storage);
@@ -123,6 +125,7 @@ function packParams(
   u32[25] = PHYSICS_SUBSTEPS;
   u32[26] = frame.map.obstacles.length;
   f32[27] = frame.lab ? 0 : HORDE_APPROACH;
+  u32[28] = indexedObstacles?1:0;
   return storage;
 }
 
@@ -141,7 +144,9 @@ function validateFrame(frame: PhysicsFrame, shared: SharedGPU): void {
   }
 }
 
-export async function createPhysics(device: GPUDevice, shared: SharedGPU): Promise<PhysicsModule> {
+export async function createPhysics(device: GPUDevice, shared: SharedGPU,options:{indexedObstacles?:boolean}={}): Promise<PhysicsModule> {
+  const indexedObstacles=options.indexedObstacles!==false;
+  let obstacleSnapshot:Float32Array=new Float32Array(0),obstacleMapKey='';
   if (shared.capacity <= 0 || !Number.isInteger(shared.capacity)) {
     throw new RangeError('Shared particle capacity must be a positive integer.');
   }
@@ -256,12 +261,11 @@ export async function createPhysics(device: GPUDevice, shared: SharedGPU): Promi
   };
   const ensureObstacleCapacity = (count:number) => {
     if(count<=obstacleCapacity)return;
-    const previousObstacles=obstacleBuffer,previousCounters=shared.obstacleCounters;
+    const previousCounters=shared.obstacleCounters;
     obstacleCapacity=nextPowerOfTwo(count);
-    obstacleBuffer=makeBuffer({label:'Physics obstacles',size:obstacleCapacity*OBSTACLE_BYTES,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
     shared.obstacleCounters=device.createBuffer({label:'Obstacle telemetry',size:obstacleCapacity*3*4,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST|GPUBufferUsage.COPY_SRC});
     shared.obstacleCapacity=obstacleCapacity;
-    rebuildBindGroups();previousObstacles.destroy();previousCounters?.destroy();
+    rebuildBindGroups();previousCounters?.destroy();
   };
   shared.obstacleCounters=device.createBuffer({label:'Obstacle telemetry',size:3*4,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST|GPUBufferUsage.COPY_SRC});
   shared.obstacleCapacity=1;
@@ -310,12 +314,17 @@ export async function createPhysics(device: GPUDevice, shared: SharedGPU): Promi
         navigationHeight = 0;
       }
 
-      const obstacles = packObstacles(frame);
-      if (obstacles.byteLength > 0) device.queue.writeBuffer(obstacleBuffer, 0, obstacles);
+      const mapKey=[frame.map.width,frame.map.height,frame.lab].join(':');
+      if(mapKey!==obstacleMapKey||!sameObstacles(obstacleSnapshot,frame.map.obstacles)){
+        obstacleSnapshot=packObstacles(frame);obstacleMapKey=mapKey;
+        const packed=indexedObstacles?packObstacleGrid(frame.map.obstacles,frame.map.width,frame.map.height,frame.lab?0:HORDE_APPROACH).data:obstacleSnapshot;
+        if(packed.byteLength>obstacleBuffer.size){const old=obstacleBuffer;obstacleBuffer=makeBuffer({label:'Physics indexed obstacles',size:nextPowerOfTwo(packed.byteLength),usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});rebuildBindGroups();old.destroy();}
+        if(packed.byteLength)device.queue.writeBuffer(obstacleBuffer,0,packed);
+      }
       const effects = packEffects(frame.effects);
       if (effects.byteLength > 0) device.queue.writeBuffer(effectBuffer, 0, effects);
       parameterBuffers.forEach((buffer, index) => {
-        device.queue.writeBuffer(buffer, 0, packParams(frame, shared.capacity, gridWidth, gridHeight, index));
+        device.queue.writeBuffer(buffer, 0, packParams(frame, shared.capacity, gridWidth, gridHeight, index,indexedObstacles));
       });
 
       encoder.clearBuffer(shared.obstacleCounters!,0,frame.map.obstacles.length*3*4);
