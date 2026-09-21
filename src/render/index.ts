@@ -263,13 +263,7 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
       rect(a,x+.12,y+.12,7.76,7.76,[.22+shade,.29+shade,.32+shade,1]);
       rect(a,x+.3,y+.3,7.4,.15,[.48,.58,.6,.24]);
     }
-    for(const [i,ch] of DAM_CHANNELS.entries()){
-      if(i===1){
-        rect(a,ch.x,ch.y,ch.width,ch.height,[.25,.28,.27,1]);
-        for(let x=ch.x;x<ch.x+ch.width;x+=4)rect(a,x,ch.y,.15,ch.height,[.1,.14,.14,.75]);
-        for(const y of [ch.y+.6,ch.y+ch.height-1])for(let x=ch.x+2;x<ch.x+ch.width;x+=6)rect(a,x,y,3,.4,[.92,.75,.36,.85]);
-        continue;
-      }
+    for(const ch of DAM_CHANNELS){
       rect(a,ch.x,ch.y,ch.width,ch.height,[.015,.15,.23,1]);
       for(let row=0;row<8;row++){
         rect(a,ch.x,ch.y+row*2,ch.width,1.95,[.018+row*.004,.22+row*.007,.31+row*.008,1]);
@@ -306,8 +300,8 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
       }
       for(const y of [g.y-1,g.y+16]){disc(a,g.x+2,y,.7,d.closed[i]?[1,.25,.09,1]:[.25,1,.68,1],12);}
     }
-    // Dry central bypass: traffic arrows lead toward the defended control house.
-    for(const x of [44,82,110]){tri(a,{x:x+1,y:50},{x:x-1,y:48.7},{x:x-1,y:51.3},[1,.82,.4,.6]);}
+    // The central spillway is always open; chevrons point upstream.
+    for(const x of [44,82,110]){tri(a,{x:x-1,y:50},{x:x+1,y:48.7},{x:x+1,y:51.3},[.55,.92,1,.28]);}
     rect(a,140,42,20,16,[.12,.23,.27,1]);rectOutline(a,140,42,20,16,[.4,.78,.8,.8],.25);
     for(let y=44;y<57;y+=3)rect(a,142,y,3,1,[.35,.91,.79,.8]);
     return new Float32Array(a.flatMap(v=>[v.x,v.y,v.r,v.g,v.b,v.a]));
@@ -380,7 +374,6 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
     if(scene.map.dam?.surge){
       const d=scene.map.dam,x=132-(1-d.surge/3.2)*104;
       for(const [i,ch] of DAM_CHANNELS.entries()){
-        if(i===1)continue;
         if(i!==1&&d.closed[i===0?0:1]&&x<68)continue;
         for(let k=0;k<10;k++)rect(a,x+k*1.7,ch.y+.25,1.8,15.5,[.35,.79,.91,(1-k/10)*.18]);
         for(let j=0;j<22;j++){const y=ch.y+.5+j*.69,offset=Math.sin(j*2+scene.time*13)*.8;disc(a,x+offset,y,.55+(j%3)*.15,[.78,.98,1,.7],8);streak(a,x+offset+2,y,1,0,2.7,.16,[.65,.95,1,.55]);}

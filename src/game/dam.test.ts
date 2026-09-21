@@ -24,7 +24,7 @@ test('reservoir costs a full charge, pauses, recharges, and gates stop their flo
  assert.ok(releaseFlood(map));assert.ok(!releaseFlood(map));assert.equal(map.dam!.reservoir,0);
  assert.deepEqual(advanceDam(map,20,false),[]);assert.equal(map.dam!.surge,3.2);
  assert.equal(toggleDamGate(map,1,[]),'Wait for the surge to pass before moving gates.');
- let effects=advanceDam(map,2.5,true);assert.equal(effects.length,1);assert.ok(effects.every(e=>e.kind==='flood'&&e.direction.x===-1));
+ let effects=advanceDam(map,2.5,true);assert.equal(effects.length,2);assert.ok(effects.every(e=>e.kind==='flood'&&e.direction.x===-1));
  advanceDam(map,.7,true);advanceDam(map,30,true);assert.equal(map.dam!.reservoir,100);assert.ok(releaseFlood(map));
 });
 test('dam state and mounted towers survive checkpoint validation',()=>{
@@ -40,11 +40,11 @@ test('gate closing refuses a player layout that would seal the final route',()=>
  assert.match(toggleDamGate(map,0,[])!,/clear spillway/);assert.equal(JSON.stringify(map),before);
 });
 
-test('only side spillways flood; central bypass stays dry for the whole surge',()=>{
+test('all three spillways flood for the whole surge',()=>{
  const map=damMap();releaseFlood(map);
  for(let tick=0;tick<192;tick++){
-  const effects=advanceDam(map,1/60,true);assert.equal(effects.length,2);
-  assert.deepEqual(effects.map(e=>e.y),[24,76]);assert.ok(effects.every(e=>Math.abs(e.y-50)>e.cone));
+  const effects=advanceDam(map,1/60,true);assert.equal(effects.length,3);
+  assert.deepEqual(effects.map(e=>e.y),[24,50,76]);
  }
 });
 test('dam opening quota agrees across forecast, start, progress and restart; campaign stays unchanged',()=>{

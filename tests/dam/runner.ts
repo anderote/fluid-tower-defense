@@ -34,7 +34,7 @@ button.onclick=async()=>{
   await navigate('/?map=dam');await until(()=>text('#adapter').includes('/ WEBGPU')&&text('#metal')==='290');
   assert(el('[data-action="dam-north"]').getAttribute('aria-pressed')==='true','Gate state lost on reload');
   assert(text('#wave-status-count')==='1,320 enemies','Dam opening forecast should be 1,320');
-  assert(text('#dam-controls').includes('always-open dry bypass'),'Missing center bypass explanation');
+  assert(text('#dam-controls').includes('always-open spillway'),'Missing center bypass explanation');
   click('[data-action="start-wave"]');await until(()=>text('#phase')==='COMBAT');
   let released=0,switched=false,paused=false,firstKill=0;const start=performance.now();
   while(['COMBAT','SETTLING'].includes(text('#phase'))){

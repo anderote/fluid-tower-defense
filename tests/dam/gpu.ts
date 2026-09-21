@@ -26,7 +26,7 @@ try{
  combat.reset();const map=damMap();releaseFlood(map);frame.effects=advanceDam(map,1/60,true);frame.count=3;
  const targets=new Float32Array(48);[24,50,76].forEach((y,i)=>targets.set([131.5,y,0,0,.4125,1,100,100,0,0,0,1,0,0,0,1],i*16));device.queue.writeBuffer(shared.particles,0,targets);step();p=await read(shared.particles,192);
  assert(p[P.hp]<100&&p[32+P.hp]<100,'Actual reservoir release missed a side spillway');
- assert(p[16+P.hp]===100&&p[16+P.vx]===0&&p[16+P.slow]===0,'Actual reservoir release affected the dry central bypass');
+ assert(p[16+P.hp]<100&&p[16+P.vx]<0&&p[16+P.slow]>0,'Actual reservoir release missed the central spillway');
  // Exercise production navigation and body collision through a deployed gate.
  const physics=await createPhysics(device,shared);
  const passageMap=mapWithTurretObstacles(damMap(),[{kind:'crusher',x:44,y:50}]);
@@ -40,5 +40,5 @@ try{
  for(let i=0;i<3;i++)assert(p[i*16+P.x]>49&&p[i*16+P.y]>45&&p[i*16+P.y]<55,'Zombie failed to cross the crusher mouth');
  physics.destroy();
  const error=await device.popErrorScope();if(error)throw Error(error.message);
- status.textContent='PASS: 12 GPU checks — rectangular damage, boundaries, upstream impulse, slow, kills, attribution, salvage, side spillways, dry bypass and three zombies walking through a crusher.';combat.destroy();device.destroy();
+ status.textContent='PASS: 12 GPU checks — rectangular damage, boundaries, upstream impulse, slow, kills, attribution, salvage, all three spillways and three zombies walking through a crusher.';combat.destroy();device.destroy();
 }catch(error){status.textContent='FAIL: '+String(error);console.error(error);}
