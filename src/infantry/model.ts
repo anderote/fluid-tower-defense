@@ -64,6 +64,10 @@ export function infantryFanPoint(map:WorldMap,center:Vec2,slot:number):Vec2 {
 export function exitPoint(map:WorldMap,b:Barracks,field:NavigationField):Vec2|undefined {
   return [{x:b.x,y:b.y+3},{x:b.x-3,y:b.y},{x:b.x+3,y:b.y},{x:b.x,y:b.y-3}].find(p=>clearForSoldier(map,p)&&Number.isFinite(field.distances[Math.floor(p.y)*field.width+Math.floor(p.x)]));
 }
+export function reachableRallyPoint(map:WorldMap,b:Barracks,target:Vec2):boolean {
+  if(!clearForSoldier(map,target))return false;
+  return !!exitPoint(map,b,infantryField(map,target));
+}
 
 type FormationSlot={centerX:number;centerY:number;slot:number;target:Vec2};
 const formationCaches=new WeakMap<InfantryState,Map<number,FormationSlot>>();

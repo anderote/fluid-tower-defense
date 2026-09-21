@@ -194,6 +194,7 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
   const ring=(a:V[],x:number,y:number,rad:number,c:[number,number,number,number],width=0.65)=>{const n=28;for(let i=0;i<n;i++){const u=i/n*Math.PI*2,v=(i+1)/n*Math.PI*2;const p=(rr:number,t:number)=>({x:x+Math.cos(t)*rr,y:y+Math.sin(t)*rr});tri(a,p(rad-width,u),p(rad-width,v),p(rad,v),c);tri(a,p(rad-width,u),p(rad,v),p(rad,u),c)}};
   const disc=(a:V[],x:number,y:number,rad:number,c:[number,number,number,number],n=10)=>{for(let i=0;i<n;i++){const u=i/n*Math.PI*2,v=(i+1)/n*Math.PI*2;tri(a,{x,y},{x:x+Math.cos(u)*rad,y:y+Math.sin(u)*rad},{x:x+Math.cos(v)*rad,y:y+Math.sin(v)*rad},c)}};
   const streak=(a:V[],x:number,y:number,vx:number,vy:number,length:number,width:number,c:[number,number,number,number])=>{const m=Math.max(.001,Math.hypot(vx,vy)),dx=vx/m*length,dy=vy/m*length,sx=-dy/m*width,sy=dx/m*width;tri(a,{x:x-dx+sx,y:y-dy+sy},{x:x-dx-sx,y:y-dy-sy},{x:x+sx,y:y+sy},c);tri(a,{x:x-dx-sx,y:y-dy-sy},{x:x-sx,y:y-sy},{x:x+sx,y:y+sy},c)};
+  const segment=(a:V[],from:Vec2,to:Vec2,width:number,c:[number,number,number,number])=>streak(a,to.x,to.y,to.x-from.x,to.y-from.y,Math.hypot(to.x-from.x,to.y-from.y),width,c);
   const shard=(a:V[],x:number,y:number,size:number,angle:number,c:[number,number,number,number])=>{const f={x:Math.cos(angle)*size,y:Math.sin(angle)*size},s={x:-Math.sin(angle)*size*.55,y:Math.cos(angle)*size*.55};tri(a,{x:x+f.x,y:y+f.y},{x:x+s.x,y:y+s.y},{x:x-f.x-s.x*.25,y:y-f.y-s.y*.25},c);tri(a,{x:x+f.x,y:y+f.y},{x:x-f.x-s.x*.25,y:y-f.y-s.y*.25},{x:x-s.x,y:y-s.y},c)};
   const casing=(a:V[],x:number,y:number,size:number,angle:number,c:[number,number,number,number])=>{const f={x:Math.cos(angle)*size,y:Math.sin(angle)*size},s={x:-Math.sin(angle)*size*.28,y:Math.cos(angle)*size*.28};tri(a,{x:x+f.x,y:y+f.y},{x:x+s.x,y:y+s.y},{x:x-f.x+s.x,y:y-f.y+s.y},c);tri(a,{x:x+f.x,y:y+f.y},{x:x-f.x+s.x,y:y-f.y+s.y},{x:x-f.x-s.x,y:y-f.y-s.y},c);tri(a,{x:x+f.x,y:y+f.y},{x:x-f.x-s.x,y:y-f.y-s.y},{x:x-s.x,y:y-s.y},[Math.min(1,c[0]*1.3),Math.min(1,c[1]*1.35),Math.min(1,c[2]*1.2),c[3]*.85]);};
   const infantryRankMarks=(a:V[],x:number,y:number,rank:number)=>{
@@ -254,14 +255,17 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
   };
   const fenceShape=(a:V[],fence:{x:number;y:number;width:number;height:number},integrity:number,c:[number,number,number,number]=[.62,.69,.67,.96])=>{
     const damage=1-Math.max(0,Math.min(1,integrity)),left=fence.x+.3,right=fence.x+fence.width-.3,top=fence.y+.38,bottom=fence.y+fence.height-.3;
-    const sag=damage*.72,dark:[number,number,number,number]=[.12,.15,.15,c[3]],mesh:[number,number,number,number]=[c[0],c[1],c[2],c[3]*(1-damage*.42)];
+    const sag=damage*.72,dark:[number,number,number,number]=[.12,.15,.15,c[3]],mesh:[number,number,number,number]=[c[0],c[1],c[2],c[3]*(1-damage*.42)],meshTop=top+.18,meshBottom=bottom-.22;
     rect(a,fence.x+.08,bottom-.04,fence.width-.16,.28,[.01,.013,.013,.28]);
-    for(const x of [left,right]){streak(a,x,bottom,damage*(x===left?.2:-.2),1,fence.height-.5,.14,dark);disc(a,x,top,.13,[.82,.86,.8,c[3]],6);}
-    streak(a,right,top+sag,1,sag/(right-left),right-left,.095,mesh);streak(a,right,bottom-.08,1,-sag*.15/(right-left),right-left,.09,dark);
-    for(let x=left+.25,index=0;x<right-.1;x+=.48,index++){
+    rect(a,left,meshTop,right-left,meshBottom-meshTop,[.08,.11,.1,.16*c[3]]);
+    for(const x of [left,right]){segment(a,{x,y:top},{x:x+damage*(x===left?.2:-.2),y:bottom},.14,dark);disc(a,x,top,.13,[.82,.86,.8,c[3]],6);}
+    segment(a,{x:left,y:top},{x:right,y:top+sag},.095,mesh);segment(a,{x:left,y:bottom-.08},{x:right,y:bottom-.08-sag*.15},.09,dark);
+    const columns=Math.max(2,Math.round((right-left)/.48));
+    for(let index=0;index<columns;index++){
       if(damage>.58&&index%4===2)continue;
-      streak(a,x,top+.18+sag*(x-left)/(right-left),.72,1,fence.height-.78,.035,mesh);
-      streak(a,x,bottom-.22,-.72,1,fence.height-.78,.035,[mesh[0],mesh[1],mesh[2],mesh[3]*.78]);
+      const x0=left+(right-left)*index/columns,x1=left+(right-left)*(index+1)/columns;
+      segment(a,{x:x0,y:meshTop},{x:x1,y:meshBottom},.035,mesh);
+      segment(a,{x:x1,y:meshTop},{x:x0,y:meshBottom},.035,[mesh[0],mesh[1],mesh[2],mesh[3]*.78]);
     }
     if(damage>.25)streak(a,fence.x+fence.width*.5,fence.y+fence.height*.52,.35,1,1+damage*1.3,.075,[.28,.16,.07,.52+damage*.35]);
   };
@@ -302,7 +306,10 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
         }
       }
     }
-    if(!redAlert?.hasFenceSprites)for(const fence of activeFences)fenceShape(a,fence,fence.health/fence.maxHealth);
+    // The original fenc.shp art was authored for Red Alert's isometric view
+    // and collapses into disconnected bright arcs in this top-down camera.
+    // Render explicit posts and diamond mesh so each solid stays readable.
+    for(const fence of activeFences)fenceShape(a,fence,fence.health/fence.maxHealth);
     for(const wire of scene.wires??[]){
       if(redAlert?.hasWireSprites)continue;
       const integrity=Math.max(.03,Math.min(1,wire.health/wire.maxHealth)),damage=1-integrity;
@@ -330,7 +337,7 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
       if(scene.placementGhost.kind==='wire'){
         if(!redAlert?.hasWireSprites)wireShape(a,scene.placementGhost,c,1);
         for(const x of [scene.placementGhost.x+.22,scene.placementGhost.x+scene.placementGhost.width-.22])for(const y of [scene.placementGhost.y+.22,scene.placementGhost.y+scene.placementGhost.height-.22])disc(a,x,y,.09,c,5);
-      }else if(scene.placementGhost.kind==='fence'&&!redAlert?.hasFenceSprites){
+      }else if(scene.placementGhost.kind==='fence'){
         fenceShape(a,scene.placementGhost,1,c);
       }else{
         rect(a,scene.placementGhost.x,scene.placementGhost.y,scene.placementGhost.width,scene.placementGhost.height,[c[0],c[1],c[2],.42]);
