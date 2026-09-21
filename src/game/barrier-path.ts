@@ -6,6 +6,8 @@ export type BarrierSegment=Rect&{from:Vec2;to:Vec2;run:number;kind:BarrierKind};
 export const BARRIER_THICKNESS=.72;
 export const BARRIER_SAMPLE=.65;
 export const MIN_BARRIER_LENGTH=1;
+/** One original 4-unit panel now covers five world units of a freeform run. */
+export const BARRIER_COST_LENGTH=5;
 
 const distance=(a:Vec2,b:Vec2)=>Math.hypot(b.x-a.x,b.y-a.y);
 const copy=(point:Vec2):Vec2=>({x:point.x,y:point.y});
@@ -46,6 +48,8 @@ export function barrierSegments(kind:BarrierKind,run:number,points:readonly Vec2
 }
 
 export function barrierLength(points:readonly Vec2[]):number{return points.slice(1).reduce((total,point,index)=>total+distance(points[index],point),0);}
+
+export function barrierCost(length:number,unitCost:number):number{return Math.ceil(Math.max(0,length)/BARRIER_COST_LENGTH)*unitCost;}
 
 export function pointToBarrierDistance(point:Vec2,segment:Pick<BarrierSegment,'from'|'to'>):number{
   const dx=segment.to.x-segment.from.x,dy=segment.to.y-segment.from.y,length=dx*dx+dy*dy;
