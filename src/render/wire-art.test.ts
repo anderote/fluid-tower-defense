@@ -59,3 +59,12 @@ test('both original wire sheets retain intact and fallen frames at floor pixel s
     }
   }
 });
+test('the OpenRA chain-link sheet retains connected intact and damaged frames',()=>{
+  const atlas=JSON.parse(readFileSync(new URL('../../public/assets/red-alert/atlas.json',import.meta.url),'utf8'));
+  assert.equal(atlas.sprites.cycl.length,48);
+  for(const id of atlas.sprites.cycl.slice(0,32)){
+    const frame=atlas.frames[id];assert.equal(frame.width,24);assert.equal(frame.height,24);
+    assert.ok(frame.x>=0&&frame.y>=0&&frame.x+24<=atlas.size&&frame.y+24<=atlas.size);
+  }
+  assert.match(atlas.source.palette,/wall sprites.*temperat\.pal/);
+});

@@ -111,7 +111,10 @@ if(infantryOnly){
 }else{
 add('floor',tiles(asset('flor0001.int')));
 for(let i=1;i<=49;i++)add(`wall${i}`,tiles(asset(`wall${String(i).padStart(4,'0')}.int`)));
-for(const name of ['gun','tsla','ftur','sam','fenc','barb'])add(name,shp(asset(`${name}.shp`)));
+for(const name of ['gun','tsla','ftur','sam'])add(name,shp(asset(`${name}.shp`)));
+// OpenRA renders wall sprites with its fixed `effect` palette, sourced from
+// temperat.pal. CYCL is the actual chain-link set; FENC is a different fence.
+for(const name of ['cycl','fenc','barb'])add(name,shp(asset(`${name}.shp`)),asset('temperat.pal'));
 for(const name of ['e1','e3','e4','dog','dogbullt','kenn','barr','tent'])add(name,shp(asset(`${name}.shp`)),asset('temperat.pal'));
 add('grating',tiles(asset('gflr0001.int')));
 for(const name of ['strp0001','strp0002','gstr0001','gstr0002','arro0001','arro0002'])add(name,tiles(asset(`${name}.int`)));
@@ -145,5 +148,5 @@ function chunk(type,data){const tag=Buffer.from(type),body=Buffer.concat([tag,da
 const header=Buffer.alloc(13);header.writeUInt32BE(size);header.writeUInt32BE(size,4);header[8]=8;header[9]=6;
 const scanlines=Buffer.alloc(size*(size*4+1));for(let row=0;row<size;row++)rgba.copy(scanlines,row*(size*4+1)+1,row*size*4,(row+1)*size*4);
 await writeFile(resolve(output,'atlas.png'),Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]),chunk('IHDR',header),chunk('IDAT',deflateSync(scanlines)),chunk('IEND',Buffer.alloc(0))]));
-await writeFile(resolve(output,'atlas.json'),JSON.stringify({size,frames,sprites,source:{package:'OpenRA ra-base.zip',sha1:EXPECTED,palette:infantryOnly?'temperat.pal with olive-gold player remap':'interior.pal (electro: temperat.pal)',copyright:'Original Red Alert artwork © Electronic Arts. Not covered by OpenRA GPL.',notice:'https://www.openra.net/legal/'}},null,2)+'\n');
+await writeFile(resolve(output,'atlas.json'),JSON.stringify({size,frames,sprites,source:{package:'OpenRA ra-base.zip',sha1:EXPECTED,palette:infantryOnly?'temperat.pal with olive-gold player remap':'interior.pal; wall sprites and electro: temperat.pal',copyright:'Original Red Alert artwork © Electronic Arts. Not covered by OpenRA GPL.',notice:'https://www.openra.net/legal/'}},null,2)+'\n');
 console.log(`Imported ${frames.length} original frames to ${output}`);

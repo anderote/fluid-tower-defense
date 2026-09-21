@@ -43,7 +43,7 @@ export async function createRedAlertArt(device:GPUDevice,format:GPUTextureFormat
   if(!response.ok)throw Error('Red Alert atlas is missing. Run npm run assets:red-alert.');
   const atlas:Atlas=await response.json();
   if(!atlas.frames?.length||!atlas.sprites?.floor?.length)throw Error('Invalid Red Alert atlas');
-  const wireFrames=atlas.sprites[wireStyle],hasWireSprites=wireFrames?.length>=32;
+  const wireFrames=atlas.sprites[wireStyle],fenceFrames=atlas.sprites.cycl,hasWireSprites=wireFrames?.length>=32,hasFenceSprites=fenceFrames?.length>=32;
   const imageResponse=await fetch(`${assetBase}assets/red-alert/atlas.png`);
   if(!imageResponse.ok)throw Error('Red Alert texture is missing');
   const bitmap=await createImageBitmap(await imageResponse.blob(),{premultiplyAlpha:'none',colorSpaceConversion:'none'});
@@ -99,7 +99,7 @@ struct Out{@builtin(position) pos:vec4<f32>,@location(0) uv:vec2<f32>,@location(
   function sprite(data:number[],id:number,x:number,y:number,width:number,height:number,tint=[1,1,1,1],crop?:Frame){
     const f=crop??atlas.frames[id];data.push(x,y,width,height,f.x,f.y,f.width,f.height,...tint);
   }
-  let terrainKey='',wireKey='',previousScenery:RenderScene['map']['scenery'],sceneryVersion=0;
+  let terrainKey='',barrierKey='',previousScenery:RenderScene['map']['scenery'],sceneryVersion=0;
   function prepare(scene:RenderScene){
     const friendly:number[]=[];
     if(hasInfantrySprites){
@@ -148,11 +148,11 @@ struct Out{@builtin(position) pos:vec4<f32>,@location(0) uv:vec2<f32>,@location(
       }
       upload(sceneryProps,props);
     }
-    const wires=scene.wires??[];
-    const nextWireKey=JSON.stringify(wires.map(w=>[w.x,w.y,w.width,w.height,wireDamage(w)]));
-    if(hasWireSprites&&nextWireKey!==wireKey){
+    const wires=scene.wires??[],fences=scene.fences??[];
+    const nextBarrierKey=JSON.stringify([wires.map(w=>[w.x,w.y,w.width,w.height,wireDamage(w)]),fences.map(f=>[f.x,f.y,f.width,f.height,wireDamage({...f,breached:false})])]);
+    if((hasWireSprites||hasFenceSprites)&&nextBarrierKey!==barrierKey){
       const data:number[]=[];
-      for(const tile of wireTiles(wires)){
+      if(hasWireSprites)for(const tile of wireTiles(wires)){
         const breached=tile.damage==='breached',id=wireFrames[breached?16+tile.debrisMask:tile.mask],frame=atlas.frames[id];
         const tint=breached?[.72,.65,.54,1]:tile.damage==='intact'?[1,1,1,1]:tile.damage==='worn'?[.88,.79,.65,1]:[.74,.61,.46,1];
         const crop={...frame,width:tile.width*6,height:tile.height*6};
@@ -169,13 +169,25 @@ struct Out{@builtin(position) pos:vec4<f32>,@location(0) uv:vec2<f32>,@location(
           }
         }else sprite(data,id,tile.x,tile.y,tile.width,tile.height,tint,crop);
       }
-      upload(wireBatch,data);wireKey=nextWireKey;
+      if(hasFenceSprites){
+        const fenceStates=fences.map(fence=>({...fence,breached:false}));
+        for(const tile of wireTiles(fenceStates)){
+          const id=fenceFrames[(tile.damage==='frayed'?16:0)+tile.mask],frame=atlas.frames[id],tint=tile.damage==='intact'?[1,1,1,1]:tile.damage==='worn'?[.88,.8,.68,1]:[.82,.72,.58,1];
+          sprite(data,id,tile.x,tile.y,tile.width,tile.height,tint,{...frame,width:tile.width*6,height:tile.height*6});
+        }
+      }
+      upload(wireBatch,data);barrierKey=nextBarrierKey;
     }
-    const preview:number[]=[],ghost=scene.placementGhost;
-    if(hasWireSprites&&ghost?.kind==='wire'){
-      const previewWire={...ghost,health:1,maxHealth:1,breached:false};
-      const ghostTiles=wireTiles([previewWire],[...wires,previewWire]);
-      for(const tile of ghostTiles){const id=wireFrames[tile.mask],frame=atlas.frames[id];sprite(preview,id,tile.x,tile.y,tile.width,tile.height,ghost.valid?[.55,1,.7,.8]:[1,.3,.2,.8],{...frame,width:tile.width*6,height:tile.height*6});}
+    const preview:number[]=[],ghosts=[...(scene.placementGhost?[scene.placementGhost]:[]),...(scene.placementGhosts??[])];
+    const wireGhosts=ghosts.filter(ghost=>ghost.kind==='wire').map(ghost=>({...ghost,health:1,maxHealth:1,breached:false}));
+    if(hasWireSprites&&wireGhosts.length){
+      const ghostTiles=wireTiles(wireGhosts,[...wires,...wireGhosts]);
+      for(const tile of ghostTiles){const id=wireFrames[tile.mask],frame=atlas.frames[id],ghost=wireGhosts.find(candidate=>tile.x>=candidate.x&&tile.x<candidate.x+candidate.width&&tile.y>=candidate.y&&tile.y<candidate.y+candidate.height)!;sprite(preview,id,tile.x,tile.y,tile.width,tile.height,ghost.valid?[.55,1,.7,.8]:[1,.3,.2,.8],{...frame,width:tile.width*6,height:tile.height*6});}
+    }
+    const fenceGhosts=ghosts.filter(ghost=>ghost.kind==='fence').map(ghost=>({...ghost,health:1,maxHealth:1,breached:false}));
+    if(hasFenceSprites&&fenceGhosts.length){
+      const fenceStates=fences.map(fence=>({...fence,breached:false})),ghostTiles=wireTiles(fenceGhosts,[...fenceStates,...fenceGhosts]);
+      for(const tile of ghostTiles){const id=fenceFrames[tile.mask],frame=atlas.frames[id],ghost=fenceGhosts.find(candidate=>tile.x>=candidate.x&&tile.x<candidate.x+candidate.width&&tile.y>=candidate.y&&tile.y<candidate.y+candidate.height)!;sprite(preview,id,tile.x,tile.y,tile.width,tile.height,ghost.valid?[.55,1,.7,.8]:[1,.3,.2,.8],{...frame,width:tile.width*6,height:tile.height*6});}
     }
     upload(wireGhost,preview);
     const data:number[]=[],elevated:number[]=[];
@@ -199,5 +211,5 @@ struct Out{@builtin(position) pos:vec4<f32>,@location(0) uv:vec2<f32>,@location(
     draw(pass,towers,true);
     if(!mountedTowers.count)return;pass.setPipeline(defensePipeline);pass.setBindGroup(0,bindings);pass.setVertexBuffer(0,mountedTowers.buffer);pass.draw(6,mountedTowers.count);
   }
-  return {prepare,hasWireSprites,hasInfantrySprites,drawInfantry:(pass:GPURenderPassEncoder)=>draw(pass,infantryBatch,true),drawFloor:(pass:GPURenderPassEncoder)=>draw(pass,terrain),drawWires:(pass:GPURenderPassEncoder)=>{draw(pass,wireBatch);draw(pass,wireGhost);},drawOccluders:(pass:GPURenderPassEncoder)=>{draw(pass,walls,true);draw(pass,sceneryProps,true);},drawTowers:drawDefenses,destroy(){infantryBatch.buffer.destroy();terrain.buffer.destroy();walls.buffer.destroy();sceneryProps.buffer.destroy();towers.buffer.destroy();mountedTowers.buffer.destroy();wireBatch.buffer.destroy();wireGhost.buffer.destroy();texture.destroy();}};
+  return {prepare,hasWireSprites,hasFenceSprites,hasInfantrySprites,drawInfantry:(pass:GPURenderPassEncoder)=>draw(pass,infantryBatch,true),drawFloor:(pass:GPURenderPassEncoder)=>draw(pass,terrain),drawWires:(pass:GPURenderPassEncoder)=>{draw(pass,wireBatch);draw(pass,wireGhost);},drawOccluders:(pass:GPURenderPassEncoder)=>{draw(pass,walls,true);draw(pass,sceneryProps,true);},drawTowers:drawDefenses,destroy(){infantryBatch.buffer.destroy();terrain.buffer.destroy();walls.buffer.destroy();sceneryProps.buffer.destroy();towers.buffer.destroy();mountedTowers.buffer.destroy();wireBatch.buffer.destroy();wireGhost.buffer.destroy();texture.destroy();}};
 }
