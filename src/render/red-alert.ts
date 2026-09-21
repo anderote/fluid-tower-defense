@@ -148,7 +148,7 @@ struct Out{@builtin(position) pos:vec4<f32>,@location(0) uv:vec2<f32>,@location(
       }
       upload(sceneryProps,props);
     }
-    const wires=scene.wires??[],fences=scene.fences??[];
+    const wires=scene.barrierSegments?.length?[]:scene.wires??[],fences=scene.barrierSegments?.length?[]:scene.fences??[];
     const nextBarrierKey=JSON.stringify([wires.map(w=>[w.x,w.y,w.width,w.height,wireDamage(w)]),fences.map(f=>[f.x,f.y,f.width,f.height,wireDamage({...f,breached:false})])]);
     if((hasWireSprites||hasFenceSprites)&&nextBarrierKey!==barrierKey){
       const data:number[]=[];

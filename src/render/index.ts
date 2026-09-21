@@ -318,9 +318,14 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
         }
       }
     }
-    // Use procedural mesh only when the verified Red Alert atlas is missing.
-    if(!redAlert?.hasFenceSprites)for(const fence of activeFences)fenceShape(a,fence,fence.health/fence.maxHealth);
-    for(const wire of scene.wires??[]){
+    if(scene.barrierSegments?.length){for(const barrier of scene.barrierSegments){
+      const integrity=Math.max(.03,Math.min(1,barrier.health/barrier.maxHealth)),damage=1-integrity,dx=barrier.to.x-barrier.from.x,dy=barrier.to.y-barrier.from.y,length=Math.hypot(dx,dy),side={x:-dy/Math.max(.001,length),y:dx/Math.max(.001,length)};
+      if(barrier.kind==='fence'){const c:[number,number,number,number]=[.42-damage*.22,.55-damage*.32,.5-damage*.3,.96];segment(a,barrier.from,barrier.to,.15,c);segment(a,{x:barrier.from.x+side.x*.25,y:barrier.from.y+side.y*.25},{x:barrier.to.x+side.x*.25,y:barrier.to.y+side.y*.25},.035,[.76,.82,.75,.8]);for(const point of [barrier.from,barrier.to])disc(a,point.x,point.y,.16,[.18,.23,.22,.96],6);}
+      else {const c:[number,number,number,number]=barrier.breached?[.26,.09,.035,.7]:[.65-damage*.4,.7-damage*.5,.67-damage*.5,.95];for(const offset of [-.16,0,.16])segment(a,{x:barrier.from.x+side.x*offset,y:barrier.from.y+side.y*offset},{x:barrier.to.x+side.x*offset,y:barrier.to.y+side.y*offset},.045,c);}
+    }}
+    // Use the old rectangular mesh only for legacy grid barriers.
+    if(!scene.barrierSegments?.length&&!redAlert?.hasFenceSprites)for(const fence of activeFences)fenceShape(a,fence,fence.health/fence.maxHealth);
+    for(const wire of scene.barrierSegments?.length?[]:scene.wires??[]){
       if(redAlert?.hasWireSprites)continue;
       const integrity=Math.max(.03,Math.min(1,wire.health/wire.maxHealth)),damage=1-integrity;
       const color:[number,number,number,number]=wire.breached?[.17,.06,.022,.86]:[.68-damage*.43,.74-damage*.58,.72-damage*.62,.96];
