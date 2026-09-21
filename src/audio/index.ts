@@ -6,19 +6,23 @@ import {AudioVoiceBudget,type AudioVoiceGroup} from './voice-budget.ts';
 
 const FIRE_PROFILES:Record<TowerKind,[AudioVoiceGroup,number]>={autocannon:['light',.09],railgun:['heavy',.15],mortar:['heavy',.62],rocket:['heavy',.7],tesla:['heavy',.2],incinerator:['sustained',.22],cryo:['sustained',.18],repulsor:['heavy',.22]};
 
-/** Dry synthesized weapon layers plus attributed OpenSoldat heavy-weapon samples. */
+/** Synthesized effects layered with original Red Alert combat audio from OpenRA. */
 export function createAudio(){
   let ctx:AudioContext|undefined,master:GainNode|undefined,noise:AudioBuffer|undefined;
   const stopListening=onAudioSettingsChange(settings=>{if(master)master.gain.value=settings.effects;});
-  const samples:Partial<Record<'m79Fire'|'m79Explosion'|'law',AudioBuffer>>={};
+  const samples:Partial<Record<'rifleFire'|'rocketFire'|'rocketImpact'|'flameImpact'|'autocannonFire'|'mortarFire'|'teslaFire'|'heavyImpact',AudioBuffer>>={};
   const voiceBudget=new AudioVoiceBudget();
   let samplesLoading=false;
 
   const loadSamples=()=>{
     if(!ctx||samplesLoading)return;samplesLoading=true;
-    const files={m79Fire:`${assetBase}audio/soldat/m79-fire.wav`,m79Explosion:`${assetBase}audio/soldat/m79-explosion.wav`,law:`${assetBase}audio/soldat/law.wav`} as const;
+    const files={
+      rifleFire:`${assetBase}audio/openra/rifle-fire.wav`,rocketFire:`${assetBase}audio/openra/rocket-fire.wav`,rocketImpact:`${assetBase}audio/openra/rocket-impact.wav`,
+      flameImpact:`${assetBase}audio/openra/flame-impact.wav`,autocannonFire:`${assetBase}audio/openra/autocannon-fire.wav`,mortarFire:`${assetBase}audio/openra/mortar-fire.wav`,
+      teslaFire:`${assetBase}audio/openra/tesla-fire.wav`,heavyImpact:`${assetBase}audio/openra/heavy-impact.wav`
+    } as const;
     for(const [name,url] of Object.entries(files) as [keyof typeof files,string][]){
-      void fetch(url).then(response=>{if(!response.ok)throw new Error(`${response.status} ${url}`);return response.arrayBuffer();}).then(data=>ctx?.decodeAudioData(data)).then(buffer=>{if(buffer)samples[name]=buffer;}).catch(error=>console.warn('OpenSoldat sound unavailable; using synthesized fallback.',error));
+      void fetch(url).then(response=>{if(!response.ok)throw new Error(`${response.status} ${url}`);return response.arrayBuffer();}).then(data=>ctx?.decodeAudioData(data)).then(buffer=>{if(buffer)samples[name]=buffer;}).catch(error=>console.warn('OpenRA sound unavailable; using synthesized fallback.',error));
     }
   };
 
@@ -55,19 +59,19 @@ export function createAudio(){
     const at=ctx.currentTime+.008,pan=stereo(x),jitter=((serial*37)%17-8)/100;
     switch(kind){
       case 'autocannon':
-        hiss(at,.055,.23,720,7600,pan,serial*.071);tone(at,132*(1+jitter),58,.075,.16,pan,'sawtooth');tone(at+.008,980*(1+jitter),410,.035,.035,pan,'square');break;
+        if(!sample('autocannonFire',at,.4,pan,.98+jitter*.05,.32)){hiss(at,.055,.23,720,7600,pan,serial*.071);tone(at,132*(1+jitter),58,.075,.16,pan,'sawtooth');}break;
       case 'railgun':
         hiss(at,.09,.2,1100,11000,pan,serial*.113);tone(at,92,42,.14,.2,pan,'sawtooth');tone(at,2100*(1+jitter),620,.12,.065,pan,'square');break;
       case 'mortar':
-        if(!sample('m79Fire',at,.72,pan,.98+jitter*.08,.6)){hiss(at,.12,.17,80,2100,pan,serial*.191);tone(at,78,31,.2,.24,pan,'sine');}break;
+        if(!sample('mortarFire',at,.55,pan,.98+jitter*.08,.62)){hiss(at,.12,.17,80,2100,pan,serial*.191);tone(at,78,31,.2,.24,pan,'sine');}break;
       case 'rocket':
-        if(!sample('law',at,.58,pan,.98+jitter*.05,.7)){hiss(at,.24,.16,90,3200,pan,serial*.137);tone(at,68,34,.18,.19,pan,'sawtooth');}break;
+        if(!sample('rocketFire',at,.5,pan,.98+jitter*.05,.62)){hiss(at,.24,.16,90,3200,pan,serial*.137);tone(at,68,34,.18,.19,pan,'sawtooth');}break;
       case 'tesla':
-        hiss(at,.065,.2,1800,12000,pan,serial*.097);tone(at,1550*(1+jitter),120,.18,.095,pan,'sawtooth');
+        if(!sample('teslaFire',at,.32,pan,.98+jitter*.04,.34))hiss(at,.065,.2,1800,12000,pan,serial*.097);tone(at,1550*(1+jitter),120,.18,.095,pan,'sawtooth');
         for(let crack=1;crack<=3;crack++)hiss(at+crack*.035,.026,.065,2800,10000,pan,serial*.097+crack*.13);
         tone(at+.015,105,38,.13,.08,pan,'sine');break;
       case 'incinerator':
-        hiss(at,.2,.1,180,4400,pan,serial*.157);tone(at,96,49,.13,.07,pan,'sawtooth');break;
+        if(!sample('flameImpact',at,.18,pan,.98+jitter*.04,.17))hiss(at,.2,.1,180,4400,pan,serial*.157);tone(at,96,49,.13,.07,pan,'sawtooth');break;
       case 'cryo':
         hiss(at,.16,.085,650,5200,pan,serial*.173);tone(at,420,170,.14,.035,pan,'sine');break;
       case 'repulsor':
@@ -82,12 +86,19 @@ export function createAudio(){
   };
   const explode=(kind:'mortar'|'rocket',x:number,serial=0)=>{
     if(!ctx||!admit('impact',.72))return;const at=ctx.currentTime+.006,pan=stereo(x),rate=kind==='rocket'?.9:.98+((serial*13)%7-3)*.008;
-    if(!sample('m79Explosion',at,kind==='rocket'?.68:.57,pan,rate,.72)){hiss(at,.3,.25,32,2600,pan,serial*.227);tone(at,62,24,.34,.27,pan,'sine');}
+    if(!sample(kind==='rocket'?'rocketImpact':'heavyImpact',at,kind==='rocket'?.58:.48,pan,rate,.72)){hiss(at,.3,.25,32,2600,pan,serial*.227);tone(at,62,24,.34,.27,pan,'sine');}
     // A compact low-frequency pressure layer gives the old sample weight on modern speakers.
     tone(at,kind==='rocket'?58:72,24,kind==='rocket'?.34:.25,kind==='rocket'?.16:.11,pan,'sine');
   };
   const slash=(x:number,serial=0)=>{if(!ctx||!admit('detail',.17))return;const at=ctx.currentTime+.008,pan=stereo(x);hiss(at,.16,.12,1200,8000,pan,serial*.13);tone(at,1800,350,.11,.035,pan,'triangle');};
   const bark=(x:number,serial=0)=>{if(!ctx||!admit('detail',.11))return;const at=ctx.currentTime+.008,pan=stereo(x);hiss(at,.09,.1,180,1700,pan,serial*.17);tone(at,210,105,.1,.065,pan,'sawtooth');};
+  const infantryFire=(kind:'rifle'|'rocket'|'flame',x:number,serial=0)=>{
+    if(!ctx||!admit(kind==='flame'?'sustained':'light',kind==='rocket'?.64:.18,.008))return;const at=ctx.currentTime+.008,pan=stereo(x),jitter=((serial*37)%17-8)/100;
+    const name=kind==='rifle'?'rifleFire':kind==='rocket'?'rocketFire':'flameImpact';
+    if(!sample(name,at,kind==='rocket'?.4:kind==='flame'?.14:.26,pan,.98+jitter*.05,kind==='rocket'?.56:kind==='flame'?.15:.2)){
+      if(kind==='flame')hiss(at,.14,.1,180,4400,pan,serial*.157);else if(kind==='rocket')hiss(at,.2,.14,90,3200,pan,serial*.137);else hiss(at,.05,.14,700,7200,pan,serial*.071);
+    }
+  };
   const beep=(hz:number,duration=.07)=>{arm();if(ctx)tone(ctx.currentTime+.004,hz,hz*.82,duration,.045,0,'sine');};
-  return {arm,fire,shell,explode,slash,bark,click:()=>beep(420,.04),blast:()=>beep(90,.16),alert:()=>beep(760,.12),destroy:()=>{stopListening();void ctx?.close();ctx=undefined;master=undefined;noise=undefined;}};
+  return {arm,fire,infantryFire,shell,explode,slash,bark,click:()=>beep(420,.04),blast:()=>beep(90,.16),alert:()=>beep(760,.12),destroy:()=>{stopListening();void ctx?.close();ctx=undefined;master=undefined;noise=undefined;}};
 }
