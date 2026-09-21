@@ -203,6 +203,16 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
     for(let i=0;i<chevrons;i++){const cx=x+(i-(chevrons-1)/2)*.28;streak(a,cx-.11,y-.99,-1,1,.22,.055,color);streak(a,cx+.11,y-.99,1,1,.22,.055,color);}
     for(let i=0;i<stripes;i++)rect(a,x+(i-(stripes-1)/2)*.18-.045,y-1.04,.09,.08,color);
   };
+  const infantrySelectionBrackets=(a:V[],x:number,y:number)=>{
+    const shadow:[number,number,number,number]=[.02,.02,.018,.9],color:[number,number,number,number]=[.98,.98,.9,.98];
+    const top=y-1.48,bottom=y+.72,left=x-1.16,right=x+1.16,arm=.38,width=.1;
+    // A dark under-stroke keeps the white Red Alert-style brackets readable over sprites.
+    for(const [side,edge] of [['left',left],['right',right]] as const){
+      const start=side==='left'?edge:edge-arm;
+      rect(a,start-.045,top-.045,arm+.09,width+.09,shadow);rect(a,start-.045,bottom-.005,arm+.09,width+.09,shadow);rect(a,edge-.045,top-.045,width+.09,bottom-top+width+.09,shadow);
+      rect(a,start,top,arm,width,color);rect(a,start,bottom,arm,width,color);rect(a,edge,top,width,bottom-top+width,color);
+    }
+  };
   const orientedRect=(a:V[],x:number,y:number,halfLength:number,halfWidth:number,angle:number,c:[number,number,number,number])=>{const f={x:Math.cos(angle)*halfLength,y:Math.sin(angle)*halfLength},s={x:-Math.sin(angle)*halfWidth,y:Math.cos(angle)*halfWidth};tri(a,{x:x+f.x+s.x,y:y+f.y+s.y},{x:x-f.x+s.x,y:y-f.y+s.y},{x:x-f.x-s.x,y:y-f.y-s.y},c);tri(a,{x:x+f.x+s.x,y:y+f.y+s.y},{x:x-f.x-s.x,y:y-f.y-s.y},{x:x+f.x-s.x,y:y+f.y-s.y},c);};
   const towerShape=(a:V[],t:Vec2 & {kind:TowerKind;angle?:number},c:[number,number,number,number])=>{
     if(redAlert&&hasRedAlertSprite(t.kind,turretArt))return;
@@ -362,7 +372,7 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
       const kind=s.kind??'rifle';
       const x=s.x,y=s.y,dead=s.health<=0;
       if(dead)continue;
-      if(scene.selectedInfantry?.has(s.id))ring(a,x,y+.15,1.05,[.43,1,.36,.95],.11);
+      if(scene.selectedInfantry?.has(s.id))infantrySelectionBrackets(a,x,y);
       const muzzle=infantryMuzzle(s),{dx,dy}=muzzle,mx=muzzle.x,my=muzzle.y;
       const shell=infantryCasing(s);if(shell)casing(a,shell.x,shell.y,.13,shell.angle,[.82,.61,.2,shell.alpha]);
       if(kind==='samurai'&&s.attackAge!==undefined&&s.attackAge<SAMURAI_ATTACK_DURATION){
