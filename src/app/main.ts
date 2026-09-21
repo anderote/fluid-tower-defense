@@ -27,7 +27,7 @@ import { createPhysics } from '../sim/physics/index.ts';
 import { createCombat, type CombatFrame } from '../sim/combat/index.ts';
 import { barbedWireStats, createParticles, DEFAULT_MAP, compileTower, techRank, TOWERS } from '../content/index.ts';
 import { buildNavigation, canPlace, mapWithTurretObstacles, resolvePlacement, turretObstacles } from '../navigation/index.ts';
-import {BASE_FENCE_DURABILITY, CHAINLINK_FENCE_COST, fenceHealthAfterPressure, METAL_WALL_COST, wallCapacity, wallHealthAfterPressure} from '../sim/walls/model.ts';
+import {BASE_FENCE_DURABILITY, barrierHealthAfterExplosion, CHAINLINK_FENCE_COST, fenceHealthAfterPressure, METAL_WALL_COST, wallCapacity, wallHealthAfterPressure} from '../sim/walls/model.ts';
 import { createRun, STARTING_METAL, TOWER_MOVE_COST, waveFor } from '../game/index.ts';
 import { COUNTER_WORDS, DEFAULT_TUNING, HORDE_APPROACH, PARTICLE_FLOATS, type UIState, type GameAction, type Effect, type Vec2, type Rect, type Settlement, type VisualParticle, type VisualParticleStyle, type WorldMap, type HeavyProjectile, type HeavyExplosion, type InfantryRocketProjectile, type InfantryRocketExplosion } from '../contracts/index.ts';
 import {ShotEventReader} from '../runtime/shot-events.ts';
@@ -147,6 +147,8 @@ try {
  }
  const sameRect=(left:Rect,right:Rect)=>left.x===right.x&&left.y===right.y&&left.width===right.width&&left.height===right.height;
  const removeStructuresFromMap=(structures:readonly Rect[])=>{map={...map,obstacles:map.obstacles.filter(obstacle=>!structures.some(structure=>sameRect(obstacle,structure)))};run.setMap(map);syncTowerMounts();refreshNavigation();};
+ const distanceToRect=(point:Vec2,rect:Rect)=>Math.hypot(Math.max(rect.x-point.x,0,point.x-(rect.x+rect.width)),Math.max(rect.y-point.y,0,point.y-(rect.y+rect.height)));
+ const damageBarriersFromExplosion=(point:Vec2,radius:number)=>{for(const fence of builtFences)fence.health=barrierHealthAfterExplosion(fence.health,fence.maxHealth,distanceToRect(point,fence),radius);for(const wire of builtWires)wire.health=barrierHealthAfterExplosion(wire.health,wire.maxHealth,distanceToRect(point,wire),radius);};
  const clearPlayerStructures=()=>{removeStructuresFromMap([...builtWalls,...builtWires,...builtFences]);builtWalls=[];builtWires=[];builtFences=[];wirePosts=[];fencePosts=[];syncTowerMounts();};
  const actionResult=(result:{ok:boolean;reason?:string},success:string)=>{state.message=result.ok?success:result.reason||'Action unavailable.';};
  const setUpgradeTarget=(id:number|null)=>{window.clearTimeout(hoverClearTimer);if(hoveredTowerId===id)return;hoveredTowerId=id;state.upgradeTarget=id===null?null:run.model.towers.find(tower=>tower.id===id)??null;ui.update(state);positionUpgradeInspector();};
@@ -260,6 +262,7 @@ try {
    burst(impact,rocket?3:4,[1,.27,.035],rocket?6.5:7.5,.48,-1.2,'spark',rocket?1:1.15);
    cameraShake=Math.min(1.4,Math.max(cameraShake,rocket ? .62 : .86)+.12);
    showPressure(impact,impact.peakPressureKpa,impact.serial);
+   damageBarriersFromExplosion(impact,impact.radius);
    commands.push({...impact,kind:'corpse-blast',radius:impact.radius,strength:0,damage:0,direction:{x:0,y:0},cone:0,duration:0,source:0});
  };
  const detonateInfantryRocket=(projectile:InfantryRocketProjectile)=>{
@@ -267,6 +270,7 @@ try {
    if(infantryRocketExplosions.length>48)infantryRocketExplosions.splice(0,infantryRocketExplosions.length-48);
    burst(projectile.target,5,[.2,.2,.18],3.4,.72,-.35,'smoke',.75);
    spray(projectile.target,6,[1,.42,.06],7,.28,{x:projectile.target.x-projectile.x,y:projectile.target.y-projectile.y},1.2,'spark',.65);
+   damageBarriersFromExplosion(projectile.target,3.2);
    commands.push({...projectile.target,kind:'corpse-blast',radius:3.2,strength:0,damage:0,direction:{x:0,y:0},cone:0,duration:0,source:0});
  };
  const shotReader=new ShotEventReader(gpu.device,events=>{
