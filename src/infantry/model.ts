@@ -53,6 +53,53 @@ export function clearInfantryPath(map:WorldMap,from:Vec2,to:Vec2,r=.4):boolean {
     return axis(from.x,dx,minX,maxX)&&axis(from.y,dy,minY,maxY)&&first<1&&last>0;
   });
 }
+/**
+ * Pulls a friendly soldier several visible cells along its navigation field.
+ * The old follower aimed at only the next cell, which made squads take a
+ * stair-step route and stall when a crowd reached a wall corner together.
+ * Alternate field vectors let neighboring soldiers take equivalent sides of
+ * a route without changing enemy navigation.
+ */
+export function infantryNavigationWaypoint(map:WorldMap,field:NavigationField,from:Vec2,to:Vec2,seed=0):Vec2 {
+  if(clearInfantryPath(map,from,to))return to;
+  let x=Math.max(0,Math.min(field.width-1,Math.floor(from.x/field.cellSize)));
+  let y=Math.max(0,Math.min(field.height-1,Math.floor(from.y/field.cellSize)));
+  let best:Vec2|undefined;
+  for(let step=0;step<10;step++){
+    const at=y*field.width+x;
+    const candidates:Vec2[]=[];
+    for(const vectors of seed%2?[field.alternateVectors,field.vectors]:[field.vectors,field.alternateVectors]){
+      const dx=Math.round(vectors[at*2]??0),dy=Math.round(vectors[at*2+1]??0);
+      if(!dx&&!dy)continue;
+      const nextX=x+dx,nextY=y+dy;
+      if(nextX<0||nextY<0||nextX>=field.width||nextY>=field.height)continue;
+      const next=nextY*field.width+nextX;
+      if(!Number.isFinite(field.distances[next]))continue;
+      const point={x:(nextX+.5)*field.cellSize,y:(nextY+.5)*field.cellSize};
+      if(!clearForSoldier(map,point)||!clearInfantryPath(map,from,point))continue;
+      candidates.push(point);
+    }
+    // A soldier can be physically just beyond a blocked cell's edge even
+    // though floor(cell) still names that blocked cell. Recover by looking
+    // for the nearest lower-cost cardinal neighbor instead of treating the
+    // zero vector as a dead end.
+    if(!candidates.length){
+      const currentDistance=field.distances[at]??Infinity;
+      for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]] as const){
+        const nextX=x+dx,nextY=y+dy;
+        if(nextX<0||nextY<0||nextX>=field.width||nextY>=field.height)continue;
+        const next=nextY*field.width+nextX;
+        if(!Number.isFinite(field.distances[next])||field.distances[next]>=currentDistance)continue;
+        const point={x:(nextX+.5)*field.cellSize,y:(nextY+.5)*field.cellSize};
+        if(clearForSoldier(map,point)&&clearInfantryPath(map,from,point))candidates.push(point);
+      }
+    }
+    const point=candidates[0];
+    if(!point)break;
+    best=point;x=Math.floor(point.x/field.cellSize);y=Math.floor(point.y/field.cellSize);
+  }
+  return best??from;
+}
 /** Stable sunflower slots turn a rally coordinate into a loose, quiet staging area. */
 export function infantryFanPoint(map:WorldMap,center:Vec2,slot:number):Vec2 {
   if(slot<=0)return center;
@@ -123,8 +170,7 @@ export function advanceInfantry(state:InfantryState,map:WorldMap,fields:Map<numb
     else if(!settled&&(ordered||(!fresh&&(distance>stats.range||rallyDistance>5)))){
       if(clearInfantryPath(map,s,destination)){dx=(destination.x-s.x)/rallyDistance;dy=(destination.y-s.y)/rallyDistance;}
       else{
-        const cellX=Math.max(0,Math.min(field.width-1,Math.floor(s.x/field.cellSize))),cellY=Math.max(0,Math.min(field.height-1,Math.floor(s.y/field.cellSize))),at=cellY*field.width+cellX,fieldX=field.vectors[at*2]??0,fieldY=field.vectors[at*2+1]??0;
-        const waypoint={x:(cellX+.5)*field.cellSize+fieldX*field.cellSize,y:(cellY+.5)*field.cellSize+fieldY*field.cellSize},toWaypoint=Math.hypot(waypoint.x-s.x,waypoint.y-s.y);
+        const waypoint=infantryNavigationWaypoint(map,field,s,destination,s.id),toWaypoint=Math.hypot(waypoint.x-s.x,waypoint.y-s.y);
         if(toWaypoint>.01){dx=(waypoint.x-s.x)/toWaypoint;dy=(waypoint.y-s.y)/toWaypoint;}
       }
     }

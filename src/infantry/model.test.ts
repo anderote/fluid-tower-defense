@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {INFANTRY,infantryStats,infantryCapacity,type InfantryKind,advanceInfantry,awardInfantryKills,clearForSoldier,clearInfantryPath,damageInfantry,recordInfantryCasualty,freshInfantry,infantryFanPoint,infantryMap,infantryField,reachableRallyPoint,rifleStats,recruitInterval,validInfantry,type Threat} from './model.ts';
+import {INFANTRY,infantryStats,infantryCapacity,type InfantryKind,advanceInfantry,awardInfantryKills,clearForSoldier,clearInfantryPath,damageInfantry,recordInfantryCasualty,freshInfantry,infantryFanPoint,infantryMap,infantryField,infantryNavigationWaypoint,reachableRallyPoint,rifleStats,recruitInterval,validInfantry,type Threat} from './model.ts';
 import {createRun} from '../game/index.ts';
 import type {WorldMap} from '../contracts/index.ts';
 const map:WorldMap={id:'infantry-test',width:50,height:40,spawn:{x:0,y:10,width:3,height:20},goal:{x:47,y:20},goalRadius:2,obstacles:[]};
@@ -127,6 +127,14 @@ test('move orders route infantry around walls and hold the commanded position',(
   assert.equal(clearInfantryPath(active,soldier,soldier.moveTarget),false);
   for(let i=0;i<480;i++){advanceInfantry(state,active,fields,threats,1/60,true,[],orders);assert.ok(clearForSoldier(active,soldier));}
   assert.ok(Math.hypot(soldier.x-soldier.moveTarget.x,soldier.y-soldier.moveTarget.y)<.75);assert.deepEqual(soldier.moveTarget,{x:19.5,y:8.5});
+});
+test('friendly navigation pulls visible waypoints around a wall corner',()=>{
+  const routeMap:WorldMap={id:'waypoint-route',width:30,height:20,spawn:{x:0,y:4,width:2,height:12},goal:{x:28,y:10},goalRadius:1,obstacles:[{x:12,y:0,width:2,height:13}]};
+  const from={x:8.5,y:10.5},to={x:24.5,y:10.5},field=infantryField(routeMap,to),waypoint=infantryNavigationWaypoint(routeMap,field,from,to);
+  assert.ok(waypoint.x>from.x||waypoint.y!==from.y);
+  assert.ok(clearForSoldier(routeMap,waypoint));
+  assert.ok(clearInfantryPath(routeMap,from,waypoint));
+  assert.ok(!clearInfantryPath(routeMap,from,to));
 });
 test('rally slots fan out and settled infantry stop correcting toward the flag',()=>{
   const f=setup(),center=f.state.buildings[0].rally,points=Array.from({length:12},(_,slot)=>infantryFanPoint(f.active,center,slot));
