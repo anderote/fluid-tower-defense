@@ -43,7 +43,7 @@ fn visible(a:vec2f,b:vec2f)->bool {
  }return true;
 }
 @compute @workgroup_size(64) fn sense(@builtin(global_invocation_id) gid:vec3u){
- let u=gid.x;if(u>=params.counts.y){return;}let unit=units[u];var best=unit.position.z+select(8.,12.,unit.position.w>=3.);var result=Result(vec4f(-1,0,0,0),vec4f(0));
+ let u=gid.x;if(u>=params.counts.y){return;}let unit=units[u];var best=unit.position.z+select(8.,12.,unit.position.w>=3.);if(unit.position.w==3.){best+=8.;}var result=Result(vec4f(-1,0,0,0),vec4f(0));
  let low=cell(unit.position.xy-vec2f(best+4.));let high=cell(unit.position.xy+vec2f(best+4.));
  for(var y=low.y;y<=high.y;y++){for(var x=low.x;x<=high.x;x++){
  var link=atomicLoad(&heads[index(vec2i(x,y))]);
