@@ -4,6 +4,16 @@ export function summarize(samples:readonly number[]) {
   return {samples:samples.length,medianMs:percentile(samples,.5),p95Ms:percentile(samples,.95),maxMs:samples.length?Math.max(...samples):0};
 }
 
+/** CPU wall durations only; asynchronous GPU execution is measured separately. */
+export class CPUProfiler {
+  private samples=new Map<string,number[]>();
+  record(label:string,ms:number){
+    if(!Number.isFinite(ms)||ms<0)return;
+    const values=this.samples.get(label)??[];values.push(ms);if(values.length>600)values.shift();this.samples.set(label,values);
+  }
+  report(){return Object.fromEntries([...this.samples].map(([label,values])=>[label,summarize(values)]));}
+}
+
 /** Opt-in pass attribution. No queue waits, at most three readbacks in flight.
  * Timing buffers are never reused while mapped. Native GPU objects stay native.
  * Pass timings do not include CPU work, presentation, or queue backlog. */
