@@ -27,43 +27,42 @@ test('tower records use reported GPU kill attribution rather than estimated dama
   run.applySettlement({epoch:1,tick:2,kills:10,crushKills:0,leaks:0,earned:30,live:1,invalid:0,maxPacking:0,towerKills:[3,7]});
   assert.equal(run.model.towers[0].kills,3); assert.equal(run.model.towers[1].kills,7);
 });
-test('all weapons start unlocked while stat research spends run Metal and resets with the run',()=>{
+test('all weapons start unlocked while technology research persists for the run',()=>{
   const run=createRun();
   const towerKinds=Object.keys(TOWERS) as (keyof typeof TOWERS)[];
   assert.deepEqual(run.towerUnlocks().filter(unlock=>unlock.unlocked).map(unlock=>unlock.kind),towerKinds);
   assert.ok(towerKinds.every(kind=>run.isTowerUnlocked(kind)));
   assert.equal(run.unlockTower('mortar').ok,false);
-  run.model.metal=75;
-  assert.equal(run.buyStatUpgrade('damage').ok,true);
+  run.model.metal=180;
+  assert.equal(run.buyCommandUpgrade('ballistics').ok,true);
   assert.equal(run.model.metal,0);
-  assert.deepEqual(run.statModifiers(),['damage']);
-  assert.equal(run.buyStatUpgrade('damage').ok,false);
+  assert.deepEqual(run.researchModifiers(),['ballistics']);
   const restored=createRun();
   assert.equal(restored.load(run.serialize()).ok,true);
   assert.equal(restored.isTowerUnlocked('mortar'),true);
-  assert.deepEqual(restored.statModifiers(),['damage']);
+  assert.deepEqual(restored.researchModifiers(),['ballistics']);
   assert.equal(restored.model.metal,0);
   restored.reset();
   assert.ok(towerKinds.every(kind=>restored.isTowerUnlocked(kind)));
-  assert.deepEqual(restored.statModifiers(),[]);
+  assert.deepEqual(restored.researchModifiers(),[]);
   assert.equal(restored.model.metal,STARTING_METAL);
 });
-test('Metal research is allowed during combat, capped, and blocked after defeat',()=>{
+test('technology research is restricted to preparation and blocked after defeat',()=>{
   const run=createRun();
   run.model.metal=100_000;
   run.startWave();
   assert.equal(run.isTowerUnlocked('cryo'),true);
-  for(let rank=0;rank<10;rank++)assert.equal(run.buyStatUpgrade('force').ok,true);
+  assert.equal(run.buyCommandUpgrade('ballistics').ok,false);
   const metal=run.model.metal;
-  assert.equal(run.buyStatUpgrade('force').ok,false);
+  assert.equal(run.buyCommandUpgrade('rifle-tech').ok,false);
   assert.equal(run.buyStatUpgrade('unknown').ok,false);
   assert.equal(run.model.metal,metal);
   assert.equal(run.restartWave().ok,true);
   assert.equal(run.isTowerUnlocked('cryo'),true);
-  assert.equal(run.statUpgrades().find(upgrade=>upgrade.id==='force')?.rank,10);
+  assert.deepEqual(run.researchModifiers(),[]);
   run.model.phase='lost';
   assert.equal(run.unlockTower('mortar').ok,false);
-  assert.equal(run.buyStatUpgrade('damage').ok,false);
+  assert.equal(run.buyCommandUpgrade('ballistics').ok,false);
   assert.equal(run.model.metal,metal);
 });
 test('branches lock and preparation saves restore',()=>{

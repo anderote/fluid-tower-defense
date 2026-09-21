@@ -234,8 +234,15 @@ button small { margin-top: 5px; color: var(--term-faint); font-size: var(--text-
 #commands button { position: relative; min-height: 59px; padding-right: 80px; text-align: left; }
 #commands .cost { position: absolute; top: 8px; right: 8px; margin: 0; }
 #commands .cost::after { content: ""; }
-#commands .command-system { min-height: 66px; }
-#commands .command-system b em { color: var(--term-muted); font-style: normal; font-weight: 500; }
+#commands { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+#commands .command-system { min-height: 112px; padding: 8px; text-align: left; }
+#commands .tech-node { position: relative; border-left: 3px solid var(--term-border-strong); background: rgba(255,255,255,.025); }
+#commands .tech-node.available { border-color: var(--term-accent); background: color-mix(in srgb, var(--term-accent) 8%, transparent); }
+#commands .tech-node.installed { border-color: var(--term-ok); background: color-mix(in srgb, var(--term-ok) 10%, transparent); opacity: 1; }
+#commands .tech-node.locked { border-color: var(--term-border); }
+#commands .tech-node b em { display: block; margin-bottom: 3px; color: var(--term-accent); font-size: 9px; font-style: normal; font-weight: 600; letter-spacing: .09em; }
+#commands .tech-node.installed b em, #commands .tech-node.installed .cost { color: var(--term-ok); }
+.tech-requires { display: block; margin-top: 7px; color: var(--term-faint); font-size: 9px; line-height: 1.25; }
 .research-progress { display: flex; gap: 4px; margin-top: 8px; }
 .research-progress i { display: block; width: 16px; height: 3px; background: var(--term-border-strong); }
 .research-progress i.installed { background: var(--term-accent); box-shadow: 0 0 6px color-mix(in srgb, var(--term-accent) 55%, transparent); }
