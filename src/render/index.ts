@@ -375,6 +375,19 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
       if(scene.selectedBarracksSet?.has(s.home)||scene.selectedBarracks===s.home||scene.selectedInfantry?.has(s.id)){const maxHealth=infantryStats(s.kind,s.quality,s.defense,s.veterancy).health;rect(a,x-.65,y-2.1,1.3,.13,[.12,.13,.1,1]);rect(a,x-.65,y-2.1,1.3*s.health/maxHealth,.13,[.5,.85,.22,1]);}
       infantryRankMarks(a,x,y,s.veterancy??0);
     }
+    for(const projectile of scene.infantryRocketProjectiles??[]){
+      const t=Math.max(0,Math.min(1,projectile.age/projectile.life)),dx=projectile.target.x-projectile.x,dy=projectile.target.y-projectile.y,length=Math.max(.001,Math.hypot(dx,dy)),forward={x:dx/length,y:dy/length},side={x:-forward.y,y:forward.x},x=projectile.x+dx*t,y=projectile.y+dy*t,angle=Math.atan2(forward.y,forward.x);
+      for(let j=1;j<=5;j++){const u=Math.max(0,t-j*.07/projectile.life),sx=projectile.x+dx*u+side.x*Math.sin(projectile.serial+j)*.08,sy=projectile.y+dy*u+side.y*Math.sin(projectile.serial+j)*.08;disc(a,sx,sy,.12+j*.045,[.23,.23,.2,(1-j/6)*.42],8);}
+      streak(a,x-forward.x*.55,y-forward.y*.55,forward.x,forward.y,1.15,.13,[1,.78,.2,.95]);
+      orientedRect(a,x,y,.72,.25,angle,[.28,.29,.25,1]);
+      tri(a,{x:x+forward.x*.9,y:y+forward.y*.9},{x:x+forward.x*.5+side.x*.22,y:y+forward.y*.5+side.y*.22},{x:x+forward.x*.5-side.x*.22,y:y+forward.y*.5-side.y*.22},[.92,.84,.58,1]);
+    }
+    for(const explosion of scene.infantryRocketExplosions??[]){
+      const t=Math.max(0,Math.min(1,explosion.age/explosion.life)),flash=Math.max(0,1-explosion.age/.09),fire=Math.max(0,1-explosion.age/.3),smoke=Math.sin(Math.PI*t),s=.72;
+      if(flash){disc(a,explosion.x,explosion.y,(.35+explosion.age*8)*s,[1,1,.8,.9*flash],12);disc(a,explosion.x,explosion.y,(.18+explosion.age*5)*s,[1,1,1,flash],10);}
+      if(fire){disc(a,explosion.x,explosion.y,(.52+explosion.age*3.5)*s,[1,.2,.02,.55*fire],10);ring(a,explosion.x,explosion.y,(.7+explosion.age*5)*s,[1,.55,.08,.8*fire],.18);}
+      for(let j=0;j<5;j++){const angle=j/5*Math.PI*2+explosion.serial*.37,radius=(.2+t*1.25)*s;disc(a,explosion.x+Math.cos(angle)*radius,explosion.y+Math.sin(angle)*radius,.35*smoke,[.2,.2,.18,.24*smoke*(1-t)],8);}
+    }
     for(const projectile of scene.heavyProjectiles??[]){
       const local=projectile.age-projectile.delay;if(local<0)continue;const t=Math.max(0,Math.min(1,local/projectile.flight));
       const dx=projectile.target.x-projectile.x,dy=projectile.target.y-projectile.y,length=Math.max(.001,Math.hypot(dx,dy)),forward={x:dx/length,y:dy/length},side={x:-forward.y,y:forward.x};
