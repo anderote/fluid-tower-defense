@@ -1,5 +1,5 @@
 import {COMMAND_UPGRADES, compileTower, DEFAULT_MAP, MAX_TOWER_LEVEL, MAX_VETERANCY, TOWERS, towerUpgradeCost, veterancyLevel} from '../content/index.ts';
-import {canPlace, hasSpawnRoute, mapWithTurretObstacles, resolvePlacement} from '../navigation/index.ts';
+import {canPlace, mapWithTurretObstacles, resolvePlacement} from '../navigation/index.ts';
 import {commandUpgradeAvailability} from './research.ts';
 import {freshInfantry,validInfantry,infantryMap} from '../infantry/model.ts';
 import type {BonusChoice, StatUpgrade, Rect, RunModel, Settlement, SpawnBatch, Tower, TowerKind, TowerUnlock, Vec2, WorldMap} from '../contracts/index.ts';
@@ -201,7 +201,6 @@ export class RunController {
     const buildMap=infantryMap(this.map,this.model.infantry??freshInfantry());
     const placement=resolvePlacement(buildMap,position,1.25,this.buildMounts);
     if (!canPlace(buildMap,this.model.towers,placement,1.25,this.buildMounts)) return {ok:false,reason:'That position is blocked or too close to another tower.'};
-    if (!hasSpawnRoute(mapWithTurretObstacles(buildMap,[...this.model.towers,placement]))) return {ok:false,reason:'That turret would seal the zombie route to the goal.'};
     const tower:Tower={id:this.nextTowerId++,kind,x:placement.x,y:placement.y,level:0,branch:-1,angle:0,cooldown:0,spent:def.cost,kills:0,veterancy:0,veterancyXp:0};
     this.model.metal-=def.cost; this.model.towers.push(tower); this.model.selected=null;
     return {ok:true,tower};
@@ -223,7 +222,6 @@ export class RunController {
     if (placement.x===tower.x && placement.y===tower.y) return {ok:false,reason:'Choose a new tower location.'};
     const otherTowers=this.model.towers.filter(candidate=>candidate.id!==id);
     if (!canPlace(buildMap,otherTowers,placement,1.25,this.buildMounts)) return {ok:false,reason:'That position is blocked or too close to another tower.'};
-    if (!hasSpawnRoute(mapWithTurretObstacles(buildMap,[...otherTowers,placement]))) return {ok:false,reason:'That turret would seal the zombie route to the goal.'};
     if (this.model.metal<TOWER_MOVE_COST) return {ok:false,reason:`Requires ${TOWER_MOVE_COST} Metal.`};
     this.model.metal-=TOWER_MOVE_COST;tower.x=placement.x;tower.y=placement.y;delete tower.groundTarget;
     return {ok:true};

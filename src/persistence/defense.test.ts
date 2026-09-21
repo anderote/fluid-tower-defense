@@ -66,7 +66,6 @@ test('corrupt saves reject atomically without changing the current run, map, or 
     {...good,version:2}, {...good,difficulty:41}, {...good,spawnBaseline:{x:-1,y:2,width:5,height:5}},
     {...good,map:{...good.map,goal:null}}, {...good,builtWalls:[{x:20,y:20,width:-4,height:4}]},
     {...good,builtWires:[{...good.builtWires[0],health:-1}]}, {...good,builtFences:[{...good.builtFences[0],health:-1}]}, {...good,runState:'{}'},
-    {...good,map:{...good.map,obstacles:[{x:60,y:0,width:4,height:100}]}},
   ];
   for(const saved of cases){
     data.set(CHECKPOINT_KEY,JSON.stringify(saved));
