@@ -1,6 +1,6 @@
+import {mapWithTurretObstacles} from '../navigation/index.ts';
 import type {NavigationField,Vec2,WorldMap} from '../contracts/index.ts';
 import type {RunController} from '../game/index.ts';
-import {hasSpawnRoute,mapWithTurretObstacles} from '../navigation/index.ts';
 import {INFANTRY,infantryStats,type InfantryKind,freshInfantry,infantryMap,infantryField,exitPoint,clearForSoldier,recruitInterval,infantryUpgradeCost,type Barracks} from './model.ts';
 import './style.css';
 import {makeGameWindow} from '../ui/windows.ts';
@@ -77,7 +77,6 @@ export function createInfantryController(root:HTMLElement,run:RunController,getM
         if(!clearForSoldier(map(),at,2.5)||Math.hypot(at.x-getMap().goal.x,at.y-getMap().goal.y)<getMap().goalRadius+3){message('Building needs a clear 4 × 4 foundation.');return true;}
         const b:Barracks={...at,id:state().nextId,rally:{x:at.x-5,y:at.y+3},production:0,training:0,progress:0,kind:buildKind,defense:0,spent:INFANTRY[buildKind].cost};
         const candidate=infantryMap(map(),{...state(),buildings:[b]});
-        if(!hasSpawnRoute(candidate)){message('That building would seal the zombie approach.');return true;}
         const rally=[b.rally,{x:at.x+5,y:at.y+3},{x:at.x,y:at.y+5},{x:at.x,y:at.y-5}].find(point=>clearForSoldier(candidate,point)&&exitPoint(candidate,b,infantryField(candidate,point)));
         if(!rally){message('Leave an accessible exit for recruits.');return true;}b.rally=rally;
         const paid=run.spendMetal(INFANTRY[buildKind].cost);if(!paid.ok){message(paid.reason);return true;}

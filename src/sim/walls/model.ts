@@ -5,10 +5,9 @@ export const CHAINLINK_FENCE_COST = 45;
 export const BASE_WALL_DURABILITY = 5_000;
 export const BASE_WALL_PRESSURE_RESISTANCE = 20;
 export const BASE_FENCE_DURABILITY = 200;
-export const BASE_BARBED_WIRE_DURABILITY = 350;
+export const BASE_BARBED_WIRE_DURABILITY = 500;
 export const BASE_FENCE_PRESSURE_RESISTANCE = 12;
 const WALL_FATIGUE_RATE = 0.012;
-const FENCE_FATIGUE_RATE = 0.02;
 
 /** Diminishing-return global wall technology: early ranks matter, late ranks refine. */
 export function wallEngineeringMultiplier(level: number): number {
@@ -30,10 +29,4 @@ export function wallFatigueIncrement(pressure: number, contact: number, dt: numb
 
 export function wallHealthAfterPressure(health: number, pressure: number, contact: number, dt: number, level: number): number {
   return Math.max(0, health - wallFatigueIncrement(pressure, contact, dt, level));
-}
-
-export function fenceHealthAfterPressure(health:number,pressure:number,contact:number,dt:number):number {
-  const overload=Math.max(0,pressure-BASE_FENCE_PRESSURE_RESISTANCE);
-  const normalizedContact=Math.max(0,Math.min(1,contact));
-  return Math.max(0,health-Math.max(0,dt)*overload*overload*normalizedContact*FENCE_FATIGUE_RATE);
 }
