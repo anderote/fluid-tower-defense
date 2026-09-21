@@ -50,7 +50,10 @@ export async function createRedAlertArt(device:GPUDevice,format:GPUTextureFormat
   let customSprites:Record<string,number[]>|undefined,customFrames:Frame[]=[];
   let customCanvas:HTMLCanvasElement|undefined;
   let barrierFacings:{wire:number[];fence:number[]}|undefined;
-  const customOffset=bitmap.height;
+  // The original atlas is square, but the authored Soldat sheet is tall.
+  // Keep the combined WebGPU texture under the portable 8192px default by
+  // packing generated art beside the source atlas instead of beneath it.
+  const customOffset=bitmap.width;
   let textureWidth=atlas.size,textureHeight=atlas.size;
   if(style==='soldat'){
     const custom=createSoldatAtlas();customCanvas=custom.canvas;customFrames=custom.frames;
@@ -61,13 +64,13 @@ export async function createRedAlertArt(device:GPUDevice,format:GPUTextureFormat
   extra.width=Math.max(customCanvas?.width??0,facingSize*64);extra.height=(customCanvas?.height??0)+rows*facingSize;
   const extraContext=extra.getContext('2d')!;extraContext.imageSmoothingEnabled=false;if(customCanvas)extraContext.drawImage(customCanvas,0,0);
   let row=customCanvas?.height??0;
-  const bake=(source:number[],target:'wire'|'fence')=>{const ids:number[]=[];const frame=atlas.frames[source[10]];for(let facing=0;facing<64;facing++){const x=facing*facingSize+facingSize/2,y=row+facingSize/2;extraContext.save();extraContext.translate(x,y);extraContext.rotate(facing*Math.PI/32);extraContext.drawImage(bitmap,frame.x,frame.y,frame.width,frame.height,-frame.width/2,-frame.height/2,frame.width,frame.height);extraContext.restore();ids.push(atlas.frames.length);atlas.frames.push({x:facing*facingSize,y:customOffset+row,width:facingSize,height:facingSize});}row+=facingSize;return ids;};
+  const bake=(source:number[],target:'wire'|'fence')=>{const ids:number[]=[];const frame=atlas.frames[source[10]];for(let facing=0;facing<64;facing++){const x=facing*facingSize+facingSize/2,y=row+facingSize/2;extraContext.save();extraContext.translate(x,y);extraContext.rotate(facing*Math.PI/32);extraContext.drawImage(bitmap,frame.x,frame.y,frame.width,frame.height,-frame.width/2,-frame.height/2,frame.width,frame.height);extraContext.restore();ids.push(atlas.frames.length);atlas.frames.push({x:customOffset+facing*facingSize,y:row,width:facingSize,height:facingSize});}row+=facingSize;return ids;};
   barrierFacings={wire:hasWireSprites?bake(wireFrames,'wire'):[],fence:hasFenceSprites?bake(fenceFrames,'fence'):[]};
-  if(customCanvas){const offset=atlas.frames.length;customSprites=Object.fromEntries(Object.entries(createSoldatAtlas().sprites).map(([kind,ids])=>[kind,ids.map(id=>id+offset)]));atlas.frames.push(...customFrames.map(frame=>({...frame,y:frame.y+customOffset})));}
-  textureWidth=Math.max(textureWidth,extra.width);textureHeight=customOffset+extra.height;
+  if(customCanvas){const offset=atlas.frames.length;customSprites=Object.fromEntries(Object.entries(createSoldatAtlas().sprites).map(([kind,ids])=>[kind,ids.map(id=>id+offset)]));atlas.frames.push(...customFrames.map(frame=>({...frame,x:frame.x+customOffset})));}
+  textureWidth=customOffset+extra.width;textureHeight=Math.max(textureHeight,extra.height);
   const texture=device.createTexture({label:'Original Red Alert sprite atlas',size:[textureWidth,textureHeight],format:'rgba8unorm',usage:GPUTextureUsage.TEXTURE_BINDING|GPUTextureUsage.COPY_DST|GPUTextureUsage.RENDER_ATTACHMENT});
   device.queue.copyExternalImageToTexture({source:bitmap},{texture},[bitmap.width,bitmap.height]);bitmap.close();
-  if(extra.height)device.queue.copyExternalImageToTexture({source:extra},{texture,origin:[0,customOffset]},[extra.width,extra.height]);
+  if(extra.height)device.queue.copyExternalImageToTexture({source:extra},{texture,origin:[customOffset,0]},[extra.width,extra.height]);
   const shader=device.createShaderModule({label:'Red Alert nearest-pixel sprites',code:`
 struct Camera{viewport:vec4<f32>,world:vec4<f32>,time:vec4<f32>};
 @group(0) @binding(0) var<uniform> camera:Camera;
