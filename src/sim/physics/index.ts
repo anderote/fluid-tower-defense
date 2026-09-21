@@ -93,6 +93,7 @@ function packParams(
   gridHeight: number,
   substepIndex: number,
   indexedObstacles:boolean,
+  hybridCrowd:boolean,
 ): ArrayBuffer {
   const storage = new ArrayBuffer(PARAM_BYTES);
   const u32 = new Uint32Array(storage);
@@ -126,6 +127,7 @@ function packParams(
   u32[26] = frame.map.obstacles.length;
   f32[27] = frame.lab ? 0 : HORDE_APPROACH;
   u32[28] = indexedObstacles?1:0;
+  u32[29] = hybridCrowd?1:0;
   return storage;
 }
 
@@ -144,8 +146,9 @@ function validateFrame(frame: PhysicsFrame, shared: SharedGPU): void {
   }
 }
 
-export async function createPhysics(device: GPUDevice, shared: SharedGPU,options:{indexedObstacles?:boolean}={}): Promise<PhysicsModule> {
+export async function createPhysics(device: GPUDevice, shared: SharedGPU,options:{indexedObstacles?:boolean;crowdMode?:'exact'|'hybrid'}={}): Promise<PhysicsModule> {
   const indexedObstacles=options.indexedObstacles!==false;
+  const hybridCrowd=options.crowdMode==='hybrid',gridWords=hybridCrowd?5:1;
   let obstacleSnapshot:Float32Array=new Float32Array(0),obstacleMapKey='';
   if (shared.capacity <= 0 || !Number.isInteger(shared.capacity)) {
     throw new RangeError('Shared particle capacity must be a positive integer.');
@@ -160,12 +163,12 @@ export async function createPhysics(device: GPUDevice, shared: SharedGPU,options
 
   let cellHeads = makeBuffer({
     label: 'Physics cell heads',
-    size: 4,
+    size: 4*gridWords,
     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
   });
   const nextParticle = makeBuffer({
     label: 'Physics linked-list next indices',
-    size: shared.capacity * 4,
+    size: shared.capacity * 8,
     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
   });
   const motion = makeBuffer({
@@ -256,7 +259,7 @@ export async function createPhysics(device: GPUDevice, shared: SharedGPU,options
   const ensureGridCapacity = (cells:number) => {
     if(cells<=gridCapacity)return;
     const previous=cellHeads;gridCapacity=nextPowerOfTwo(cells);
-    cellHeads=makeBuffer({label:'Physics cell heads',size:gridCapacity*4,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
+    cellHeads=makeBuffer({label:'Physics cell heads and crowd field',size:gridCapacity*4*gridWords,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
     rebuildBindGroups();previous.destroy();
   };
   const ensureObstacleCapacity = (count:number) => {
@@ -324,7 +327,7 @@ export async function createPhysics(device: GPUDevice, shared: SharedGPU,options
       const effects = packEffects(frame.effects);
       if (effects.byteLength > 0) device.queue.writeBuffer(effectBuffer, 0, effects);
       parameterBuffers.forEach((buffer, index) => {
-        device.queue.writeBuffer(buffer, 0, packParams(frame, shared.capacity, gridWidth, gridHeight, index,indexedObstacles));
+        device.queue.writeBuffer(buffer, 0, packParams(frame, shared.capacity, gridWidth, gridHeight, index,indexedObstacles,hybridCrowd));
       });
 
       encoder.clearBuffer(shared.obstacleCounters!,0,frame.map.obstacles.length*3*4);
@@ -332,7 +335,7 @@ export async function createPhysics(device: GPUDevice, shared: SharedGPU,options
       if (frame.count === 0) return;
       const workgroups = Math.ceil(frame.count / WORKGROUP_SIZE);
       for (let substep = 0; substep < PHYSICS_SUBSTEPS; substep += 1) {
-        encoder.clearBuffer(cellHeads, 0, gridCells * 4);
+        encoder.clearBuffer(cellHeads, 0, gridCells * 4*gridWords);
         const pass = encoder.beginComputePass({ label: `Crowd physics substep ${substep + 1}/${PHYSICS_SUBSTEPS}` });
         pass.setBindGroup(0, bindGroups[substep]);
         pass.setPipeline(binPipeline);
@@ -352,6 +355,7 @@ export async function createPhysics(device: GPUDevice, shared: SharedGPU,options
       navigationVersion = Number.NaN;
       navigationWidth = 0;
       navigationHeight = 0;
+      device.queue.writeBuffer(nextParticle,shared.capacity*4,new Uint32Array(shared.capacity));
     },
 
     destroy(): void {

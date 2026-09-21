@@ -10,7 +10,7 @@ import {buildNavigation} from '../../src/navigation/index.ts';
 import {CORPSE_CAPACITY,HIT_CAPACITY} from '../../src/effects/aftermath.ts';
 const params=new URLSearchParams(location.search),output=document.querySelector('#results')!,status=document.querySelector('#status')!,button=document.querySelector<HTMLButtonElement>('#run')!;
 const nextFrame=()=>new Promise<number>(resolve=>requestAnimationFrame(resolve));
-const scenarios=['open','dense','obstacles','combat','aftermath'];
+const scenarios=['open','dense','jam','obstacles','combat','aftermath'];
 const reports:unknown[]=[];
 button.onclick=async()=>{
  button.disabled=true;reports.length=0;output.textContent='';
@@ -22,16 +22,16 @@ button.onclick=async()=>{
    const count=Math.min(50000,Math.max(64,Number(params.get('population'))||6000)),frames=Math.min(600,Math.max(12,Number(params.get('frames'))||36)),warmup=8;
    const gpu=await connectGPU(document.querySelector('canvas')!,{profile:params.get('timestamps')!=='off'}),errors:string[]=[];
    gpu.device.addEventListener('uncapturederror',e=>errors.push(e.error.message));
-   const profile=new GPUProfiler(gpu.device),physics=await createPhysics(gpu.device,gpu.shared,{indexedObstacles:params.get('obstacles')!=='reference'}),combat=await createCombat(gpu.device,gpu.shared,{spatialTargets:params.get('targets')!=='reference'});
+   const profile=new GPUProfiler(gpu.device),physics=await createPhysics(gpu.device,gpu.shared,{indexedObstacles:params.get('obstacles')!=='reference',crowdMode:params.get('solver')==='hybrid'?'hybrid':'exact'}),combat=await createCombat(gpu.device,gpu.shared,{spatialTargets:params.get('targets')!=='reference'});
    gpu.shared.shotState=combat.shotState;
    const renderer=await createRenderer(gpu.device,gpu.context,gpu.format,gpu.shared,document.querySelector('canvas')!,{resolutionScale:Number(params.get('scale'))||1,compactBlood:params.get('blood')!=='reference'});
    const obstacles=scenario==='obstacles'?Array.from({length:400},(_,i)=>({x:110+(i%20)*2,y:2+Math.floor(i/20)*4,width:1,height:3})):scenario==='open'?[]:[{x:102,y:0,width:3,height:44},{x:102,y:56,width:3,height:44}];
    const map:WorldMap={id:`benchmark-${scenario}`,width:160,height:100,spawn:{x:0,y:0,width:90,height:100},goal:{x:158,y:50},goalRadius:3,obstacles};
-   const spacing=scenario==='open'?1.05:.65,columns=Math.ceil(Math.sqrt(count*1.6));
+   const spacing=scenario==='open'?1.05:scenario==='jam'?.22:.65,columns=Math.ceil(Math.sqrt(count*1.6));
    map.width=Math.max(map.width,columns*spacing+4);map.height=Math.max(map.height,Math.ceil(count/columns)*spacing+4);map.goal={x:map.width-2,y:map.height/2};
    const points=Array.from({length:count},(_,i)=>({x:2+(i%columns)*spacing,y:2+Math.floor(i/columns)*spacing}));
    const initial=encodeHorde([{kind:'shambler',count,seed:147}],points);
-   const towers:Tower[]=scenario==='combat'||scenario==='aftermath'?Array.from({length:24},(_,i)=>({id:i+1,kind:(['autocannon','mortar','tesla','incinerator'] as const)[i%4],x:35+(i%6)*10,y:20+Math.floor(i/6)*14,level:0,branch:-1,angle:0,cooldown:0,spent:0})):[];
+   const towers:Tower[]=scenario==='combat'||scenario==='aftermath'?Array.from({length:24},(_,i)=>({id:i+1,kind:(['autocannon','mortar','tesla','incinerator'] as const)[i%4],x:35+(i%6)*10,y:20+Math.floor(i/6)*14,level:Math.min(50,Math.max(0,Number(params.get('level'))||0)),veterancy:Math.min(100,Math.max(0,Number(params.get('veterancy'))||0)),branch:-1,angle:0,cooldown:0,spent:0})):[];
    const navigation=buildNavigation(map),timings:number[]=[],cpu:number[]=[],wall:number[]=[],reads:Promise<void>[]=[];
    let previous=0,begin=0,end=0,tick=0;
    const mode=params.get('only')??'all';

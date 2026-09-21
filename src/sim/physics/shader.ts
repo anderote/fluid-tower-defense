@@ -35,6 +35,7 @@ struct Params {
   obstacleCapacity: u32,
   approach: f32,
   indexedObstacles: u32,
+  hybridCrowd: u32,
 }
 
 struct Obstacle { rect: vec4<f32> }
@@ -122,6 +123,27 @@ fn obstacleRange(position:vec2f)->vec2u {
 }
 fn obstacleId(cursor:u32)->u32 {if(params.indexedObstacles==0u){return cursor;}return u32(obstacles[cursor].rect.x);}
 
+// Experimental particle/grid hybrid. Every live body contributes to the field;
+// individual contacts are bounded in dense neighborhoods. Fixed-point sums avoid
+// non-portable float atomics. Max 65,536 bodies and clamped velocities fit i32.
+fn fieldWord(plane:u32,cell:vec2i)->u32{return plane*params.gridWidth*params.gridHeight+cellIndex(cell);}
+fn neighborhoodCount(position:vec2f)->u32{
+ let center=cellFor(position);var count=0u;
+ for(var y=-1;y<=1;y++){for(var x=-1;x<=1;x++){let cell=center+vec2i(x,y);if(validCell(cell)){count+=atomicLoad(&cellHeads[fieldWord(1u,cell)]);}}}return count;
+}
+fn crowdField(position:vec2f)->vec3f{
+ let center=cellFor(position);var area=0.;var weight=0.;var velocity=vec2f(0.);var mass=0.;
+ for(var y=-1;y<=1;y++){for(var x=-1;x<=1;x++){
+  let cell=center+vec2i(x,y);if(!validCell(cell)){continue;}
+  let midpoint=(vec2f(cell)+.5)*params.cellSize-vec2f(params.approach,0.);
+  let w=max(0.,1.-distance(position,midpoint)/(params.cellSize*1.5));
+  area+=w*f32(atomicLoad(&cellHeads[fieldWord(2u,cell)]))/1024.;weight+=w;
+  let n=f32(atomicLoad(&cellHeads[fieldWord(1u,cell)]));mass+=w*n;
+  velocity+=w*vec2f(f32(bitcast<i32>(atomicLoad(&cellHeads[fieldWord(3u,cell)]))),f32(bitcast<i32>(atomicLoad(&cellHeads[fieldWord(4u,cell)]))))/256.;
+ }}return vec3f(area/max(.001,weight*params.cellSize*params.cellSize),velocity/max(1.,mass));
+}
+fn fieldPressure(position:vec2f)->f32{let density=crowdField(position).x;return min(200.,max(0.,params.pressureStiffness)*max(0.,density*density-1.));}
+
 fn boundaryPacking(position: vec2<f32>, radius: f32) -> f32 {
   var result = 0.0;
   let area = occupiedArea(radius);
@@ -155,6 +177,12 @@ fn binParticles(@builtin(global_invocation_id) gid: vec3<u32>) {
   if (!validCell(cell)) { return; }
   let previous = atomicExchange(&cellHeads[cellIndex(cell)], index + 1u);
   nextParticle[index] = previous;
+  if(params.hybridCrowd!=0u){
+    atomicAdd(&cellHeads[fieldWord(1u,cell)],1u);
+    atomicAdd(&cellHeads[fieldWord(2u,cell)],u32(occupiedArea(safeRadius(particle.body.x))*1024.));
+    atomicAdd(&cellHeads[fieldWord(3u,cell)],bitcast<u32>(i32(clamp(particle.pos.z,-64.,64.)*256.)));
+    atomicAdd(&cellHeads[fieldWord(4u,cell)],bitcast<u32>(i32(clamp(particle.pos.w,-64.,64.)*256.)));
+  }
 }
 
 @compute @workgroup_size(128)
@@ -170,6 +198,13 @@ fn measureDensity(@builtin(global_invocation_id) gid: vec3<u32>) {
 
   var packing = boundaryPacking(particle.pos.xy, safeRadius(particle.body.x));
   let centerCell = cellFor(particle.pos.xy);
+  var bulk=false;
+  if(params.hybridCrowd!=0u){
+    let neighbors=neighborhoodCount(particle.pos.xy);let wasBulk=nextParticle[params.capacity+index]!=0u;
+    bulk=neighbors>=select(64u,48u,wasBulk);nextParticle[params.capacity+index]=select(0u,1u,bulk);
+  }
+  if(bulk){packing+=max(0.,crowdField(particle.pos.xy).x-occupiedArea(safeRadius(particle.body.x))/(params.cellSize*params.cellSize));}
+  else {
   for (var oy = -1; oy <= 1; oy += 1) {
     for (var ox = -1; ox <= 1; ox += 1) {
       let cell = centerCell + vec2<i32>(ox, oy);
@@ -189,6 +224,7 @@ fn measureDensity(@builtin(global_invocation_id) gid: vec3<u32>) {
     }
   }
 
+  }
   packing = clamp(packing, 0.0, 64.0);
   let pressure = min(200.0, max(0.0, params.pressureStiffness) * max(packing * packing - 1.0, 0.0));
   particles[index].state.x = packing;
@@ -271,13 +307,22 @@ fn computeMotion(@builtin(global_invocation_id) gid: vec3<u32>) {
   let desiredVelocity = flowDirection(position, index, particle.status.w) * enemySpeed(kind) * slowMultiplier(position, particle.status.x);
   var acceleration = (desiredVelocity - velocity) * max(0.0, params.drive) * enemyDrive(kind) - velocity * 0.12;
   let centerCell = cellFor(position);
+  let bulk=params.hybridCrowd!=0u&&nextParticle[params.capacity+index]!=0u;
+  if(bulk){
+    let h=params.cellSize*.5;
+    let gradient=vec2f(fieldPressure(position+vec2f(h,0.))-fieldPressure(position-vec2f(h,0.)),fieldPressure(position+vec2f(0.,h))-fieldPressure(position-vec2f(0.,h)))/(2.*h);
+    acceleration-=gradient*.055/mass;
+    acceleration+=(crowdField(position).yz-velocity)*max(0.,params.viscosity)*.5/mass;
+  }
 
   for (var oy = -1; oy <= 1; oy += 1) {
     for (var ox = -1; ox <= 1; ox += 1) {
       let cell = centerCell + vec2<i32>(ox, oy);
       if (!validCell(cell)) { continue; }
       var link = atomicLoad(&cellHeads[cellIndex(cell)]);
+      var visits=0u;
       while (link != 0u) {
+        if(bulk&&visits>=8u){break;}visits++;
         let otherIndex = link - 1u;
         if (otherIndex != index) {
           let other = particles[otherIndex];
@@ -286,7 +331,7 @@ fn computeMotion(@builtin(global_invocation_id) gid: vec3<u32>) {
             let distance = length(offset);
             if (distance > 0.0001) {
               let normal = offset / distance;
-              if (distance < params.kernelRadius) {
+              if (!bulk && distance < params.kernelRadius) {
                 let q = 1.0 - distance / params.kernelRadius;
                 let otherArea = occupiedArea(safeRadius(other.body.x));
                 acceleration += normal * (particle.state.y + other.state.y) * otherArea * q * 0.055 / mass;

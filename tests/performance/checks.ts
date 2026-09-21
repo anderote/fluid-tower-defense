@@ -4,6 +4,7 @@ import {runGPUValidation} from '../../src/validation/index.ts';
 import {encodeHorde} from '../../src/sim/horde/model.ts';
 import {createCombat} from '../../src/sim/combat/index.ts';
 import {compileTower} from '../../src/content/index.ts';
+import {checkHybrid} from './hybrid-check.ts';
 import {COUNTER_WORDS,DEFAULT_TUNING,P,type SharedGPU,type WorldMap,type Tower,type TowerKind} from '../../src/contracts/index.ts';
 const output=document.querySelector('#results')!,status=document.querySelector('#status')!;
 const assert=(v:unknown,m:string)=>{if(!v)throw Error(m);};
@@ -54,6 +55,7 @@ try{
  }
  for(const c of cm)c.destroy();for(const s of cs){s.particles.destroy();s.counters.destroy();}
  output.textContent+='PASS indexed/full-scan combat parity for all eight weapons, focus, recycling and zero population\n';
+ output.textContent+='PASS hybrid crowd invariants '+JSON.stringify(await checkHybrid(gpu.device))+'\n';
  const checks=await runGPUValidation(gpu.device);for(const check of checks){output.textContent+=`${check.passed?'PASS':'FAIL'} ${check.name}: ${check.details}\n`;assert(check.passed,check.details);}
- await gpu.device.queue.onSubmittedWorkDone();assert(!errors.length,errors.join('\n'));status.textContent=`Complete: ${checks.length+2} checks passed, zero GPU errors`;
+ await gpu.device.queue.onSubmittedWorkDone();assert(!errors.length,errors.join('\n'));status.textContent=`Complete: ${checks.length+3} checks passed, zero GPU errors`;
 }catch(e){status.textContent='FAILED';output.textContent+='\n'+String(e)+'\n'+errors.join('\n');}finally{gpu.device.destroy();}

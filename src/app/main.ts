@@ -57,7 +57,7 @@ try {
  if(!await verifyABI(gpu.device))throw new Error('GPU particle layout check failed.');
  state.adapter=`${gpu.adapter} / WEBGPU`;
  const boss=await createBoss(gpu.device,gpu.shared);
- const physics=await createPhysics(gpu.device,gpu.shared);
+ const physics=await createPhysics(gpu.device,gpu.shared,{crowdMode:params.get('solver')==='hybrid'?'hybrid':'exact'});
  const combat=await createCombat(gpu.device,gpu.shared);
  const infantryGPU=await createInfantryGPU(gpu.device,gpu.shared);
  const horde=await createHorde(gpu.device,gpu.shared), hordeFront=new HordeFront(), hordeCapacity=new HordeCapacity();

@@ -105,3 +105,9 @@ service restart, or interaction with the user's existing game tab is required.
   comparison switches and evaluate default selection in final paired benchmarks.
   Full corpse baking/Tesla compaction are not justified by current timings; the
   existing bounded corpse rings remain. Production build and all unit tests pass.
+- Stage 5: opt-in `solver=hybrid` shared area/velocity/pressure grid with bounded
+  local contacts and 64/48-neighbor hysteresis implemented. Sparse parity and
+  dense collision/accounting verified on GPU. Dense casualties differ materially
+  (126 vs 83 in the choke check); retain experimental, do not promote to default.
+  See HYBRID_CROWD.md. This decision closes the prototype stage without silently
+  changing normal gameplay difficulty.
