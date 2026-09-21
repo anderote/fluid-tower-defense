@@ -96,3 +96,12 @@ service restart, or interaction with the user's existing game tab is required.
   initial samples (not a controlled end-to-end speedup claim). Damage passes were
   below ~0.066 ms in these fixtures; active-attack restructuring is deferred unless
   the later stress matrix identifies a material cost.
+- Stage 4: stable GPU prefix compaction for occupied visible blood cells and live
+  droplets; exact alpha order retained. Indirect counts, persistence, wall
+  attribution and reset tested in the real GPU blood suite (12 checks). Added
+  bounded battlefield-resolution control and skip unchanged shambler animation
+  with explicit reset invalidation. Saturated effects median completed work was
+  2.9 ms compacted vs 2.8 ms reference: no proven saturated speedup. Keep reference
+  comparison switches and evaluate default selection in final paired benchmarks.
+  Full corpse baking/Tesla compaction are not justified by current timings; the
+  existing bounded corpse rings remain. Production build and all unit tests pass.

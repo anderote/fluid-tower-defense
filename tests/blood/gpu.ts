@@ -34,6 +34,10 @@ try{
  assert(kills.reduce((a,b)=>a+b,0)===700,'all 700 wall crush assists count despite the 512-event visual cap');
  render(2);const first=new Uint32Array(await read(blood.storage.cells,0,blood.storage.cells.size));
  assert(first.some((v,i)=>i%2===0&&v>0),'GPU droplets deposit persistent pools');
+ const drawArgs=new Uint32Array(await read(blood.storage.args,0,32)),visible=new Uint32Array(await read(blood.storage.active,0,drawArgs[1]*4));
+ const occupied=Array.from(first).filter((v,i)=>i%2===0&&v>0).length;
+ assert(drawArgs[1]===occupied&&drawArgs[5]===0,'indirect draws include only occupied ground cells and omit expired droplets');
+ assert(visible.every((v,i)=>i===0||v>visible[i-1]),'compaction preserves stable alpha-blend order');
  const splashCounts=new Uint32Array(await read(shared.bloodWalls!,48,16));assert(splashCounts.reduce((a,b)=>a+b,0)>5600,'wall impacts accumulate additional GPU blood splashes even with zero-direction pressure deaths');
  render(2.1);const second=new Uint32Array(await read(blood.storage.cells,0,blood.storage.cells.size));
  assert(first.every((v,i)=>i%2===1||v===second[i]),'repeated render frames do not duplicate landed droplets');
