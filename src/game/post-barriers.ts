@@ -69,3 +69,14 @@ export function extendBarrier<T extends Rect>(before:readonly BarrierPost[],afte
   const added=target.filter(cell=>!oldKeys.has(key(cell)));
   return {sections:[...previous.filter(item=>targetKeys.has(key(item))),...added.map(create)].sort((a,b)=>a.y-b.y||a.x-b.x),added};
 }
+
+/** Recycle either one clicked panel or a clicked post and its unsupported run. */
+export function recycleBarrier<T extends Rect>(posts:readonly BarrierPost[],sections:readonly T[],point:Vec2):{posts:BarrierPost[];sections:T[];removed:T[];post:boolean}{
+  const clicked=sections.find(section=>point.x>=section.x&&point.x<section.x+section.width&&point.y>=section.y&&point.y<section.y+section.height);
+  if(!clicked)return {posts:[...posts],sections:[...sections],removed:[],post:false};
+  const post=isBarrierPost(posts,point);
+  if(!post)return {posts:[...posts],sections:sections.filter(section=>section!==clicked),removed:[clicked],post:false};
+  const nextPosts=removeBarrierPost(posts,point),target=new Set(barrierCells(nextPosts).map(cell=>key(cell)));
+  const kept=sections.filter(section=>target.has(key(section)));
+  return {posts:nextPosts,sections:kept,removed:sections.filter(section=>!kept.includes(section)),post:true};
+}
