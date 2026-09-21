@@ -196,6 +196,12 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
   const streak=(a:V[],x:number,y:number,vx:number,vy:number,length:number,width:number,c:[number,number,number,number])=>{const m=Math.max(.001,Math.hypot(vx,vy)),dx=vx/m*length,dy=vy/m*length,sx=-dy/m*width,sy=dx/m*width;tri(a,{x:x-dx+sx,y:y-dy+sy},{x:x-dx-sx,y:y-dy-sy},{x:x+sx,y:y+sy},c);tri(a,{x:x-dx-sx,y:y-dy-sy},{x:x-sx,y:y-sy},{x:x+sx,y:y+sy},c)};
   const shard=(a:V[],x:number,y:number,size:number,angle:number,c:[number,number,number,number])=>{const f={x:Math.cos(angle)*size,y:Math.sin(angle)*size},s={x:-Math.sin(angle)*size*.55,y:Math.cos(angle)*size*.55};tri(a,{x:x+f.x,y:y+f.y},{x:x+s.x,y:y+s.y},{x:x-f.x-s.x*.25,y:y-f.y-s.y*.25},c);tri(a,{x:x+f.x,y:y+f.y},{x:x-f.x-s.x*.25,y:y-f.y-s.y*.25},{x:x-s.x,y:y-s.y},c)};
   const casing=(a:V[],x:number,y:number,size:number,angle:number,c:[number,number,number,number])=>{const f={x:Math.cos(angle)*size,y:Math.sin(angle)*size},s={x:-Math.sin(angle)*size*.28,y:Math.cos(angle)*size*.28};tri(a,{x:x+f.x,y:y+f.y},{x:x+s.x,y:y+s.y},{x:x-f.x+s.x,y:y-f.y+s.y},c);tri(a,{x:x+f.x,y:y+f.y},{x:x-f.x+s.x,y:y-f.y+s.y},{x:x-f.x-s.x,y:y-f.y-s.y},c);tri(a,{x:x+f.x,y:y+f.y},{x:x-f.x-s.x,y:y-f.y-s.y},{x:x-s.x,y:y-s.y},[Math.min(1,c[0]*1.3),Math.min(1,c[1]*1.35),Math.min(1,c[2]*1.2),c[3]*.85]);};
+  const infantryRankMarks=(a:V[],x:number,y:number,rank:number)=>{
+    const color:[number,number,number,number]=[.98,.84,.25,1],stars=Math.min(5,Math.floor(rank/20)),chevrons=Math.min(3,Math.floor((rank%20)/5)),stripes=rank%5;
+    for(let i=0;i<stars;i++)disc(a,x+(i-(stars-1)/2)*.28,y-.98,.11,color,5);
+    for(let i=0;i<chevrons;i++){const cx=x+(i-(chevrons-1)/2)*.28;streak(a,cx-.11,y-.99,-1,1,.22,.055,color);streak(a,cx+.11,y-.99,1,1,.22,.055,color);}
+    for(let i=0;i<stripes;i++)rect(a,x+(i-(stripes-1)/2)*.18-.045,y-1.04,.09,.08,color);
+  };
   const orientedRect=(a:V[],x:number,y:number,halfLength:number,halfWidth:number,angle:number,c:[number,number,number,number])=>{const f={x:Math.cos(angle)*halfLength,y:Math.sin(angle)*halfLength},s={x:-Math.sin(angle)*halfWidth,y:Math.cos(angle)*halfWidth};tri(a,{x:x+f.x+s.x,y:y+f.y+s.y},{x:x-f.x+s.x,y:y-f.y+s.y},{x:x-f.x-s.x,y:y-f.y-s.y},c);tri(a,{x:x+f.x+s.x,y:y+f.y+s.y},{x:x-f.x-s.x,y:y-f.y-s.y},{x:x+f.x-s.x,y:y+f.y-s.y},c);};
   const towerShape=(a:V[],t:Vec2 & {kind:TowerKind;angle?:number},c:[number,number,number,number])=>{
     if(redAlert&&hasRedAlertSprite(t.kind,turretArt))return;
@@ -345,7 +351,7 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
     if(scene.infantryCommandTarget){const p=scene.infantryCommandTarget;ring(a,p.x,p.y,1.1,[.4,1,.38,.8],.12);rect(a,p.x-.08,p.y-.7,.16,1.4,[.48,1,.42,.75]);rect(a,p.x-.7,p.y-.08,1.4,.16,[.48,1,.42,.75]);}
     for(const b of scene.infantry?.buildings??[]){
       if(!redAlert?.hasInfantrySprites||(b.kind!=='dog'&&(b.kind??'rifle')!=='rifle'))for(const p of infantryBuildingPixels(b.kind??'rifle'))rect(a,b.x+(p.x-BUILDING_ANCHOR.x)*BUILDING_PIXEL,b.y+(p.y-BUILDING_ANCHOR.y)*BUILDING_PIXEL,p.width*BUILDING_PIXEL,p.height*BUILDING_PIXEL,p.color);
-      if(b.id===scene.selectedBarracks){const distance=Math.hypot(b.rally.x-b.x,b.rally.y-b.y);for(let d=3;d<distance-1;d+=1.2){const t=d/distance;rect(a,b.x+(b.rally.x-b.x)*t-.08,b.y+(b.rally.y-b.y)*t-.08,.16,.16,[.85,.77,.3,.6]);}rectOutline(a,b.x-2.35,b.y-2.35,4.7,4.7,[.72,.93,.35,.95],.1);ring(a,b.rally.x,b.rally.y,2.5,[.65,.93,.35,.8],.12);rect(a,b.rally.x,b.rally.y-2,.1,2,[.8,.9,.5,1]);rect(a,b.rally.x+.1,b.rally.y-2,1,.6,[.85,.77,.19,1]);}
+      if(scene.selectedBarracksSet?.has(b.id)||b.id===scene.selectedBarracks){const distance=Math.hypot(b.rally.x-b.x,b.rally.y-b.y);for(let d=3;d<distance-1;d+=1.2){const t=d/distance;rect(a,b.x+(b.rally.x-b.x)*t-.08,b.y+(b.rally.y-b.y)*t-.08,.16,.16,[.85,.77,.3,.6]);}rectOutline(a,b.x-2.35,b.y-2.35,4.7,4.7,[.72,.93,.35,.95],.1);ring(a,b.rally.x,b.rally.y,2.5,[.65,.93,.35,.8],.12);rect(a,b.rally.x,b.rally.y-2,.1,2,[.8,.9,.5,1]);rect(a,b.rally.x+.1,b.rally.y-2,1,.6,[.85,.77,.19,1]);}
     }
     for(const s of scene.infantry?.soldiers??[]){
       const kind=s.kind??'rifle';
@@ -366,8 +372,8 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
         else if(kind==='rocket'){streak(a,mx+dx*4,my+dy*4,dx,dy,4,.14,[.88,.84,.65,s.flash*5]);disc(a,mx,my,.4,[1,.6,.15,.8],6);}
         else {disc(a,mx,my,.24,[1,.86,.29,.95],5);streak(a,mx+dx*2,my+dy*2,dx,dy,2,.025,[1,.89,.43,s.flash*6]);}
       }
-      if(scene.selectedBarracks===s.home||scene.selectedInfantry?.has(s.id)){const maxHealth=infantryStats(s.kind,s.quality,s.defense,s.veterancy).health;rect(a,x-.65,y-2.1,1.3,.13,[.12,.13,.1,1]);rect(a,x-.65,y-2.1,1.3*s.health/maxHealth,.13,[.5,.85,.22,1]);}
-      for(let rank=0;rank<Math.min(5,Math.floor((s.veterancy??0)/20));rank++)rect(a,x-.4+rank*.18,y-1.02,.1,.1,[.95,.84,.3,1]);
+      if(scene.selectedBarracksSet?.has(s.home)||scene.selectedBarracks===s.home||scene.selectedInfantry?.has(s.id)){const maxHealth=infantryStats(s.kind,s.quality,s.defense,s.veterancy).health;rect(a,x-.65,y-2.1,1.3,.13,[.12,.13,.1,1]);rect(a,x-.65,y-2.1,1.3*s.health/maxHealth,.13,[.5,.85,.22,1]);}
+      infantryRankMarks(a,x,y,s.veterancy??0);
     }
     for(const projectile of scene.heavyProjectiles??[]){
       const local=projectile.age-projectile.delay;if(local<0)continue;const t=Math.max(0,Math.min(1,local/projectile.flight));
@@ -438,7 +444,7 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
     setResolutionScale(value:number){if(Number.isFinite(value))resolutionScale=Math.max(.5,Math.min(1,value));},
     worldToScreen,
     pan(dx,dy){camera.x+=dx;camera.y+=dy;clampCamera();},
-    zoomAt(factor,clientX,clientY){const before=screenToWorld(clientX,clientY);camera.zoom=Math.max(1,Math.min(5,camera.zoom*factor));const after=screenToWorld(clientX,clientY);camera.x+=before.x-after.x;camera.y+=before.y-after.y;clampCamera();},
+    zoomAt(factor,clientX,clientY){const before=screenToWorld(clientX,clientY);camera.zoom=Math.max(1,Math.min(12,camera.zoom*factor));const after=screenToWorld(clientX,clientY);camera.x+=before.x-after.x;camera.y+=before.y-after.y;clampCamera();},
     clearAftermath(preserveBlood=false){shamblers.reset();aftermath?.reset();if(!preserveBlood)blood?.reset();},
     destroy(){blood?.destroy();fire.destroy();emptyHeat?.destroy();aftermath?.destroy();tesla?.destroy();emptyTesla?.destroy();shamblers.destroy();infantrySprites.destroy();redAlert?.destroy();sceneDepth?.destroy();uniform.destroy();overlays.destroy();foreground.destroy();towerVisuals.destroy();emptyShots.destroy();}
   };

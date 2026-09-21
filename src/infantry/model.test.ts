@@ -113,6 +113,7 @@ test('move orders route infantry around walls and hold the commanded position',(
 test('rally slots fan out and settled infantry stop correcting toward the flag',()=>{
   const f=setup(),center=f.state.buildings[0].rally,points=Array.from({length:12},(_,slot)=>infantryFanPoint(f.active,center,slot));
   assert.ok(new Set(points.map(p=>`${p.x.toFixed(3)},${p.y.toFixed(3)}`)).size>=10);
+  assert.ok(Math.max(...points.map(p=>Math.hypot(p.x-center.x,p.y-center.y)))<=Math.sqrt(11)*.9+.001);
   f.state.soldiers=points.slice(0,8).map((p,slot)=>({id:slot+2,home:1,kind:'rifle',defense:0,quality:0,...p,health:40,cooldown:0,angle:0,flash:0,walk:0,dead:0,rallySlot:slot}));f.state.nextId=10;
   const before=f.state.soldiers.map(s=>({x:s.x,y:s.y}));advanceInfantry(f.state,f.active,f.fields,f.threats,.1,true);
   assert.ok(f.state.soldiers.every((s,index)=>Math.hypot(s.x-before[index].x,s.y-before[index].y)<.001));

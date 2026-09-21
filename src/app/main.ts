@@ -26,7 +26,7 @@ import {HordeFront,HordeCapacity,encodeHorde} from '../sim/horde/model.ts';
 import { createPhysics } from '../sim/physics/index.ts';
 import { createCombat, type CombatFrame } from '../sim/combat/index.ts';
 import { barbedWireStats, createParticles, DEFAULT_MAP, compileTower, TOWERS } from '../content/index.ts';
-import { buildNavigation, canPlace, mapWithTurretObstacles, resolvePlacement } from '../navigation/index.ts';
+import { buildNavigation, canPlace, mapWithTurretObstacles, resolvePlacement, turretObstacles } from '../navigation/index.ts';
 import {BASE_FENCE_DURABILITY, CHAINLINK_FENCE_COST, METAL_WALL_COST, wallCapacity, wallHealthAfterPressure} from '../sim/walls/model.ts';
 import { createRun, STARTING_METAL, TOWER_MOVE_COST, waveFor } from '../game/index.ts';
 import { COUNTER_WORDS, DEFAULT_TUNING, PARTICLE_FLOATS, type UIState, type GameAction, type Effect, type Vec2, type Rect, type Settlement, type VisualParticle, type VisualParticleStyle, type WorldMap, type HeavyProjectile, type HeavyExplosion } from '../contracts/index.ts';
@@ -431,13 +431,15 @@ try {
      }
    }
    const activeMap=combatMap();
+   const transparentSightObstacles=[...builtWires,...builtFences,...turretObstacles(run.model.towers)];
+   const infantrySightMap={...activeMap,obstacles:activeMap.obstacles.filter(obstacle=>!transparentSightObstacles.some(transparent=>sameRect(obstacle,transparent)))};
    const statModifiers=run.statModifiers();
    const frame:CombatFrame={dt:clock.step,tick:clock.tick,count,map:activeMap,effects,tuning:DEFAULT_TUNING,navigation,lab:state.mode==='lab',towers:state.mode==='game'?run.model.towers.map(tower=>({tower,definition:cachedTower(tower,run.model.bonuses,run.model.commandUpgrades,statModifiers)})):[]};
    const nativeEncoder=gpu.device.createCommandEncoder({label:`Simulation tick ${clock.tick}`}),measurement=profiler?.wrap(nativeEncoder),encoder=measurement?.encoder??nativeEncoder;
    const bossFrame={dt:clock.step,tick:clock.tick,count,map:activeMap.scenery?activeMap:{...activeMap,spawn:{x:50,y:35,width:32,height:30}},active:state.mode==='game'&&run.isBossWave};
    horde.encode(encoder,arrivals,count);
    const infantryShots=advanceInfantry(infantry.state(),infantry.ensureFields(),infantry.fields,infantryGPU.threats,clock.step,state.mode==='game'&&run.model.phase==='combat',statModifiers,infantry.orderFields);
-   const finishInfantry=state.mode==='game'?infantryGPU.encode(encoder,infantry.state().soldiers,infantryShots,activeMap,count,clock.tick%6===0,statModifiers,clock.step):undefined;
+   const finishInfantry=state.mode==='game'?infantryGPU.encode(encoder,infantry.state().soldiers,infantryShots,activeMap,count,clock.tick%6===0,statModifiers,clock.step,infantrySightMap):undefined;
    if(infantryShots.length){const shot=infantryShots[0],kind=infantry.state().soldiers.find(s=>s.id===shot.soldier)?.kind;if(kind==='dog')audio.bark(shot.x,clock.tick);else if(kind==='samurai')audio.slash(shot.x,clock.tick);else audio.infantryFire(kind==='rocket'?'rocket':kind==='flame'?'flame':'rifle',shot.x,clock.tick);}
    combat.encodeBefore(encoder,frame);boss.encode(encoder,bossFrame);physics.encode(encoder,frame);combat.encodeAfter(encoder,frame);boss.encodeResolve(encoder,bossFrame);
    let finish:(()=>void)|undefined,finishShots:(()=>void)|undefined;
@@ -470,7 +472,7 @@ try {
      const placementCost=placementKind==='wall'?METAL_WALL_COST:CHAINLINK_FENCE_COST;
      const placementGhost=state.mode==='game'&&placementKind&&structurePlacement?{...structurePlacement,kind:placementKind,valid:run.model.phase!=='won'&&run.model.phase!=='lost'&&run.model.metal>=placementCost&&!wireConflict&&(existingWall?existingWall.health<existingWall.maxHealth:!previewStructure(map,run.model.towers,structurePlacement))}:undefined;
      const infantrySelectionBox=infantryDrag?{x:Math.min(infantryDrag.start.x,infantryDrag.current.x),y:Math.min(infantryDrag.start.y,infantryDrag.current.y),width:Math.abs(infantryDrag.current.x-infantryDrag.start.x),height:Math.abs(infantryDrag.current.y-infantryDrag.start.y)}:undefined;
-     renderer.encode(encoder,{barracksGhost:!editor.active&&state.mode==='game'&&infantry.tool==='build'&&pointer?infantry.preview(pointer):undefined,infantry:!editor.active&&state.mode==='game'?infantry.state():undefined,selectedBarracks:infantry.selected,selectedInfantry:infantry.selectedSoldiers,infantrySelectionBox,infantryCommandTarget:infantry.commandTarget,aftermathVisible:!editor.active,count:editor.active?0:count,time:simulatedTime,map:editor.active?editor.map:map,towers:!editor.active&&state.mode==='game'?run.model.towers:[],effects:editor.active?[]:visuals,visualParticles:editor.active?[]:visualParticles,heavyProjectiles:editor.active?[]:heavyProjectiles,heavyExplosions:editor.active?[]:heavyExplosions,cameraShake:editor.active?0:cameraShake,walls:editor.active?[]:builtWalls,fences:editor.active?[]:builtFences,wires:editor.active?[]:builtWires,heatmap:state.heatmap,selection:run.model.selected,selectionRange,ghost:editor.active?undefined:ghost,groundTargetGhost,placementGhost,boss:!editor.active&&latest.boss?.active?latest.boss:undefined});
+     renderer.encode(encoder,{barracksGhost:!editor.active&&state.mode==='game'&&infantry.tool==='build'&&pointer?infantry.preview(pointer):undefined,infantry:!editor.active&&state.mode==='game'?infantry.state():undefined,selectedBarracks:infantry.selected,selectedBarracksSet:infantry.selectedBuildings,selectedInfantry:infantry.selectedSoldiers,infantrySelectionBox,infantryCommandTarget:infantry.commandTarget,aftermathVisible:!editor.active,count:editor.active?0:count,time:simulatedTime,map:editor.active?editor.map:map,towers:!editor.active&&state.mode==='game'?run.model.towers:[],effects:editor.active?[]:visuals,visualParticles:editor.active?[]:visualParticles,heavyProjectiles:editor.active?[]:heavyProjectiles,heavyExplosions:editor.active?[]:heavyExplosions,cameraShake:editor.active?0:cameraShake,walls:editor.active?[]:builtWalls,fences:editor.active?[]:builtFences,wires:editor.active?[]:builtWires,heatmap:state.heatmap,selection:run.model.selected,selectionRange,ghost:editor.active?undefined:ghost,groundTargetGhost,placementGhost,boss:!editor.active&&latest.boss?.active?latest.boss:undefined});
      const arena=ui.canvas.parentElement!.getBoundingClientRect();for(const popup of pressurePopups){const screen=renderer.worldToScreen(popup.x,popup.y),progress=popup.age/popup.life;popup.element.style.left=`${screen.x-arena.left+popup.drift*progress}px`;popup.element.style.top=`${screen.y-arena.top-progress*34}px`;popup.element.style.opacity=String(Math.min(1,(1-progress)*2.8));}
      measurement?.resolve();gpu.device.queue.submit([encoder.finish()]);void measurement?.read();
      if(now-lastUI>100)updateUI(now);else{positionInspector();positionUpgradeInspector();positionInfantryInspector();}
