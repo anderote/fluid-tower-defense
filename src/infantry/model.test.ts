@@ -48,7 +48,7 @@ test('samurai trade reach and sustained damage for a focused melee sweep',()=>{
 });
 test('samurai close toward nearby zombies and sweep only once within melee range',()=>{
   const f=setup('samurai');f.step(16);const s=f.state.soldiers[0];const x=s.x;
-  f.threats.set(s.id,{target:0,generation:1,x:s.x-6,y:s.y,contact:0,age:0});
+  f.threats.set(s.id,{target:0,generation:1,x:s.x-6,y:s.y,contact:0,age:.6});
   assert.equal(advanceInfantry(f.state,f.active,f.fields,f.threats,.1,true).length,0);assert.ok(s.x<x);
   f.threats.set(s.id,{target:0,generation:1,x:s.x-2,y:s.y,contact:0,age:0});
   assert.equal(advanceInfantry(f.state,f.active,f.fields,f.threats,.1,true).length,1);assert.equal(s.flash,.28);

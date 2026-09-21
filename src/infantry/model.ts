@@ -12,6 +12,7 @@ export const INFANTRY={
  dog:{building:'Dog Kennel',name:'Attack dogs',cost:60,interval:1.5,capacity:40,health:25,damage:24,range:1.8,cooldown:.6,armor:0,speed:8,role:'Fast packs that chase and bite nearby zombies'},
 } as const;
 export const infantryCapacity=(kind:InfantryKind='rifle',production=0)=>INFANTRY[kind].capacity+Math.ceil(INFANTRY[kind].capacity*.2)*Math.max(0,Math.min(5,production));
+const SAMURAI_HUNT_MEMORY=1.15;
 export const infantryStats=(kind:InfantryKind='rifle',quality=0,defense=0,veterancy=0,research:readonly string[]=[] )=>{const v=INFANTRY[kind],rank=(id:string)=>research.filter(upgrade=>upgrade===id).length,experience=veterancyMultiplier(veterancy),rifleFamily=kind==='rifle',flameFamily=kind==='flame',explosiveFamily=kind==='rocket',armorRank=rank('infantry-armor');return {...v,health:(v.health+quality*12+defense*20)*(1+armorRank*.02),damage:v.damage*(1+quality/3)*experience*(1+rank('ballistics')*.01*Number(rifleFamily))*(1+rank('rifle-tech')*.02*Number(rifleFamily))*(1+rank('thermal-science')*.01*Number(flameFamily))*(1+rank('flame-tech')*.025*Number(flameFamily))*(1+rank('explosive-ordnance')*.01*Number(explosiveFamily))*(1+rank('high-explosives')*.02*Number(explosiveFamily)),range:v.range*(1+rank('precision-optics')*.015*Number(rifleFamily)),cooldown:v.cooldown/(1+quality*.08),armor:Math.min(.7,v.armor+defense*.06+armorRank*.01)};};
 export interface Barracks extends Vec2 {kind?:InfantryKind;defense?:number;id:number;rally:Vec2;production:number;training:number;progress:number;spent:number;recruited?:number}
 export interface Soldier extends Vec2 {kind?:InfantryKind;defense?:number;id:number;home:number;quality:number;health:number;cooldown:number;angle:number;flash:number;walk:number;dead:number;kills?:number;veterancy?:number;veterancyXp?:number;casualtyRecorded?:boolean;deathCause?:'enemy'|'friendly-fire';attackAge?:number;moving?:boolean;pressure?:number;moveTarget?:Vec2;moveSlot?:number;rallySlot?:number}
@@ -98,11 +99,14 @@ export function advanceInfantry(state:InfantryState,map:WorldMap,fields:Map<numb
     const b=homes.get(s.home),field=s.moveTarget?orderFields.get(s.id):fields.get(s.home);if(!b||!field)continue;
     const threat=threats.get(s.id);if(threat)threat.age+=dt;
     const fresh=threat&&threat.age<.35?threat:undefined;
+    // Samurai keep hunting the last known target between GPU sensing passes;
+    // their role is to close on zombies, not drift back to the rally point.
+    const pursuit=s.kind==='samurai'&&threat&&threat.target>=0&&threat.age<SAMURAI_HUNT_MEMORY?threat:fresh;
     s.pressure=fresh?.pressure??0;
     const stats=infantryStats(s.kind,s.quality,s.defense,s.veterancy,research);
     s.health=Math.max(0,s.health-(fresh?.contact??0)*dt*(1-stats.armor));
     if(s.health<=0){recordInfantryCasualty(state,s,'enemy');s.flash=0;continue;}
-    const distance=fresh&&fresh.target>=0?Math.hypot(fresh.x-s.x,fresh.y-s.y):Infinity;
+    const distance=pursuit&&pursuit.target>=0?Math.hypot(pursuit.x-s.x,pursuit.y-s.y):Infinity;
     s.cooldown=Math.max(0,s.cooldown-dt);
     if(fresh&&fresh.target>=0&&distance<=stats.range){
       s.angle=Math.atan2(fresh.y-s.y,fresh.x-s.x);
@@ -114,7 +118,7 @@ export function advanceInfantry(state:InfantryState,map:WorldMap,fields:Map<numb
     // prevents ranged troops from constantly stepping back and forth.
     const approachDistance=stats.range+(melee?.25:1.1),retreatDistance=melee?0:1.6;
     let dx=0,dy=0;
-    if(!ordered&&fresh&&distance>approachDistance&&clearInfantryPath(map,s,fresh)){dx=(fresh.x-s.x)/distance;dy=(fresh.y-s.y)/distance;}
+    if(!ordered&&pursuit&&distance>approachDistance&&clearInfantryPath(map,s,pursuit)){dx=(pursuit.x-s.x)/distance;dy=(pursuit.y-s.y)/distance;}
     else if(!ordered&&!melee&&fresh&&distance<retreatDistance&&rallyDistance<6){dx=(s.x-fresh.x)/Math.max(.01,distance);dy=(s.y-fresh.y)/Math.max(.01,distance);}
     else if(!settled&&(ordered||(!fresh&&(distance>stats.range||rallyDistance>5)))){
       if(clearInfantryPath(map,s,destination)){dx=(destination.x-s.x)/rallyDistance;dy=(destination.y-s.y)/rallyDistance;}
