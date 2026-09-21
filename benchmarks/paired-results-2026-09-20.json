@@ -1,0 +1,3333 @@
+{
+  "date": "2026-09-20 America/Los_Angeles",
+  "notes": [
+    "Apple WebGPU; concurrent user workloads uncontrolled.",
+    "ABBA ordering; 120 measured frames per trial plus 8 warmup.",
+    "Targets comparisons predate independent tower workgroups; dispatch comparison isolates that later change.",
+    "GPU sample resolution observed at 0.065536 ms.",
+    "The 50000-enemy trial did not yield a report; do not infer supported capacity from smaller trials."
+  ],
+  "targets6000": [
+    {
+      "scenario": "combat",
+      "mode": "all",
+      "trial": 0,
+      "variant": "reference",
+      "options": {
+        "autorun": "",
+        "scenario": "combat",
+        "frames": "120",
+        "compare": "targets",
+        "targets": "reference"
+      },
+      "adapter": "apple",
+      "population": 6000,
+      "liveAtLastRead": 6000,
+      "invalid": 0,
+      "frames": 120,
+      "canvas": [
+        1920,
+        1080
+      ],
+      "fixture": "population restored per frame; one 1/60 step per frame; bounded queue; aftermath ring saturated",
+      "simulationSecondsPerWallSecond": 1.976479889247273,
+      "frame": {
+        "samples": 119,
+        "medianMs": 8.300000000000182,
+        "p95Ms": 9,
+        "maxMs": 17.09999999999991
+      },
+      "cpuEncode": {
+        "samples": 120,
+        "medianMs": 0.5,
+        "p95Ms": 0.6000000238418579,
+        "maxMs": 1.4000000357627869
+      },
+      "submitToCompletionIncludingEncode": {
+        "samples": 120,
+        "medianMs": 3.600000023841858,
+        "p95Ms": 10.5,
+        "maxMs": 12.300000011920929
+      },
+      "gpu": {
+        "supported": true,
+        "skipped": 0,
+        "errors": [],
+        "passes": {
+          "Observe combat aftermath": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.131072,
+            "maxMs": 0.393216
+          },
+          "Target selection": {
+            "samples": 120,
+            "medianMs": 1.441792,
+            "p95Ms": 8.323072,
+            "maxMs": 8.454144
+          },
+          "Burn damage": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.131072
+          },
+          "Weapon effects": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Boss damage": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0,
+            "maxMs": 0.065536
+          },
+          "Crowd physics substep 1/2": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Crowd physics substep 2/2": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Settlement": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Animate shamblers": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Find burning enemies": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0,
+            "maxMs": 0.32768
+          },
+          "Render": {
+            "samples": 120,
+            "medianMs": 0.262144,
+            "p95Ms": 0.32767999999999997,
+            "maxMs": 2.555904
+          },
+          "Shambler sprites": {
+            "samples": 120,
+            "medianMs": 0.131072,
+            "p95Ms": 0.131072,
+            "maxMs": 0.917504
+          },
+          "Infantry in world depth": {
+            "samples": 120,
+            "medianMs": 0.131072,
+            "p95Ms": 0.131072,
+            "maxMs": 1.048576
+          }
+        }
+      },
+      "errors": []
+    },
+    {
+      "scenario": "combat",
+      "mode": "all",
+      "trial": 1,
+      "variant": "optimized",
+      "options": {
+        "autorun": "",
+        "scenario": "combat",
+        "frames": "120",
+        "compare": "targets",
+        "targets": "optimized"
+      },
+      "adapter": "apple",
+      "population": 6000,
+      "liveAtLastRead": 6000,
+      "invalid": 0,
+      "frames": 120,
+      "canvas": [
+        1920,
+        1080
+      ],
+      "fixture": "population restored per frame; one 1/60 step per frame; bounded queue; aftermath ring saturated",
+      "simulationSecondsPerWallSecond": 2.0118700332682327,
+      "frame": {
+        "samples": 119,
+        "medianMs": 8.300000000000182,
+        "p95Ms": 9.300000000000182,
+        "maxMs": 9.400000000000546
+      },
+      "cpuEncode": {
+        "samples": 120,
+        "medianMs": 0.5,
+        "p95Ms": 0.7000000476837158,
+        "maxMs": 1
+      },
+      "submitToCompletionIncludingEncode": {
+        "samples": 120,
+        "medianMs": 2.899999976158142,
+        "p95Ms": 3.900000035762787,
+        "maxMs": 4.399999976158142
+      },
+      "gpu": {
+        "supported": true,
+        "skipped": 0,
+        "errors": [],
+        "passes": {
+          "Observe combat aftermath": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.131072,
+            "maxMs": 0.262144
+          },
+          "Index combat targets": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.131072
+          },
+          "Target selection": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 1.769472,
+            "maxMs": 2.097152
+          },
+          "Burn damage": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.393216
+          },
+          "Weapon effects": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.393216
+          },
+          "Boss damage": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0,
+            "maxMs": 0.065536
+          },
+          "Crowd physics substep 1/2": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 0.065536,
+            "maxMs": 0.196608
+          },
+          "Crowd physics substep 2/2": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 0.720896,
+            "maxMs": 0.851968
+          },
+          "Settlement": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.196608,
+            "maxMs": 0.262144
+          },
+          "Animate shamblers": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.32768
+          },
+          "Find burning enemies": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.131072
+          },
+          "Render": {
+            "samples": 120,
+            "medianMs": 0.262144,
+            "p95Ms": 0.8519680000000001,
+            "maxMs": 3.0801920000000003
+          },
+          "Shambler sprites": {
+            "samples": 120,
+            "medianMs": 0.131072,
+            "p95Ms": 0.262144,
+            "maxMs": 1.048576
+          },
+          "Infantry in world depth": {
+            "samples": 120,
+            "medianMs": 0.131072,
+            "p95Ms": 0.196608,
+            "maxMs": 0.98304
+          }
+        }
+      },
+      "errors": []
+    },
+    {
+      "scenario": "combat",
+      "mode": "all",
+      "trial": 2,
+      "variant": "optimized",
+      "options": {
+        "autorun": "",
+        "scenario": "combat",
+        "frames": "120",
+        "compare": "targets",
+        "targets": "optimized"
+      },
+      "adapter": "apple",
+      "population": 6000,
+      "liveAtLastRead": 6000,
+      "invalid": 0,
+      "frames": 120,
+      "canvas": [
+        1920,
+        1080
+      ],
+      "fixture": "population restored per frame; one 1/60 step per frame; bounded queue; aftermath ring saturated",
+      "simulationSecondsPerWallSecond": 2.0102522867101498,
+      "frame": {
+        "samples": 119,
+        "medianMs": 8.300000000001091,
+        "p95Ms": 8.399999999999636,
+        "maxMs": 8.699999999998909
+      },
+      "cpuEncode": {
+        "samples": 120,
+        "medianMs": 0.5999999642372131,
+        "p95Ms": 0.800000011920929,
+        "maxMs": 1.300000011920929
+      },
+      "submitToCompletionIncludingEncode": {
+        "samples": 120,
+        "medianMs": 2.300000011920929,
+        "p95Ms": 3.699999988079071,
+        "maxMs": 4.099999964237213
+      },
+      "gpu": {
+        "supported": true,
+        "skipped": 0,
+        "errors": [],
+        "passes": {
+          "Observe combat aftermath": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.196608
+          },
+          "Index combat targets": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Target selection": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 1.900544,
+            "maxMs": 2.162688
+          },
+          "Burn damage": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.131072
+          },
+          "Weapon effects": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 0.065536,
+            "maxMs": 0.196608
+          },
+          "Boss damage": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Crowd physics substep 1/2": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 0.065536,
+            "maxMs": 0.393216
+          },
+          "Crowd physics substep 2/2": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 0.065536,
+            "maxMs": 0.65536
+          },
+          "Settlement": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.131072
+          },
+          "Animate shamblers": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Find burning enemies": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Render": {
+            "samples": 120,
+            "medianMs": 0.262144,
+            "p95Ms": 0.458752,
+            "maxMs": 0.5242880000000001
+          },
+          "Shambler sprites": {
+            "samples": 120,
+            "medianMs": 0.131072,
+            "p95Ms": 0.196608,
+            "maxMs": 0.262144
+          },
+          "Infantry in world depth": {
+            "samples": 120,
+            "medianMs": 0.131072,
+            "p95Ms": 0.196608,
+            "maxMs": 0.262144
+          }
+        }
+      },
+      "errors": []
+    },
+    {
+      "scenario": "combat",
+      "mode": "all",
+      "trial": 3,
+      "variant": "reference",
+      "options": {
+        "autorun": "",
+        "scenario": "combat",
+        "frames": "120",
+        "compare": "targets",
+        "targets": "reference"
+      },
+      "adapter": "apple",
+      "population": 6000,
+      "liveAtLastRead": 6000,
+      "invalid": 0,
+      "frames": 120,
+      "canvas": [
+        1920,
+        1080
+      ],
+      "fixture": "population restored per frame; one 1/60 step per frame; bounded queue; aftermath ring saturated",
+      "simulationSecondsPerWallSecond": 2.0106564793646013,
+      "frame": {
+        "samples": 119,
+        "medianMs": 8.300000000001091,
+        "p95Ms": 8.399999999999636,
+        "maxMs": 8.899999999999636
+      },
+      "cpuEncode": {
+        "samples": 120,
+        "medianMs": 0.5999999642372131,
+        "p95Ms": 0.9000000357627869,
+        "maxMs": 1.5
+      },
+      "submitToCompletionIncludingEncode": {
+        "samples": 120,
+        "medianMs": 3.299999952316284,
+        "p95Ms": 10.300000011920929,
+        "maxMs": 10.700000047683716
+      },
+      "gpu": {
+        "supported": true,
+        "skipped": 0,
+        "errors": [],
+        "passes": {
+          "Observe combat aftermath": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.131072
+          },
+          "Target selection": {
+            "samples": 120,
+            "medianMs": 1.441792,
+            "p95Ms": 8.454144,
+            "maxMs": 8.650752
+          },
+          "Burn damage": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Weapon effects": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Boss damage": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0,
+            "maxMs": 0.065536
+          },
+          "Crowd physics substep 1/2": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Crowd physics substep 2/2": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Settlement": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.131072
+          },
+          "Animate shamblers": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Find burning enemies": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0,
+            "maxMs": 0.065536
+          },
+          "Render": {
+            "samples": 120,
+            "medianMs": 0.262144,
+            "p95Ms": 0.32767999999999997,
+            "maxMs": 0.917504
+          },
+          "Shambler sprites": {
+            "samples": 120,
+            "medianMs": 0.131072,
+            "p95Ms": 0.131072,
+            "maxMs": 0.458752
+          },
+          "Infantry in world depth": {
+            "samples": 120,
+            "medianMs": 0.131072,
+            "p95Ms": 0.131072,
+            "maxMs": 0.393216
+          }
+        }
+      },
+      "errors": []
+    }
+  ],
+  "obstacles": [
+    {
+      "scenario": "obstacles",
+      "mode": "all",
+      "trial": 0,
+      "variant": "reference",
+      "options": {
+        "autorun": "",
+        "scenario": "obstacles",
+        "frames": "120",
+        "compare": "obstacles",
+        "obstacles": "reference"
+      },
+      "adapter": "apple",
+      "population": 6000,
+      "liveAtLastRead": 6000,
+      "invalid": 0,
+      "frames": 120,
+      "canvas": [
+        1920,
+        1080
+      ],
+      "fixture": "population restored per frame; one 1/60 step per frame; bounded queue; aftermath ring saturated",
+      "simulationSecondsPerWallSecond": 1.9792182088075212,
+      "frame": {
+        "samples": 119,
+        "medianMs": 8.300000000000182,
+        "p95Ms": 8.400000000000091,
+        "maxMs": 16.699999999999818
+      },
+      "cpuEncode": {
+        "samples": 120,
+        "medianMs": 0.5999999642372131,
+        "p95Ms": 0.9000000357627869,
+        "maxMs": 3.200000047683716
+      },
+      "submitToCompletionIncludingEncode": {
+        "samples": 120,
+        "medianMs": 2.600000023841858,
+        "p95Ms": 3.300000011920929,
+        "maxMs": 12.700000047683716
+      },
+      "gpu": {
+        "supported": true,
+        "skipped": 0,
+        "errors": [],
+        "passes": {
+          "Observe combat aftermath": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.131072,
+            "maxMs": 0.131072
+          },
+          "Burn damage": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Weapon effects": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.262144
+          },
+          "Boss damage": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0,
+            "maxMs": 0.065536
+          },
+          "Crowd physics substep 1/2": {
+            "samples": 120,
+            "medianMs": 0.32768,
+            "p95Ms": 0.720896,
+            "maxMs": 0.786432
+          },
+          "Crowd physics substep 2/2": {
+            "samples": 120,
+            "medianMs": 0.262144,
+            "p95Ms": 0.393216,
+            "maxMs": 0.65536
+          },
+          "Settlement": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.131072,
+            "maxMs": 0.196608
+          },
+          "Animate shamblers": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.131072
+          },
+          "Find burning enemies": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Render": {
+            "samples": 120,
+            "medianMs": 0.196608,
+            "p95Ms": 0.720896,
+            "maxMs": 0.9830400000000001
+          },
+          "Shambler sprites": {
+            "samples": 120,
+            "medianMs": 0.131072,
+            "p95Ms": 0.262144,
+            "maxMs": 0.32768
+          },
+          "Infantry in world depth": {
+            "samples": 120,
+            "medianMs": 0.131072,
+            "p95Ms": 0.262144,
+            "maxMs": 0.32768
+          }
+        }
+      },
+      "errors": []
+    },
+    {
+      "scenario": "obstacles",
+      "mode": "all",
+      "trial": 1,
+      "variant": "optimized",
+      "options": {
+        "autorun": "",
+        "scenario": "obstacles",
+        "frames": "120",
+        "compare": "obstacles",
+        "obstacles": "optimized"
+      },
+      "adapter": "apple",
+      "population": 6000,
+      "liveAtLastRead": 6000,
+      "invalid": 0,
+      "frames": 120,
+      "canvas": [
+        1920,
+        1080
+      ],
+      "fixture": "population restored per frame; one 1/60 step per frame; bounded queue; aftermath ring saturated",
+      "simulationSecondsPerWallSecond": 1.9801980198019802,
+      "frame": {
+        "samples": 119,
+        "medianMs": 8.300000000000182,
+        "p95Ms": 8.900000000000546,
+        "maxMs": 24.899999999999636
+      },
+      "cpuEncode": {
+        "samples": 120,
+        "medianMs": 0.5999999642372131,
+        "p95Ms": 1.0999999642372131,
+        "maxMs": 3.199999988079071
+      },
+      "submitToCompletionIncludingEncode": {
+        "samples": 120,
+        "medianMs": 2.399999976158142,
+        "p95Ms": 3,
+        "maxMs": 18.599999964237213
+      },
+      "gpu": {
+        "supported": true,
+        "skipped": 0,
+        "errors": [],
+        "passes": {
+          "Observe combat aftermath": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.131072,
+            "maxMs": 0.196608
+          },
+          "Burn damage": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Weapon effects": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Boss damage": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0,
+            "maxMs": 0.065536
+          },
+          "Crowd physics substep 1/2": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 0.131072,
+            "maxMs": 0.32768
+          },
+          "Crowd physics substep 2/2": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 0.065536,
+            "maxMs": 0.458752
+          },
+          "Settlement": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.32768
+          },
+          "Animate shamblers": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.131072
+          },
+          "Find burning enemies": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.131072
+          },
+          "Render": {
+            "samples": 120,
+            "medianMs": 0.262144,
+            "p95Ms": 1.6383999999999999,
+            "maxMs": 2.228224
+          },
+          "Shambler sprites": {
+            "samples": 120,
+            "medianMs": 0.131072,
+            "p95Ms": 0.589824,
+            "maxMs": 0.786432
+          },
+          "Infantry in world depth": {
+            "samples": 120,
+            "medianMs": 0.131072,
+            "p95Ms": 0.589824,
+            "maxMs": 1.441792
+          }
+        }
+      },
+      "errors": []
+    },
+    {
+      "scenario": "obstacles",
+      "mode": "all",
+      "trial": 2,
+      "variant": "optimized",
+      "options": {
+        "autorun": "",
+        "scenario": "obstacles",
+        "frames": "120",
+        "compare": "obstacles",
+        "obstacles": "optimized"
+      },
+      "adapter": "apple",
+      "population": 6000,
+      "liveAtLastRead": 6000,
+      "invalid": 0,
+      "frames": 120,
+      "canvas": [
+        1920,
+        1080
+      ],
+      "fixture": "population restored per frame; one 1/60 step per frame; bounded queue; aftermath ring saturated",
+      "simulationSecondsPerWallSecond": 2.011870033147604,
+      "frame": {
+        "samples": 119,
+        "medianMs": 8.300000000001091,
+        "p95Ms": 9.299999999999272,
+        "maxMs": 9.399999999999636
+      },
+      "cpuEncode": {
+        "samples": 120,
+        "medianMs": 0.5,
+        "p95Ms": 1,
+        "maxMs": 1.100000023841858
+      },
+      "submitToCompletionIncludingEncode": {
+        "samples": 120,
+        "medianMs": 2.100000023841858,
+        "p95Ms": 3,
+        "maxMs": 3.400000035762787
+      },
+      "gpu": {
+        "supported": true,
+        "skipped": 0,
+        "errors": [],
+        "passes": {
+          "Observe combat aftermath": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.196608
+          },
+          "Burn damage": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0,
+            "maxMs": 0.065536
+          },
+          "Weapon effects": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0,
+            "maxMs": 0.065536
+          },
+          "Boss damage": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Crowd physics substep 1/2": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 0.065536,
+            "maxMs": 0.262144
+          },
+          "Crowd physics substep 2/2": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 0.065536,
+            "maxMs": 0.32768
+          },
+          "Settlement": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.196608
+          },
+          "Animate shamblers": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Find burning enemies": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.131072
+          },
+          "Render": {
+            "samples": 120,
+            "medianMs": 0.262144,
+            "p95Ms": 1.900544,
+            "maxMs": 2.818048
+          },
+          "Shambler sprites": {
+            "samples": 120,
+            "medianMs": 0.131072,
+            "p95Ms": 0.65536,
+            "maxMs": 0.98304
+          },
+          "Infantry in world depth": {
+            "samples": 120,
+            "medianMs": 0.131072,
+            "p95Ms": 0.65536,
+            "maxMs": 0.98304
+          }
+        }
+      },
+      "errors": []
+    },
+    {
+      "scenario": "obstacles",
+      "mode": "all",
+      "trial": 3,
+      "variant": "reference",
+      "options": {
+        "autorun": "",
+        "scenario": "obstacles",
+        "frames": "120",
+        "compare": "obstacles",
+        "obstacles": "reference"
+      },
+      "adapter": "apple",
+      "population": 6000,
+      "liveAtLastRead": 6000,
+      "invalid": 0,
+      "frames": 120,
+      "canvas": [
+        1920,
+        1080
+      ],
+      "fixture": "population restored per frame; one 1/60 step per frame; bounded queue; aftermath ring saturated",
+      "simulationSecondsPerWallSecond": 2.0128824477375065,
+      "frame": {
+        "samples": 119,
+        "medianMs": 8.300000000001091,
+        "p95Ms": 8.700000000000728,
+        "maxMs": 9.399999999999636
+      },
+      "cpuEncode": {
+        "samples": 120,
+        "medianMs": 0.5,
+        "p95Ms": 0.9000000357627869,
+        "maxMs": 1.100000023841858
+      },
+      "submitToCompletionIncludingEncode": {
+        "samples": 120,
+        "medianMs": 2.699999988079071,
+        "p95Ms": 3.199999988079071,
+        "maxMs": 4.199999988079071
+      },
+      "gpu": {
+        "supported": true,
+        "skipped": 0,
+        "errors": [],
+        "passes": {
+          "Observe combat aftermath": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.131072,
+            "maxMs": 0.32767999999999997
+          },
+          "Burn damage": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0,
+            "maxMs": 0.065536
+          },
+          "Weapon effects": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0,
+            "maxMs": 0.065536
+          },
+          "Boss damage": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Crowd physics substep 1/2": {
+            "samples": 120,
+            "medianMs": 0.32768,
+            "p95Ms": 0.786432,
+            "maxMs": 0.98304
+          },
+          "Crowd physics substep 2/2": {
+            "samples": 120,
+            "medianMs": 0.262144,
+            "p95Ms": 0.65536,
+            "maxMs": 0.851968
+          },
+          "Settlement": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.131072
+          },
+          "Animate shamblers": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Find burning enemies": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Render": {
+            "samples": 120,
+            "medianMs": 0.262144,
+            "p95Ms": 0.45875200000000005,
+            "maxMs": 0.9175040000000001
+          },
+          "Shambler sprites": {
+            "samples": 120,
+            "medianMs": 0.131072,
+            "p95Ms": 0.196608,
+            "maxMs": 0.32768
+          },
+          "Infantry in world depth": {
+            "samples": 120,
+            "medianMs": 0.131072,
+            "p95Ms": 0.131072,
+            "maxMs": 0.32768
+          }
+        }
+      },
+      "errors": []
+    }
+  ],
+  "blood": [
+    {
+      "scenario": "aftermath",
+      "mode": "all",
+      "trial": 0,
+      "variant": "reference",
+      "options": {
+        "autorun": "",
+        "scenario": "aftermath",
+        "frames": "120",
+        "compare": "blood",
+        "settled": "",
+        "blood": "reference"
+      },
+      "adapter": "apple",
+      "population": 6000,
+      "liveAtLastRead": 6000,
+      "invalid": 0,
+      "frames": 120,
+      "canvas": [
+        1920,
+        1080
+      ],
+      "fixture": "population restored per frame; one 1/60 step per frame; bounded queue; aftermath ring saturated",
+      "simulationSecondsPerWallSecond": 1.992825826975376,
+      "frame": {
+        "samples": 119,
+        "medianMs": 8.300000000000182,
+        "p95Ms": 9,
+        "maxMs": 16.699999999999818
+      },
+      "cpuEncode": {
+        "samples": 120,
+        "medianMs": 0.8999999761581421,
+        "p95Ms": 1.300000011920929,
+        "maxMs": 8.699999988079071
+      },
+      "submitToCompletionIncludingEncode": {
+        "samples": 120,
+        "medianMs": 3.199999988079071,
+        "p95Ms": 4.5,
+        "maxMs": 11.800000011920929
+      },
+      "gpu": {
+        "supported": true,
+        "skipped": 0,
+        "errors": [],
+        "passes": {
+          "Observe combat aftermath": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.196608,
+            "maxMs": 0.262144
+          },
+          "Index combat targets": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.131072,
+            "maxMs": 0.262144
+          },
+          "Target selection": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 1.769472,
+            "maxMs": 2.031616
+          },
+          "Burn damage": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.196608
+          },
+          "Weapon effects": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.32768
+          },
+          "Boss damage": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0,
+            "maxMs": 0.065536
+          },
+          "Crowd physics substep 1/2": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 0.458752,
+            "maxMs": 0.65536
+          },
+          "Crowd physics substep 2/2": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 0.458752,
+            "maxMs": 0.589824
+          },
+          "Settlement": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.262144
+          },
+          "Animate shamblers": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.131072
+          },
+          "Find burning enemies": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.131072
+          },
+          "Deposit persistent blood": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.196608
+          },
+          "Render": {
+            "samples": 120,
+            "medianMs": 0.7208959999999999,
+            "p95Ms": 1.048576,
+            "maxMs": 1.8350079999999998
+          },
+          "Shambler sprites": {
+            "samples": 120,
+            "medianMs": 0.196608,
+            "p95Ms": 0.262144,
+            "maxMs": 0.458752
+          },
+          "Infantry in world depth": {
+            "samples": 120,
+            "medianMs": 0.131072,
+            "p95Ms": 0.196608,
+            "maxMs": 0.458752
+          }
+        }
+      },
+      "errors": []
+    },
+    {
+      "scenario": "aftermath",
+      "mode": "all",
+      "trial": 1,
+      "variant": "optimized",
+      "options": {
+        "autorun": "",
+        "scenario": "aftermath",
+        "frames": "120",
+        "compare": "blood",
+        "settled": "",
+        "blood": "optimized"
+      },
+      "adapter": "apple",
+      "population": 6000,
+      "liveAtLastRead": 6000,
+      "invalid": 0,
+      "frames": 120,
+      "canvas": [
+        1920,
+        1080
+      ],
+      "fixture": "population restored per frame; one 1/60 step per frame; bounded queue; aftermath ring saturated",
+      "simulationSecondsPerWallSecond": 1.9592476488799413,
+      "frame": {
+        "samples": 119,
+        "medianMs": 8.300000000000182,
+        "p95Ms": 9.199999999999818,
+        "maxMs": 25.099999999999454
+      },
+      "cpuEncode": {
+        "samples": 120,
+        "medianMs": 0.800000011920929,
+        "p95Ms": 1.5,
+        "maxMs": 4.199999988079071
+      },
+      "submitToCompletionIncludingEncode": {
+        "samples": 120,
+        "medianMs": 3.100000023841858,
+        "p95Ms": 5.199999988079071,
+        "maxMs": 7.100000023841858
+      },
+      "gpu": {
+        "supported": true,
+        "skipped": 0,
+        "errors": [],
+        "passes": {
+          "Observe combat aftermath": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.131072,
+            "maxMs": 0.32767999999999997
+          },
+          "Index combat targets": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.131072
+          },
+          "Target selection": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 1.835008,
+            "maxMs": 2.818048
+          },
+          "Burn damage": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.196608
+          },
+          "Weapon effects": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 0.065536,
+            "maxMs": 0.196608
+          },
+          "Boss damage": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0,
+            "maxMs": 0.065536
+          },
+          "Crowd physics substep 1/2": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 0.393216,
+            "maxMs": 0.458752
+          },
+          "Crowd physics substep 2/2": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 0.262144,
+            "maxMs": 0.458752
+          },
+          "Settlement": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Animate shamblers": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Find burning enemies": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Deposit persistent blood": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0,
+            "maxMs": 0.065536
+          },
+          "Compact visible blood": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 0.065536,
+            "maxMs": 0.131072
+          },
+          "Render": {
+            "samples": 120,
+            "medianMs": 0.6553599999999999,
+            "p95Ms": 1.048576,
+            "maxMs": 1.507328
+          },
+          "Shambler sprites": {
+            "samples": 120,
+            "medianMs": 0.196608,
+            "p95Ms": 0.262144,
+            "maxMs": 0.393216
+          },
+          "Infantry in world depth": {
+            "samples": 120,
+            "medianMs": 0.131072,
+            "p95Ms": 0.196608,
+            "maxMs": 0.393216
+          }
+        }
+      },
+      "errors": []
+    },
+    {
+      "scenario": "aftermath",
+      "mode": "all",
+      "trial": 2,
+      "variant": "optimized",
+      "options": {
+        "autorun": "",
+        "scenario": "aftermath",
+        "frames": "120",
+        "compare": "blood",
+        "settled": "",
+        "blood": "optimized"
+      },
+      "adapter": "apple",
+      "population": 6000,
+      "liveAtLastRead": 6000,
+      "invalid": 0,
+      "frames": 120,
+      "canvas": [
+        1920,
+        1080
+      ],
+      "fixture": "population restored per frame; one 1/60 step per frame; bounded queue; aftermath ring saturated",
+      "simulationSecondsPerWallSecond": 2.0092425154994413,
+      "frame": {
+        "samples": 119,
+        "medianMs": 8.300000000001091,
+        "p95Ms": 9,
+        "maxMs": 9.300000000001091
+      },
+      "cpuEncode": {
+        "samples": 120,
+        "medianMs": 0.800000011920929,
+        "p95Ms": 1.2999999523162842,
+        "maxMs": 1.600000023841858
+      },
+      "submitToCompletionIncludingEncode": {
+        "samples": 120,
+        "medianMs": 3,
+        "p95Ms": 6.100000023841858,
+        "maxMs": 7.600000023841858
+      },
+      "gpu": {
+        "supported": true,
+        "skipped": 0,
+        "errors": [],
+        "passes": {
+          "Observe combat aftermath": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.131072
+          },
+          "Index combat targets": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Target selection": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 2.883584,
+            "maxMs": 3.93216
+          },
+          "Burn damage": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Weapon effects": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Boss damage": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0,
+            "maxMs": 0.065536
+          },
+          "Crowd physics substep 1/2": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 0.065536,
+            "maxMs": 0.131072
+          },
+          "Crowd physics substep 2/2": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 0.065536,
+            "maxMs": 0.262144
+          },
+          "Settlement": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Animate shamblers": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Find burning enemies": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.32768
+          },
+          "Deposit persistent blood": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Compact visible blood": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 0.131072,
+            "maxMs": 0.131072
+          },
+          "Render": {
+            "samples": 120,
+            "medianMs": 1.048576,
+            "p95Ms": 1.376256,
+            "maxMs": 1.7039360000000001
+          },
+          "Shambler sprites": {
+            "samples": 120,
+            "medianMs": 0.262144,
+            "p95Ms": 0.32768,
+            "maxMs": 0.393216
+          },
+          "Infantry in world depth": {
+            "samples": 120,
+            "medianMs": 0.196608,
+            "p95Ms": 0.32768,
+            "maxMs": 0.393216
+          }
+        }
+      },
+      "errors": []
+    },
+    {
+      "scenario": "aftermath",
+      "mode": "all",
+      "trial": 3,
+      "variant": "reference",
+      "options": {
+        "autorun": "",
+        "scenario": "aftermath",
+        "frames": "120",
+        "compare": "blood",
+        "settled": "",
+        "blood": "reference"
+      },
+      "adapter": "apple",
+      "population": 6000,
+      "liveAtLastRead": 6000,
+      "invalid": 0,
+      "frames": 120,
+      "canvas": [
+        1920,
+        1080
+      ],
+      "fixture": "population restored per frame; one 1/60 step per frame; bounded queue; aftermath ring saturated",
+      "simulationSecondsPerWallSecond": 2.010454362782334,
+      "frame": {
+        "samples": 119,
+        "medianMs": 8.300000000001091,
+        "p95Ms": 9,
+        "maxMs": 9.299999999999272
+      },
+      "cpuEncode": {
+        "samples": 120,
+        "medianMs": 0.8999999761581421,
+        "p95Ms": 1.600000023841858,
+        "maxMs": 1.9000000357627869
+      },
+      "submitToCompletionIncludingEncode": {
+        "samples": 120,
+        "medianMs": 3.200000047683716,
+        "p95Ms": 6.300000011920929,
+        "maxMs": 7.699999988079071
+      },
+      "gpu": {
+        "supported": true,
+        "skipped": 0,
+        "errors": [],
+        "passes": {
+          "Observe combat aftermath": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.131072,
+            "maxMs": 0.458752
+          },
+          "Index combat targets": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.131072
+          },
+          "Target selection": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 2.94912,
+            "maxMs": 4.325376
+          },
+          "Burn damage": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.131072
+          },
+          "Weapon effects": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Boss damage": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0,
+            "maxMs": 0.065536
+          },
+          "Crowd physics substep 1/2": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 0.065536,
+            "maxMs": 0.131072
+          },
+          "Crowd physics substep 2/2": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 0.065536,
+            "maxMs": 0.131072
+          },
+          "Settlement": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Animate shamblers": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Find burning enemies": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Deposit persistent blood": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.196608
+          },
+          "Render": {
+            "samples": 120,
+            "medianMs": 1.048576,
+            "p95Ms": 1.441792,
+            "maxMs": 3.407872
+          },
+          "Shambler sprites": {
+            "samples": 120,
+            "medianMs": 0.262144,
+            "p95Ms": 0.32768,
+            "maxMs": 0.917504
+          },
+          "Infantry in world depth": {
+            "samples": 120,
+            "medianMs": 0.196608,
+            "p95Ms": 0.32768,
+            "maxMs": 1.179648
+          }
+        }
+      },
+      "errors": []
+    }
+  ],
+  "targets25000": [
+    {
+      "scenario": "combat",
+      "mode": "all",
+      "trial": 0,
+      "variant": "reference",
+      "options": {
+        "autorun": "",
+        "scenario": "combat",
+        "population": "25000",
+        "frames": "120",
+        "compare": "targets",
+        "level": "50",
+        "veterancy": "100",
+        "targets": "reference"
+      },
+      "adapter": "apple",
+      "population": 25000,
+      "liveAtLastRead": 25000,
+      "invalid": 0,
+      "frames": 120,
+      "canvas": [
+        1920,
+        1080
+      ],
+      "fixture": "population restored per frame; one 1/60 step per frame; bounded queue; aftermath ring saturated",
+      "simulationSecondsPerWallSecond": 0.8109971209523801,
+      "frame": {
+        "samples": 119,
+        "medianMs": 8.400000000000546,
+        "p95Ms": 50,
+        "maxMs": 50.100000000000364
+      },
+      "cpuEncode": {
+        "samples": 120,
+        "medianMs": 1.100000023841858,
+        "p95Ms": 1.899999976158142,
+        "maxMs": 2.699999988079071
+      },
+      "submitToCompletionIncludingEncode": {
+        "samples": 120,
+        "medianMs": 12,
+        "p95Ms": 41.69999998807907,
+        "maxMs": 49.09999996423721
+      },
+      "gpu": {
+        "supported": true,
+        "skipped": 0,
+        "errors": [],
+        "passes": {
+          "Observe combat aftermath": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.131072,
+            "maxMs": 0.131072
+          },
+          "Target selection": {
+            "samples": 120,
+            "medianMs": 8.978432,
+            "p95Ms": 38.141952,
+            "maxMs": 40.30464
+          },
+          "Burn damage": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Weapon effects": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Boss damage": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Crowd physics substep 1/2": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 0.065536,
+            "maxMs": 0.131072
+          },
+          "Crowd physics substep 2/2": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 0.131072,
+            "maxMs": 0.32768
+          },
+          "Settlement": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Animate shamblers": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Find burning enemies": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0,
+            "maxMs": 0.065536
+          },
+          "Render": {
+            "samples": 120,
+            "medianMs": 0.6553599999999999,
+            "p95Ms": 0.786432,
+            "maxMs": 0.9830399999999999
+          },
+          "Shambler sprites": {
+            "samples": 120,
+            "medianMs": 0.393216,
+            "p95Ms": 0.458752,
+            "maxMs": 0.458752
+          },
+          "Infantry in world depth": {
+            "samples": 120,
+            "medianMs": 0.32768,
+            "p95Ms": 0.393216,
+            "maxMs": 0.458752
+          }
+        }
+      },
+      "errors": []
+    },
+    {
+      "scenario": "combat",
+      "mode": "all",
+      "trial": 1,
+      "variant": "optimized",
+      "options": {
+        "autorun": "",
+        "scenario": "combat",
+        "population": "25000",
+        "frames": "120",
+        "compare": "targets",
+        "level": "50",
+        "veterancy": "100",
+        "targets": "optimized"
+      },
+      "adapter": "apple",
+      "population": 25000,
+      "liveAtLastRead": 25000,
+      "invalid": 0,
+      "frames": 120,
+      "canvas": [
+        1920,
+        1080
+      ],
+      "fixture": "population restored per frame; one 1/60 step per frame; bounded queue; aftermath ring saturated",
+      "simulationSecondsPerWallSecond": 1.4967819188877736,
+      "frame": {
+        "samples": 119,
+        "medianMs": 8.399999999999636,
+        "p95Ms": 25,
+        "maxMs": 25.30000000000109
+      },
+      "cpuEncode": {
+        "samples": 120,
+        "medianMs": 1.100000023841858,
+        "p95Ms": 1.600000023841858,
+        "maxMs": 2.200000047683716
+      },
+      "submitToCompletionIncludingEncode": {
+        "samples": 120,
+        "medianMs": 11.199999988079071,
+        "p95Ms": 13.899999976158142,
+        "maxMs": 16.600000023841858
+      },
+      "gpu": {
+        "supported": true,
+        "skipped": 0,
+        "errors": [],
+        "passes": {
+          "Observe combat aftermath": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.131072,
+            "maxMs": 0.196608
+          },
+          "Index combat targets": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Target selection": {
+            "samples": 120,
+            "medianMs": 7.995392,
+            "p95Ms": 10.616832,
+            "maxMs": 13.43488
+          },
+          "Burn damage": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Weapon effects": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Boss damage": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0,
+            "maxMs": 0.065536
+          },
+          "Crowd physics substep 1/2": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 0.065536,
+            "maxMs": 0.131072
+          },
+          "Crowd physics substep 2/2": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 0.131072,
+            "maxMs": 0.131072
+          },
+          "Settlement": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0,
+            "maxMs": 0.065536
+          },
+          "Animate shamblers": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Find burning enemies": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Render": {
+            "samples": 120,
+            "medianMs": 0.6553599999999999,
+            "p95Ms": 0.786432,
+            "maxMs": 1.048576
+          },
+          "Shambler sprites": {
+            "samples": 120,
+            "medianMs": 0.393216,
+            "p95Ms": 0.393216,
+            "maxMs": 0.524288
+          },
+          "Infantry in world depth": {
+            "samples": 120,
+            "medianMs": 0.32768,
+            "p95Ms": 0.393216,
+            "maxMs": 0.458752
+          }
+        }
+      },
+      "errors": []
+    },
+    {
+      "scenario": "combat",
+      "mode": "all",
+      "trial": 2,
+      "variant": "optimized",
+      "options": {
+        "autorun": "",
+        "scenario": "combat",
+        "population": "25000",
+        "frames": "120",
+        "compare": "targets",
+        "level": "50",
+        "veterancy": "100",
+        "targets": "optimized"
+      },
+      "adapter": "apple",
+      "population": 25000,
+      "liveAtLastRead": 25000,
+      "invalid": 0,
+      "frames": 120,
+      "canvas": [
+        1920,
+        1080
+      ],
+      "fixture": "population restored per frame; one 1/60 step per frame; bounded queue; aftermath ring saturated",
+      "simulationSecondsPerWallSecond": 1.4781966001478197,
+      "frame": {
+        "samples": 119,
+        "medianMs": 8.399999999999636,
+        "p95Ms": 25,
+        "maxMs": 25.100000000000364
+      },
+      "cpuEncode": {
+        "samples": 120,
+        "medianMs": 1.100000023841858,
+        "p95Ms": 1.800000011920929,
+        "maxMs": 2.5
+      },
+      "submitToCompletionIncludingEncode": {
+        "samples": 120,
+        "medianMs": 11.199999988079071,
+        "p95Ms": 13.899999976158142,
+        "maxMs": 15.199999988079071
+      },
+      "gpu": {
+        "supported": true,
+        "skipped": 0,
+        "errors": [],
+        "passes": {
+          "Observe combat aftermath": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.131072,
+            "maxMs": 0.196608
+          },
+          "Index combat targets": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Target selection": {
+            "samples": 120,
+            "medianMs": 7.995392,
+            "p95Ms": 10.747904,
+            "maxMs": 12.320768
+          },
+          "Burn damage": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Weapon effects": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Boss damage": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Crowd physics substep 1/2": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 0.065536,
+            "maxMs": 0.131072
+          },
+          "Crowd physics substep 2/2": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 0.131072,
+            "maxMs": 0.131072
+          },
+          "Settlement": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Animate shamblers": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Find burning enemies": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Render": {
+            "samples": 120,
+            "medianMs": 0.6553599999999999,
+            "p95Ms": 0.720896,
+            "maxMs": 0.917504
+          },
+          "Shambler sprites": {
+            "samples": 120,
+            "medianMs": 0.393216,
+            "p95Ms": 0.393216,
+            "maxMs": 0.458752
+          },
+          "Infantry in world depth": {
+            "samples": 120,
+            "medianMs": 0.32768,
+            "p95Ms": 0.32768,
+            "maxMs": 0.393216
+          }
+        }
+      },
+      "errors": []
+    },
+    {
+      "scenario": "combat",
+      "mode": "all",
+      "trial": 3,
+      "variant": "reference",
+      "options": {
+        "autorun": "",
+        "scenario": "combat",
+        "population": "25000",
+        "frames": "120",
+        "compare": "targets",
+        "level": "50",
+        "veterancy": "100",
+        "targets": "reference"
+      },
+      "adapter": "apple",
+      "population": 25000,
+      "liveAtLastRead": 25000,
+      "invalid": 0,
+      "frames": 120,
+      "canvas": [
+        1920,
+        1080
+      ],
+      "fixture": "population restored per frame; one 1/60 step per frame; bounded queue; aftermath ring saturated",
+      "simulationSecondsPerWallSecond": 0.8352125616094002,
+      "frame": {
+        "samples": 119,
+        "medianMs": 8.399999999999636,
+        "p95Ms": 50,
+        "maxMs": 51
+      },
+      "cpuEncode": {
+        "samples": 120,
+        "medianMs": 1.100000023841858,
+        "p95Ms": 1.699999988079071,
+        "maxMs": 2.099999964237213
+      },
+      "submitToCompletionIncludingEncode": {
+        "samples": 120,
+        "medianMs": 11.699999988079071,
+        "p95Ms": 41,
+        "maxMs": 42.30000001192093
+      },
+      "gpu": {
+        "supported": true,
+        "skipped": 0,
+        "errors": [],
+        "passes": {
+          "Observe combat aftermath": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.196608
+          },
+          "Target selection": {
+            "samples": 120,
+            "medianMs": 8.912896,
+            "p95Ms": 37.814272,
+            "maxMs": 38.535168
+          },
+          "Burn damage": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Weapon effects": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Boss damage": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Crowd physics substep 1/2": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 0.065536,
+            "maxMs": 0.131072
+          },
+          "Crowd physics substep 2/2": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 0.131072,
+            "maxMs": 0.131072
+          },
+          "Settlement": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Animate shamblers": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Find burning enemies": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Render": {
+            "samples": 120,
+            "medianMs": 0.589824,
+            "p95Ms": 0.851968,
+            "maxMs": 0.917504
+          },
+          "Shambler sprites": {
+            "samples": 120,
+            "medianMs": 0.32768,
+            "p95Ms": 0.458752,
+            "maxMs": 0.458752
+          },
+          "Infantry in world depth": {
+            "samples": 120,
+            "medianMs": 0.32768,
+            "p95Ms": 0.393216,
+            "maxMs": 0.393216
+          }
+        }
+      },
+      "errors": []
+    }
+  ],
+  "soak": [
+    {
+      "scenario": "combat",
+      "mode": "all",
+      "trial": 0,
+      "variant": "default",
+      "options": {
+        "autorun": "",
+        "scenario": "combat",
+        "population": "6000",
+        "frames": "1800",
+        "continuous": ""
+      },
+      "adapter": "apple",
+      "population": 6000,
+      "liveAtLastRead": 5998,
+      "invalid": 0,
+      "frames": 1800,
+      "continuousAccounting": {
+        "arrivals": 9452,
+        "kills": 3454,
+        "crushKills": 228,
+        "earned": 207,
+        "invalidCounter": 0,
+        "conserved": true
+      },
+      "canvas": [
+        1920,
+        1080
+      ],
+      "fixture": "evolving survivors; dead slots replenished on GPU from fixed distributed arrivals; no natural wave pacing; one 1/60 step/frame; bounded queue",
+      "simulationSecondsPerWallSecond": 1.9958486348332025,
+      "frame": {
+        "samples": 1799,
+        "medianMs": 8.300000000001091,
+        "p95Ms": 8.799999999999272,
+        "maxMs": 16.700000000000273
+      },
+      "cpuEncode": {
+        "samples": 1800,
+        "medianMs": 0.5,
+        "p95Ms": 0.699999988079071,
+        "maxMs": 1.399999976158142
+      },
+      "submitToCompletionIncludingEncode": {
+        "samples": 1800,
+        "medianMs": 2.5,
+        "p95Ms": 4.699999988079071,
+        "maxMs": 16.900000035762787
+      },
+      "gpu": {
+        "supported": true,
+        "skipped": 0,
+        "errors": [],
+        "passes": {
+          "Horde arrivals": {
+            "samples": 600,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.196608
+          },
+          "Observe combat aftermath": {
+            "samples": 600,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.262144
+          },
+          "Index combat targets": {
+            "samples": 600,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.262144
+          },
+          "Target selection": {
+            "samples": 600,
+            "medianMs": 0,
+            "p95Ms": 2.29376,
+            "maxMs": 6.750208
+          },
+          "Burn damage": {
+            "samples": 600,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.32768
+          },
+          "Weapon effects": {
+            "samples": 600,
+            "medianMs": 0.065536,
+            "p95Ms": 0.065536,
+            "maxMs": 0.196608
+          },
+          "Boss damage": {
+            "samples": 600,
+            "medianMs": 0,
+            "p95Ms": 0,
+            "maxMs": 0.065536
+          },
+          "Crowd physics substep 1/2": {
+            "samples": 600,
+            "medianMs": 0.065536,
+            "p95Ms": 0.196608,
+            "maxMs": 0.786432
+          },
+          "Crowd physics substep 2/2": {
+            "samples": 600,
+            "medianMs": 0.065536,
+            "p95Ms": 0.262144,
+            "maxMs": 0.917504
+          },
+          "Settlement": {
+            "samples": 600,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.131072
+          },
+          "Animate shamblers": {
+            "samples": 600,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.131072
+          },
+          "Find burning enemies": {
+            "samples": 600,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.131072
+          },
+          "Render": {
+            "samples": 600,
+            "medianMs": 0.262144,
+            "p95Ms": 0.6553599999999999,
+            "maxMs": 3.801088
+          },
+          "Shambler sprites": {
+            "samples": 600,
+            "medianMs": 0.131072,
+            "p95Ms": 0.262144,
+            "maxMs": 1.572864
+          },
+          "Infantry in world depth": {
+            "samples": 600,
+            "medianMs": 0.131072,
+            "p95Ms": 0.262144,
+            "maxMs": 1.572864
+          }
+        }
+      },
+      "errors": []
+    }
+  ],
+  "dispatch25000": [
+    {
+      "scenario": "combat",
+      "mode": "all",
+      "trial": 0,
+      "variant": "reference",
+      "options": {
+        "autorun": "",
+        "scenario": "combat",
+        "population": "25000",
+        "frames": "120",
+        "compare": "dispatch",
+        "level": "50",
+        "veterancy": "100",
+        "dispatch": "reference"
+      },
+      "adapter": "apple",
+      "population": 25000,
+      "liveAtLastRead": 25000,
+      "invalid": 0,
+      "frames": 120,
+      "canvas": [
+        1920,
+        1080
+      ],
+      "fixture": "population restored per frame; one 1/60 step per frame; bounded queue; aftermath ring saturated",
+      "simulationSecondsPerWallSecond": 1.514921981531631,
+      "frame": {
+        "samples": 119,
+        "medianMs": 8.399999999999636,
+        "p95Ms": 25,
+        "maxMs": 25.300000000000182
+      },
+      "cpuEncode": {
+        "samples": 120,
+        "medianMs": 1.100000023841858,
+        "p95Ms": 1.5,
+        "maxMs": 2.300000011920929
+      },
+      "submitToCompletionIncludingEncode": {
+        "samples": 120,
+        "medianMs": 11,
+        "p95Ms": 12.699999988079071,
+        "maxMs": 15.099999964237213
+      },
+      "gpu": {
+        "supported": true,
+        "skipped": 0,
+        "errors": [],
+        "passes": {
+          "Observe combat aftermath": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.131072,
+            "maxMs": 0.196608
+          },
+          "Index combat targets": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Target selection": {
+            "samples": 120,
+            "medianMs": 7.929856,
+            "p95Ms": 9.8304,
+            "maxMs": 12.189696
+          },
+          "Burn damage": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Weapon effects": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Boss damage": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Crowd physics substep 1/2": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 0.131072,
+            "maxMs": 0.32768
+          },
+          "Crowd physics substep 2/2": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 0.196608,
+            "maxMs": 0.32768
+          },
+          "Settlement": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Animate shamblers": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Find burning enemies": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0,
+            "maxMs": 0.065536
+          },
+          "Render": {
+            "samples": 120,
+            "medianMs": 0.6553599999999999,
+            "p95Ms": 0.720896,
+            "maxMs": 1.3107199999999999
+          },
+          "Shambler sprites": {
+            "samples": 120,
+            "medianMs": 0.393216,
+            "p95Ms": 0.393216,
+            "maxMs": 0.589824
+          },
+          "Infantry in world depth": {
+            "samples": 120,
+            "medianMs": 0.32768,
+            "p95Ms": 0.32768,
+            "maxMs": 0.524288
+          }
+        }
+      },
+      "errors": []
+    },
+    {
+      "scenario": "combat",
+      "mode": "all",
+      "trial": 1,
+      "variant": "optimized",
+      "options": {
+        "autorun": "",
+        "scenario": "combat",
+        "population": "25000",
+        "frames": "120",
+        "compare": "dispatch",
+        "level": "50",
+        "veterancy": "100",
+        "dispatch": "optimized"
+      },
+      "adapter": "apple",
+      "population": 25000,
+      "liveAtLastRead": 25000,
+      "invalid": 0,
+      "frames": 120,
+      "canvas": [
+        1920,
+        1080
+      ],
+      "fixture": "population restored per frame; one 1/60 step per frame; bounded queue; aftermath ring saturated",
+      "simulationSecondsPerWallSecond": 1.6598887874840857,
+      "frame": {
+        "samples": 119,
+        "medianMs": 8.300000000000182,
+        "p95Ms": 16.699999999999818,
+        "maxMs": 25.100000000000364
+      },
+      "cpuEncode": {
+        "samples": 120,
+        "medianMs": 1.0999999642372131,
+        "p95Ms": 1.399999976158142,
+        "maxMs": 1.699999988079071
+      },
+      "submitToCompletionIncludingEncode": {
+        "samples": 120,
+        "medianMs": 10.699999988079071,
+        "p95Ms": 11.700000047683716,
+        "maxMs": 13.300000011920929
+      },
+      "gpu": {
+        "supported": true,
+        "skipped": 0,
+        "errors": [],
+        "passes": {
+          "Observe combat aftermath": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.196608
+          },
+          "Index combat targets": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Target selection": {
+            "samples": 120,
+            "medianMs": 7.86432,
+            "p95Ms": 8.716288,
+            "maxMs": 10.15808
+          },
+          "Burn damage": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Weapon effects": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 0.065536,
+            "maxMs": 0.131072
+          },
+          "Boss damage": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0,
+            "maxMs": 0.065536
+          },
+          "Crowd physics substep 1/2": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 0.196608,
+            "maxMs": 0.262144
+          },
+          "Crowd physics substep 2/2": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 0.196608,
+            "maxMs": 0.262144
+          },
+          "Settlement": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Animate shamblers": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Find burning enemies": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0,
+            "maxMs": 0.065536
+          },
+          "Render": {
+            "samples": 120,
+            "medianMs": 0.6553599999999999,
+            "p95Ms": 0.720896,
+            "maxMs": 1.245184
+          },
+          "Shambler sprites": {
+            "samples": 120,
+            "medianMs": 0.393216,
+            "p95Ms": 0.393216,
+            "maxMs": 0.65536
+          },
+          "Infantry in world depth": {
+            "samples": 120,
+            "medianMs": 0.32768,
+            "p95Ms": 0.32768,
+            "maxMs": 0.589824
+          }
+        }
+      },
+      "errors": []
+    },
+    {
+      "scenario": "combat",
+      "mode": "all",
+      "trial": 2,
+      "variant": "optimized",
+      "options": {
+        "autorun": "",
+        "scenario": "combat",
+        "population": "25000",
+        "frames": "120",
+        "compare": "dispatch",
+        "level": "50",
+        "veterancy": "100",
+        "dispatch": "optimized"
+      },
+      "adapter": "apple",
+      "population": 25000,
+      "liveAtLastRead": 25000,
+      "invalid": 0,
+      "frames": 120,
+      "canvas": [
+        1920,
+        1080
+      ],
+      "fixture": "population restored per frame; one 1/60 step per frame; bounded queue; aftermath ring saturated",
+      "simulationSecondsPerWallSecond": 1.6485328057380415,
+      "frame": {
+        "samples": 119,
+        "medianMs": 8.300000000001091,
+        "p95Ms": 25,
+        "maxMs": 25.600000000000364
+      },
+      "cpuEncode": {
+        "samples": 120,
+        "medianMs": 1.100000023841858,
+        "p95Ms": 1.5,
+        "maxMs": 2
+      },
+      "submitToCompletionIncludingEncode": {
+        "samples": 120,
+        "medianMs": 10.699999988079071,
+        "p95Ms": 11.5,
+        "maxMs": 12.300000011920929
+      },
+      "gpu": {
+        "supported": true,
+        "skipped": 0,
+        "errors": [],
+        "passes": {
+          "Observe combat aftermath": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.131072,
+            "maxMs": 0.131072
+          },
+          "Index combat targets": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Target selection": {
+            "samples": 120,
+            "medianMs": 7.86432,
+            "p95Ms": 8.388608,
+            "maxMs": 8.51968
+          },
+          "Burn damage": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Weapon effects": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 0.065536,
+            "maxMs": 0.131072
+          },
+          "Boss damage": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0,
+            "maxMs": 0.065536
+          },
+          "Crowd physics substep 1/2": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 0.196608,
+            "maxMs": 0.196608
+          },
+          "Crowd physics substep 2/2": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 0.196608,
+            "maxMs": 0.262144
+          },
+          "Settlement": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Animate shamblers": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Find burning enemies": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Render": {
+            "samples": 120,
+            "medianMs": 0.6553599999999999,
+            "p95Ms": 0.720896,
+            "maxMs": 0.917504
+          },
+          "Shambler sprites": {
+            "samples": 120,
+            "medianMs": 0.393216,
+            "p95Ms": 0.393216,
+            "maxMs": 0.917504
+          },
+          "Infantry in world depth": {
+            "samples": 120,
+            "medianMs": 0.32768,
+            "p95Ms": 0.32768,
+            "maxMs": 0.393216
+          }
+        }
+      },
+      "errors": []
+    },
+    {
+      "scenario": "combat",
+      "mode": "all",
+      "trial": 3,
+      "variant": "reference",
+      "options": {
+        "autorun": "",
+        "scenario": "combat",
+        "population": "25000",
+        "frames": "120",
+        "compare": "dispatch",
+        "level": "50",
+        "veterancy": "100",
+        "dispatch": "reference"
+      },
+      "adapter": "apple",
+      "population": 25000,
+      "liveAtLastRead": 25000,
+      "invalid": 0,
+      "frames": 120,
+      "canvas": [
+        1920,
+        1080
+      ],
+      "fixture": "population restored per frame; one 1/60 step per frame; bounded queue; aftermath ring saturated",
+      "simulationSecondsPerWallSecond": 1.5834059061488617,
+      "frame": {
+        "samples": 119,
+        "medianMs": 8.300000000001091,
+        "p95Ms": 25,
+        "maxMs": 25.100000000000364
+      },
+      "cpuEncode": {
+        "samples": 120,
+        "medianMs": 1.0999999642372131,
+        "p95Ms": 1.5,
+        "maxMs": 2.100000023841858
+      },
+      "submitToCompletionIncludingEncode": {
+        "samples": 120,
+        "medianMs": 10.800000011920929,
+        "p95Ms": 12.600000023841858,
+        "maxMs": 13.5
+      },
+      "gpu": {
+        "supported": true,
+        "skipped": 0,
+        "errors": [],
+        "passes": {
+          "Observe combat aftermath": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.131072,
+            "maxMs": 0.196608
+          },
+          "Index combat targets": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Target selection": {
+            "samples": 120,
+            "medianMs": 7.929856,
+            "p95Ms": 9.437184,
+            "maxMs": 10.616832
+          },
+          "Burn damage": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Weapon effects": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.131072
+          },
+          "Boss damage": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0,
+            "maxMs": 0.065536
+          },
+          "Crowd physics substep 1/2": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 0.131072,
+            "maxMs": 0.196608
+          },
+          "Crowd physics substep 2/2": {
+            "samples": 120,
+            "medianMs": 0.065536,
+            "p95Ms": 0.196608,
+            "maxMs": 0.32768
+          },
+          "Settlement": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.458752
+          },
+          "Animate shamblers": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Find burning enemies": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0,
+            "maxMs": 0.065536
+          },
+          "Render": {
+            "samples": 120,
+            "medianMs": 0.6553599999999999,
+            "p95Ms": 0.720896,
+            "maxMs": 0.9830400000000001
+          },
+          "Shambler sprites": {
+            "samples": 120,
+            "medianMs": 0.393216,
+            "p95Ms": 0.393216,
+            "maxMs": 0.458752
+          },
+          "Infantry in world depth": {
+            "samples": 120,
+            "medianMs": 0.32768,
+            "p95Ms": 0.32768,
+            "maxMs": 0.524288
+          }
+        }
+      },
+      "errors": []
+    }
+  ],
+  "solver6000": [
+    {
+      "scenario": "jam",
+      "mode": "all",
+      "trial": 0,
+      "variant": "exact",
+      "options": {
+        "autorun": "",
+        "scenario": "jam",
+        "frames": "120",
+        "compare": "solver",
+        "solver": "exact"
+      },
+      "adapter": "apple",
+      "population": 6000,
+      "liveAtLastRead": 6000,
+      "invalid": 0,
+      "frames": 120,
+      "canvas": [
+        1920,
+        1080
+      ],
+      "fixture": "population restored per frame; one 1/60 step per frame; bounded queue; aftermath ring saturated",
+      "simulationSecondsPerWallSecond": 1.9790223629060129,
+      "frame": {
+        "samples": 119,
+        "medianMs": 8.300000000000182,
+        "p95Ms": 8.400000000000091,
+        "maxMs": 16.699999999999818
+      },
+      "cpuEncode": {
+        "samples": 120,
+        "medianMs": 0.5,
+        "p95Ms": 1,
+        "maxMs": 5.100000023841858
+      },
+      "submitToCompletionIncludingEncode": {
+        "samples": 120,
+        "medianMs": 2.5,
+        "p95Ms": 6.399999976158142,
+        "maxMs": 13.800000011920929
+      },
+      "gpu": {
+        "supported": true,
+        "skipped": 0,
+        "errors": [],
+        "passes": {
+          "Observe combat aftermath": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.262144
+          },
+          "Burn damage": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.196608
+          },
+          "Weapon effects": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.262144
+          },
+          "Boss damage": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Crowd physics substep 1/2": {
+            "samples": 120,
+            "medianMs": 0.196608,
+            "p95Ms": 0.458752,
+            "maxMs": 0.851968
+          },
+          "Crowd physics substep 2/2": {
+            "samples": 120,
+            "medianMs": 0.196608,
+            "p95Ms": 0.458752,
+            "maxMs": 1.114112
+          },
+          "Settlement": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.131072
+          },
+          "Animate shamblers": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Find burning enemies": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.196608
+          },
+          "Render": {
+            "samples": 120,
+            "medianMs": 0.393216,
+            "p95Ms": 0.8519680000000001,
+            "maxMs": 2.162688
+          },
+          "Shambler sprites": {
+            "samples": 120,
+            "medianMs": 0.262144,
+            "p95Ms": 0.589824,
+            "maxMs": 1.048576
+          },
+          "Infantry in world depth": {
+            "samples": 120,
+            "medianMs": 0.262144,
+            "p95Ms": 0.589824,
+            "maxMs": 0.98304
+          }
+        }
+      },
+      "errors": []
+    },
+    {
+      "scenario": "jam",
+      "mode": "all",
+      "trial": 1,
+      "variant": "hybrid",
+      "options": {
+        "autorun": "",
+        "scenario": "jam",
+        "frames": "120",
+        "compare": "solver",
+        "solver": "hybrid"
+      },
+      "adapter": "apple",
+      "population": 6000,
+      "liveAtLastRead": 6000,
+      "invalid": 0,
+      "frames": 120,
+      "canvas": [
+        1920,
+        1080
+      ],
+      "fixture": "population restored per frame; one 1/60 step per frame; bounded queue; aftermath ring saturated",
+      "simulationSecondsPerWallSecond": 2.0104543626618754,
+      "frame": {
+        "samples": 119,
+        "medianMs": 8.300000000000182,
+        "p95Ms": 9.199999999999818,
+        "maxMs": 9.399999999999636
+      },
+      "cpuEncode": {
+        "samples": 120,
+        "medianMs": 0.5,
+        "p95Ms": 1,
+        "maxMs": 2.900000035762787
+      },
+      "submitToCompletionIncludingEncode": {
+        "samples": 120,
+        "medianMs": 2.399999976158142,
+        "p95Ms": 4.400000035762787,
+        "maxMs": 11.800000011920929
+      },
+      "gpu": {
+        "supported": true,
+        "skipped": 0,
+        "errors": [],
+        "passes": {
+          "Observe combat aftermath": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.131072,
+            "maxMs": 0.196608
+          },
+          "Burn damage": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0,
+            "maxMs": 0.065536
+          },
+          "Weapon effects": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Boss damage": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Crowd physics substep 1/2": {
+            "samples": 120,
+            "medianMs": 0.131072,
+            "p95Ms": 0.196608,
+            "maxMs": 0.32768
+          },
+          "Crowd physics substep 2/2": {
+            "samples": 120,
+            "medianMs": 0.131072,
+            "p95Ms": 0.196608,
+            "maxMs": 0.524288
+          },
+          "Settlement": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.196608
+          },
+          "Animate shamblers": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Find burning enemies": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Render": {
+            "samples": 120,
+            "medianMs": 0.5242880000000001,
+            "p95Ms": 1.3762560000000001,
+            "maxMs": 3.211264
+          },
+          "Shambler sprites": {
+            "samples": 120,
+            "medianMs": 0.393216,
+            "p95Ms": 0.720896,
+            "maxMs": 1.376256
+          },
+          "Infantry in world depth": {
+            "samples": 120,
+            "medianMs": 0.32768,
+            "p95Ms": 1.048576,
+            "maxMs": 1.572864
+          }
+        }
+      },
+      "errors": []
+    },
+    {
+      "scenario": "jam",
+      "mode": "all",
+      "trial": 2,
+      "variant": "hybrid",
+      "options": {
+        "autorun": "",
+        "scenario": "jam",
+        "frames": "120",
+        "compare": "solver",
+        "solver": "hybrid"
+      },
+      "adapter": "apple",
+      "population": 6000,
+      "liveAtLastRead": 6000,
+      "invalid": 0,
+      "frames": 120,
+      "canvas": [
+        1920,
+        1080
+      ],
+      "fixture": "population restored per frame; one 1/60 step per frame; bounded queue; aftermath ring saturated",
+      "simulationSecondsPerWallSecond": 2.0124773597262653,
+      "frame": {
+        "samples": 119,
+        "medianMs": 8.300000000001091,
+        "p95Ms": 9.399999999999636,
+        "maxMs": 9.400000000001455
+      },
+      "cpuEncode": {
+        "samples": 120,
+        "medianMs": 0.5,
+        "p95Ms": 0.699999988079071,
+        "maxMs": 1
+      },
+      "submitToCompletionIncludingEncode": {
+        "samples": 120,
+        "medianMs": 2.199999988079071,
+        "p95Ms": 3.100000023841858,
+        "maxMs": 5.300000011920929
+      },
+      "gpu": {
+        "supported": true,
+        "skipped": 0,
+        "errors": [],
+        "passes": {
+          "Observe combat aftermath": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.131072,
+            "maxMs": 0.458752
+          },
+          "Burn damage": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.131072
+          },
+          "Weapon effects": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Boss damage": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0,
+            "maxMs": 0.065536
+          },
+          "Crowd physics substep 1/2": {
+            "samples": 120,
+            "medianMs": 0.131072,
+            "p95Ms": 0.196608,
+            "maxMs": 0.393216
+          },
+          "Crowd physics substep 2/2": {
+            "samples": 120,
+            "medianMs": 0.131072,
+            "p95Ms": 0.262144,
+            "maxMs": 0.458752
+          },
+          "Settlement": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.196608
+          },
+          "Animate shamblers": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Find burning enemies": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Render": {
+            "samples": 120,
+            "medianMs": 0.5242880000000001,
+            "p95Ms": 1.114112,
+            "maxMs": 3.6700160000000004
+          },
+          "Shambler sprites": {
+            "samples": 120,
+            "medianMs": 0.32768,
+            "p95Ms": 0.524288,
+            "maxMs": 1.376256
+          },
+          "Infantry in world depth": {
+            "samples": 120,
+            "medianMs": 0.32768,
+            "p95Ms": 0.851968,
+            "maxMs": 1.245184
+          }
+        }
+      },
+      "errors": []
+    },
+    {
+      "scenario": "jam",
+      "mode": "all",
+      "trial": 3,
+      "variant": "exact",
+      "options": {
+        "autorun": "",
+        "scenario": "jam",
+        "frames": "120",
+        "compare": "solver",
+        "solver": "exact"
+      },
+      "adapter": "apple",
+      "population": 6000,
+      "liveAtLastRead": 6000,
+      "invalid": 0,
+      "frames": 120,
+      "canvas": [
+        1920,
+        1080
+      ],
+      "fixture": "population restored per frame; one 1/60 step per frame; bounded queue; aftermath ring saturated",
+      "simulationSecondsPerWallSecond": 2.008838891072826,
+      "frame": {
+        "samples": 119,
+        "medianMs": 8.300000000001091,
+        "p95Ms": 8.899999999999636,
+        "maxMs": 9.399999999999636
+      },
+      "cpuEncode": {
+        "samples": 120,
+        "medianMs": 0.5,
+        "p95Ms": 0.5999999642372131,
+        "maxMs": 1.100000023841858
+      },
+      "submitToCompletionIncludingEncode": {
+        "samples": 120,
+        "medianMs": 2.399999976158142,
+        "p95Ms": 4.199999988079071,
+        "maxMs": 5.900000035762787
+      },
+      "gpu": {
+        "supported": true,
+        "skipped": 0,
+        "errors": [],
+        "passes": {
+          "Observe combat aftermath": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.131072,
+            "maxMs": 0.32767999999999997
+          },
+          "Burn damage": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.262144
+          },
+          "Weapon effects": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Boss damage": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Crowd physics substep 1/2": {
+            "samples": 120,
+            "medianMs": 0.262144,
+            "p95Ms": 0.524288,
+            "maxMs": 1.114112
+          },
+          "Crowd physics substep 2/2": {
+            "samples": 120,
+            "medianMs": 0.262144,
+            "p95Ms": 0.786432,
+            "maxMs": 1.048576
+          },
+          "Settlement": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.131072
+          },
+          "Animate shamblers": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.131072
+          },
+          "Find burning enemies": {
+            "samples": 120,
+            "medianMs": 0,
+            "p95Ms": 0,
+            "maxMs": 0.131072
+          },
+          "Render": {
+            "samples": 120,
+            "medianMs": 0.524288,
+            "p95Ms": 1.3762560000000001,
+            "maxMs": 1.96608
+          },
+          "Shambler sprites": {
+            "samples": 120,
+            "medianMs": 0.32768,
+            "p95Ms": 0.720896,
+            "maxMs": 1.245184
+          },
+          "Infantry in world depth": {
+            "samples": 120,
+            "medianMs": 0.32768,
+            "p95Ms": 0.65536,
+            "maxMs": 1.572864
+          }
+        }
+      },
+      "errors": []
+    }
+  ],
+  "gpuChecks": "PASS indexed/reference parity, thin walls, embedded recovery, offscreen obstacles, dynamic edits; max difference 0\nPASS indexed/full-scan combat parity for all eight weapons, focus, recycling and zero population\nPASS hybrid crowd invariants {\"maxSparseDifference\":0,\"denseExact\":{\"live\":431,\"kills\":81},\"denseHybrid\":{\"live\":388,\"kills\":124},\"mixedBlastExact\":{\"live\":416,\"kills\":96},\"mixedBlastHybrid\":{\"live\":373,\"kills\":139},\"note\":\"Dense behavior is approximate; accounting and wall collision checks are exact.\"}\nPASS loose stationary pair: passed\nPASS terrain-compressed cluster crushes once: passed\nPASS blast has directional finite impulse: passed\nPASS enemy bounty pays at the configured rate: passed\nPASS base arrival leaks once: passed\nPASS slow reduces drive but push still moves: passed\n"
+}

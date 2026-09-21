@@ -12,11 +12,6 @@ const assetBase=(import.meta as ImportMeta&{env?:{BASE_URL?:string}}).env?.BASE_
 const DEFENSES:Partial<Record<TowerKind,string>>={autocannon:'gun',tesla:'tsla',incinerator:'ftur'};
 export const redAlertFacing=(angle:number)=>((24-Math.round(angle*16/Math.PI))%32+32)%32;
 export const hasRedAlertSprite=(kind:TowerKind,style:TurretArtStyle='soldat')=>style==='soldat'||kind in DEFENSES;
-/** Lift the dark interior palette so chain-link mesh remains distinct from the floor. */
-export function fenceSpriteTint(integrity:number):[number,number,number,number]{
-  const value=Math.max(0,Math.min(1,integrity));
-  return [1.35+value*.25,1.38+value*.25,1.22+value*.2,.98+value*.02];
-}
 /**
  * These are the two fixed defenses whose original Red Alert silhouettes are
  * part of their identity.  Keep the project's directional artwork for every
@@ -49,7 +44,6 @@ export async function createRedAlertArt(device:GPUDevice,format:GPUTextureFormat
   const atlas:Atlas=await response.json();
   if(!atlas.frames?.length||!atlas.sprites?.floor?.length)throw Error('Invalid Red Alert atlas');
   const wireFrames=atlas.sprites[wireStyle],hasWireSprites=wireFrames?.length>=32;
-  const fenceFrames=atlas.sprites.fenc,hasFenceSprites=fenceFrames?.length>=32;
   const imageResponse=await fetch(`${assetBase}assets/red-alert/atlas.png`);
   if(!imageResponse.ok)throw Error('Red Alert texture is missing');
   const bitmap=await createImageBitmap(await imageResponse.blob(),{premultiplyAlpha:'none',colorSpaceConversion:'none'});
@@ -97,7 +91,7 @@ struct Out{@builtin(position) pos:vec4<f32>,@location(0) uv:vec2<f32>,@location(
   const createBatch=(label:string)=>({buffer:device.createBuffer({label,size:48,usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST}),capacity:1,count:0});
   const infantryBatch=createBatch('Original Red Alert infantry and kennels');
   const hasInfantrySprites=['e1','e3','e4','dog','dogbullt','kenn','tent'].every(name=>atlas.sprites[name]?.length);
-  const terrain=createBatch('Facility floor'),walls=createBatch('Facility walls'),sceneryProps=createBatch('Landscape trees and buildings'),towers=createBatch('Original defense sprites'),mountedTowers=createBatch('Wall-mounted defense sprites'),wireBatch=createBatch('Connected Red Alert wire'),wireGhost=createBatch('Wire placement preview'),fenceBatch=createBatch('Original Red Alert chain-link fence'),fenceGhost=createBatch('Chain-link placement preview');
+  const terrain=createBatch('Facility floor'),walls=createBatch('Facility walls'),sceneryProps=createBatch('Landscape trees and buildings'),towers=createBatch('Original defense sprites'),mountedTowers=createBatch('Wall-mounted defense sprites'),wireBatch=createBatch('Connected Red Alert wire'),wireGhost=createBatch('Wire placement preview');
   const upload=(batch:ReturnType<typeof createBatch>,data:number[])=>{
     batch.count=data.length/12;if(batch.count>batch.capacity){batch.buffer.destroy();batch.capacity=2**Math.ceil(Math.log2(batch.count));batch.buffer=device.createBuffer({size:batch.capacity*48,usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST});}
     if(data.length)device.queue.writeBuffer(batch.buffer,0,new Float32Array(data));
@@ -105,7 +99,7 @@ struct Out{@builtin(position) pos:vec4<f32>,@location(0) uv:vec2<f32>,@location(
   function sprite(data:number[],id:number,x:number,y:number,width:number,height:number,tint=[1,1,1,1],crop?:Frame){
     const f=crop??atlas.frames[id];data.push(x,y,width,height,f.x,f.y,f.width,f.height,...tint);
   }
-  let terrainKey='',wireKey='',fenceKey='',previousScenery:RenderScene['map']['scenery'],sceneryVersion=0;
+  let terrainKey='',wireKey='',previousScenery:RenderScene['map']['scenery'],sceneryVersion=0;
   function prepare(scene:RenderScene){
     const friendly:number[]=[];
     if(hasInfantrySprites){
@@ -184,31 +178,6 @@ struct Out{@builtin(position) pos:vec4<f32>,@location(0) uv:vec2<f32>,@location(
       for(const tile of ghostTiles){const id=wireFrames[tile.mask],frame=atlas.frames[id];sprite(preview,id,tile.x,tile.y,tile.width,tile.height,ghost.valid?[.55,1,.7,.8]:[1,.3,.2,.8],{...frame,width:tile.width*6,height:tile.height*6});}
     }
     upload(wireGhost,preview);
-    // OpenRA's fenc.shp is a 16-way connected sheet with 16 fallen-frame
-    // counterparts. Fences remain collision solids until they collapse, so
-    // use the standing frames and communicate progressive damage by tint.
-    const fences=scene.fences??[];
-    const fenceStates=fences.map(fence=>({...fence,breached:false}));
-    const nextFenceKey=JSON.stringify(fenceStates.map(fence=>[fence.x,fence.y,fence.width,fence.height,fence.health,fence.maxHealth]));
-    if(hasFenceSprites&&nextFenceKey!==fenceKey){
-      const data:number[]=[];
-      for(const tile of wireTiles(fenceStates)){
-        const fence=fenceStates.find(candidate=>tile.x>=candidate.x&&tile.x<candidate.x+candidate.width&&tile.y>=candidate.y&&tile.y<candidate.y+candidate.height)!;
-        const source=fenceFrames[tile.mask],frame=atlas.frames[source],integrity=Math.max(0,Math.min(1,fence.health/fence.maxHealth));
-        const tint=fenceSpriteTint(integrity);
-        sprite(data,source,tile.x,tile.y,tile.width,tile.height,tint,{...frame,width:tile.width*6,height:tile.height*6});
-      }
-      upload(fenceBatch,data);fenceKey=nextFenceKey;
-    }
-    const fencePreview:number[]=[];
-    if(hasFenceSprites&&ghost?.kind==='fence'){
-      const previewFence={...ghost,health:1,maxHealth:1,breached:false};
-      for(const tile of wireTiles([previewFence],[...fenceStates,previewFence])){
-        const source=fenceFrames[tile.mask],frame=atlas.frames[source];
-        sprite(fencePreview,source,tile.x,tile.y,tile.width,tile.height,ghost.valid?[.55,1,.7,.8]:[1,.3,.2,.8],{...frame,width:tile.width*6,height:tile.height*6});
-      }
-    }
-    upload(fenceGhost,fencePreview);
     const data:number[]=[],elevated:number[]=[];
     const draw=(target:number[],t:{kind:TowerKind;x:number;y:number;angle?:number;level?:number},tint?:number[])=>{
       if(customSprites&&!usesClassicDefenseSprite(t.kind)){
@@ -230,5 +199,5 @@ struct Out{@builtin(position) pos:vec4<f32>,@location(0) uv:vec2<f32>,@location(
     draw(pass,towers,true);
     if(!mountedTowers.count)return;pass.setPipeline(defensePipeline);pass.setBindGroup(0,bindings);pass.setVertexBuffer(0,mountedTowers.buffer);pass.draw(6,mountedTowers.count);
   }
-  return {prepare,hasWireSprites,hasFenceSprites,hasInfantrySprites,drawInfantry:(pass:GPURenderPassEncoder)=>draw(pass,infantryBatch,true),drawFloor:(pass:GPURenderPassEncoder)=>draw(pass,terrain),drawWires:(pass:GPURenderPassEncoder)=>{draw(pass,wireBatch);draw(pass,wireGhost);draw(pass,fenceBatch);draw(pass,fenceGhost);},drawOccluders:(pass:GPURenderPassEncoder)=>{draw(pass,walls,true);draw(pass,sceneryProps,true);},drawTowers:drawDefenses,destroy(){infantryBatch.buffer.destroy();terrain.buffer.destroy();walls.buffer.destroy();sceneryProps.buffer.destroy();towers.buffer.destroy();mountedTowers.buffer.destroy();wireBatch.buffer.destroy();wireGhost.buffer.destroy();fenceBatch.buffer.destroy();fenceGhost.buffer.destroy();texture.destroy();}};
+  return {prepare,hasWireSprites,hasInfantrySprites,drawInfantry:(pass:GPURenderPassEncoder)=>draw(pass,infantryBatch,true),drawFloor:(pass:GPURenderPassEncoder)=>draw(pass,terrain),drawWires:(pass:GPURenderPassEncoder)=>{draw(pass,wireBatch);draw(pass,wireGhost);},drawOccluders:(pass:GPURenderPassEncoder)=>{draw(pass,walls,true);draw(pass,sceneryProps,true);},drawTowers:drawDefenses,destroy(){infantryBatch.buffer.destroy();terrain.buffer.destroy();walls.buffer.destroy();sceneryProps.buffer.destroy();towers.buffer.destroy();mountedTowers.buffer.destroy();wireBatch.buffer.destroy();wireGhost.buffer.destroy();texture.destroy();}};
 }

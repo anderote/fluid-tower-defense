@@ -1,6 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {GPUProfiler,summarize} from './profiler.ts';
+import {CPUProfiler,GPUProfiler,summarize} from './profiler.ts';
+test('CPU timings are bounded and reject invalid durations',()=>{
+ const p=new CPUProfiler();p.record('tick',Infinity);p.record('tick',-1);
+ for(let i=0;i<610;i++)p.record('tick',i);
+ assert.deepEqual(p.report().tick,{samples:600,medianMs:309,p95Ms:579,maxMs:609});
+});
 test('timing summaries preserve milliseconds and handle no samples',()=>{
  assert.deepEqual(summarize([]),{samples:0,medianMs:0,p95Ms:0,maxMs:0});
  assert.deepEqual(summarize([1,2,3,100]),{samples:4,medianMs:2,p95Ms:100,maxMs:100});

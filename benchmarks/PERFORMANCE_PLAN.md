@@ -1,6 +1,9 @@
 # Performance execution plan
 
-Status: active. Baseline: local dev `c520abf`. Worktree: `.worktrees/performance-program`.
+Status: complete through the staged implementation and validation scope; see
+PERFORMANCE_RESULTS.md for measured gains, deferred research and the unresolved
+50k stress-test limit. Baseline: local dev `c520abf`.
+Worktree: `.worktrees/performance-program`.
 Root main and the published service are outside this task's mutation scope.
 
 ## Outcome and decision rules
@@ -125,3 +128,11 @@ service restart, or interaction with the user's existing game tab is required.
   Blood compaction remains opt-in because its paired gain is inconclusive. Added
   profiler resource-budget tests and mixed-species blast checks for the hybrid.
   192 unit tests and build pass; final evidence and full GPU regression follow.
+- Stage 7 complete: paired evidence archived, evolving 30-second simulation
+  conserves arrivals/live/deaths, real GPU regression suites pass, CPU phase
+  profiling added and smoke-tested. CPU/GPU timing summaries refresh at 1 Hz to
+  limit diagnostic overhead. Exact simulation remains default; blood compaction
+  and hybrid crowd fields remain explicit prototypes. The exploratory 50k tab
+  failed to yield a report and is not claimed as validated capacity. All required
+  implementation stages are committed/integrated into dev; no publish or service
+  restart was performed by this task. Concurrent releases were not interfered with.

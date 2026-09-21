@@ -9,7 +9,7 @@ import { connectGPU } from '../runtime/gpu.ts';
 import { verifyABI } from '../runtime/abi-check.ts';
 import { FixedClock } from '../runtime/clock.ts';
 import { FrameMetrics, SimulationRate } from '../runtime/metrics.ts';
-import {GPUProfiler} from '../runtime/profiler.ts';
+import {CPUProfiler,GPUProfiler} from '../runtime/profiler.ts';
 import {createTowerDefinitionCache} from '../content/tower-cache.ts';
 import {mountGraphicsSettings} from '../ui/graphics.ts';
 import { SettlementReader } from '../runtime/readback.ts';
@@ -50,6 +50,8 @@ try {
  mountRedAlertSoundtrack(root);
  const gpu=await connectGPU(ui.canvas,{profile:params.has('profile')});
  const profiler=params.has('profile')?new GPUProfiler(gpu.device):undefined;
+ const cpuProfile=profiler?new CPUProfiler():undefined;
+ let lastProfileReport=0,profileSnapshot:{cpuProfile?:ReturnType<CPUProfiler['report']>;gpuProfile?:ReturnType<GPUProfiler['report']>}={};
  const simulationRate=new SimulationRate();
  const cachedTower=createTowerDefinitionCache();
  const graphics=mountGraphicsSettings(root);
@@ -392,7 +394,9 @@ try {
    state.selected=run.model.towers.find(t=>t.id===run.model.selected)??null;state.upgradeTarget=state.upgradeMode&&hoveredTowerId!==null?run.model.towers.find(t=>t.id===hoveredTowerId)??null:null;state.bonusChoices=state.mode==='game'?run.model.bonusChoices:[];state.bonuses=state.mode==='game'?run.model.bonuses:[];
    state.boss=latest.boss;state.bossHealth=latest.boss?.active?latest.boss.health/latest.boss.maxHealth*100:undefined;state.commandUpgrades=state.mode==='game'?run.model.commandUpgrades:[];state.statUpgrades=run.statUpgrades();state.towerUnlocks=run.towerUnlocks();
    ui.update(state);positionInspector();positionUpgradeInspector();positionInfantryInspector();if(now-lastAutosave>1500){saveSession();lastAutosave=now;}lastUI=now;
-   diagnosticText.textContent=JSON.stringify({adapter:gpu.adapter,abi:'passed',epoch,tick:clock.tick,simulationSeconds:simulatedTime,simulationSecondsPerWallSecond:simulationRate.report(),slots:count,live:latest.live,requested:requestedPopulation,invalid:latest.invalid,peakPacking:latest.maxPacking,crushKills:latest.crushKills,kills:latest.kills,medianMs:report.medianMs,p95Ms:report.p95Ms,frameSamples:report.samples,canvas:[ui.canvas.width,ui.canvas.height],graphics:{mode:graphics.mode,scale:graphics.scale},solver:params.get('solver')==='hybrid'?'hybrid':'exact',readbackErrors:errors,boss:latest.boss,gpuProfile:profiler?.report()},null,2);
+   // Sorting timing windows is diagnostic work: do it at 1 Hz, not every UI update.
+   if(profiler&&now-lastProfileReport>=1000){profileSnapshot={cpuProfile:cpuProfile?.report(),gpuProfile:profiler.report()};lastProfileReport=now;}
+   diagnosticText.textContent=JSON.stringify({adapter:gpu.adapter,abi:'passed',epoch,tick:clock.tick,simulationSeconds:simulatedTime,simulationSecondsPerWallSecond:simulationRate.report(),slots:count,live:latest.live,requested:requestedPopulation,invalid:latest.invalid,peakPacking:latest.maxPacking,crushKills:latest.crushKills,kills:latest.kills,medianMs:report.medianMs,p95Ms:report.p95Ms,frameSamples:report.samples,canvas:[ui.canvas.width,ui.canvas.height],graphics:{mode:graphics.mode,scale:graphics.scale},solver:params.get('solver')==='hybrid'?'hybrid':'exact',readbackErrors:errors,boss:latest.boss,...profileSnapshot},null,2);
  }
  function positionInfantryInspector(){
    const b=infantry.state().buildings.find(b=>b.id===infantry.selected),panel=infantry.inspector;
@@ -466,6 +470,7 @@ try {
  function frame(now:number){
    if(failed)return;
    try{
+     const cpuStart=cpuProfile?performance.now():0;
      const elapsed=(now-previous)/1000;previous=now;metrics.push(elapsed*1000);
      renderer.setResolutionScale?.(graphics.observe(elapsed*1000,!document.hidden&&!state.paused));
      const active=state.mode==='lab'||run.model.phase==='combat'||run.model.phase==='settling';
@@ -473,7 +478,9 @@ try {
      const steps=editor.active?0:clock.advance(elapsed,state.paused||!active);
      if(active&&!state.paused&&!editor.active)simulationRate.push(elapsed,steps*clock.step);else simulationRate.reset();
      for(let i=0;i<steps;i++)tick();
+     const cpuEffectsStart=cpuProfile?performance.now():0;cpuProfile?.record('Simulation and frame setup',cpuEffectsStart-cpuStart);
      if(!state.paused){for(const effect of visuals)effect.duration-=elapsed;visuals=visuals.filter(e=>e.duration>0);for(const particle of visualParticles)particle.age+=elapsed;visualParticles=visualParticles.filter(particle=>particle.age<particle.life);for(const explosion of heavyExplosions)explosion.age+=elapsed;heavyExplosions=heavyExplosions.filter(explosion=>explosion.age<explosion.life);for(const projectile of infantryRocketProjectiles)projectile.age+=elapsed;const infantryImpacts=infantryRocketProjectiles.filter(projectile=>projectile.age>=projectile.life);infantryRocketProjectiles=infantryRocketProjectiles.filter(projectile=>projectile.age<projectile.life);for(const projectile of infantryImpacts)detonateInfantryRocket(projectile);for(const explosion of infantryRocketExplosions)explosion.age+=elapsed;infantryRocketExplosions=infantryRocketExplosions.filter(explosion=>explosion.age<explosion.life);const advanced=advanceHeavyProjectiles(heavyProjectiles,0,clock.tick);heavyProjectiles=advanced.active;for(const impact of advanced.impacts)detonateHeavy(impact);for(const popup of pressurePopups)popup.age+=elapsed;for(const popup of pressurePopups.filter(popup=>popup.age>=popup.life))popup.element.remove();pressurePopups=pressurePopups.filter(popup=>popup.age<popup.life);cameraShake*=Math.exp(-8.5*elapsed);}
+     const cpuRenderStart=cpuProfile?performance.now():0;cpuProfile?.record('Effects update',cpuRenderStart-cpuEffectsStart);
      const nativeEncoder=gpu.device.createCommandEncoder({label:'Present'}),measurement=profiler?.wrap(nativeEncoder),encoder=measurement?.encoder??nativeEncoder;
      const placement=pointer?towerPlacement(pointer):undefined;
      const placementKind=state.buildTool==='wall'||state.buildTool==='fence'||state.buildTool==='wire'?state.buildTool:undefined;
@@ -491,7 +498,9 @@ try {
      renderer.encode(encoder,{barracksGhost:!editor.active&&state.mode==='game'&&infantry.tool==='build'&&pointer?infantry.preview(pointer):undefined,infantry:!editor.active&&state.mode==='game'?infantry.state():undefined,selectedBarracks:infantry.selected,selectedBarracksSet:infantry.selectedBuildings,selectedInfantry:infantry.selectedSoldiers,infantrySelectionBox,infantryCommandTarget:infantry.commandTarget,aftermathVisible:!editor.active,count:editor.active?0:count,time:simulatedTime,map:editor.active?editor.map:map,towers:!editor.active&&state.mode==='game'?run.model.towers:[],effects:editor.active?[]:visuals,visualParticles:editor.active?[]:visualParticles,heavyProjectiles:editor.active?[]:heavyProjectiles,heavyExplosions:editor.active?[]:heavyExplosions,infantryRocketProjectiles:editor.active?[]:infantryRocketProjectiles,infantryRocketExplosions:editor.active?[]:infantryRocketExplosions,cameraShake:editor.active?0:cameraShake,walls:editor.active?[]:builtWalls,fences:editor.active?[]:builtFences,wires:editor.active?[]:builtWires,heatmap:state.heatmap,selection:run.model.selected,selectionRange,ghost:editor.active?undefined:ghost,groundTargetGhost,placementGhost,boss:!editor.active&&latest.boss?.active?latest.boss:undefined});
      const arena=ui.canvas.parentElement!.getBoundingClientRect();for(const popup of pressurePopups){const screen=renderer.worldToScreen(popup.x,popup.y),progress=popup.age/popup.life;popup.element.style.left=`${screen.x-arena.left+popup.drift*progress}px`;popup.element.style.top=`${screen.y-arena.top-progress*34}px`;popup.element.style.opacity=String(Math.min(1,(1-progress)*2.8));}
      measurement?.resolve();gpu.device.queue.submit([encoder.finish()]);void measurement?.read();
+     const cpuUIStart=cpuProfile?performance.now():0;cpuProfile?.record('Render encoding',cpuUIStart-cpuRenderStart);
      if(now-lastUI>100)updateUI(now);else{positionInspector();positionUpgradeInspector();positionInfantryInspector();}
+     if(cpuProfile){const end=performance.now();cpuProfile.record('UI and autosave',end-cpuUIStart);cpuProfile.record('Frame CPU total',end-cpuStart);}
      requestAnimationFrame(frame);
    }catch(error){fail(error);}
  }

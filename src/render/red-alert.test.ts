@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {fenceSpriteTint,redAlertFacing,wallTiles,floorSprites,usesClassicDefenseSprite} from './red-alert.ts';
+import {redAlertFacing,wallTiles,floorSprites,usesClassicDefenseSprite} from './red-alert.ts';
 import {readFileSync} from 'node:fs';
 
 test('grating is opt-in and an older atlas safely retains the panel floor',()=>{
@@ -37,11 +37,6 @@ test('adjacent walls suppress internal faces and expose a new end after demoliti
   assert.equal(joined[1].south,true);
   assert.equal(wallTiles([first])[0].south,true);
   assert.equal(wallTiles([first,{x:8,y:4,width:4,height:4}])[0].east,false);
-});
-test('chain-link fence sprite tint preserves contrast over the floor',()=>{
-  const intact=fenceSpriteTint(1),damaged=fenceSpriteTint(.2);
-  assert.ok(intact[3]>=.99&&intact[0]>1&&intact[1]>1);
-  assert.ok(damaged[3]>=.98&&damaged[0]>1&&damaged[1]>1);
 });
 test('wall tiles preserve partial authored bounds and deduplicate overlapping grid cells',()=>{
   const tiles=wallTiles([{x:3,y:2,width:6,height:7}]);
