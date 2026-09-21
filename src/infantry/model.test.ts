@@ -105,6 +105,9 @@ test('infantry ranks from credited kills and benefits from relevant technology',
  awardInfantryKills(f.state,[rifle.id],[80]);
  assert.equal(rifle.kills,80);assert.equal(rifle.veterancyXp,80);assert.equal(rifle.veterancy,1);
  assert.ok(infantryStats('rifle',0,0,rifle.veterancy).damage>base.damage);
+ assert.ok(infantryStats('rifle',0,0,rifle.veterancy).range>base.range);
+ assert.ok(infantryStats('rifle',0,0,rifle.veterancy).cooldown<base.cooldown);
+ assert.ok(infantryStats('rifle',0,0,rifle.veterancy).health>base.health);
  assert.ok(researched.damage>base.damage&&researched.range>base.range&&researched.cooldown===base.cooldown);
 });
 test('rally movement reaches the firing line and stale threats cannot fire or hurt troops',()=>{

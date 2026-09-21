@@ -123,7 +123,7 @@ export function compileTower(tower: Tower, bonuses: readonly string[] = [], comm
   force *= 1 + (powerPath?.05:.035) * (1-Math.exp(-level/12));
   radius *= 1 + level * (controlPath?.008:.004);
   const veteran=veterancyMultiplier(tower.veterancy ?? veterancyLevel(tower.veterancyXp ?? 0));
-  range*=1+(veteran-1)*.65; damage*=veteran; cooldown/=1+(veteran-1)*.5;
+  range*=1+(veteran-1)*.65; damage*=veteran; cooldown/=1+(veteran-1)*.5; force*=1+(veteran-1)*.5; radius*=1+(veteran-1)*.35;
   if (tower.branch === 0) {
     if (tower.kind==='repulsor') { force *= 1.4; radius *= .8; range += 1; }
     if (tower.kind==='mortar') { damage *= 1.6; radius *= .78; cooldown *= 1.12; }

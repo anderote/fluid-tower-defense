@@ -9,6 +9,7 @@ const FIRE_PROFILES:Record<TowerKind,[AudioVoiceGroup,number]>={autocannon:['lig
 /** Synthesized effects layered with original Red Alert combat audio from OpenRA. */
 export function createAudio(){
   let ctx:AudioContext|undefined,master:GainNode|undefined,noise:AudioBuffer|undefined;
+  let combatGain=1,eventGain=1;
   const stopListening=onAudioSettingsChange(settings=>{if(master)master.gain.value=settings.effects;});
   const samples:Partial<Record<'rifleFire'|'rocketFire'|'rocketImpact'|'flameImpact'|'autocannonFire'|'mortarFire'|'teslaFire'|'heavyImpact',AudioBuffer>>={};
   const voiceBudget=new AudioVoiceBudget();
@@ -42,7 +43,8 @@ export function createAudio(){
     if(ctx.state==='suspended')void ctx.resume();
   };
   const stereo=(x:number)=>Math.max(-.72,Math.min(.72,(x/160)*1.44-.72));
-  const output=(node:AudioNode,pan:number)=>{if(!ctx||!master)return;const p=ctx.createStereoPanner();p.pan.value=pan;node.connect(p).connect(master);};
+  const output=(node:AudioNode,pan:number)=>{if(!ctx||!master)return;const p=ctx.createStereoPanner(),gain=ctx.createGain();p.pan.value=pan;gain.gain.value=eventGain;node.connect(gain).connect(p).connect(master);};
+  const combat=(fn:()=>void)=>{eventGain=combatGain;try{fn();}finally{eventGain=1;}};
   const tone=(at:number,startHz:number,endHz:number,duration:number,gain:number,pan:number,type:OscillatorType='triangle')=>{
     if(!ctx)return;const oscillator=ctx.createOscillator(),envelope=ctx.createGain();oscillator.type=type;oscillator.frequency.setValueAtTime(startHz,at);oscillator.frequency.exponentialRampToValueAtTime(Math.max(20,endHz),at+duration);envelope.gain.setValueAtTime(Math.max(.0001,gain),at);envelope.gain.exponentialRampToValueAtTime(.0001,at+duration);oscillator.connect(envelope);output(envelope,pan);oscillator.start(at);oscillator.stop(at+duration+.01);
   };
@@ -53,7 +55,7 @@ export function createAudio(){
     const buffer=samples[name];if(!ctx||!buffer)return false;const source=ctx.createBufferSource(),envelope=ctx.createGain(),duration=Math.min(buffer.duration/rate,maxDuration),fade=Math.min(.08,duration*.25);source.buffer=buffer;source.playbackRate.value=rate;envelope.gain.setValueAtTime(gain,at);envelope.gain.setValueAtTime(gain,at+duration-fade);envelope.gain.exponentialRampToValueAtTime(.0001,at+duration);source.connect(envelope);output(envelope,pan);source.start(at);source.stop(at+duration+.01);return true;
   };
   const admit=(group:AudioVoiceGroup,duration:number,delay=0)=>!!ctx&&voiceBudget.admit(group,ctx.currentTime+delay,duration);
-  const fire=(kind:TowerKind,x:number,serial=0)=>{
+  const fire=(kind:TowerKind,x:number,serial=0)=>combat(()=>{
     if(!ctx||!master)return;
     const [group,duration]=FIRE_PROFILES[kind];if(!admit(group,duration,.008))return;
     const at=ctx.currentTime+.008,pan=stereo(x),jitter=((serial*37)%17-8)/100;
@@ -77,28 +79,28 @@ export function createAudio(){
       case 'repulsor':
         tone(at,116,43,.2,.16,pan,'sine');tone(at,510,120,.12,.045,pan,'triangle');break;
     }
-  };
-  const shell=(x:number,serial=0,heavy=false)=>{
+  });
+  const shell=(x:number,serial=0,heavy=false)=>combat(()=>{
     if(!ctx)return;const delay=(heavy ? .31 : .22)+((serial*17)%9)*.012;if(!admit('detail',heavy ? .12 : .07,delay))return;const at=ctx.currentTime+delay,pan=stereo(x),pitch=(heavy?940:1450)*(1+((serial*29)%13-6)/90);
     tone(at,pitch,pitch*.72,.035,heavy ? .055 : .035,pan,'triangle');
     hiss(at,.025,heavy ? .045 : .026,1800,8200,pan,serial*.211);
     if(heavy)tone(at+.075,pitch*.54,pitch*.42,.028,.022,pan,'triangle');
-  };
-  const explode=(kind:'mortar'|'rocket',x:number,serial=0)=>{
+  });
+  const explode=(kind:'mortar'|'rocket',x:number,serial=0)=>combat(()=>{
     if(!ctx||!admit('impact',.72))return;const at=ctx.currentTime+.006,pan=stereo(x),rate=kind==='rocket'?.9:.98+((serial*13)%7-3)*.008;
     if(!sample(kind==='rocket'?'rocketImpact':'heavyImpact',at,kind==='rocket'?.58:.48,pan,rate,.72)){hiss(at,.3,.25,32,2600,pan,serial*.227);tone(at,62,24,.34,.27,pan,'sine');}
     // A compact low-frequency pressure layer gives the old sample weight on modern speakers.
     tone(at,kind==='rocket'?58:72,24,kind==='rocket'?.34:.25,kind==='rocket'?.16:.11,pan,'sine');
-  };
-  const slash=(x:number,serial=0)=>{if(!ctx||!admit('detail',.17))return;const at=ctx.currentTime+.008,pan=stereo(x);hiss(at,.16,.12,1200,8000,pan,serial*.13);tone(at,1800,350,.11,.035,pan,'triangle');};
-  const bark=(x:number,serial=0)=>{if(!ctx||!admit('detail',.11))return;const at=ctx.currentTime+.008,pan=stereo(x);hiss(at,.09,.1,180,1700,pan,serial*.17);tone(at,210,105,.1,.065,pan,'sawtooth');};
-  const infantryFire=(kind:'rifle'|'rocket'|'flame',x:number,serial=0)=>{
+  });
+  const slash=(x:number,serial=0)=>combat(()=>{if(!ctx||!admit('detail',.17))return;const at=ctx.currentTime+.008,pan=stereo(x);hiss(at,.16,.12,1200,8000,pan,serial*.13);tone(at,1800,350,.11,.035,pan,'triangle');});
+  const bark=(x:number,serial=0)=>combat(()=>{if(!ctx||!admit('detail',.11))return;const at=ctx.currentTime+.008,pan=stereo(x);hiss(at,.09,.1,180,1700,pan,serial*.17);tone(at,210,105,.1,.065,pan,'sawtooth');});
+  const infantryFire=(kind:'rifle'|'rocket'|'flame',x:number,serial=0)=>combat(()=>{
     if(!ctx||!admit(kind==='flame'?'sustained':'light',kind==='rocket'?.64:.18,.008))return;const at=ctx.currentTime+.008,pan=stereo(x),jitter=((serial*37)%17-8)/100;
     const name=kind==='rifle'?'rifleFire':kind==='rocket'?'rocketFire':'flameImpact';
     if(!sample(name,at,kind==='rocket'?.4:kind==='flame'?.14:.26,pan,.98+jitter*.05,kind==='rocket'?.56:kind==='flame'?.15:.2)){
       if(kind==='flame')hiss(at,.14,.1,180,4400,pan,serial*.157);else if(kind==='rocket')hiss(at,.2,.14,90,3200,pan,serial*.137);else hiss(at,.05,.14,700,7200,pan,serial*.071);
     }
-  };
+  });
   const beep=(hz:number,duration=.07)=>{arm();if(ctx)tone(ctx.currentTime+.004,hz,hz*.82,duration,.045,0,'sine');};
-  return {arm,fire,infantryFire,shell,explode,slash,bark,click:()=>beep(420,.04),blast:()=>beep(90,.16),alert:()=>beep(760,.12),destroy:()=>{stopListening();void ctx?.close();ctx=undefined;master=undefined;noise=undefined;}};
+  return {arm,fire,infantryFire,shell,explode,slash,bark,setCombatGain:(gain:number)=>{combatGain=Math.max(0,Math.min(1,Number.isFinite(gain)?gain:1));},click:()=>beep(420,.04),blast:()=>beep(90,.16),alert:()=>beep(760,.12),destroy:()=>{stopListening();void ctx?.close();ctx=undefined;master=undefined;noise=undefined;}};
 }
