@@ -456,7 +456,7 @@ try {
    const effects=[...activeWires.map(wire=>({x:wire.x+wire.width/2,y:wire.y+wire.height/2,kind:'slow' as const,radius:3.2,strength:.55,damage:wireStats.damage*clock.step,direction:{x:0,y:0},cone:0,duration:wireStats.slow,source:0})),...commands].slice(0,64);commands=[];
    if(state.mode==='game'&&run.model.phase==='combat'&&(builtWalls.length||builtWires.length)){
      const obstacleSnapshot=map.obstacles,telemetry=(segment:Rect)=>{const index=obstacleSnapshot.indexOf(segment);return index<0?{contact:0,packing:0,pressure:0}:{contact:Math.min(1,(latest.obstacleContacts?.[index]??0)/6),packing:latest.obstaclePacking?.[index]??0,pressure:latest.obstaclePressure?.[index]??0};};
-     const wallLevel=run.model.commandUpgrades.filter(id=>/^wall-engineering-\d+$/.test(id)).length;
+     const wallLevel=run.model.commandUpgrades.includes('structure-armor')?1:0;
      const collapsed=builtWalls.filter(wall=>{const sample=telemetry(wall);wall.health=wallHealthAfterPressure(wall.health,sample.pressure,sample.contact,clock.step,wallLevel);return wall.health<=0;});
      const breached=builtWires.filter(wire=>{if(wire.breached)return false;const sample=telemetry(wire);wire.health-=clock.step*wireStats.wear*sample.contact*(1+Math.max(0,sample.packing-1)*.4);if(sample.contact>0&&sample.packing>=wireStats.resistance){wire.breached=true;return true;}return false;});
      for(const wire of builtWires)if(wire.breached)wire.health-=wire.maxHealth*clock.step*.45;
@@ -473,13 +473,13 @@ try {
    const activeMap=combatMap();
    const transparentSightObstacles=[...builtWires,...builtFences,...turretObstacles(run.model.towers)];
    const infantrySightMap={...activeMap,obstacles:activeMap.obstacles.filter(obstacle=>!transparentSightObstacles.some(transparent=>sameRect(obstacle,transparent)))};
-   const statModifiers=run.statModifiers();
+   const statModifiers=run.statModifiers(),researchModifiers=run.researchModifiers();
    const frame:CombatFrame={dt:clock.step,tick:clock.tick,count,map:activeMap,effects,tuning:DEFAULT_TUNING,navigation,lab:state.mode==='lab',towers:state.mode==='game'?run.model.towers.map(tower=>({tower,definition:cachedTower(tower,run.model.bonuses,run.model.commandUpgrades,statModifiers)})):[]};
    const nativeEncoder=gpu.device.createCommandEncoder({label:`Simulation tick ${clock.tick}`}),measurement=profiler?.wrap(nativeEncoder),encoder=measurement?.encoder??nativeEncoder;
    const bossFrame={dt:clock.step,tick:clock.tick,count,map:activeMap.scenery?activeMap:{...activeMap,spawn:{x:50,y:35,width:32,height:30}},active:state.mode==='game'&&run.isBossWave};
    horde.encode(encoder,arrivals,count);
-   const infantryShots=advanceInfantry(infantry.state(),infantry.ensureFields(),infantry.fields,infantryGPU.threats,clock.step,state.mode==='game'&&run.model.phase==='combat',statModifiers,infantry.orderFields);
-   const finishInfantry=state.mode==='game'?infantryGPU.encode(encoder,infantry.state().soldiers,infantryShots,activeMap,count,clock.tick%6===0,statModifiers,clock.step,infantrySightMap):undefined;
+   const infantryShots=advanceInfantry(infantry.state(),infantry.ensureFields(),infantry.fields,infantryGPU.threats,clock.step,state.mode==='game'&&run.model.phase==='combat',researchModifiers,infantry.orderFields);
+   const finishInfantry=state.mode==='game'?infantryGPU.encode(encoder,infantry.state().soldiers,infantryShots,activeMap,count,clock.tick%6===0,researchModifiers,clock.step,infantrySightMap):undefined;
    if(infantryShots.length){for(const shot of infantryShots){const soldier=infantry.state().soldiers.find(s=>s.id===shot.soldier),kind=soldier?.kind;if(kind==='rocket'&&soldier){const muzzle=infantryMuzzle(soldier);infantryRocketProjectiles.push({x:muzzle.x,y:muzzle.y,target:{x:shot.x,y:shot.y},age:0,life:.26,serial:clock.tick*1000+shot.soldier});}if(kind==='dog')audio.bark(shot.x,clock.tick);else if(kind==='samurai')audio.slash(shot.x,clock.tick);else audio.infantryFire(kind==='rocket'?'rocket':kind==='flame'?'flame':'rifle',shot.x,clock.tick);}}
    combat.encodeBefore(encoder,frame);boss.encode(encoder,bossFrame);physics.encode(encoder,frame);combat.encodeAfter(encoder,frame);boss.encodeResolve(encoder,bossFrame);
    let finish:(()=>void)|undefined,finishShots:(()=>void)|undefined;

@@ -10,7 +10,7 @@ export type Wave = {spawns:readonly SpawnBatch[]; payment:number; boss:boolean; 
 type Applied = Pick<Settlement,'kills'|'crushKills'|'leaks'|'earned'> & {tick:number;towerKills:number[]};
 type SavedRun = {version:1; contentVersion:string; mapId?:string; model:RunModel; epoch:number; applied:Applied};
 
-export const CONTENT_VERSION = 'pressure-front-6';
+export const CONTENT_VERSION = 'pressure-front-7';
 const SAVE_KEY = 'pressure-front.run.v1';
 const MAX_TOWERS = 64;
 export const WAVES_PER_LEVEL=10;
@@ -19,12 +19,6 @@ export const STARTING_METAL=3_000;
 export const TOWER_MOVE_COST=25;
 const STARTER_TOWERS:readonly TowerKind[]=Object.freeze(Object.keys(TOWERS) as TowerKind[]);
 const TOWER_UNLOCK_COSTS:Readonly<Partial<Record<TowerKind,number>>>=Object.freeze({mortar:3_000,cryo:4_000,tesla:6_000,incinerator:7_500,rocket:9_000,railgun:12_000});
-const STAT_DEFS=Object.freeze([
-  {id:'damage',name:'Ballistics Doctrine',description:'+4% tower and infantry damage per rank.',cost:75,maxRank:10},
-  {id:'rate',name:'Rapid Cycling',description:'+3.5% tower and infantry fire rate per rank.',cost:85,maxRank:10},
-  {id:'range',name:'Targeting Uplink',description:'+3% tower and infantry range per rank.',cost:70,maxRank:10},
-  {id:'force',name:'Hydraulic Overdrive',description:'+5% push force per rank.',cost:80,maxRank:10},
-] as const);
 const BONUSES: readonly BonusChoice[] = [
   {id:'hydraulic-advantage',name:'Hydraulic Advantage',description:'Repulsors push harder but pulse a little slower.'},
   {id:'cold-field',name:'Cold Field',description:'Cryo emitters cover a wider field.'},
@@ -161,10 +155,13 @@ export class RunController {
   setSpawnMultiplier(value:number):number { this.spawnMultiplier=Math.max(1,Math.min(40,Math.round(value)||1)); return this.spawnMultiplier; }
 
   statUpgrades():StatUpgrade[] {
-    return STAT_DEFS.map(def=>({...def,rank:this.model.statRanks[def.id]??0}));
+    return [];
   }
   statModifiers():readonly string[] {
-    return STAT_DEFS.flatMap(def=>Array(this.model.statRanks[def.id]??0).fill(def.id));
+    return [];
+  }
+  researchModifiers():readonly string[] {
+    return this.model.commandUpgrades;
   }
   isTowerUnlocked(kind:TowerKind):boolean { return this.model.unlockedTowers.includes(kind); }
   towerUnlocks():TowerUnlock[] {
@@ -181,14 +178,7 @@ export class RunController {
     return {ok:true};
   }
   buyStatUpgrade(id:string):ActionResult {
-    const def=STAT_DEFS.find(candidate=>candidate.id===id);
-    if (!def) return {ok:false,reason:'Unknown stat upgrade.'};
-    const rank=this.model.statRanks[id]??0;
-    if (rank>=def.maxRank) return {ok:false,reason:'This stat upgrade is fully researched.'};
-    const result=this.spendMetal(Math.round(def.cost*(1+rank*.55)));
-    if (!result.ok) return result;
-    this.model.statRanks[id]=rank+1;
-    return {ok:true};
+    return {ok:false,reason:'Research is organized through the technology tree.'};
   }
 
   place(kind:TowerKind, position:Vec2):PlaceResult {
@@ -358,7 +348,7 @@ export class RunController {
     const upgrade=COMMAND_UPGRADES.find(candidate=>candidate.id===id);
     if (!upgrade) return {ok:false,reason:'Unknown command upgrade.'};
     this.model.metal-=upgrade.cost;this.model.commandUpgrades.push(id);
-    if(id==='bulkhead-plating') this.model.baseHealth=Math.min(30,this.model.baseHealth+5);
+    if(id==='fortified-core') this.model.baseHealth=Math.min(30,this.model.baseHealth+5);
     return {ok:true};
   }
   spendMetal(cost:number):ActionResult { if(this.model.phase==='won'||this.model.phase==='lost')return {ok:false,reason:'The run is over.'};if(this.model.metal<cost)return {ok:false,reason:'Insufficient Metal.'};this.model.metal-=cost;return {ok:true}; }
@@ -410,8 +400,7 @@ export class RunController {
     if(model.salvageCredit!==undefined&&(!isFiniteInteger(model.salvageCredit)||model.salvageCredit<0||model.salvageCredit>3))return false;
     if (!Array.isArray(model.unlockedTowers) || !STARTER_TOWERS.every(kind=>model.unlockedTowers.includes(kind)) || model.unlockedTowers.some((kind,index)=>!isTowerKind(kind)||model.unlockedTowers.indexOf(kind)!==index)) return false;
     if (!model.statRanks || typeof model.statRanks!=='object' || Array.isArray(model.statRanks) || Object.entries(model.statRanks).some(([id,rank])=>{
-      const definition=STAT_DEFS.find(def=>def.id===id);
-      return !definition || !isFiniteInteger(rank) || rank<0 || rank>definition.maxRank;
+      return !isFiniteInteger(rank) || rank!==0;
     })) return false;
     const towers:Tower[]=[];
     if(model.infantry!==undefined&&!validInfantry(model.infantry,mapWithTurretObstacles(map,model.towers)))return false;

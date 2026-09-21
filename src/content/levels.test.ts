@@ -64,11 +64,11 @@ test('trees and rocks reject tower mounting while interior wall cells support it
 });
 test('level relocation refunds deployed towers and structures, preserving research and global wave',()=>{
   const run=createRun(campaignMap(1));assert.ok(run.place('autocannon',{x:40,y:48}).ok);
-  assert.ok(run.upgrade(run.model.towers[0].id,0).ok);assert.ok(run.buyStatUpgrade('damage').ok);
+  assert.ok(run.upgrade(run.model.towers[0].id,0).ok);assert.ok(run.buyCommandUpgrade('ballistics').ok);
   const spent=run.model.towers[0].spent,before=run.model.metal,epoch=run.epoch;
   run.model.wave=10;run.model.phase='checkpoint';
   assert.ok(run.continueRun(campaignMap(2),105).ok);
-  assert.equal(run.model.metal,before+spent+105);assert.equal(run.model.level,2);assert.equal(run.model.wave,10);assert.equal(run.model.statRanks.damage,1);assert.equal(run.model.towers.length,0);assert.ok(run.epoch>epoch);
+  assert.equal(run.model.metal,before+spent+105);assert.equal(run.model.level,2);assert.equal(run.model.wave,10);assert.ok(run.model.commandUpgrades.includes('ballistics'));assert.equal(run.model.towers.length,0);assert.ok(run.epoch>epoch);
   const restored=createRun(campaignMap(2));assert.ok(restored.load(run.serialize()).ok);
   assert.equal(run.continueRun(campaignMap(3),0).ok,false);
 });

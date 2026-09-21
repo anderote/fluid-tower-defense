@@ -16,26 +16,26 @@ export const TOWERS: Record<TowerKind, TowerDef> = {
 export const MAX_TOWER_LEVEL=50;
 export const towerUpgradeCost=(level:number):number=>45+Math.max(0,Math.floor(level))*35;
 
-const infrastructureResearch=(prefix:string,name:string,description:string,cost:number):readonly CommandUpgrade[]=>Array.from({length:20},(_,index)=>({id:`${prefix}-${index+1}`,name:`${name} ${index+1}`,description,cost:Math.round(cost+(index*42)+(Math.sqrt(index)*28))}));
-
 export const COMMAND_UPGRADES: readonly CommandUpgrade[] = [
-  {id:'targeting-grid',name:'Targeting Grid',description:'+18% range to every tower.',cost:260},
-  {id:'ammunition-forge',name:'Ammunition Forge',description:'+25% damage to every tower.',cost:300},
-  {id:'bulkhead-plating',name:'Bulkhead Plating',description:'+5 base integrity immediately.',cost:220},
-  {id:'salvage-magnets',name:'Salvage Magnets',description:'+25% Metal recovered from kills.',cost:280},
-  {id:'repulsor-impact-1',name:'Impact Coils I',description:'Repulsors deal +3 pulse damage.',cost:90},
-  {id:'repulsor-impact-2',requires:'repulsor-impact-1',name:'Impact Coils II',description:'Repulsors deal +3 pulse damage.',cost:140},
-  {id:'repulsor-impact-3',requires:'repulsor-impact-2',name:'Impact Coils III',description:'Repulsors deal +4 pulse damage.',cost:200},
-  {id:'repulsor-impact-4',requires:'repulsor-impact-3',name:'Impact Coils IV',description:'Repulsors deal +5 pulse damage.',cost:270},
-  {id:'repulsor-impact-5',requires:'repulsor-impact-4',name:'Impact Coils V',description:'Repulsors deal +6 pulse damage and +8% force.',cost:350},
-  ...infrastructureResearch('wall-engineering','WALL ENGINEERING','Raises Metal Wall pressure capacity and lifespan.',90),
-  ...infrastructureResearch('barbed-wire','BARBED WIRE','Raises wire damage, slow duration, resistance, and lifespan.',80),
+  {id:'ballistics',name:'Ballistics',category:'WEAPONS',description:'Foundation for conventional weapon systems.',cost:180},
+  {id:'rifle-tech',name:'Rifle Technology',category:'WEAPONS',requires:['ballistics'],description:'+20% damage to Rifle squads, Autocannons, and Railguns.',cost:300},
+  {id:'precision-optics',name:'Precision Optics',category:'WEAPONS',requires:['ballistics'],description:'+15% range to Rifle squads, Autocannons, and Railguns.',cost:280},
+  {id:'thermal-science',name:'Thermal Science',category:'WEAPONS',description:'Foundation for incendiary systems.',cost:190},
+  {id:'flame-tech',name:'Flame Technology',category:'WEAPONS',requires:['thermal-science'],description:'+30% damage to Flame squads and Incinerators.',cost:330},
+  {id:'explosive-ordnance',name:'Explosive Ordnance',category:'WEAPONS',description:'Foundation for high-yield munitions.',cost:220},
+  {id:'high-explosives',name:'High Explosives',category:'WEAPONS',requires:['explosive-ordnance'],description:'+25% damage to Mortars, Rocket Pods, and Rocket squads.',cost:360},
+  {id:'energy-systems',name:'Energy Systems',category:'WEAPONS',description:'Foundation for field-control and electrical weapons.',cost:220},
+  {id:'field-control',name:'Field Control',category:'WEAPONS',requires:['energy-systems'],description:'+20% force to Repulsors, Cryo Emitters, and Tesla Coils.',cost:320},
+  {id:'targeting-grid',name:'Targeting Grid',category:'COMMAND',requires:['ballistics','energy-systems'],description:'+12% range to every tower.',cost:380},
+  {id:'infantry-armor',name:'Infantry Armor',category:'SURVIVAL',description:'+25% health and +8% damage reduction for every squad.',cost:300},
+  {id:'structure-armor',name:'Structure Armor',category:'SURVIVAL',description:'+40% durability and resistance for walls, fences, and wire.',cost:280},
+  {id:'fortified-core',name:'Fortified Core',category:'SURVIVAL',requires:['structure-armor','infantry-armor'],description:'+5 base integrity immediately.',cost:450},
+  {id:'salvage-magnets',name:'Salvage Magnets',category:'COMMAND',description:'+25% Metal recovered from kills.',cost:280},
 ];
 
-const researchLevel=(upgrades:readonly string[],prefix:string)=>upgrades.filter(id=>new RegExp(`^${prefix}-\\d+$`).test(id)).length;
-const researchMultiplier=(level:number)=>1+.58*Math.log1p(Math.max(0,Math.min(20,level)));
-export const barbedWireStats=(upgrades:readonly string[])=>{const multiplier=researchMultiplier(researchLevel(upgrades,'barbed-wire'));return {damage:.45*multiplier,slow:.65*multiplier,durability:BASE_BARBED_WIRE_DURABILITY*multiplier,resistance:7*multiplier,wear:.18};};
-export const metalWallStats=(upgrades:readonly string[])=>{const multiplier=researchMultiplier(researchLevel(upgrades,'wall-engineering'));return {durability:BASE_WALL_DURABILITY*multiplier,resistance:BASE_WALL_PRESSURE_RESISTANCE*multiplier};};
+export const hasTech=(upgrades:readonly string[],id:string)=>upgrades.includes(id);
+export const barbedWireStats=(upgrades:readonly string[])=>{const multiplier=hasTech(upgrades,'structure-armor')?1.4:1;return {damage:.45,slow:.65,durability:BASE_BARBED_WIRE_DURABILITY*multiplier,resistance:7*multiplier,wear:.18};};
+export const metalWallStats=(upgrades:readonly string[])=>{const multiplier=hasTech(upgrades,'structure-armor')?1.4:1;return {durability:BASE_WALL_DURABILITY*multiplier,resistance:BASE_WALL_PRESSURE_RESISTANCE*multiplier};};
 
 /** Packs authored towers into the supported GPU weapon behaviours. */
 export const towerBehavior=(kind:TowerKind):number=>({repulsor:0,mortar:1,autocannon:2,cryo:3,tesla:13,rocket:12,railgun:2,incinerator:14}[kind]);
@@ -151,18 +151,12 @@ export function compileTower(tower: Tower, bonuses: readonly string[] = [], comm
     if (bonus === 'kinetic-feed' && tower.kind === 'autocannon') cooldown *= .85;
     if (bonus === 'blast-casing' && (tower.kind === 'mortar' || tower.kind === 'rocket')) damage *= 1.15;
   }
-  if (commandUpgrades.includes('targeting-grid')) range *= 1.18;
-  if (commandUpgrades.includes('ammunition-forge')) damage *= 1.25;
-  if (tower.kind==='repulsor') {
-    const impactDamage=[3,3,4,5,6];
-    for (let i=0;i<impactDamage.length;i++) if(commandUpgrades.includes(`repulsor-impact-${i+1}`)) damage+=impactDamage[i];
-    if(commandUpgrades.includes('repulsor-impact-5')) force*=1.08;
-  }
-  const ranks=(id:string)=>statUpgrades.filter(upgrade=>upgrade===id).length;
-  damage*=1+ranks('damage')*.04;
-  range*=1+ranks('range')*.03;
-  cooldown/=1+ranks('rate')*.035;
-  force*=1+ranks('force')*.05;
+  if (hasTech(commandUpgrades,'targeting-grid')) range *= 1.12;
+  if (hasTech(commandUpgrades,'rifle-tech') && (tower.kind==='autocannon'||tower.kind==='railgun')) damage*=1.2;
+  if (hasTech(commandUpgrades,'precision-optics') && (tower.kind==='autocannon'||tower.kind==='railgun')) range*=1.15;
+  if (hasTech(commandUpgrades,'flame-tech') && tower.kind==='incinerator') damage*=1.3;
+  if (hasTech(commandUpgrades,'high-explosives') && (tower.kind==='mortar'||tower.kind==='rocket')) damage*=1.25;
+  if (hasTech(commandUpgrades,'field-control') && (tower.kind==='repulsor'||tower.kind==='cryo'||tower.kind==='tesla')) force*=1.2;
   return {...base,range,cooldown,damage,force,radius,peakPressureKpa:scaledPeakPressure(base,damage,force)};
 }
 

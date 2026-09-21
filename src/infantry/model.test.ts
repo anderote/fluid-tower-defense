@@ -100,12 +100,12 @@ test('recruitment pauses outside combat and respects the barracks population cap
 test('training snapshots recruits and production upgrades preserve normalized progress',()=>{
   const f=setup();f.step(recruitInterval(0)+.1);const first=f.state.soldiers[0];f.state.buildings[0].training=3;f.state.buildings[0].production=5;f.step(recruitInterval(5)+.1);assert.equal(first.quality,0);assert.equal(first.health,40);assert.equal(f.state.soldiers[1].quality,3);assert.equal(f.state.soldiers[1].health,rifleStats(3).health);
 });
-test('infantry ranks from credited kills and shares doctrine research with towers',()=>{
- const f=setup();f.step(8.1);const rifle=f.state.soldiers[0],base=infantryStats('rifle'),researched=infantryStats('rifle',0,0,0,['damage','range','rate']);
+test('infantry ranks from credited kills and benefits from relevant technology',()=>{
+ const f=setup();f.step(8.1);const rifle=f.state.soldiers[0],base=infantryStats('rifle'),researched=infantryStats('rifle',0,0,0,['rifle-tech','precision-optics']);
  awardInfantryKills(f.state,[rifle.id],[80]);
  assert.equal(rifle.kills,80);assert.equal(rifle.veterancyXp,80);assert.equal(rifle.veterancy,1);
  assert.ok(infantryStats('rifle',0,0,rifle.veterancy).damage>base.damage);
- assert.ok(researched.damage>base.damage&&researched.range>base.range&&researched.cooldown<base.cooldown);
+ assert.ok(researched.damage>base.damage&&researched.range>base.range&&researched.cooldown===base.cooldown);
 });
 test('rally movement reaches the firing line and stale threats cannot fire or hurt troops',()=>{
   const f=setup();f.step(8.1);const s=f.state.soldiers[0],rally=f.state.buildings[0].rally;f.step(4);assert.ok(Math.hypot(s.x-rally.x,s.y-rally.y)<3);

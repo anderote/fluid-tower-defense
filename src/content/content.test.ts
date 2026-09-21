@@ -94,7 +94,7 @@ test('fortifications withstand sustained swarm pressure at base research',()=>{
  assert.equal(wire.durability,500);
  assert.equal(wire.resistance,7);
  assert.ok(wire.wear<wire.damage,'wire wear must be independent from its outgoing damage');
- const researched=barbedWireStats(Array.from({length:20},(_,index)=>`barbed-wire-${index+1}`));
+ const researched=barbedWireStats(['structure-armor']);
  assert.ok(researched.durability>wire.durability&&researched.resistance>wire.resistance);
  assert.equal(researched.wear,wire.wear);
 });

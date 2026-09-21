@@ -11,9 +11,10 @@ export function commandUpgradeAvailability(
   if (!upgrade) return {ok:false, reason:'Unknown command upgrade.'};
   if (state.commandUpgrades.includes(id)) return {ok:false, reason:'Installed.'};
   if (state.phase !== 'preparation') return {ok:false, reason:'Research is available between waves.'};
-  if (upgrade.requires && !state.commandUpgrades.includes(upgrade.requires)) {
-    const prerequisite = COMMAND_UPGRADES.find(candidate => candidate.id === upgrade.requires)!;
-    return {ok:false, reason:`Requires ${prerequisite.name}.`};
+  const missing=upgrade.requires?.filter(prerequisite=>!state.commandUpgrades.includes(prerequisite))??[];
+  if (missing.length) {
+    const names=missing.map(id=>COMMAND_UPGRADES.find(candidate => candidate.id === id)!.name);
+    return {ok:false, reason:`Requires ${names.join(' + ')}.`};
   }
   if (state.metal < upgrade.cost) return {ok:false, reason:`Requires ${upgrade.cost - state.metal} more Metal.`};
   return {ok:true};
