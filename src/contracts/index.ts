@@ -5,7 +5,7 @@ export interface RenderScene {infantry?:import('../infantry/model.ts').InfantryS
 export interface RenderScene {barracksGhost?:Vec2&{valid:boolean}}
 export interface Renderer {setResolutionScale?(scale:number):void}
 export type Rect = Vec2 & { width: number; height: number };
-export type BarrierRenderSegment = {from:Vec2;to:Vec2;kind:'fence'|'wire';health:number;maxHealth:number;breached?:boolean};
+export type BarrierRenderSegment = {from:Vec2;to:Vec2;kind:'fence'|'wire';run?:number;health:number;maxHealth:number;breached?:boolean};
 export type Biome='forest'|'winter'|'interior';
 export interface MapScenery { biome:Biome; title:string; briefing:string; solids:Rect[]; mounts:Rect[]; tiles:(Vec2&{sprite:string;columns:number;rows:number;firstFrame?:number})[]; props:(Vec2&{sprite:string})[]; regions:(Rect&{sprite:string})[] }
 export interface WorldMap { id: string; width: number; height: number; obstacles: Rect[]; spawn: Rect; goal: Vec2; goalRadius: number; scenery?:MapScenery }

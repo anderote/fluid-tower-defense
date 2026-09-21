@@ -65,8 +65,8 @@ struct Camera{viewport:vec4<f32>,world:vec4<f32>,time:vec4<f32>};
 @group(0) @binding(0) var<uniform> camera:Camera;
 @group(0) @binding(1) var atlas:texture_2d<f32>;
 struct Out{@builtin(position) pos:vec4<f32>,@location(0) uv:vec2<f32>,@location(1) tint:vec4<f32>};
-@vertex fn vs(@builtin(vertex_index) id:u32,@location(0) rect:vec4<f32>,@location(1) source:vec4<f32>,@location(2) tint:vec4<f32>)->Out{
- let corners=array<vec2<f32>,6>(vec2(0.,0.),vec2(1.,0.),vec2(0.,1.),vec2(0.,1.),vec2(1.,0.),vec2(1.,1.));let q=corners[id];let p=rect.xy+q*rect.zw;
+@vertex fn vs(@builtin(vertex_index) id:u32,@location(0) rect:vec4<f32>,@location(1) source:vec4<f32>,@location(2) tint:vec4<f32>,@location(3) angle:f32)->Out{
+ let corners=array<vec2<f32>,6>(vec2(0.,0.),vec2(1.,0.),vec2(0.,1.),vec2(0.,1.),vec2(1.,0.),vec2(1.,1.));let q=corners[id];let local=(q-.5)*rect.zw;let c=cos(angle),s=sin(angle);let p=rect.xy+rect.zw*.5+vec2(local.x*c-local.y*s,local.x*s+local.y*c);
  let aspect=camera.viewport.x/camera.viewport.y;let worldAspect=camera.world.z/camera.world.w;let scale=vec2(min(1.,worldAspect/aspect),min(1.,aspect/worldAspect));
  // A sprite's full footprint shares one depth: its lowest world-space edge.
  // Smaller depth is closer to the camera, matching the unit renderer.
@@ -79,25 +79,26 @@ struct Out{@builtin(position) pos:vec4<f32>,@location(0) uv:vec2<f32>,@location(
   const info=await shader.getCompilationInfo();if(info.messages.some(m=>m.type==='error'))throw Error(info.messages.map(m=>m.message).join('\n'));
   const bindLayout=device.createBindGroupLayout({entries:[{binding:0,visibility:GPUShaderStage.VERTEX,buffer:{type:'uniform'}},{binding:1,visibility:GPUShaderStage.FRAGMENT,texture:{}}]});
   const layout=device.createPipelineLayout({bindGroupLayouts:[bindLayout]});
-  const pipeline=device.createRenderPipeline({label:'Red Alert sprites',layout,vertex:{module:shader,entryPoint:'vs',buffers:[{arrayStride:48,stepMode:'instance',attributes:[{shaderLocation:0,offset:0,format:'float32x4'},{shaderLocation:1,offset:16,format:'float32x4'},{shaderLocation:2,offset:32,format:'float32x4'}]}]},fragment:{module:shader,entryPoint:'fs',targets:[{format,blend:{color:{srcFactor:'src-alpha',dstFactor:'one-minus-src-alpha',operation:'add'},alpha:{srcFactor:'one',dstFactor:'one-minus-src-alpha',operation:'add'}}}]},primitive:{topology:'triangle-list'}});
+  const vertex={arrayStride:52,stepMode:'instance' as const,attributes:[{shaderLocation:0,offset:0,format:'float32x4' as const},{shaderLocation:1,offset:16,format:'float32x4' as const},{shaderLocation:2,offset:32,format:'float32x4' as const},{shaderLocation:3,offset:48,format:'float32' as const}]};
+  const pipeline=device.createRenderPipeline({label:'Red Alert sprites',layout,vertex:{module:shader,entryPoint:'vs',buffers:[vertex]},fragment:{module:shader,entryPoint:'fs',targets:[{format,blend:{color:{srcFactor:'src-alpha',dstFactor:'one-minus-src-alpha',operation:'add'},alpha:{srcFactor:'one',dstFactor:'one-minus-src-alpha',operation:'add'}}}]},primitive:{topology:'triangle-list'}});
   // Every tall object uses its ground-contact line as depth. This lets a unit
   // naturally pass in front of or behind a tree, wall, or turret by map Y.
-  const depthPipeline=device.createRenderPipeline({label:'Ground-sorted Red Alert sprites',layout,vertex:{module:shader,entryPoint:'vs',buffers:[{arrayStride:48,stepMode:'instance',attributes:[{shaderLocation:0,offset:0,format:'float32x4'},{shaderLocation:1,offset:16,format:'float32x4'},{shaderLocation:2,offset:32,format:'float32x4'}]}]},fragment:{module:shader,entryPoint:'fs',targets:[{format,blend:{color:{srcFactor:'src-alpha',dstFactor:'one-minus-src-alpha',operation:'add'},alpha:{srcFactor:'one',dstFactor:'one-minus-src-alpha',operation:'add'}}}]},primitive:{topology:'triangle-list'},depthStencil:{format:'depth32float',depthWriteEnabled:true,depthCompare:'less-equal'}});
+  const depthPipeline=device.createRenderPipeline({label:'Ground-sorted Red Alert sprites',layout,vertex:{module:shader,entryPoint:'vs',buffers:[vertex]},fragment:{module:shader,entryPoint:'fs',targets:[{format,blend:{color:{srcFactor:'src-alpha',dstFactor:'one-minus-src-alpha',operation:'add'},alpha:{srcFactor:'one',dstFactor:'one-minus-src-alpha',operation:'add'}}}]},primitive:{topology:'triangle-list'},depthStencil:{format:'depth32float',depthWriteEnabled:true,depthCompare:'less-equal'}});
   // Defenses are elevated above wall faces. Draw them over the wall depth at
   // their location, then write their own depth so moving units still sort
   // naturally in front of or behind the turret.
-  const defensePipeline=device.createRenderPipeline({label:'Elevated Red Alert defenses',layout,vertex:{module:shader,entryPoint:'vs',buffers:[{arrayStride:48,stepMode:'instance',attributes:[{shaderLocation:0,offset:0,format:'float32x4'},{shaderLocation:1,offset:16,format:'float32x4'},{shaderLocation:2,offset:32,format:'float32x4'}]}]},fragment:{module:shader,entryPoint:'fs',targets:[{format,blend:{color:{srcFactor:'src-alpha',dstFactor:'one-minus-src-alpha',operation:'add'},alpha:{srcFactor:'one',dstFactor:'one-minus-src-alpha',operation:'add'}}}]},primitive:{topology:'triangle-list'},depthStencil:{format:'depth32float',depthWriteEnabled:true,depthCompare:'always'}});
+  const defensePipeline=device.createRenderPipeline({label:'Elevated Red Alert defenses',layout,vertex:{module:shader,entryPoint:'vs',buffers:[vertex]},fragment:{module:shader,entryPoint:'fs',targets:[{format,blend:{color:{srcFactor:'src-alpha',dstFactor:'one-minus-src-alpha',operation:'add'},alpha:{srcFactor:'one',dstFactor:'one-minus-src-alpha',operation:'add'}}}]},primitive:{topology:'triangle-list'},depthStencil:{format:'depth32float',depthWriteEnabled:true,depthCompare:'always'}});
   const bindings=device.createBindGroup({layout:bindLayout,entries:[{binding:0,resource:{buffer:camera}},{binding:1,resource:texture.createView()}]});
-  const createBatch=(label:string)=>({buffer:device.createBuffer({label,size:48,usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST}),capacity:1,count:0});
+  const createBatch=(label:string)=>({buffer:device.createBuffer({label,size:52,usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST}),capacity:1,count:0});
   const infantryBatch=createBatch('Original Red Alert infantry and kennels');
   const hasInfantrySprites=['e1','e3','e4','dog','dogbullt','kenn','tent'].every(name=>atlas.sprites[name]?.length);
   const terrain=createBatch('Facility floor'),walls=createBatch('Facility walls'),sceneryProps=createBatch('Landscape trees and buildings'),towers=createBatch('Original defense sprites'),mountedTowers=createBatch('Wall-mounted defense sprites'),wireBatch=createBatch('Connected Red Alert wire'),wireGhost=createBatch('Wire placement preview');
   const upload=(batch:ReturnType<typeof createBatch>,data:number[])=>{
-    batch.count=data.length/12;if(batch.count>batch.capacity){batch.buffer.destroy();batch.capacity=2**Math.ceil(Math.log2(batch.count));batch.buffer=device.createBuffer({size:batch.capacity*48,usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST});}
+    batch.count=data.length/13;if(batch.count>batch.capacity){batch.buffer.destroy();batch.capacity=2**Math.ceil(Math.log2(batch.count));batch.buffer=device.createBuffer({size:batch.capacity*52,usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST});}
     if(data.length)device.queue.writeBuffer(batch.buffer,0,new Float32Array(data));
   };
-  function sprite(data:number[],id:number,x:number,y:number,width:number,height:number,tint=[1,1,1,1],crop?:Frame){
-    const f=crop??atlas.frames[id];data.push(x,y,width,height,f.x,f.y,f.width,f.height,...tint);
+  function sprite(data:number[],id:number,x:number,y:number,width:number,height:number,tint=[1,1,1,1],crop?:Frame,angle=0){
+    const f=crop??atlas.frames[id];data.push(x,y,width,height,f.x,f.y,f.width,f.height,...tint,angle);
   }
   let terrainKey='',barrierKey='',previousScenery:RenderScene['map']['scenery'],sceneryVersion=0;
   function prepare(scene:RenderScene){
@@ -148,8 +149,8 @@ struct Out{@builtin(position) pos:vec4<f32>,@location(0) uv:vec2<f32>,@location(
       }
       upload(sceneryProps,props);
     }
-    const wires=scene.barrierSegments?.length?[]:scene.wires??[],fences=scene.barrierSegments?.length?[]:scene.fences??[];
-    const nextBarrierKey=JSON.stringify([wires.map(w=>[w.x,w.y,w.width,w.height,wireDamage(w)]),fences.map(f=>[f.x,f.y,f.width,f.height,wireDamage({...f,breached:false})])]);
+    const freeform=scene.barrierSegments??[],wires=freeform.length?[]:scene.wires??[],fences=freeform.length?[]:scene.fences??[];
+    const nextBarrierKey=JSON.stringify([wires.map(w=>[w.x,w.y,w.width,w.height,wireDamage(w)]),fences.map(f=>[f.x,f.y,f.width,f.height,wireDamage({...f,breached:false})]),freeform.map(barrier=>[barrier.from.x,barrier.from.y,barrier.to.x,barrier.to.y,barrier.run,barrier.kind,wireDamage({health:barrier.health,maxHealth:barrier.maxHealth,breached:barrier.breached??false})])]);
     if((hasWireSprites||hasFenceSprites)&&nextBarrierKey!==barrierKey){
       const data:number[]=[];
       if(hasWireSprites)for(const tile of wireTiles(wires)){
@@ -175,6 +176,21 @@ struct Out{@builtin(position) pos:vec4<f32>,@location(0) uv:vec2<f32>,@location(
           const id=fenceFrames[(tile.damage==='frayed'?16:0)+tile.mask],frame=atlas.frames[id],tint=tile.damage==='intact'?[1,1,1,1]:tile.damage==='worn'?[.88,.8,.68,1]:[.82,.72,.58,1];
           sprite(data,id,tile.x,tile.y,tile.width,tile.height,tint,{...frame,width:tile.width*6,height:tile.height*6});
         }
+      }
+      // Freeform paths retain the original RA horizontal panels.  Each stamp is
+      // deliberately quantized to 64 facings so a direction never blurs into an
+      // arbitrary GPU rotation, while still allowing a path to turn naturally.
+      for(let index=0;index<freeform.length;){
+        const first=freeform[index],run=first.run??index,kind=first.kind;let last=first,next=index+1;
+        while(next<freeform.length&&next-index<6&&(freeform[next].run??next)===run&&freeform[next].kind===kind){last=freeform[next++];}
+        const dx=last.to.x-first.from.x,dy=last.to.y-first.from.y,length=Math.hypot(dx,dy);
+        if(length>.001){
+          const facing=Math.round(Math.atan2(dy,dx)*32/Math.PI),angle=facing*Math.PI/32;
+          const damaged=wireDamage({health:first.health,maxHealth:first.maxHealth,breached:first.breached??false}),frameId=kind==='fence'?fenceFrames[10]:wireFrames[damaged==='breached'?26:10];
+          const tint=kind==='fence'?(damaged==='intact'?[1,1,1,1]:[.82,.72,.58,1]):damaged==='breached'?[.72,.65,.54,1]:damaged==='intact'?[1,1,1,1]:damaged==='worn'?[.88,.79,.65,1]:[.74,.61,.46,1];
+          sprite(data,frameId,first.from.x-2,first.from.y-2,4,4,tint,undefined,angle);
+        }
+        index=Math.max(index+1,next);
       }
       upload(wireBatch,data);barrierKey=nextBarrierKey;
     }
