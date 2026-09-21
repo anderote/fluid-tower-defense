@@ -7,7 +7,17 @@ import {
   packingContribution,
   pressureDamageRate,
   pressureForPacking,
+  pressureSurge,
 } from './model.ts';
+
+test('crowd surge has a quiet threshold, smooth onset and bounded saturation',()=>{
+  assert.equal(pressureSurge(0),0);
+  assert.equal(pressureSurge(12),0);
+  assert.equal(pressureSurge(46),0.5);
+  assert.equal(pressureSurge(80),1);
+  assert.equal(pressureSurge(200),1);
+  assert.ok(pressureSurge(13)<0.001);
+});
 
 test('packing is based on occupied area rather than mass', () => {
   const small = packingContribution(0.2, 0.25);

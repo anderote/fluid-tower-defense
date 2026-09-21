@@ -146,7 +146,7 @@ function validateFrame(frame: PhysicsFrame, shared: SharedGPU): void {
   }
 }
 
-export async function createPhysics(device: GPUDevice, shared: SharedGPU,options:{indexedObstacles?:boolean;crowdMode?:'exact'|'hybrid'}={}): Promise<PhysicsModule> {
+export async function createPhysics(device: GPUDevice, shared: SharedGPU,options:{indexedObstacles?:boolean;crowdMode?:'exact'|'hybrid';pressureSurge?:boolean}={}): Promise<PhysicsModule> {
   const indexedObstacles=options.indexedObstacles!==false;
   const hybridCrowd=options.crowdMode==='hybrid',gridWords=hybridCrowd?5:1;
   let obstacleSnapshot:Float32Array=new Float32Array(0),obstacleMapKey='';
@@ -221,7 +221,7 @@ export async function createPhysics(device: GPUDevice, shared: SharedGPU,options
     ],
   });
   const pipelineLayout = device.createPipelineLayout({ label: 'Physics pipeline layout', bindGroupLayouts: [bindGroupLayout] });
-  const shader = device.createShaderModule({ label: 'Crowd physics', code: PHYSICS_WGSL });
+  const shader = device.createShaderModule({ label: 'Crowd physics', code: options.pressureSurge===false?PHYSICS_WGSL.replace('const PRESSURE_SURGE: bool = true;','const PRESSURE_SURGE: bool = false;'):PHYSICS_WGSL });
   const compilation = await shader.getCompilationInfo();
   const shaderErrors = compilation.messages.filter((message) => message.type === 'error');
   if (shaderErrors.length > 0) {

@@ -1,5 +1,6 @@
 import { PARTICLE_WGSL } from '../../contracts/index.ts';
 import { ENEMY_WGSL } from '../../content/index.ts';
+import {SURGE_START,SURGE_FULL,SURGE_SPEED_GAIN,SURGE_RELEASE_GAIN,SURGE_COAST_DRAG} from './model.ts';
 
 export const PHYSICS_WGSL = /* wgsl */ `
 ${PARTICLE_WGSL}
@@ -60,6 +61,7 @@ const PI: f32 = 3.141592653589793;
 const MAX_FORCE: f32 = 90.0;
 const MAX_SPEED: f32 = 30.0;
 const MAX_DISPLACEMENT: f32 = 0.24;
+const PRESSURE_SURGE: bool = true;
 
 fn finite1(v: f32) -> bool { return v == v && abs(v) < 1e20; }
 fn finite2(v: vec2<f32>) -> bool { return finite1(v.x) && finite1(v.y); }
@@ -72,6 +74,9 @@ fn safeMass(v: f32) -> f32 {
   return clamp(abs(v), 0.1, 100.0);
 }
 fn occupiedArea(radius: f32) -> f32 { return PI * radius * radius; }
+fn pressureSurge(pressure: f32) -> f32 {
+  return select(0.0, smoothstep(${SURGE_START.toFixed(1)}, ${SURGE_FULL.toFixed(1)}, pressure), PRESSURE_SURGE);
+}
 
 fn kernel(distance: f32) -> f32 {
   let q = max(0.0, 1.0 - distance / params.kernelRadius);
@@ -304,14 +309,27 @@ fn computeMotion(@builtin(global_invocation_id) gid: vec3<u32>) {
   let radius = safeRadius(particle.body.x);
   let mass = safeMass(particle.body.y);
   let kind = u32(clamp(particle.state.z, 0.0, 5.0) + 0.5);
-  let desiredVelocity = flowDirection(position, index, particle.status.w) * enemySpeed(kind) * slowMultiplier(position, particle.status.x);
-  var acceleration = (desiredVelocity - velocity) * max(0.0, params.drive) * enemyDrive(kind) - velocity * 0.12;
+  let direction = flowDirection(position, index, particle.status.w);
+  let slow = slowMultiplier(position, particle.status.x);
+  let surge = pressureSurge(particle.state.y);
+  let baseSpeed = enemySpeed(kind);
+  let desiredSpeed = baseSpeed * (1.0 + ${SURGE_SPEED_GAIN} * surge) * slow;
+  let desiredVelocity = direction * desiredSpeed;
+  let drive = max(0.0, params.drive) * enemyDrive(kind);
+  var acceleration = (desiredVelocity - velocity) * drive - velocity * 0.12;
+  // Preserve only bounded forward overspeed. Steering and knockback still use
+  // normal drag; freezing immediately restores normal braking.
+  if (PRESSURE_SURGE && slow >= 0.999 && dot(direction,direction) > 0.99) {
+    let excess = clamp(dot(velocity,direction)-desiredSpeed,0.0,baseSpeed*${SURGE_SPEED_GAIN});
+    acceleration += direction * excess * max(0.0,drive-${SURGE_COAST_DRAG});
+  }
+  let releaseStrength = 0.055 * (1.0 + ${SURGE_RELEASE_GAIN} * surge);
   let centerCell = cellFor(position);
   let bulk=params.hybridCrowd!=0u&&nextParticle[params.capacity+index]!=0u;
   if(bulk){
     let h=params.cellSize*.5;
     let gradient=vec2f(fieldPressure(position+vec2f(h,0.))-fieldPressure(position-vec2f(h,0.)),fieldPressure(position+vec2f(0.,h))-fieldPressure(position-vec2f(0.,h)))/(2.*h);
-    acceleration-=gradient*.055/mass;
+    acceleration-=gradient*releaseStrength/mass;
     acceleration+=(crowdField(position).yz-velocity)*max(0.,params.viscosity)*.5/mass;
   }
 
@@ -334,7 +352,8 @@ fn computeMotion(@builtin(global_invocation_id) gid: vec3<u32>) {
               if (!bulk && distance < params.kernelRadius) {
                 let q = 1.0 - distance / params.kernelRadius;
                 let otherArea = occupiedArea(safeRadius(other.body.x));
-                acceleration += normal * (particle.state.y + other.state.y) * otherArea * q * 0.055 / mass;
+                let pairRelease = 0.055 * (1.0 + ${SURGE_RELEASE_GAIN} * pressureSurge((particle.state.y+other.state.y)*0.5));
+                acceleration += normal * (particle.state.y + other.state.y) * otherArea * q * pairRelease / mass;
                 acceleration += (other.pos.zw - velocity) * max(0.0, params.viscosity) * otherArea * kernel(distance) / mass;
               }
               let contactDistance = radius + safeRadius(other.body.x);
