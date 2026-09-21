@@ -10,7 +10,7 @@ export const TOWERS: Record<TowerKind, TowerDef> = {
   tesla: {id:'tesla', name:'Tesla Coil', description:'Chains lightning through nearby enemies, briefly slowing them and frying lethal hits to ash.', cost:600, range:20, cooldown:.48, damage:7, force:8, radius:5.2, peakPressureKpa:120, color:'#9a7dff', branches:['Capacitor','Storm Cell']},
   rocket: {id:'rocket', name:'Rocket Pod', description:'Saturates dense crowds with a three-warhead scatter salvo.', cost:1_600, range:44, cooldown:2.9, damage:34, force:24, radius:6.6, peakPressureKpa:1250, color:'#ff5f48', branches:['Warhead','Barrage']},
   railgun: {id:'railgun', name:'Railgun', description:'Penetrates and hurls targets along a long firing lane.', cost:2_500, range:48, cooldown:.78, damage:38, force:26, radius:1.1, peakPressureKpa:900, color:'#73f5d2', branches:['Slug','Accelerator']},
-  incinerator: {id:'incinerator', name:'Incinerator', description:'Bathes a short cone in heat that burns enemies over time.', cost:800, range:16, cooldown:.55, damage:13, force:0, radius:4.8, peakPressureKpa:80, color:'#ff7848', branches:['Furnace','Wildfire']},
+  incinerator: {id:'incinerator', name:'Incinerator', description:'Bathes a narrow cone in heat that briefly burns enemies.', cost:800, range:13, cooldown:.75, damage:8, force:0, radius:3.7, peakPressureKpa:55, color:'#ff7848', branches:['Furnace','Wildfire']},
 };
 
 export const MAX_TOWER_LEVEL=50;
@@ -133,7 +133,7 @@ export function compileTower(tower: Tower, bonuses: readonly string[] = [], comm
     if (tower.kind==='tesla') { damage *= 1.45; radius *= 1.25; }
     if (tower.kind==='rocket') { damage *= 1.6; radius *= .8; }
     if (tower.kind==='railgun') { damage *= 1.75; cooldown *= 1.15; }
-    if (tower.kind==='incinerator') { damage *= 1.55; radius *= .82; }
+    if (tower.kind==='incinerator') { damage *= 1.35; radius *= .88; }
   }
   if (tower.branch === 1) {
     if (tower.kind==='repulsor') { cooldown *= .8; radius *= 1.3; }
@@ -143,7 +143,7 @@ export function compileTower(tower: Tower, bonuses: readonly string[] = [], comm
     if (tower.kind==='tesla') { range *= 1.3; radius *= 1.5; cooldown *= .78; }
     if (tower.kind==='rocket') { cooldown *= .62; radius *= 1.45; damage *= .8; }
     if (tower.kind==='railgun') { cooldown *= .58; range *= 1.18; }
-    if (tower.kind==='incinerator') { range *= 1.18; radius *= 1.4; cooldown *= .82; damage *= .82; }
+    if (tower.kind==='incinerator') { range *= 1.12; radius *= 1.2; cooldown *= .9; damage *= .9; }
   }
   for (const bonus of bonuses) {
     if (bonus === 'hydraulic-advantage' && tower.kind === 'repulsor') { force *= 1.3; cooldown *= 1.12; }

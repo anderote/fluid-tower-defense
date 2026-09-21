@@ -22,6 +22,12 @@ test('starting rifleman recruitment takes five seconds',()=>{
   assert.equal(INFANTRY.rifle.interval,5);
   const f=setup('rifle');f.step(4.9);assert.equal(f.state.soldiers.length,0);f.step(.2);assert.equal(f.state.soldiers.length,1);
 });
+test('rocket and flame infantry trade area damage for restrained sustained power',()=>{
+ const rocket=infantryStats('rocket'),flame=infantryStats('flame'),rifle=infantryStats('rifle');
+ assert.deepEqual({damage:rocket.damage,range:rocket.range,cooldown:rocket.cooldown},{damage:22,range:16,cooldown:3.1});
+ assert.deepEqual({damage:flame.damage,range:flame.range,cooldown:flame.cooldown},{damage:6,range:6,cooldown:.45});
+ assert.ok(rocket.damage/rocket.cooldown<rifle.damage/rifle.cooldown,'splash troops should not dominate single-target rifle damage');
+});
 test('armor reduces zombie damage but even fully armored samurai can be killed',()=>{
   const f=setup('samurai');f.state.buildings[0].defense=5;f.step(12.1);const s=f.state.soldiers[0],hp=s.health;
   const threaten=()=>f.threats.set(s.id,{target:0,generation:1,x:s.x+1,y:s.y,age:0,contact:120});
