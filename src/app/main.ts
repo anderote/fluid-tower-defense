@@ -8,7 +8,8 @@ import {AUTOSAVE_KEY, CHECKPOINT_KEY, saveDefense, loadDefense} from '../persist
 import { connectGPU } from '../runtime/gpu.ts';
 import { verifyABI } from '../runtime/abi-check.ts';
 import { FixedClock } from '../runtime/clock.ts';
-import { FrameMetrics } from '../runtime/metrics.ts';
+import { FrameMetrics, SimulationRate } from '../runtime/metrics.ts';
+import {GPUProfiler} from '../runtime/profiler.ts';
 import { SettlementReader } from '../runtime/readback.ts';
 import {makeGameWindow} from '../ui/windows.ts';
 import { createLevelEditor, gridRectAtPoint, wallAtPoint } from '../editor/index.ts';
@@ -44,7 +45,9 @@ let handleAction:(action:GameAction)=>void=()=>{};
 const ui=createUI(root,action=>handleAction(action));
 try {
  mountRedAlertSoundtrack(root);
- const gpu=await connectGPU(ui.canvas);
+ const gpu=await connectGPU(ui.canvas,{profile:params.has('profile')});
+ const profiler=params.has('profile')?new GPUProfiler(gpu.device):undefined;
+ const simulationRate=new SimulationRate();
  let failed=false;
  function fail(error:unknown){if(failed)return;failed=true;state.message=String(error instanceof Error?error.message:error);state.paused=true;ui.update(state);console.error(error);}
  gpu.device.addEventListener('uncapturederror',event=>fail(event.error.message));
@@ -369,7 +372,7 @@ try {
    state.selected=run.model.towers.find(t=>t.id===run.model.selected)??null;state.upgradeTarget=state.upgradeMode&&hoveredTowerId!==null?run.model.towers.find(t=>t.id===hoveredTowerId)??null:null;state.bonusChoices=state.mode==='game'?run.model.bonusChoices:[];state.bonuses=state.mode==='game'?run.model.bonuses:[];
    state.boss=latest.boss;state.bossHealth=latest.boss?.active?latest.boss.health/latest.boss.maxHealth*100:undefined;state.commandUpgrades=state.mode==='game'?run.model.commandUpgrades:[];state.statUpgrades=run.statUpgrades();state.towerUnlocks=run.towerUnlocks();
    ui.update(state);positionInspector();positionUpgradeInspector();positionInfantryInspector();if(now-lastAutosave>1500){saveSession();lastAutosave=now;}lastUI=now;
-   diagnosticText.textContent=JSON.stringify({adapter:gpu.adapter,abi:'passed',epoch,tick:clock.tick,simulationSeconds:simulatedTime,slots:count,live:latest.live,requested:requestedPopulation,invalid:latest.invalid,peakPacking:latest.maxPacking,crushKills:latest.crushKills,kills:latest.kills,medianMs:report.medianMs,p95Ms:report.p95Ms,frameSamples:report.samples,canvas:[ui.canvas.width,ui.canvas.height],readbackErrors:errors,boss:latest.boss},null,2);
+   diagnosticText.textContent=JSON.stringify({adapter:gpu.adapter,abi:'passed',epoch,tick:clock.tick,simulationSeconds:simulatedTime,simulationSecondsPerWallSecond:simulationRate.report(),slots:count,live:latest.live,requested:requestedPopulation,invalid:latest.invalid,peakPacking:latest.maxPacking,crushKills:latest.crushKills,kills:latest.kills,medianMs:report.medianMs,p95Ms:report.p95Ms,frameSamples:report.samples,canvas:[ui.canvas.width,ui.canvas.height],readbackErrors:errors,boss:latest.boss,gpuProfile:profiler?.report()},null,2);
  }
  function positionInfantryInspector(){
    const b=infantry.state().buildings.find(b=>b.id===infantry.selected),panel=infantry.inspector;
@@ -425,7 +428,7 @@ try {
    }
    const activeMap=combatMap();
    const frame:CombatFrame={dt:clock.step,tick:clock.tick,count,map:activeMap,effects,tuning:DEFAULT_TUNING,navigation,lab:state.mode==='lab',towers:state.mode==='game'?run.model.towers.map(tower=>({tower,definition:compileTower(tower,run.model.bonuses,run.model.commandUpgrades,run.statModifiers())})):[]};
-   const encoder=gpu.device.createCommandEncoder({label:`Simulation tick ${clock.tick}`});
+   const nativeEncoder=gpu.device.createCommandEncoder({label:`Simulation tick ${clock.tick}`}),measurement=profiler?.wrap(nativeEncoder),encoder=measurement?.encoder??nativeEncoder;
    const bossFrame={dt:clock.step,tick:clock.tick,count,map:activeMap.scenery?activeMap:{...activeMap,spawn:{x:50,y:35,width:32,height:30}},active:state.mode==='game'&&run.isBossWave};
    horde.encode(encoder,arrivals,count);
    const infantryShots=advanceInfantry(infantry.state(),infantry.ensureFields(),infantry.fields,infantryGPU.threats,clock.step,state.mode==='game'&&run.model.phase==='combat',run.statModifiers(),infantry.orderFields);
@@ -435,7 +438,7 @@ try {
    let finish:(()=>void)|undefined,finishShots:(()=>void)|undefined;
    if(clock.tick-lastTickSample>=6){finish=settlement.encode(encoder,gpu.shared.counters,gpu.shared.obstacleCounters!,gpu.shared.obstacleCapacity!,epoch,clock.tick);if(finish)lastTickSample=clock.tick;}
    if(clock.tick%3===0)finishShots=shotReader.encode(encoder,combat.shotState,frame.towers.length);
-   gpu.device.queue.submit([encoder.finish()]);finish?.();finishShots?.();finishInfantry?.();
+   measurement?.resolve();gpu.device.queue.submit([encoder.finish()]);void measurement?.read();finish?.();finishShots?.();finishInfantry?.();
  }
  function frame(now:number){
    if(failed)return;
@@ -444,9 +447,10 @@ try {
      const active=state.mode==='lab'||run.model.phase==='combat'||run.model.phase==='settling';
      if(!editor.active&&panKeys.size){const speed=52*(panFast?2:1)*elapsed;renderer.pan((panKeys.has('d')?speed:0)-(panKeys.has('a')?speed:0),(panKeys.has('s')?speed:0)-(panKeys.has('w')?speed:0));}
      const steps=editor.active?0:clock.advance(elapsed,state.paused||!active);
+     if(active&&!state.paused&&!editor.active)simulationRate.push(elapsed,steps*clock.step);else simulationRate.reset();
      for(let i=0;i<steps;i++)tick();
      if(!state.paused){for(const effect of visuals)effect.duration-=elapsed;visuals=visuals.filter(e=>e.duration>0);for(const particle of visualParticles)particle.age+=elapsed;visualParticles=visualParticles.filter(particle=>particle.age<particle.life);for(const explosion of heavyExplosions)explosion.age+=elapsed;heavyExplosions=heavyExplosions.filter(explosion=>explosion.age<explosion.life);const advanced=advanceHeavyProjectiles(heavyProjectiles,0,clock.tick);heavyProjectiles=advanced.active;for(const impact of advanced.impacts)detonateHeavy(impact);for(const popup of pressurePopups)popup.age+=elapsed;for(const popup of pressurePopups.filter(popup=>popup.age>=popup.life))popup.element.remove();pressurePopups=pressurePopups.filter(popup=>popup.age<popup.life);cameraShake*=Math.exp(-8.5*elapsed);}
-     const encoder=gpu.device.createCommandEncoder({label:'Present'});
+     const nativeEncoder=gpu.device.createCommandEncoder({label:'Present'}),measurement=profiler?.wrap(nativeEncoder),encoder=measurement?.encoder??nativeEncoder;
      const placement=pointer?towerPlacement(pointer):undefined;
      const placementKind=state.buildTool==='wall'||state.buildTool==='fence'||state.buildTool==='wire'?state.buildTool:undefined;
      const structurePlacement=pointer&&placementKind?(placementKind==='wall'?wallAt(pointer):barrierAt(pointer)):undefined;
@@ -462,7 +466,7 @@ try {
      const infantrySelectionBox=infantryDrag?{x:Math.min(infantryDrag.start.x,infantryDrag.current.x),y:Math.min(infantryDrag.start.y,infantryDrag.current.y),width:Math.abs(infantryDrag.current.x-infantryDrag.start.x),height:Math.abs(infantryDrag.current.y-infantryDrag.start.y)}:undefined;
      renderer.encode(encoder,{barracksGhost:!editor.active&&state.mode==='game'&&infantry.tool==='build'&&pointer?infantry.preview(pointer):undefined,infantry:!editor.active&&state.mode==='game'?infantry.state():undefined,selectedBarracks:infantry.selected,selectedInfantry:infantry.selectedSoldiers,infantrySelectionBox,infantryCommandTarget:infantry.commandTarget,aftermathVisible:!editor.active,count:editor.active?0:count,time:simulatedTime,map:editor.active?editor.map:map,towers:!editor.active&&state.mode==='game'?run.model.towers:[],effects:editor.active?[]:visuals,visualParticles:editor.active?[]:visualParticles,heavyProjectiles:editor.active?[]:heavyProjectiles,heavyExplosions:editor.active?[]:heavyExplosions,cameraShake:editor.active?0:cameraShake,walls:editor.active?[]:builtWalls,fences:editor.active?[]:builtFences,wires:editor.active?[]:builtWires,heatmap:state.heatmap,selection:run.model.selected,selectionRange,ghost:editor.active?undefined:ghost,groundTargetGhost,placementGhost,boss:!editor.active&&latest.boss?.active?latest.boss:undefined});
      const arena=ui.canvas.parentElement!.getBoundingClientRect();for(const popup of pressurePopups){const screen=renderer.worldToScreen(popup.x,popup.y),progress=popup.age/popup.life;popup.element.style.left=`${screen.x-arena.left+popup.drift*progress}px`;popup.element.style.top=`${screen.y-arena.top-progress*34}px`;popup.element.style.opacity=String(Math.min(1,(1-progress)*2.8));}
-     gpu.device.queue.submit([encoder.finish()]);
+     measurement?.resolve();gpu.device.queue.submit([encoder.finish()]);void measurement?.read();
      if(now-lastUI>100)updateUI(now);else{positionInspector();positionUpgradeInspector();positionInfantryInspector();}
      requestAnimationFrame(frame);
    }catch(error){fail(error);}

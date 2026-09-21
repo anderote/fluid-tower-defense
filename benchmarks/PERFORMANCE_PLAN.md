@@ -76,3 +76,7 @@ service restart, or interaction with the user's existing game tab is required.
 
 - Stage 0: plan established; dev includes unreleased permanent fences and terrain
   changes, so all new measurements use dev rather than assuming published parity.
+- Stage 1: optional bounded GPU profiler, production simulation/wall ratio and
+  opt-in profiling, deterministic five-scenario browser laboratory, and raw
+  baseline evidence implemented. Apple timestamp support verified with no GPU
+  errors; targeting, not density, dominates this initial mixed-tower fixture.
