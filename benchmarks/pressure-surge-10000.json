@@ -1,0 +1,852 @@
+{
+  "dense": [
+    {
+      "scenario": "dense",
+      "mode": "physics",
+      "trial": 0,
+      "variant": "reference",
+      "options": {
+        "autorun": "",
+        "scenario": "dense",
+        "population": "10000",
+        "frames": "180",
+        "only": "physics",
+        "compare": "surge",
+        "surge": "reference"
+      },
+      "adapter": "apple",
+      "population": 10000,
+      "liveAtLastRead": 10000,
+      "invalid": 0,
+      "frames": 180,
+      "canvas": [
+        300,
+        150
+      ],
+      "fixture": "population restored per frame; one 1/60 step per frame; bounded queue; aftermath ring saturated",
+      "simulationSecondsPerWallSecond": 2.006420545762385,
+      "frame": {
+        "samples": 179,
+        "medianMs": 8.300000000000182,
+        "p95Ms": 9.200000000000273,
+        "maxMs": 9.400000000000091
+      },
+      "cpuEncode": {
+        "samples": 180,
+        "medianMs": 0.7999999523162842,
+        "p95Ms": 1.100000023841858,
+        "maxMs": 2
+      },
+      "submitToCompletionIncludingEncode": {
+        "samples": 180,
+        "medianMs": 2.299999952316284,
+        "p95Ms": 3.099999964237213,
+        "maxMs": 3.800000011920929
+      },
+      "gpu": {
+        "supported": true,
+        "skipped": 0,
+        "errors": [],
+        "passes": {
+          "Crowd physics substep 1/2": {
+            "samples": 180,
+            "medianMs": 0.196608,
+            "p95Ms": 0.32768,
+            "maxMs": 0.393216
+          },
+          "Crowd physics substep 2/2": {
+            "samples": 180,
+            "medianMs": 0.196608,
+            "p95Ms": 0.32768,
+            "maxMs": 0.393216
+          }
+        }
+      },
+      "errors": []
+    },
+    {
+      "scenario": "dense",
+      "mode": "physics",
+      "trial": 1,
+      "variant": "optimized",
+      "options": {
+        "autorun": "",
+        "scenario": "dense",
+        "population": "10000",
+        "frames": "180",
+        "only": "physics",
+        "compare": "surge",
+        "surge": "optimized"
+      },
+      "adapter": "apple",
+      "population": 10000,
+      "liveAtLastRead": 10000,
+      "invalid": 0,
+      "frames": 180,
+      "canvas": [
+        300,
+        150
+      ],
+      "fixture": "population restored per frame; one 1/60 step per frame; bounded queue; aftermath ring saturated",
+      "simulationSecondsPerWallSecond": 1.9757639620963552,
+      "frame": {
+        "samples": 179,
+        "medianMs": 8.300000000000182,
+        "p95Ms": 9.300000000000182,
+        "maxMs": 25.900000000000546
+      },
+      "cpuEncode": {
+        "samples": 180,
+        "medianMs": 0.5999999642372131,
+        "p95Ms": 1.0999999642372131,
+        "maxMs": 6.199999988079071
+      },
+      "submitToCompletionIncludingEncode": {
+        "samples": 180,
+        "medianMs": 2,
+        "p95Ms": 2.899999976158142,
+        "maxMs": 12.300000011920929
+      },
+      "gpu": {
+        "supported": true,
+        "skipped": 0,
+        "errors": [],
+        "passes": {
+          "Crowd physics substep 1/2": {
+            "samples": 180,
+            "medianMs": 0.196608,
+            "p95Ms": 0.32768,
+            "maxMs": 0.393216
+          },
+          "Crowd physics substep 2/2": {
+            "samples": 180,
+            "medianMs": 0.196608,
+            "p95Ms": 0.32768,
+            "maxMs": 0.458752
+          }
+        }
+      },
+      "errors": []
+    },
+    {
+      "scenario": "dense",
+      "mode": "physics",
+      "trial": 2,
+      "variant": "optimized",
+      "options": {
+        "autorun": "",
+        "scenario": "dense",
+        "population": "10000",
+        "frames": "180",
+        "only": "physics",
+        "compare": "surge",
+        "surge": "optimized"
+      },
+      "adapter": "apple",
+      "population": 10000,
+      "liveAtLastRead": 10000,
+      "invalid": 0,
+      "frames": 180,
+      "canvas": [
+        300,
+        150
+      ],
+      "fixture": "population restored per frame; one 1/60 step per frame; bounded queue; aftermath ring saturated",
+      "simulationSecondsPerWallSecond": 2.0083009773571154,
+      "frame": {
+        "samples": 179,
+        "medianMs": 8.300000000001091,
+        "p95Ms": 9.299999999999272,
+        "maxMs": 9.400000000001455
+      },
+      "cpuEncode": {
+        "samples": 180,
+        "medianMs": 0.6000000238418579,
+        "p95Ms": 1,
+        "maxMs": 1.800000011920929
+      },
+      "submitToCompletionIncludingEncode": {
+        "samples": 180,
+        "medianMs": 2.199999988079071,
+        "p95Ms": 3,
+        "maxMs": 4.100000023841858
+      },
+      "gpu": {
+        "supported": true,
+        "skipped": 0,
+        "errors": [],
+        "passes": {
+          "Crowd physics substep 1/2": {
+            "samples": 180,
+            "medianMs": 0.196608,
+            "p95Ms": 0.32768,
+            "maxMs": 0.458752
+          },
+          "Crowd physics substep 2/2": {
+            "samples": 180,
+            "medianMs": 0.196608,
+            "p95Ms": 0.32768,
+            "maxMs": 0.458752
+          }
+        }
+      },
+      "errors": []
+    },
+    {
+      "scenario": "dense",
+      "mode": "physics",
+      "trial": 3,
+      "variant": "reference",
+      "options": {
+        "autorun": "",
+        "scenario": "dense",
+        "population": "10000",
+        "frames": "180",
+        "only": "physics",
+        "compare": "surge",
+        "surge": "reference"
+      },
+      "adapter": "apple",
+      "population": 10000,
+      "liveAtLastRead": 10000,
+      "invalid": 0,
+      "frames": 180,
+      "canvas": [
+        300,
+        150
+      ],
+      "fixture": "population restored per frame; one 1/60 step per frame; bounded queue; aftermath ring saturated",
+      "simulationSecondsPerWallSecond": 2.008435428816993,
+      "frame": {
+        "samples": 179,
+        "medianMs": 8.300000000001091,
+        "p95Ms": 9,
+        "maxMs": 9.299999999999272
+      },
+      "cpuEncode": {
+        "samples": 180,
+        "medianMs": 0.6000000238418579,
+        "p95Ms": 1.100000023841858,
+        "maxMs": 1.5
+      },
+      "submitToCompletionIncludingEncode": {
+        "samples": 180,
+        "medianMs": 2.100000023841858,
+        "p95Ms": 2.800000011920929,
+        "maxMs": 3.200000047683716
+      },
+      "gpu": {
+        "supported": true,
+        "skipped": 0,
+        "errors": [],
+        "passes": {
+          "Crowd physics substep 1/2": {
+            "samples": 180,
+            "medianMs": 0.196608,
+            "p95Ms": 0.262144,
+            "maxMs": 0.32768
+          },
+          "Crowd physics substep 2/2": {
+            "samples": 180,
+            "medianMs": 0.196608,
+            "p95Ms": 0.32768,
+            "maxMs": 0.393216
+          }
+        }
+      },
+      "errors": []
+    }
+  ],
+  "jam": [
+    {
+      "scenario": "jam",
+      "mode": "physics",
+      "trial": 0,
+      "variant": "reference",
+      "options": {
+        "autorun": "",
+        "scenario": "jam",
+        "population": "10000",
+        "frames": "180",
+        "only": "physics",
+        "compare": "surge",
+        "surge": "reference"
+      },
+      "adapter": "apple",
+      "population": 10000,
+      "liveAtLastRead": 10000,
+      "invalid": 0,
+      "frames": 180,
+      "canvas": [
+        300,
+        150
+      ],
+      "fixture": "population restored per frame; one 1/60 step per frame; bounded queue; aftermath ring saturated",
+      "simulationSecondsPerWallSecond": 2.008435428816993,
+      "frame": {
+        "samples": 179,
+        "medianMs": 8.300000000000182,
+        "p95Ms": 9.199999999999818,
+        "maxMs": 9.300000000000182
+      },
+      "cpuEncode": {
+        "samples": 180,
+        "medianMs": 0.5,
+        "p95Ms": 1.0999999642372131,
+        "maxMs": 2.300000011920929
+      },
+      "submitToCompletionIncludingEncode": {
+        "samples": 180,
+        "medianMs": 2.699999988079071,
+        "p95Ms": 4.200000047683716,
+        "maxMs": 8.699999988079071
+      },
+      "gpu": {
+        "supported": true,
+        "skipped": 0,
+        "errors": [],
+        "passes": {
+          "Crowd physics substep 1/2": {
+            "samples": 180,
+            "medianMs": 0.589824,
+            "p95Ms": 1.179648,
+            "maxMs": 1.245184
+          },
+          "Crowd physics substep 2/2": {
+            "samples": 180,
+            "medianMs": 0.458752,
+            "p95Ms": 0.786432,
+            "maxMs": 0.917504
+          }
+        }
+      },
+      "errors": []
+    },
+    {
+      "scenario": "jam",
+      "mode": "physics",
+      "trial": 1,
+      "variant": "optimized",
+      "options": {
+        "autorun": "",
+        "scenario": "jam",
+        "population": "10000",
+        "frames": "180",
+        "only": "physics",
+        "compare": "surge",
+        "surge": "optimized"
+      },
+      "adapter": "apple",
+      "population": 10000,
+      "liveAtLastRead": 10000,
+      "invalid": 0,
+      "frames": 180,
+      "canvas": [
+        300,
+        150
+      ],
+      "fixture": "population restored per frame; one 1/60 step per frame; bounded queue; aftermath ring saturated",
+      "simulationSecondsPerWallSecond": 2.0073603211776514,
+      "frame": {
+        "samples": 179,
+        "medianMs": 8.300000000000182,
+        "p95Ms": 9,
+        "maxMs": 9.300000000000182
+      },
+      "cpuEncode": {
+        "samples": 180,
+        "medianMs": 0.5,
+        "p95Ms": 0.9000000357627869,
+        "maxMs": 2.200000047683716
+      },
+      "submitToCompletionIncludingEncode": {
+        "samples": 180,
+        "medianMs": 2.699999988079071,
+        "p95Ms": 3.800000011920929,
+        "maxMs": 4.900000035762787
+      },
+      "gpu": {
+        "supported": true,
+        "skipped": 0,
+        "errors": [],
+        "passes": {
+          "Crowd physics substep 1/2": {
+            "samples": 180,
+            "medianMs": 0.589824,
+            "p95Ms": 1.179648,
+            "maxMs": 1.245184
+          },
+          "Crowd physics substep 2/2": {
+            "samples": 180,
+            "medianMs": 0.458752,
+            "p95Ms": 0.917504,
+            "maxMs": 1.179648
+          }
+        }
+      },
+      "errors": []
+    },
+    {
+      "scenario": "jam",
+      "mode": "physics",
+      "trial": 2,
+      "variant": "optimized",
+      "options": {
+        "autorun": "",
+        "scenario": "jam",
+        "population": "10000",
+        "frames": "180",
+        "only": "physics",
+        "compare": "surge",
+        "surge": "optimized"
+      },
+      "adapter": "apple",
+      "population": 10000,
+      "liveAtLastRead": 10000,
+      "invalid": 0,
+      "frames": 180,
+      "canvas": [
+        300,
+        150
+      ],
+      "fixture": "population restored per frame; one 1/60 step per frame; bounded queue; aftermath ring saturated",
+      "simulationSecondsPerWallSecond": 2.0080321285140563,
+      "frame": {
+        "samples": 179,
+        "medianMs": 8.300000000001091,
+        "p95Ms": 9,
+        "maxMs": 9.400000000001455
+      },
+      "cpuEncode": {
+        "samples": 180,
+        "medianMs": 0.40000003576278687,
+        "p95Ms": 0.9000000357627869,
+        "maxMs": 1.7999999523162842
+      },
+      "submitToCompletionIncludingEncode": {
+        "samples": 180,
+        "medianMs": 2.600000023841858,
+        "p95Ms": 3.899999976158142,
+        "maxMs": 4.399999976158142
+      },
+      "gpu": {
+        "supported": true,
+        "skipped": 0,
+        "errors": [],
+        "passes": {
+          "Crowd physics substep 1/2": {
+            "samples": 180,
+            "medianMs": 0.589824,
+            "p95Ms": 1.179648,
+            "maxMs": 1.245184
+          },
+          "Crowd physics substep 2/2": {
+            "samples": 180,
+            "medianMs": 0.458752,
+            "p95Ms": 0.917504,
+            "maxMs": 1.179648
+          }
+        }
+      },
+      "errors": []
+    },
+    {
+      "scenario": "jam",
+      "mode": "physics",
+      "trial": 3,
+      "variant": "reference",
+      "options": {
+        "autorun": "",
+        "scenario": "jam",
+        "population": "10000",
+        "frames": "180",
+        "only": "physics",
+        "compare": "surge",
+        "surge": "reference"
+      },
+      "adapter": "apple",
+      "population": 10000,
+      "liveAtLastRead": 10000,
+      "invalid": 0,
+      "frames": 180,
+      "canvas": [
+        300,
+        150
+      ],
+      "fixture": "population restored per frame; one 1/60 step per frame; bounded queue; aftermath ring saturated",
+      "simulationSecondsPerWallSecond": 2.0069574524860014,
+      "frame": {
+        "samples": 179,
+        "medianMs": 8.300000000001091,
+        "p95Ms": 9.299999999999272,
+        "maxMs": 9.400000000001455
+      },
+      "cpuEncode": {
+        "samples": 180,
+        "medianMs": 0.5,
+        "p95Ms": 0.9000000357627869,
+        "maxMs": 2
+      },
+      "submitToCompletionIncludingEncode": {
+        "samples": 180,
+        "medianMs": 2.5,
+        "p95Ms": 3.600000023841858,
+        "maxMs": 4.5
+      },
+      "gpu": {
+        "supported": true,
+        "skipped": 0,
+        "errors": [],
+        "passes": {
+          "Crowd physics substep 1/2": {
+            "samples": 180,
+            "medianMs": 0.458752,
+            "p95Ms": 1.179648,
+            "maxMs": 1.703936
+          },
+          "Crowd physics substep 2/2": {
+            "samples": 180,
+            "medianMs": 0.458752,
+            "p95Ms": 0.851968,
+            "maxMs": 1.179648
+          }
+        }
+      },
+      "errors": []
+    }
+  ],
+  "breach": [
+    {
+      "scenario": "breach",
+      "mode": "physics",
+      "trial": 0,
+      "variant": "reference",
+      "options": {
+        "autorun": "",
+        "scenario": "breach",
+        "population": "10000",
+        "frames": "600",
+        "only": "physics",
+        "compare": "surge",
+        "continuous": "",
+        "surge": "reference"
+      },
+      "adapter": "apple",
+      "population": 10000,
+      "liveAtLastRead": 10000,
+      "invalid": 0,
+      "frames": 600,
+      "continuousAccounting": {
+        "arrivals": 10000,
+        "kills": 0,
+        "crushKills": 0,
+        "earned": 0,
+        "invalidCounter": 0,
+        "conserved": true
+      },
+      "canvas": [
+        300,
+        150
+      ],
+      "fixture": "evolving survivors; dead slots replenished on GPU from fixed distributed arrivals; no natural wave pacing; one 1/60 step/frame; bounded queue",
+      "simulationSecondsPerWallSecond": 1.995530012776139,
+      "frame": {
+        "samples": 599,
+        "medianMs": 8.300000000000182,
+        "p95Ms": 9.199999999999818,
+        "maxMs": 24.899999999999636
+      },
+      "cpuEncode": {
+        "samples": 600,
+        "medianMs": 0.5999999642372131,
+        "p95Ms": 1,
+        "maxMs": 1.800000011920929
+      },
+      "submitToCompletionIncludingEncode": {
+        "samples": 600,
+        "medianMs": 2.399999976158142,
+        "p95Ms": 3.699999988079071,
+        "maxMs": 18.399999976158142
+      },
+      "gpu": {
+        "supported": true,
+        "skipped": 0,
+        "errors": [],
+        "passes": {
+          "Horde arrivals": {
+            "samples": 600,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.196608
+          },
+          "Crowd physics substep 1/2": {
+            "samples": 600,
+            "medianMs": 0.32768,
+            "p95Ms": 0.786432,
+            "maxMs": 1.048576
+          },
+          "Crowd physics substep 2/2": {
+            "samples": 600,
+            "medianMs": 0.32768,
+            "p95Ms": 0.851968,
+            "maxMs": 0.98304
+          }
+        }
+      },
+      "errors": [],
+      "breach": {
+        "released": 1227,
+        "meanReleasedSpeed": 3.043174502777694
+      }
+    },
+    {
+      "scenario": "breach",
+      "mode": "physics",
+      "trial": 1,
+      "variant": "optimized",
+      "options": {
+        "autorun": "",
+        "scenario": "breach",
+        "population": "10000",
+        "frames": "600",
+        "only": "physics",
+        "compare": "surge",
+        "continuous": "",
+        "surge": "optimized"
+      },
+      "adapter": "apple",
+      "population": 10000,
+      "liveAtLastRead": 10000,
+      "invalid": 0,
+      "frames": 600,
+      "continuousAccounting": {
+        "arrivals": 10000,
+        "kills": 0,
+        "crushKills": 0,
+        "earned": 0,
+        "invalidCounter": 0,
+        "conserved": true
+      },
+      "canvas": [
+        300,
+        150
+      ],
+      "fixture": "evolving survivors; dead slots replenished on GPU from fixed distributed arrivals; no natural wave pacing; one 1/60 step/frame; bounded queue",
+      "simulationSecondsPerWallSecond": 1.9960478253153935,
+      "frame": {
+        "samples": 599,
+        "medianMs": 8.300000000001091,
+        "p95Ms": 9.199999999998909,
+        "maxMs": 25
+      },
+      "cpuEncode": {
+        "samples": 600,
+        "medianMs": 0.5999999642372131,
+        "p95Ms": 0.9000000357627869,
+        "maxMs": 2.600000023841858
+      },
+      "submitToCompletionIncludingEncode": {
+        "samples": 600,
+        "medianMs": 2.399999976158142,
+        "p95Ms": 3.5,
+        "maxMs": 17.5
+      },
+      "gpu": {
+        "supported": true,
+        "skipped": 0,
+        "errors": [],
+        "passes": {
+          "Horde arrivals": {
+            "samples": 600,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Crowd physics substep 1/2": {
+            "samples": 600,
+            "medianMs": 0.32768,
+            "p95Ms": 0.917504,
+            "maxMs": 1.114112
+          },
+          "Crowd physics substep 2/2": {
+            "samples": 600,
+            "medianMs": 0.32768,
+            "p95Ms": 0.851968,
+            "maxMs": 0.98304
+          }
+        }
+      },
+      "errors": [],
+      "breach": {
+        "released": 2292,
+        "meanReleasedSpeed": 3.7715232200458435
+      }
+    },
+    {
+      "scenario": "breach",
+      "mode": "physics",
+      "trial": 2,
+      "variant": "optimized",
+      "options": {
+        "autorun": "",
+        "scenario": "breach",
+        "population": "10000",
+        "frames": "600",
+        "only": "physics",
+        "compare": "surge",
+        "continuous": "",
+        "surge": "optimized"
+      },
+      "adapter": "apple",
+      "population": 10000,
+      "liveAtLastRead": 10000,
+      "invalid": 0,
+      "frames": 600,
+      "continuousAccounting": {
+        "arrivals": 10000,
+        "kills": 0,
+        "crushKills": 0,
+        "earned": 0,
+        "invalidCounter": 0,
+        "conserved": true
+      },
+      "canvas": [
+        300,
+        150
+      ],
+      "fixture": "evolving survivors; dead slots replenished on GPU from fixed distributed arrivals; no natural wave pacing; one 1/60 step/frame; bounded queue",
+      "simulationSecondsPerWallSecond": 1.9891392994204222,
+      "frame": {
+        "samples": 599,
+        "medianMs": 8.299999999999272,
+        "p95Ms": 9.099999999998545,
+        "maxMs": 25
+      },
+      "cpuEncode": {
+        "samples": 600,
+        "medianMs": 0.5,
+        "p95Ms": 0.9000000357627869,
+        "maxMs": 2.299999952316284
+      },
+      "submitToCompletionIncludingEncode": {
+        "samples": 600,
+        "medianMs": 2.5,
+        "p95Ms": 3.5,
+        "maxMs": 30.399999976158142
+      },
+      "gpu": {
+        "supported": true,
+        "skipped": 0,
+        "errors": [],
+        "passes": {
+          "Horde arrivals": {
+            "samples": 600,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.131072
+          },
+          "Crowd physics substep 1/2": {
+            "samples": 600,
+            "medianMs": 0.393216,
+            "p95Ms": 0.851968,
+            "maxMs": 1.048576
+          },
+          "Crowd physics substep 2/2": {
+            "samples": 600,
+            "medianMs": 0.458752,
+            "p95Ms": 0.917504,
+            "maxMs": 1.048576
+          }
+        }
+      },
+      "errors": [],
+      "breach": {
+        "released": 2304,
+        "meanReleasedSpeed": 3.7983542561198127
+      }
+    },
+    {
+      "scenario": "breach",
+      "mode": "physics",
+      "trial": 3,
+      "variant": "reference",
+      "options": {
+        "autorun": "",
+        "scenario": "breach",
+        "population": "10000",
+        "frames": "600",
+        "only": "physics",
+        "compare": "surge",
+        "continuous": "",
+        "surge": "reference"
+      },
+      "adapter": "apple",
+      "population": 10000,
+      "liveAtLastRead": 10000,
+      "invalid": 0,
+      "frames": 600,
+      "continuousAccounting": {
+        "arrivals": 10000,
+        "kills": 0,
+        "crushKills": 0,
+        "earned": 0,
+        "invalidCounter": 0,
+        "conserved": true
+      },
+      "canvas": [
+        300,
+        150
+      ],
+      "fixture": "evolving survivors; dead slots replenished on GPU from fixed distributed arrivals; no natural wave pacing; one 1/60 step/frame; bounded queue",
+      "simulationSecondsPerWallSecond": 1.9953309256387626,
+      "frame": {
+        "samples": 599,
+        "medianMs": 8.299999999999272,
+        "p95Ms": 9,
+        "maxMs": 25
+      },
+      "cpuEncode": {
+        "samples": 600,
+        "medianMs": 0.5,
+        "p95Ms": 0.9000000357627869,
+        "maxMs": 1.4000000357627869
+      },
+      "submitToCompletionIncludingEncode": {
+        "samples": 600,
+        "medianMs": 2.300000011920929,
+        "p95Ms": 3.199999988079071,
+        "maxMs": 17.5
+      },
+      "gpu": {
+        "supported": true,
+        "skipped": 0,
+        "errors": [],
+        "passes": {
+          "Horde arrivals": {
+            "samples": 600,
+            "medianMs": 0,
+            "p95Ms": 0.065536,
+            "maxMs": 0.065536
+          },
+          "Crowd physics substep 1/2": {
+            "samples": 600,
+            "medianMs": 0.393216,
+            "p95Ms": 0.786432,
+            "maxMs": 0.98304
+          },
+          "Crowd physics substep 2/2": {
+            "samples": 600,
+            "medianMs": 0.393216,
+            "p95Ms": 0.786432,
+            "maxMs": 0.98304
+          }
+        }
+      },
+      "errors": [],
+      "breach": {
+        "released": 1230,
+        "meanReleasedSpeed": 3.0261372035203347
+      }
+    }
+  ]
+}

@@ -7,6 +7,18 @@ export const PHYSICS_KERNEL_RADIUS = 1;
 export const PHYSICS_SUBSTEPS = 2;
 export const MIN_BODY_RADIUS = 0.05;
 
+// Crowd pressure (kPa), not explosive peak pressure. Saturation prevents runaway
+// feedback when forward effort further compresses a blocked crowd.
+export const SURGE_START = 12;
+export const SURGE_FULL = 80;
+export const SURGE_SPEED_GAIN = 0.65;
+export const SURGE_RELEASE_GAIN = 0.75;
+export const SURGE_COAST_DRAG = 0.9;
+export function pressureSurge(pressure:number):number {
+  const t=Math.max(0,Math.min(1,(pressure-SURGE_START)/(SURGE_FULL-SURGE_START)));
+  return t*t*(3-2*t);
+}
+
 export function occupiedArea(radius: number): number {
   if (!Number.isFinite(radius)) radius = 0.25;
   const r = Math.min(MAX_BODY_RADIUS, Math.max(MIN_BODY_RADIUS, Math.abs(radius)));
