@@ -306,10 +306,8 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
         }
       }
     }
-    // The original fenc.shp art was authored for Red Alert's isometric view
-    // and collapses into disconnected bright arcs in this top-down camera.
-    // Render explicit posts and diamond mesh so each solid stays readable.
-    for(const fence of activeFences)fenceShape(a,fence,fence.health/fence.maxHealth);
+    // Use procedural mesh only when the verified Red Alert atlas is missing.
+    if(!redAlert?.hasFenceSprites)for(const fence of activeFences)fenceShape(a,fence,fence.health/fence.maxHealth);
     for(const wire of scene.wires??[]){
       if(redAlert?.hasWireSprites)continue;
       const integrity=Math.max(.03,Math.min(1,wire.health/wire.maxHealth)),damage=1-integrity;
@@ -330,21 +328,21 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
     if(scene.groundTargetGhost){const g=scene.groundTargetGhost,c:[number,number,number,number]=g.valid?[.65,1,.25,.84]:[1,.18,.12,.88],distance=Math.hypot(g.x-g.originX,g.y-g.originY);ring(a,g.originX,g.originY,g.range,[c[0],c[1],c[2],.38],.16);for(let d=3;d<distance-1;d+=1.25){const t=d/distance;disc(a,g.originX+(g.x-g.originX)*t,g.originY+(g.y-g.originY)*t,.09,[c[0],c[1],c[2],.55],6);}ring(a,g.x,g.y,1.45,c,.2);ring(a,g.x,g.y,.42,c,.1);}
     for(const t of scene.towers){const c: [number,number,number,number]=t.kind==='repulsor'?[.73,1,.22,.95]:t.kind==='mortar'?[1,.62,.16,.95]:t.kind==='autocannon'?[.28,.85,1,.95]:t.kind==='cryo'?[.4,.85,.95,.95]:t.kind==='tesla'?[.62,.45,1,.95]:t.kind==='rocket'?[1,.25,.15,.95]:t.kind==='incinerator'?[1,.31,.12,.95]:[.35,1,.78,.95];towerShape(a,t,c);if(scene.selection===t.id)ring(a,t.x,t.y,4.2,[1,.88,.4,.9],.35);}
     if(scene.ghost){const c: [number,number,number,number]=scene.ghost.valid?[.65,1,.25,.8]:[1,.18,.12,.8];ring(a,scene.ghost.x,scene.ghost.y,scene.ghost.range,c,.22);towerShape(a,scene.ghost,c);}
-    if(scene.placementGhost){
-      const pulse=.8+.2*Math.sin(scene.time*7),c:[number,number,number,number]=scene.placementGhost.valid?[.26,1,.78,.72*pulse]:[1,.13,.07,.78];
-      rect(a,scene.placementGhost.x-.14,scene.placementGhost.y-.14,scene.placementGhost.width+.28,scene.placementGhost.height+.28,[c[0],c[1],c[2],.12*pulse]);
-      rectOutline(a,scene.placementGhost.x-.08,scene.placementGhost.y-.08,scene.placementGhost.width+.16,scene.placementGhost.height+.16,[c[0],c[1],c[2],.62*pulse],.11);
-      if(scene.placementGhost.kind==='wire'){
-        if(!redAlert?.hasWireSprites)wireShape(a,scene.placementGhost,c,1);
-        for(const x of [scene.placementGhost.x+.22,scene.placementGhost.x+scene.placementGhost.width-.22])for(const y of [scene.placementGhost.y+.22,scene.placementGhost.y+scene.placementGhost.height-.22])disc(a,x,y,.09,c,5);
-      }else if(scene.placementGhost.kind==='fence'){
-        fenceShape(a,scene.placementGhost,1,c);
+    for(const placementGhost of [...(scene.placementGhost?[scene.placementGhost]:[]),...(scene.placementGhosts??[])]){
+      const pulse=.8+.2*Math.sin(scene.time*7),c:[number,number,number,number]=placementGhost.valid?[.26,1,.78,.72*pulse]:[1,.13,.07,.78];
+      rect(a,placementGhost.x-.14,placementGhost.y-.14,placementGhost.width+.28,placementGhost.height+.28,[c[0],c[1],c[2],.12*pulse]);
+      rectOutline(a,placementGhost.x-.08,placementGhost.y-.08,placementGhost.width+.16,placementGhost.height+.16,[c[0],c[1],c[2],.62*pulse],.11);
+      if(placementGhost.kind==='wire'){
+        if(!redAlert?.hasWireSprites)wireShape(a,placementGhost,c,1);
+        for(const x of [placementGhost.x+.22,placementGhost.x+placementGhost.width-.22])for(const y of [placementGhost.y+.22,placementGhost.y+placementGhost.height-.22])disc(a,x,y,.09,c,5);
+      }else if(placementGhost.kind==='fence'){
+        if(!redAlert?.hasFenceSprites)fenceShape(a,placementGhost,1,c);
       }else{
-        rect(a,scene.placementGhost.x,scene.placementGhost.y,scene.placementGhost.width,scene.placementGhost.height,[c[0],c[1],c[2],.42]);
-        rect(a,scene.placementGhost.x+.35,scene.placementGhost.y+.35,scene.placementGhost.width-.7,.25,c);
-        rect(a,scene.placementGhost.x+.48,scene.placementGhost.y+scene.placementGhost.height*.48,scene.placementGhost.width-.96,.14,c);
+        rect(a,placementGhost.x,placementGhost.y,placementGhost.width,placementGhost.height,[c[0],c[1],c[2],.42]);
+        rect(a,placementGhost.x+.35,placementGhost.y+.35,placementGhost.width-.7,.25,c);
+        rect(a,placementGhost.x+.48,placementGhost.y+placementGhost.height*.48,placementGhost.width-.96,.14,c);
       }
-      if(!scene.placementGhost.valid){streak(a,scene.placementGhost.x+3.25,scene.placementGhost.y+3.25,1,1,3.45,.15,c);streak(a,scene.placementGhost.x+3.25,scene.placementGhost.y+.75,1,-1,3.45,.15,c);}
+      if(!placementGhost.valid){const size=Math.min(placementGhost.width,placementGhost.height);streak(a,placementGhost.x+size*.8,placementGhost.y+size*.8,1,1,size*.72,.15,c);streak(a,placementGhost.x+size*.8,placementGhost.y+size*.2,1,-1,size*.72,.15,c);}
     }
     if(scene.wallGhost)rect(a,scene.wallGhost.x,scene.wallGhost.y,scene.wallGhost.width,scene.wallGhost.height,scene.wallGhost.valid?[.25,.85,.95,.5]:[1,.15,.08,.5]);
     if(scene.demolitionHover){const alpha=.78+.18*Math.sin(scene.time*8);rectOutline(a,scene.demolitionHover.x,scene.demolitionHover.y,scene.demolitionHover.width,scene.demolitionHover.height,[1,.06,.035,alpha],.42);}

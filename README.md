@@ -75,7 +75,7 @@ The planning documents include future content. See the implementation and valida
 
 The turret art gallery at `/tests/soldat-art/` compares each weapon at base level and upgrade levels 1, 10, 25, and 50, in enlarged and game-scale views. It checks all 2,560 frames for clipping and visible upgrade changes in every direction. `/tests/soldat-art/scene.html` displays the same lineup with the production WebGPU renderer and lets you rotate or upgrade it live.
 
-Chain-link fences use the original Red Alert `fenc.shp` frame set imported from OpenRA's verified game-content package. The 16 connected standing frames are selected from neighboring placed fence sections, including the placement preview; fence health tints the source art until a collapsed fence is removed. See `public/assets/red-alert/NOTICE.md` for provenance and the repeatable import command.
+Chain-link fences use the original Red Alert `cycl.shp` frame set imported from OpenRA's verified game-content package with OpenRA's `effect` (`temperat.pal`) palette. Connected standing and damaged frames are selected from neighboring placed fence sections, including the placement preview. Barbed wire uses `barb.shp` and previews the complete dragged line before charging or placing anything on release. See `public/assets/red-alert/NOTICE.md` for provenance and the repeatable import command.
 
 The focused horde GPU suite at `/tests/horde/` checks offscreen movement, continuous boundary crossing, repeated dead-slot recycling, live-slot protection, and congestion feedback.
 

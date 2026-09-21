@@ -1,10 +1,14 @@
 # Red Alert artwork
 
 This atlas includes the original Red Alert chain-link-fence frames from
-`fenc.shp`, extracted from OpenRA's verified `ra-base.zip` package (SHA-1
+`cycl.shp` and barbed-wire frames from `barb.shp`, extracted from OpenRA's
+verified `ra-base.zip` package (SHA-1
 `aa022b208a3b45b4a45c00fdae22ccf3c6de3e5c`). The source artwork is ©
 Electronic Arts; it is separate from OpenRA's GPL engine source and this
 project's source code.
+
+The wall sprites use `temperat.pal`, matching OpenRA's fixed `effect` palette.
+`fenc.shp` is a separate fence graphic and is not used for chain-link fences.
 
 Rebuild the atlas from the verified local package:
 
