@@ -73,6 +73,7 @@ try {
  const resetHorde=()=>{horde.reset();hordeFront.reset();hordeCapacity.reset();};
  gpu.shared.shotState=combat.shotState;
  const renderer=await createRenderer(gpu.device,gpu.context,gpu.format,gpu.shared,ui.canvas,{turretArt:params.get('turretArt')==='red-alert'?'red-alert':'soldat',floorArt:params.get('floor')==='grating'?'grating':'panels'});
+ const setCombatAudioGain=()=>audio.setCombatGain(renderer.combatAudioScale?.()??1);
  const audio=createAudio();
  const selectedInspector=ui.canvas.parentElement!.querySelector<HTMLElement>('.selected-popup')!;
  const upgradeInspector=ui.canvas.parentElement!.querySelector<HTMLElement>('.upgrade-hover-card')!;
@@ -256,7 +257,7 @@ try {
    const rocket=impact.kind==='rocket',scale=rocket ? .88 : 1;
    heavyExplosions.push({x:impact.x,y:impact.y,kind:impact.kind,age:0,life:rocket ? 1.35 : 1.65,scale,direction:impact.direction,serial:impact.serial});
    if(heavyExplosions.length>32)heavyExplosions.splice(0,heavyExplosions.length-32);
-   audio.explode(impact.kind,impact.x,impact.serial);
+   setCombatAudioGain();audio.explode(impact.kind,impact.x,impact.serial);
    burst(impact,rocket?7:9,[.25,.24,.22],rocket?3.8:4.6,1.05,-.45,'smoke',rocket ? .9 : 1.15);
    burst(impact,rocket?8:12,[.39,.27,.14],rocket?9:10.5,.68,7.4,'debris',rocket ? .9 : 1.12);
    spray(impact,rocket?7:10,[1,.64,.13],rocket?12:14,.38,impact.direction,1.8,'spark',rocket ? .8 : 1);
@@ -279,7 +280,7 @@ try {
      const tower=run.model.towers.find(candidate=>candidate.id===event.towerId);if(!tower)continue;
      tower.angle=(event.angle+Math.PI*2)%(Math.PI*2);
      const shotDefinition=compileTower(tower,run.model.bonuses,run.model.commandUpgrades,run.statModifiers());
-     audio.fire(tower.kind,tower.x,event.serial);
+     setCombatAudioGain();audio.fire(tower.kind,tower.x,event.serial);
      if(tower.kind==='mortar'||tower.kind==='rocket'){
        heavyProjectiles.push(...createHeavyProjectiles(tower.kind,turretMuzzlePoints(tower.kind,tower,event.angle),event.target,event.serial,shotDefinition.peakPressureKpa,shotDefinition.radius,event.angle).map(projectile=>({...projectile,launchTick:event.launchTick})));
        continue;
@@ -290,7 +291,7 @@ try {
      const muzzle=turretMuzzlePoint(tower.kind,tower,event.angle);
      const ejection=turretEjection(tower.kind,tower,event.angle),jitter=((event.serial*37)%11-5)*.035;
      if(ejection&&visualParticles.length<520)visualParticles.push({x:ejection.point.x,y:ejection.point.y,vx:ejection.direction.x*speed+forward.x*jitter,vy:ejection.direction.y*speed+forward.y*jitter,size:heavy ? .42 : .3,life:heavy ? .92 : .72,age:0,color:heavy?[.78,.57,.24]:[.9,.7,.27],gravity:7.5,drag:.42,style:'shell',spin:(event.serial%2?1:-1)*(heavy?12:18)});
-     audio.shell(tower.x,event.serial,heavy);
+     setCombatAudioGain();audio.shell(tower.x,event.serial,heavy);
      burst(event.target,heavy?10:6,heavy?[.46,1,.82]:[1,.7,.18],heavy?10:7,heavy ? .32 : .22,2,'spark',heavy?1.2:.8);
      burst(muzzle,2,[.24,.22,.18],2.2,.52,-.7,'smoke',heavy?1.15:.8);
    }
@@ -481,7 +482,7 @@ try {
    horde.encode(encoder,arrivals,count);
    const infantryShots=advanceInfantry(infantry.state(),infantry.ensureFields(),infantry.fields,infantryGPU.threats,clock.step,state.mode==='game'&&run.model.phase==='combat',researchModifiers,infantry.orderFields);
    const finishInfantry=state.mode==='game'?infantryGPU.encode(encoder,infantry.state().soldiers,infantryShots,activeMap,count,clock.tick%6===0,researchModifiers,clock.step,infantrySightMap):undefined;
-   if(infantryShots.length){for(const shot of infantryShots){const soldier=infantry.state().soldiers.find(s=>s.id===shot.soldier),kind=soldier?.kind;if(kind==='rocket'&&soldier){const muzzle=infantryMuzzle(soldier);infantryRocketProjectiles.push({x:muzzle.x,y:muzzle.y,target:{x:shot.x,y:shot.y},age:0,life:.26,serial:clock.tick*1000+shot.soldier});}if(kind==='dog')audio.bark(shot.x,clock.tick);else if(kind==='samurai')audio.slash(shot.x,clock.tick);else audio.infantryFire(kind==='rocket'?'rocket':kind==='flame'?'flame':'rifle',shot.x,clock.tick);}}
+   if(infantryShots.length){for(const shot of infantryShots){const soldier=infantry.state().soldiers.find(s=>s.id===shot.soldier),kind=soldier?.kind;if(kind==='rocket'&&soldier){const muzzle=infantryMuzzle(soldier);infantryRocketProjectiles.push({x:muzzle.x,y:muzzle.y,target:{x:shot.x,y:shot.y},age:0,life:.26,serial:clock.tick*1000+shot.soldier});}setCombatAudioGain();if(kind==='dog')audio.bark(shot.x,clock.tick);else if(kind==='samurai')audio.slash(shot.x,clock.tick);else audio.infantryFire(kind==='rocket'?'rocket':kind==='flame'?'flame':'rifle',shot.x,clock.tick);}}
    combat.encodeBefore(encoder,frame);boss.encode(encoder,bossFrame);physics.encode(encoder,frame);combat.encodeAfter(encoder,frame);boss.encodeResolve(encoder,bossFrame);
    let finish:(()=>void)|undefined,finishShots:(()=>void)|undefined;
    if(clock.tick-lastTickSample>=6){finish=settlement.encode(encoder,gpu.shared.counters,gpu.shared.obstacleCounters!,gpu.shared.obstacleCapacity!,epoch,clock.tick);if(finish)lastTickSample=clock.tick;}
