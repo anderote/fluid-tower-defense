@@ -47,19 +47,27 @@ export async function createRedAlertArt(device:GPUDevice,format:GPUTextureFormat
   const imageResponse=await fetch(`${assetBase}assets/red-alert/atlas.png`);
   if(!imageResponse.ok)throw Error('Red Alert texture is missing');
   const bitmap=await createImageBitmap(await imageResponse.blob(),{premultiplyAlpha:'none',colorSpaceConversion:'none'});
-  let customSprites:Record<string,number[]>|undefined;
+  let customSprites:Record<string,number[]>|undefined,customFrames:Frame[]=[];
   let customCanvas:HTMLCanvasElement|undefined;
+  let barrierFacings:{wire:number[];fence:number[]}|undefined;
   const customOffset=bitmap.height;
   let textureWidth=atlas.size,textureHeight=atlas.size;
   if(style==='soldat'){
-    const custom=createSoldatAtlas(),offset=atlas.frames.length;customCanvas=custom.canvas;
-    customSprites=Object.fromEntries(Object.entries(custom.sprites).map(([kind,ids])=>[kind,ids.map(id=>id+offset)]));
-    atlas.frames.push(...custom.frames.map(frame=>({...frame,y:frame.y+customOffset})));
-    textureWidth=Math.max(textureWidth,custom.canvas.width);textureHeight=customOffset+custom.canvas.height;
+    const custom=createSoldatAtlas();customCanvas=custom.canvas;customFrames=custom.frames;
   }
+  // Bake 64 padded, nearest-neighbour facings from the verified RA panels.
+  // Padding keeps diagonal corners intact; the game draws these frames upright.
+  const facingSize=48,rows=(hasWireSprites?1:0)+(hasFenceSprites?1:0),extra=document.createElement('canvas');
+  extra.width=Math.max(customCanvas?.width??0,facingSize*64);extra.height=(customCanvas?.height??0)+rows*facingSize;
+  const extraContext=extra.getContext('2d')!;extraContext.imageSmoothingEnabled=false;if(customCanvas)extraContext.drawImage(customCanvas,0,0);
+  let row=customCanvas?.height??0;
+  const bake=(source:number[],target:'wire'|'fence')=>{const ids:number[]=[];const frame=atlas.frames[source[10]];for(let facing=0;facing<64;facing++){const x=facing*facingSize+facingSize/2,y=row+facingSize/2;extraContext.save();extraContext.translate(x,y);extraContext.rotate(facing*Math.PI/32);extraContext.drawImage(bitmap,frame.x,frame.y,frame.width,frame.height,-frame.width/2,-frame.height/2,frame.width,frame.height);extraContext.restore();ids.push(atlas.frames.length);atlas.frames.push({x:facing*facingSize,y:customOffset+row,width:facingSize,height:facingSize});}row+=facingSize;return ids;};
+  barrierFacings={wire:hasWireSprites?bake(wireFrames,'wire'):[],fence:hasFenceSprites?bake(fenceFrames,'fence'):[]};
+  if(customCanvas){const offset=atlas.frames.length;customSprites=Object.fromEntries(Object.entries(createSoldatAtlas().sprites).map(([kind,ids])=>[kind,ids.map(id=>id+offset)]));atlas.frames.push(...customFrames.map(frame=>({...frame,y:frame.y+customOffset})));}
+  textureWidth=Math.max(textureWidth,extra.width);textureHeight=customOffset+extra.height;
   const texture=device.createTexture({label:'Original Red Alert sprite atlas',size:[textureWidth,textureHeight],format:'rgba8unorm',usage:GPUTextureUsage.TEXTURE_BINDING|GPUTextureUsage.COPY_DST|GPUTextureUsage.RENDER_ATTACHMENT});
   device.queue.copyExternalImageToTexture({source:bitmap},{texture},[bitmap.width,bitmap.height]);bitmap.close();
-  if(customCanvas)device.queue.copyExternalImageToTexture({source:customCanvas},{texture,origin:[0,customOffset]},[customCanvas.width,customCanvas.height]);
+  if(extra.height)device.queue.copyExternalImageToTexture({source:extra},{texture,origin:[0,customOffset]},[extra.width,extra.height]);
   const shader=device.createShaderModule({label:'Red Alert nearest-pixel sprites',code:`
 struct Camera{viewport:vec4<f32>,world:vec4<f32>,time:vec4<f32>};
 @group(0) @binding(0) var<uniform> camera:Camera;
@@ -186,9 +194,9 @@ struct Out{@builtin(position) pos:vec4<f32>,@location(0) uv:vec2<f32>,@location(
         const dx=last.to.x-first.from.x,dy=last.to.y-first.from.y,length=Math.hypot(dx,dy);
         if(length>.001){
           const facing=Math.round(Math.atan2(dy,dx)*32/Math.PI),angle=facing*Math.PI/32;
-          const damaged=wireDamage({health:first.health,maxHealth:first.maxHealth,breached:first.breached??false}),frameId=kind==='fence'?fenceFrames[10]:wireFrames[damaged==='breached'?26:10];
+          const damaged=wireDamage({health:first.health,maxHealth:first.maxHealth,breached:first.breached??false}),frameId=(kind==='fence'?barrierFacings!.fence:barrierFacings!.wire)[(facing%64+64)%64];
           const tint=kind==='fence'?(damaged==='intact'?[1,1,1,1]:[.82,.72,.58,1]):damaged==='breached'?[.72,.65,.54,1]:damaged==='intact'?[1,1,1,1]:damaged==='worn'?[.88,.79,.65,1]:[.74,.61,.46,1];
-          sprite(data,frameId,first.from.x-2,first.from.y-2,4,4,tint,undefined,angle);
+          sprite(data,frameId,first.from.x-4,first.from.y-4,8,8,tint);
         }
         index=Math.max(index+1,next);
       }

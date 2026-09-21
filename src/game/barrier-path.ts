@@ -6,6 +6,8 @@ export type BarrierSegment=Rect&{from:Vec2;to:Vec2;run:number;kind:BarrierKind};
 export const BARRIER_THICKNESS=.72;
 export const BARRIER_SAMPLE=.65;
 export const MIN_BARRIER_LENGTH=1;
+/** One original 4-unit panel now covers five world units of a freeform run. */
+export const BARRIER_COST_LENGTH=5;
 
 const distance=(a:Vec2,b:Vec2)=>Math.hypot(b.x-a.x,b.y-a.y);
 const copy=(point:Vec2):Vec2=>({x:point.x,y:point.y});
@@ -31,21 +33,30 @@ export function simplifyBarrier(points:readonly Vec2[],tolerance=.18):Vec2[]{
   result.push(copy(points.at(-1)!));return result;
 }
 
-/** A physical line is sampled into tiny collision rectangles, while `from/to` retain the true geometry for rendering. */
+/**
+ * A physical line is sampled into centered collision tiles while `from/to`
+ * retain the true geometry for rendering.  Extending an axis-aligned box from
+ * each diagonal segment biases its outer edge, which made one side of a fence
+ * stand farther away than the other.  The tile size is compensated for the
+ * line's angle so its projected half-width stays `thickness / 2` on either
+ * side of the painted centerline.
+ */
 export function barrierSegments(kind:BarrierKind,run:number,points:readonly Vec2[],thickness=BARRIER_THICKNESS):BarrierSegment[]{
   const result:BarrierSegment[]=[];
   for(let index=1;index<points.length;index++){
     const from=points[index-1],to=points[index],length=distance(from,to);if(length<.001)continue;
-    const pieces=Math.max(1,Math.ceil(length/BARRIER_SAMPLE));
+    const pieces=Math.max(1,Math.ceil(length/BARRIER_SAMPLE)),tile=thickness/(Math.abs((to.x-from.x)/length)+Math.abs((to.y-from.y)/length));
     for(let piece=0;piece<pieces;piece++){
-      const a=piece/pieces,b=(piece+1)/pieces,start={x:from.x+(to.x-from.x)*a,y:from.y+(to.y-from.y)*a},end={x:from.x+(to.x-from.x)*b,y:from.y+(to.y-from.y)*b};
-      result.push({x:Math.min(start.x,end.x)-thickness/2,y:Math.min(start.y,end.y)-thickness/2,width:Math.abs(end.x-start.x)+thickness,height:Math.abs(end.y-start.y)+thickness,from:start,to:end,run,kind});
+      const a=piece/pieces,b=(piece+1)/pieces,start={x:from.x+(to.x-from.x)*a,y:from.y+(to.y-from.y)*a},end={x:from.x+(to.x-from.x)*b,y:from.y+(to.y-from.y)*b},center={x:(start.x+end.x)/2,y:(start.y+end.y)/2};
+      result.push({x:center.x-tile/2,y:center.y-tile/2,width:tile,height:tile,from:start,to:end,run,kind});
     }
   }
   return result;
 }
 
 export function barrierLength(points:readonly Vec2[]):number{return points.slice(1).reduce((total,point,index)=>total+distance(points[index],point),0);}
+
+export function barrierCost(length:number,unitCost:number):number{return Math.ceil(Math.max(0,length)/BARRIER_COST_LENGTH)*unitCost;}
 
 export function pointToBarrierDistance(point:Vec2,segment:Pick<BarrierSegment,'from'|'to'>):number{
   const dx=segment.to.x-segment.from.x,dy=segment.to.y-segment.from.y,length=dx*dx+dy*dy;
