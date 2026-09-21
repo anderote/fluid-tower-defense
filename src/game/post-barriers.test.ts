@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {addBarrierPost,barrierCells,barrierPostAt,extendBarrier,reconcileBarrier,removeBarrierPost} from './post-barriers.ts';
+import {addBarrierPost,barrierCells,barrierPostAt,extendBarrier,reconcileBarrier,recycleBarrier,removeBarrierPost} from './post-barriers.ts';
 
 test('posts snap to the original Red Alert four-unit art grid',()=>{
   assert.deepEqual(barrierPostAt({x:5.9,y:10.1},{width:20,height:16}),{x:4,y:8});
@@ -29,4 +29,12 @@ test('removing a post removes unsupported panels while preserving surviving dama
   old[0].health=40;
   const rebuilt=reconcileBarrier(barrierCells(removeBarrierPost(posts,{x:13,y:1})),old,cell=>({...cell,health:100}));
   assert.deepEqual(rebuilt,[{x:0,y:0,width:4,height:4,health:40}]);
+});
+
+test('recycling accepts any panel while post recycling removes its unsupported run',()=>{
+  const posts=[{x:0,y:0},{x:12,y:0}],sections=barrierCells(posts).map(cell=>({...cell,health:100}));
+  const panel=recycleBarrier(posts,sections,{x:5,y:1});
+  assert.equal(panel.post,false);assert.deepEqual(panel.removed.map(cell=>cell.x),[4]);assert.deepEqual(panel.posts,posts);
+  const post=recycleBarrier(posts,sections,{x:1,y:1});
+  assert.equal(post.post,true);assert.deepEqual(post.removed.map(cell=>cell.x),[0,4,8]);assert.deepEqual(post.sections.map(cell=>cell.x),[12]);
 });
