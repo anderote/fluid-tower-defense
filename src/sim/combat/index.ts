@@ -253,7 +253,7 @@ fn roundFall(round:Round,point:vec2f,bodyRadius:f32)->vec3f {
   // Panic is an impulse before physics: walls, contacts and navigation still resolve it.
   let speed=length(p.pos.zw);let heading=select(vec2f(1.,0.),p.pos.zw/max(.001,speed),speed>.1);
   let side=vec2f(-heading.y,heading.x);let panic=sin(params.clock.y*.17+f32(i)*2.399);
-  let desired=(heading+side*panic*.85)*enemySpeed(u32(p.state.z))*1.65;
+  let desired=(heading+side*panic*.85)*enemySpeedFor(u32(p.state.z),p.body.w)*1.65;
   p.pos=vec4f(p.pos.xy,mix(p.pos.zw,desired,min(1.,params.clock.x*7.)));
  }
  heat[i]=h;particles[i]=p;
@@ -287,7 +287,7 @@ fn roundFall(round:Round,point:vec2f,bodyRadius:f32)->vec3f {
 @compute @workgroup_size(128) fn settle(@builtin(global_invocation_id) gid:vec3u){
  let i=gid.x;if(i>=u32(params.clock.z)){return;}var p=particles[i];if(p.state.w<.5){return;}
  if(p.pos.x < -10.0 && p.state.y > 40.0){atomicStore(&counters[${HORDE_PRESSURE_COUNTER}],1u);}
- let kind=u32(clamp(p.state.z,0.0,5.0)+0.5);let tolerance=enemyCrushResistance(kind);
+ let kind=u32(clamp(p.state.z,0.0,5.0)+0.5);let tolerance=enemyCrushResistanceFor(kind,p.body.w);
  // Exposure is physics-owned until this settlement consumes it.
  let brittle=select(1.0,1.7,p.status.y>0.0);
  let crush=max(0.0,p.status.z)*brittle/tolerance;

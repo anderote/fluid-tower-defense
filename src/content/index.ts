@@ -47,13 +47,10 @@ export const MAX_VETERANCY=100;
 /** 64.8 XP per squared rank: rank 10 requires 6,480 credited kills, rank 50 162,000, and rank 100 648,000. */
 export const veterancyXpForLevel=(level:number):number=>64.8*Math.max(0,Math.min(MAX_VETERANCY,Math.ceil(level)))**2;
 export const veterancyLevel=(xp:number):number=>Math.min(MAX_VETERANCY,Math.floor(Math.sqrt(Math.max(0,xp)/64.8)));
-/**
- * Each rank is a modest 0.9% improvement, but a long-serving rank-100 unit
- * reaches 2.5x base damage. The same veteran curve is deliberately tempered
- * for range and rate of fire in `compileTower`, so they top out at 1.83x and
- * 1.42x respectively.
- */
-export const veterancyMultiplier=(level:number):number=>2.5**(Math.min(MAX_VETERANCY,Math.max(0,level))/MAX_VETERANCY);
+/** Veteran service now has a strong identity: rank 100 reaches 5x base damage.
+ * Range and reload also scale meaningfully, while the exponential curve keeps
+ * the first few ranks modest and makes long-serving defenses feel legendary. */
+export const veterancyMultiplier=(level:number):number=>5**(Math.min(MAX_VETERANCY,Math.max(0,level))/MAX_VETERANCY);
 
 export const ENEMIES: Record<EnemyKind, EnemyDef> = {
   shambler: {id:'shambler',index:0,name:'Shambler',radius:.4125,mass:1,health:30,speed:3.1,drive:1,pressureLimit:24,crushResistance:1,bounty:3,leak:1,color:'#76c66e'},
@@ -63,6 +60,18 @@ export const ENEMIES: Record<EnemyKind, EnemyDef> = {
   softbody: {id:'softbody',index:4,name:'Bloater',radius:.5625,mass:1.1,health:60,speed:2.25,drive:.8,pressureLimit:62,crushResistance:2.8,bounty:6,leak:2,color:'#a678d4'},
   husk: {id:'husk',index:5,name:'Husk',radius:.35625,mass:.85,health:34,speed:2.9,drive:1,pressureLimit:10,crushResistance:.5,bounty:4,leak:1,color:'#9edce8'},
 };
+
+/** Every 25% of wave-scaled health unlocks the next enemy tier. */
+export const ENEMY_TIER_HEALTH_STEP = .25;
+export const enemyTierForHealthScale = (healthScale:number):number => Math.max(0,Math.floor(Math.max(0,healthScale-1)/ENEMY_TIER_HEALTH_STEP));
+export const enemySpeedMultiplier = (healthScale:number):number => 1 + enemyTierForHealthScale(healthScale) * .06;
+export const enemyDriveMultiplier = (healthScale:number):number => 1 + enemyTierForHealthScale(healthScale) * .025;
+export const enemyPressureMultiplier = (healthScale:number):number => 1 + enemyTierForHealthScale(healthScale) * .08;
+export const enemyCrushMultiplier = (healthScale:number):number => 1 + enemyTierForHealthScale(healthScale) * .06;
+export const enemySpeedForScale = (kind:EnemyKind,healthScale=1):number => ENEMIES[kind].speed * enemySpeedMultiplier(healthScale);
+export const enemyDriveForScale = (kind:EnemyKind,healthScale=1):number => ENEMIES[kind].drive * enemyDriveMultiplier(healthScale);
+export const enemyPressureLimitForScale = (kind:EnemyKind,healthScale=1):number => ENEMIES[kind].pressureLimit * enemyPressureMultiplier(healthScale);
+export const enemyCrushResistanceForScale = (kind:EnemyKind,healthScale=1):number => ENEMIES[kind].crushResistance * enemyCrushMultiplier(healthScale);
 
 /** Enemy bounties are accumulated as points; 50 points pay one Metal. */
 export const ENEMY_BOUNTY_DIVISOR=50;
@@ -74,8 +83,14 @@ const enemyCases=(field:keyof EnemyDef,format:(value:never)=>string=wgslNumber):
 export const ENEMY_WGSL=/* wgsl */`
 fn enemySpeed(kind:u32)->f32 { switch kind { ${enemyCases('speed')} default: { return ${wgslNumber(ENEMIES.shambler.speed)}; } } }
 fn enemyDrive(kind:u32)->f32 { switch kind { ${enemyCases('drive')} default: { return ${wgslNumber(ENEMIES.shambler.drive)}; } } }
+fn enemyHealth(kind:u32)->f32 { switch kind { ${enemyCases('health')} default: { return ${wgslNumber(ENEMIES.shambler.health)}; } } }
 fn enemyPressureLimit(kind:u32)->f32 { switch kind { ${enemyCases('pressureLimit')} default: { return ${wgslNumber(ENEMIES.shambler.pressureLimit)}; } } }
 fn enemyCrushResistance(kind:u32)->f32 { switch kind { ${enemyCases('crushResistance')} default: { return ${wgslNumber(ENEMIES.shambler.crushResistance)}; } } }
+fn enemyTier(maxHp:f32,kind:u32)->f32 { return floor(max(0.0,maxHp/max(enemyHealth(kind),0.001)-1.0)/0.25); }
+fn enemySpeedFor(kind:u32,maxHp:f32)->f32 { return enemySpeed(kind)*(1.0+enemyTier(maxHp,kind)*0.06); }
+fn enemyDriveFor(kind:u32,maxHp:f32)->f32 { return enemyDrive(kind)*(1.0+enemyTier(maxHp,kind)*0.025); }
+fn enemyPressureLimitFor(kind:u32,maxHp:f32)->f32 { return enemyPressureLimit(kind)*(1.0+enemyTier(maxHp,kind)*0.08); }
+fn enemyCrushResistanceFor(kind:u32,maxHp:f32)->f32 { return enemyCrushResistance(kind)*(1.0+enemyTier(maxHp,kind)*0.06); }
 fn enemyBountyPoints(kind:u32)->u32 { switch kind { ${enemyCases('bounty',value=>`${value}u`)} default: { return ${ENEMIES.shambler.bounty}u; } } }
 fn enemyLeak(kind:u32)->u32 { switch kind { ${enemyCases('leak',value=>`${value}u`)} default: { return ${ENEMIES.shambler.leak}u; } } }
 fn enemyColor(kind:u32)->vec3f { switch kind { ${enemyCases('color',value=>`vec3f(${hexRgb(String(value)).map(wgslNumber).join(',')})`)} default: { return vec3f(${hexRgb(ENEMIES.shambler.color).map(wgslNumber).join(',')}); } } }
@@ -126,7 +141,7 @@ export function compileTower(tower: Tower, bonuses: readonly string[] = [], comm
   force *= 1 + (powerPath?.05:.035) * (1-Math.exp(-level/12));
   radius *= 1 + level * (controlPath?.008:.004);
   const veteran=veterancyMultiplier(tower.veterancy ?? veterancyLevel(tower.veterancyXp ?? 0));
-  range*=1+(veteran-1)*.55; damage*=veteran; cooldown/=1+(veteran-1)*.28;
+  range*=1+(veteran-1)*.65; damage*=veteran; cooldown/=1+(veteran-1)*.5; force*=1+(veteran-1)*.5; radius*=1+(veteran-1)*.35;
   if (tower.branch === 0) {
     if (tower.kind==='repulsor') { force *= 1.4; radius *= .8; range += 1; }
     if (tower.kind==='mortar') { damage *= 1.6; radius *= .78; cooldown *= 1.12; }

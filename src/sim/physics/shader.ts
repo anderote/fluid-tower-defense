@@ -354,10 +354,10 @@ fn computeMotion(@builtin(global_invocation_id) gid: vec3<u32>) {
   let direction = flowDirection(position, index, particle.status.w);
   let slow = slowMultiplier(position, particle.status.x)*corpseSlow;
   let surge = pressureSurge(particle.state.y);
-  let baseSpeed = enemySpeed(kind);
+  let baseSpeed = enemySpeedFor(kind,particle.body.w);
   let desiredSpeed = baseSpeed * (1.0 + ${SURGE_SPEED_GAIN} * surge) * slow;
   let desiredVelocity = direction * desiredSpeed;
-  let drive = max(0.0, params.drive) * enemyDrive(kind);
+  let drive = max(0.0, params.drive) * enemyDriveFor(kind,particle.body.w);
   var acceleration = (desiredVelocity - velocity) * drive - velocity * 0.12;
   // Preserve only bounded forward overspeed. Steering and knockback still use
   // normal drag; freezing immediately restores normal braking.
@@ -575,7 +575,7 @@ fn integrateParticles(@builtin(global_invocation_id) gid: vec3<u32>) {
   particles[index].pos = vec4<f32>(position, velocity);
   particles[index].status.x = slowDuration(position, previousSlow);
   let kind = u32(clamp(particle.state.z, 0.0, 5.0) + 0.5);
-  let damageStart = enemyPressureLimit(kind) * max(0.0, params.damagePressure) / 24.0;
+  let damageStart = enemyPressureLimitFor(kind,particle.body.w) * max(0.0, params.damagePressure) / 24.0;
   let damageEnd = damageStart + max(0.001, params.crushPressure - params.damagePressure);
   let ramp = clamp((max(0.0, particle.state.y) - damageStart) / (damageEnd - damageStart), 0.0, 1.0);
   let smoothRamp = ramp * ramp * (3.0 - 2.0 * ramp);

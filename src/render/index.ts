@@ -9,7 +9,7 @@ import {AUTOCANNON_MUZZLE_LIFT,SOLDAT_FACINGS} from './soldat-art.ts';
 import {createTeslaEffects} from './tesla.ts';
 import {createAftermathRenderer} from './aftermath.ts';
 import {TESLA_STATE_WGSL,TESLA_HEADER_BYTES,TESLA_PARTICLE_BYTES} from '../effects/tesla.ts';
-import { ENEMY_WGSL, towerBehavior, towerRequiresLineOfSight } from '../content/index.ts';
+import { ENEMY_WGSL, MAX_VETERANCY, towerBehavior, towerRequiresLineOfSight, veterancyXpForLevel } from '../content/index.ts';
 import { PARTICLE_WGSL, type RenderScene, type Renderer, type SharedGPU, type TowerKind, type Vec2 } from '../contracts/index.ts';
 import {cameraPanBounds,screenToWorld as unproject, worldToScreen as project} from './camera.ts';
 import {TURRET_GRID, turretHardpoints, turretPixelRects, type TurretInk} from './turret-art.ts';
@@ -34,10 +34,15 @@ const MUZZLE_OFFSETS_WGSL=`fn muzzleOffset(weapon:f32,barrel:f32)->vec2<f32>{${W
 type V = { x:number; y:number; r:number; g:number; b:number; a:number };
 const sameRect=(left:{x:number;y:number;width:number;height:number},right:{x:number;y:number;width:number;height:number})=>left.x===right.x&&left.y===right.y&&left.width===right.width&&left.height===right.height;
 
-/** Wide tactical views need a stable camera; close views retain full impact. */
+/** Wide tactical views need a stable camera; close views retain full impact.
+ * Falloff is exponential in visible camera height, so shake becomes prominent
+ * only when the player is genuinely zoomed in on the impact. */
 export function explosionShakeScale(zoom:number){
-  const t=Math.max(0,Math.min(1,(zoom-1.15)/(3.25-1.15)));
-  return t*t*(3-2*t);
+  const minimumZoom=1.15,maximumZoom=12;
+  if(zoom<=minimumZoom)return 0;
+  const height=100/Math.max(minimumZoom,Math.min(maximumZoom,zoom)),minimumHeight=100/minimumZoom,maximumHeight=100/maximumZoom,decay=18;
+  const floor=Math.exp(-minimumHeight/decay),ceiling=Math.exp(-maximumHeight/decay);
+  return Math.max(0,Math.min(1,(Math.exp(-height/decay)-floor)/(ceiling-floor)));
 }
 
 /** GPU-only visualizer. Particle bodies remain in the shared simulation buffer. */
@@ -205,6 +210,11 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
     for(let i=0;i<chevrons;i++){const cx=x+(i-(chevrons-1)/2)*.28;streak(a,cx-.11,y-.99,-1,1,.22,.055,color);streak(a,cx+.11,y-.99,1,1,.22,.055,color);}
     for(let i=0;i<stripes;i++)rect(a,x+(i-(stripes-1)/2)*.18-.045,y-1.04,.09,.08,color);
   };
+  const infantryVeterancyXp=(a:V[],x:number,y:number,rank:number,xp:number)=>{
+    const previous=rank>0?veterancyXpForLevel(rank):0,next=rank>=MAX_VETERANCY?previous:veterancyXpForLevel(rank+1),progress=rank>=MAX_VETERANCY?1:Math.max(0,Math.min(1,(xp-previous)/Math.max(1,next-previous))),width=1.72,top=y-1.34;
+    rect(a,x-width/2-.045,top-.045,width+.09,.16,[.015,.018,.014,.9]);
+    rect(a,x-width/2,top,width*progress,.07,rank>=MAX_VETERANCY?[1,.82,.18,1]:[.35,.92,.45,1]);
+  };
   const infantrySelectionBrackets=(a:V[],x:number,y:number)=>{
     const shadow:[number,number,number,number]=[.02,.02,.018,.9],color:[number,number,number,number]=[.98,.98,.9,.98];
     const top=y-1.48,bottom=y+.72,left=x-1.16,right=x+1.16,arm=.38,width=.1;
@@ -318,9 +328,14 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
         }
       }
     }
-    // Use procedural mesh only when the verified Red Alert atlas is missing.
-    if(!redAlert?.hasFenceSprites)for(const fence of activeFences)fenceShape(a,fence,fence.health/fence.maxHealth);
-    for(const wire of scene.wires??[]){
+    if(scene.barrierSegments?.length){for(const barrier of scene.barrierSegments){
+      const integrity=Math.max(.03,Math.min(1,barrier.health/barrier.maxHealth)),damage=1-integrity,dx=barrier.to.x-barrier.from.x,dy=barrier.to.y-barrier.from.y,length=Math.hypot(dx,dy),side={x:-dy/Math.max(.001,length),y:dx/Math.max(.001,length)};
+      if(barrier.kind==='fence'){const c:[number,number,number,number]=[.42-damage*.22,.55-damage*.32,.5-damage*.3,.96];segment(a,barrier.from,barrier.to,.15,c);segment(a,{x:barrier.from.x+side.x*.25,y:barrier.from.y+side.y*.25},{x:barrier.to.x+side.x*.25,y:barrier.to.y+side.y*.25},.035,[.76,.82,.75,.8]);for(const point of [barrier.from,barrier.to])disc(a,point.x,point.y,.16,[.18,.23,.22,.96],6);}
+      else {const c:[number,number,number,number]=barrier.breached?[.26,.09,.035,.7]:[.65-damage*.4,.7-damage*.5,.67-damage*.5,.95];for(const offset of [-.16,0,.16])segment(a,{x:barrier.from.x+side.x*offset,y:barrier.from.y+side.y*offset},{x:barrier.to.x+side.x*offset,y:barrier.to.y+side.y*offset},.045,c);}
+    }}
+    // Use the old rectangular mesh only for legacy grid barriers.
+    if(!scene.barrierSegments?.length&&!redAlert?.hasFenceSprites)for(const fence of activeFences)fenceShape(a,fence,fence.health/fence.maxHealth);
+    for(const wire of scene.barrierSegments?.length?[]:scene.wires??[]){
       if(redAlert?.hasWireSprites)continue;
       const integrity=Math.max(.03,Math.min(1,wire.health/wire.maxHealth)),damage=1-integrity;
       const color:[number,number,number,number]=wire.breached?[.17,.06,.022,.86]:[.68-damage*.43,.74-damage*.58,.72-damage*.62,.96];
@@ -390,7 +405,9 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
         else {disc(a,mx,my,.24,[1,.86,.29,.95],5);streak(a,mx+dx*2,my+dy*2,dx,dy,2,.025,[1,.89,.43,s.flash*6]);}
       }
       if(scene.selectedBarracksSet?.has(s.home)||scene.selectedBarracks===s.home||scene.selectedInfantry?.has(s.id)){const maxHealth=infantryStats(s.kind,s.quality,s.defense,s.veterancy).health;rect(a,x-.65,y-2.1,1.3,.13,[.12,.13,.1,1]);rect(a,x-.65,y-2.1,1.3*s.health/maxHealth,.13,[.5,.85,.22,1]);}
-      infantryRankMarks(a,x,y,s.veterancy??0);
+      const veterancy=s.veterancy??0;
+      infantryRankMarks(a,x,y,veterancy);
+      infantryVeterancyXp(a,x,y,veterancy,s.veterancyXp??0);
     }
     for(const projectile of scene.infantryRocketProjectiles??[]){
       const t=Math.max(0,Math.min(1,projectile.age/projectile.life)),dx=projectile.target.x-projectile.x,dy=projectile.target.y-projectile.y,length=Math.max(.001,Math.hypot(dx,dy)),forward={x:dx/length,y:dy/length},side={x:-forward.y,y:forward.x},x=projectile.x+dx*t,y=projectile.y+dy*t,angle=Math.atan2(forward.y,forward.x);
@@ -477,6 +494,7 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
     worldToScreen,
     pan(dx,dy){camera.x+=dx;camera.y+=dy;clampCamera();},
     zoomAt(factor,clientX,clientY){const before=screenToWorld(clientX,clientY);camera.zoom=Math.max(1,Math.min(12,camera.zoom*factor));const after=screenToWorld(clientX,clientY);camera.x+=before.x-after.x;camera.y+=before.y-after.y;clampCamera();},
+    combatAudioScale(){return explosionShakeScale(camera.zoom);},
     clearAftermath(preserveBlood=false){shamblers.reset();aftermath?.reset();if(!preserveBlood)blood?.reset();},
     destroy(){corpseField?.destroy();blood?.destroy();fire.destroy();emptyHeat?.destroy();aftermath?.destroy();tesla?.destroy();emptyTesla?.destroy();shamblers.destroy();infantrySprites.destroy();redAlert?.destroy();sceneDepth?.destroy();uniform.destroy();overlays.destroy();foreground.destroy();towerVisuals.destroy();emptyShots.destroy();}
   };
