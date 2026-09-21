@@ -54,7 +54,9 @@ export function clearInfantryPath(map:WorldMap,from:Vec2,to:Vec2,r=.4):boolean {
 /** Stable sunflower slots turn a rally coordinate into a loose, quiet staging area. */
 export function infantryFanPoint(map:WorldMap,center:Vec2,slot:number):Vec2 {
   if(slot<=0)return center;
-  const radius=Math.min(9,Math.sqrt(slot)*1.05),angle=slot*2.399963229728653;
+  // Keep squads compact after a move while preserving enough room for each
+  // soldier to settle without stacking on the same point.
+  const radius=Math.min(8.5,Math.sqrt(slot)*.9),angle=slot*2.399963229728653;
   const candidates=[0,.7,-.7,1.4,-1.4].flatMap(turn=>[1,.72,.45].map(scale=>({x:center.x+Math.cos(angle+turn)*radius*scale,y:center.y+Math.sin(angle+turn)*radius*scale})));
   return candidates.find(point=>clearForSoldier(map,point)&&clearInfantryPath(map,center,point))??center;
 }
