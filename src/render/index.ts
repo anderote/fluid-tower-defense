@@ -289,7 +289,7 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
         }
       }
     }
-    for(const fence of activeFences)fenceShape(a,fence,fence.health/fence.maxHealth);
+    if(!redAlert?.hasFenceSprites)for(const fence of activeFences)fenceShape(a,fence,fence.health/fence.maxHealth);
     for(const wire of scene.wires??[]){
       if(redAlert?.hasWireSprites)continue;
       const integrity=Math.max(.03,Math.min(1,wire.health/wire.maxHealth)),damage=1-integrity;
@@ -317,7 +317,7 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
       if(scene.placementGhost.kind==='wire'){
         if(!redAlert?.hasWireSprites)wireShape(a,scene.placementGhost,c,1);
         for(const x of [scene.placementGhost.x+.22,scene.placementGhost.x+scene.placementGhost.width-.22])for(const y of [scene.placementGhost.y+.22,scene.placementGhost.y+scene.placementGhost.height-.22])disc(a,x,y,.09,c,5);
-      }else if(scene.placementGhost.kind==='fence'){
+      }else if(scene.placementGhost.kind==='fence'&&!redAlert?.hasFenceSprites){
         fenceShape(a,scene.placementGhost,1,c);
       }else{
         rect(a,scene.placementGhost.x,scene.placementGhost.y,scene.placementGhost.width,scene.placementGhost.height,[c[0],c[1],c[2],.42]);

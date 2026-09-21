@@ -1,5 +1,9 @@
 # Development and Release Workflow
 
+## Project Memory: Visual Assets
+
+- For pixel-art assets, prefer appropriate original assets available through OpenRA's verified game-content packages. When an exact asset is unavailable or unsuitable, create original work that deliberately matches the OpenRA/Red Alert visual language rather than introducing an unrelated style. Keep provenance, licensing, and a repeatable import path documented for every imported asset.
+
 - **“Update the game server”** (including typos such as “update teh game server”) is the release command: validate the latest committed local `dev`, merge that validated revision into local `main`, then publish a tested build of committed `main` with `~/.local/bin/pressure-front update`. Verify the published game in a dedicated browser tab. No remote fetch or push is implied.
 - The release chain is strictly **feature branches → local dev → local main → published game server**. Main only takes changes through dev. The game server only takes builds from committed main. Never cherry-pick feature work directly onto main or publish a feature/dev worktree.
 - The stable game runs at **http://127.0.0.1:5173**, from **~/Library/Application Support/Pressure Front/current**, outside the repository. Immutable builds are in its `releases/` directory. macOS LaunchAgent `local.pressure-front.game` runs the standalone `stable-server.mjs` from that same application-support directory and starts it on login. Logs: `server.log` and `server-error.log` there. Service definition: `~/Library/LaunchAgents/local.pressure-front.game.plist`.
