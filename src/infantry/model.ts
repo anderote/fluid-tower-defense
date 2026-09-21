@@ -103,10 +103,14 @@ export function advanceInfantry(state:InfantryState,map:WorldMap,fields:Map<numb
       if(s.cooldown===0){shots.push({soldier:s.id,target:fresh.target,generation:fresh.generation,damage:stats.damage,x:fresh.x,y:fresh.y});s.cooldown=stats.cooldown;s.attackAge=0;s.flash=s.kind==='samurai'?.28:s.kind==='dog'?.32:s.kind==='flame'?.2:.1;}
     }
     const center=s.moveTarget??b.rally,slot=s.moveTarget?s.moveSlot??0:s.rallySlot??s.id,destination=formationDestination(state,map,s,center,slot),rallyDistance=Math.hypot(s.x-destination.x,s.y-destination.y),ordered=!!s.moveTarget,melee=s.kind==='samurai'||s.kind==='dog',settled=rallyDistance<=.7;
+    // Hold a firing line instead of chasing every small target update. The
+    // extra approach margin creates hysteresis; the tighter retreat threshold
+    // prevents ranged troops from constantly stepping back and forth.
+    const approachDistance=stats.range+(melee?.25:1.1),retreatDistance=melee?0:1.6;
     let dx=0,dy=0;
-    if(!ordered&&fresh&&distance>stats.range*(melee?.7:.82)&&clearInfantryPath(map,s,fresh)){dx=(fresh.x-s.x)/distance;dy=(fresh.y-s.y)/distance;}
-    else if(!ordered&&!melee&&fresh&&distance<2.5&&rallyDistance<6){dx=(s.x-fresh.x)/Math.max(.01,distance);dy=(s.y-fresh.y)/Math.max(.01,distance);}
-    else if(!settled&&(ordered||distance>stats.range||rallyDistance>5)){
+    if(!ordered&&fresh&&distance>approachDistance&&clearInfantryPath(map,s,fresh)){dx=(fresh.x-s.x)/distance;dy=(fresh.y-s.y)/distance;}
+    else if(!ordered&&!melee&&fresh&&distance<retreatDistance&&rallyDistance<6){dx=(s.x-fresh.x)/Math.max(.01,distance);dy=(s.y-fresh.y)/Math.max(.01,distance);}
+    else if(!settled&&(ordered||(!fresh&&(distance>stats.range||rallyDistance>5)))){
       if(clearInfantryPath(map,s,destination)){dx=(destination.x-s.x)/rallyDistance;dy=(destination.y-s.y)/rallyDistance;}
       else{
         const cellX=Math.max(0,Math.min(field.width-1,Math.floor(s.x/field.cellSize))),cellY=Math.max(0,Math.min(field.height-1,Math.floor(s.y/field.cellSize))),at=cellY*field.width+cellX,fieldX=field.vectors[at*2]??0,fieldY=field.vectors[at*2+1]??0;
