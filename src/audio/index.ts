@@ -76,6 +76,11 @@ export function createAudio(){
     // A compact low-frequency pressure layer gives the old sample weight on modern speakers.
     tone(at,kind==='rocket'?58:72,24,kind==='rocket'?.34:.25,kind==='rocket'?.16:.11,pan,'sine');
   };
+  const flood=()=>{
+    if(!ctx)return;const at=ctx.currentTime+.008;
+    tone(at,58,26,1.4,.19,0,'sine');
+    for(let layer=0;layer<5;layer++)hiss(at+layer*.42,1.1,.13,80+layer*90,2800+layer*400,.6-layer*.3,layer*.17);
+  };
   const beep=(hz:number,duration=.07)=>{arm();if(ctx)tone(ctx.currentTime+.004,hz,hz*.82,duration,.045,0,'sine');};
-  return {arm,fire,shell,explode,click:()=>beep(420,.04),blast:()=>beep(90,.16),alert:()=>beep(760,.12),destroy:()=>{void ctx?.close();ctx=undefined;master=undefined;noise=undefined;}};
+  return {arm,fire,shell,explode,flood,click:()=>beep(420,.04),blast:()=>beep(90,.16),alert:()=>beep(760,.12),destroy:()=>{void ctx?.close();ctx=undefined;master=undefined;noise=undefined;}};
 }

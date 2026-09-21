@@ -186,6 +186,12 @@ fn roundFall(round:Round,point:vec2f,bodyRadius:f32)->vec3f {
  }
  for(var e=0u;e<u32(params.damage.z);e++){
   let f=effects[e];let delta=p.pos.xy-f.position.xy;
+  if(f.extra.x==5.){
+   if(p.body.z>0.&&abs(delta.x)<=f.position.z&&abs(delta.y)<=f.direction.z){
+    p.body.z-=f.position.w;p.pos.z+=f.direction.x*f.extra.y/max(.1,p.body.y);p.status.x=max(p.status.x,.5);atomicStore(&owners[i],0u);
+   }
+   continue;
+  }
   if(f.extra.x==4.){
    if(p.body.z>0.&&abs(delta.x)<=4.&&abs(delta.y)<=5.){
     p.body.z-=f.position.w*clamp(p.state.x,1.,2.)/enemyCrushResistance(u32(p.state.z));
@@ -240,7 +246,7 @@ fn roundFall(round:Round,point:vec2f,bodyRadius:f32)->vec3f {
   }
  }
  for(var e=0u;e<u32(params.damage.z);e++){
-  let f=effects[e];if(f.extra.x==4.&&abs(b.motion.x-f.position.x)<=4.+b.body.x&&abs(b.motion.y-f.position.y)<=5.+b.body.x){b.body.z-=f.position.w*vulnerable;}
+  let f=effects[e];if(f.extra.x==5.&&abs(b.motion.x-f.position.x)<=f.position.z+b.body.x&&abs(b.motion.y-f.position.y)<=f.direction.z+b.body.x){b.body.z-=f.position.w*vulnerable;}if(f.extra.x==4.&&abs(b.motion.x-f.position.x)<=4.+b.body.x&&abs(b.motion.y-f.position.y)<=5.+b.body.x){b.body.z-=f.position.w*vulnerable;}
  }
  boss[0]=b;
 }
@@ -284,7 +290,7 @@ fn roundFall(round:Round,point:vec2f,bodyRadius:f32)->vec3f {
       const u=new Float32Array([frame.dt,frame.tick,frame.count,frame.towers.length,frame.map.goal.x,frame.map.goal.y,frame.map.goalRadius,frame.lab?1:0,frame.tuning.crushDamage,0,frame.effects.length,0,0,0,0,0]);device.queue.writeBuffer(uniforms,0,u);
       const data=new Float32Array(Math.max(1,frame.towers.length)*12);
       frame.towers.forEach(({tower:t,definition:d},i)=>{data.set([t.x,t.y,d.range,towerBehavior(t.kind),d.cooldown,d.damage,d.force,d.radius,t.id,t.branch,t.kind==='tesla'?1:0,t.kind==='railgun'||d.overload?1:0],i*12);});device.queue.writeBuffer(towers,0,data);
-      if(frame.effects.length){const values=new Float32Array(frame.effects.length*12);frame.effects.forEach((e,i)=>values.set([e.x,e.y,e.radius,e.damage,e.direction.x,e.direction.y,e.cone,e.duration,['blast','push','slow','shot','crush'].indexOf(e.kind),e.strength,e.source,0],i*12));device.queue.writeBuffer(effects,0,values);}
+      if(frame.effects.length){const values=new Float32Array(frame.effects.length*12);frame.effects.forEach((e,i)=>values.set([e.x,e.y,e.radius,e.damage,e.direction.x,e.direction.y,e.cone,e.duration,['blast','push','slow','shot','crush','flood'].indexOf(e.kind),e.strength,e.source,0],i*12));device.queue.writeBuffer(effects,0,values);}
       aftermath.before(encoder,frame.count);
       encoder.clearBuffer(shared.counters,14*4,4);dispatch(encoder,0,Math.ceil(frame.towers.length/64));dispatch(encoder,1,Math.ceil(frame.count/128));dispatch(encoder,2,Math.ceil(frame.count/128));dispatch(encoder,4,1);
       aftermath.hits(encoder,frame.count);

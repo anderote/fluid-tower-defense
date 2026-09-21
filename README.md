@@ -15,6 +15,15 @@ Open the localhost URL printed by Vite in a browser with WebGPU enabled (a curre
 
 ## Play
 
+Use the **Battlefield** selector at the top of the sidebar to switch between **Campaign** and **Thunderhead Dam**. Each has separate autosave and checkpoint slots. Switching during combat resumes that battlefield from its last preparation save.
+
+### Thunderhead Dam
+
+Three water channels cross concrete turbine islands. Build towers on the concrete, close the north/south gates to divert enemies, and leave the central bypass covered. Gate operation has a three-second combat cooldown; a closure that would seal the last route is rejected. Buildings cannot occupy gate machinery.
+
+Press **F** or **Release Flood** during combat to spend a full reservoir on a 3.2-second surge. It travels from the turbine end toward the inlet, damaging, slowing, and pushing enemies backward. Closed side gates stop their water as well as enemies. The reservoir refills over 30 combat seconds, and pause freezes both the flood and recharge. The map starts with a full reservoir and the normal 3,000 Metal budget.
+
+
 - **Crusher Gate [9] — 450 Metal:** build an open horizontal passage with hydraulic jaws. Press **G** or **Slam Gates** to fire all ready gates. The 8 × 10 jaw zone deals 60 damage, up to double in packed crowds before enemy crush resistance. Gates recharge in 8 simulation seconds, pause with the game, and start each new wave ready. Heavy Pistons favor damage; Rapid Hydraulics favor recharge. Gate kills earn salvage and veterancy.
 - **Tesla Overload — 450 Metal research:** every sixth actual Tesla discharge strikes up to 12 targets with triple base damage and gentler chain falloff. Six charge lights show progress; the overload produces thicker violet lightning and sparks. Normal discharges retain their four-target limit (six with Storm Cell).
 
@@ -29,7 +38,7 @@ Open the localhost URL printed by Vite in a browser with WebGPU enabled (a curre
 - Space pauses/resumes; H toggles the pressure overlay. Restart clears the current attackers and begins the same wave again while keeping defenses in place. Save/load operates between waves in this browser. Switching modes or resetting starts a fresh run; it does not overwrite a saved defense.
 - **Red Alert soundtrack:** the top-bar player includes the bundled 22-track Red Alert score in album order. It remembers the current track, timestamp, volume, and play state. Browser autoplay rules require one click or key press to start or resume music.
 
-This is an early playable prototype with simple geometric art and initial balancing. Endless difficulty grows through composition, tempo, and enemy health while raw live population remains bounded. Towers are nonblocking emplacements; terrain is static during combat. Mortar damage resolves on a firing tick, with visual impact cues. Full rigid-body corpses, arbitrary tower scripting, destructible terrain, and native packaging are not implemented.
+This is an early playable prototype with simple geometric art and initial balancing. Endless difficulty grows through composition, tempo, and enemy health while raw live population remains bounded. Towers and terrain constrain crowd movement; dam floodgates can change routes during combat. Mortar damage resolves on a firing tick, with visual impact cues. Full rigid-body corpses, arbitrary tower scripting, destructible terrain, and native packaging are not implemented.
 
 ## Validate
 
@@ -69,3 +78,5 @@ The first five waves have 1,200 / 1,800 / 2,400 / 1,700 / 1,800 enemies. The fir
 Run `/tests/wave-pacing/` on a dedicated development port and click **Run first five waves** for a continuous real-WebGPU playthrough. It starts with a 2,990-Metal Pine Valley defense, buys damage/fire-rate upgrades using actual earnings between waves, adds two rear autocannons before wave three and an ammunition forge before wave four, and selects the first command boon after wave three. It checks stream-width independence, forecasts, live/queued counts, preparation transitions, visible boon selection, and simulation errors. Each wave must engage within 25 simulated seconds, finish arrivals within 75 seconds, clear within 135 seconds, and avoid a 20-second stall after combat begins. After reaching wave four, **Replay waves 4–5 from earned checkpoint** can repeat the heavy waves from the actual saved wave-three result; replay results are labeled separately from a full run. The report includes timing, kills, integrity, and Metal; saves on the test origin are backed up and restored. This is a pacing regression for one viable defense, not a guarantee that every layout wins.
 
 The spectacle lab at `/tests/spectacle/` checks actual GPU overload cadence, chain limits, damage, crusher bounds, packed-crowd damage, and kill attribution. **Freeze strike** holds the production renderer on the impact frame. `/tests/e2e/?spectacle` runs the focused real-game placement, research, autosave/reload, keyboard/button activation, pause, and recharge checks on a dedicated development origin.
+
+The dedicated `/tests/dam/` playtest enters through the visible Battlefield selector, spends 2,710 Metal on a valid defense, operates both gates, reloads saved gate state, pauses a live flood, recharges and releases it again, and clears the actual first wave. It checks simulation health and that both campaign save formats remain untouched. `/tests/dam/gpu.html` checks exact flood bounds, upstream impulse, slow, kills, and salvage on the production GPU combat pipeline. Run on a dedicated port; the UI suite backs up and restores saves. Later campaign balance and a dam-specific boss are not part of this first map release.

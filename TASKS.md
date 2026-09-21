@@ -108,3 +108,11 @@ Added a 450-Metal manual Crusher Gate with an open horizontal passage, animated 
 Added 450-Metal Tesla Overload research: every sixth actual discharge hits up to twelve targets with triple initial damage and gentler falloff, thicker violet lightning, charge lights, and a burst of sparks. Normal and Storm Cell chains retain their original limits. Prior-version saves migrate to include the new equipment without losing run progress.
 
 Validation: 138 CPU tests, production build, 25 focused real-WebGPU checks, and the focused actual-game E2E scenario passed. GPU checks cover overload cadence and damage, rectangle boundaries, dense-crowd bonus, kill attribution (including an already-killed Tesla victim), and rendering. UI checks cover purchase, keyboard placement, save/reload, button and G activation, pause, and recharge. These are focused mechanic tests; later-wave balance and a full campaign with the new equipment remain unmeasured.
+
+## Thunderhead Dam battlefield
+
+Added a standalone dam selected through the visible Battlefield control above the sidebar wave panel. It has three spillways, concrete tower mounts, animated water and turbines, two switchable floodgates, and a reservoir release with foam, spray, rumble, upstream knockback, damage, and slow. Closed gates stop their water; the center bypass stays structurally open. Closures validate the current tower/terrain route, and construction reserves gate machinery. Reservoir and gate timers follow combat simulation and pause.
+
+Dam autosaves and checkpoints use separate keys from the campaign, including its legacy run save. Preparation saves preserve gates and reservoir state. Switching during combat resumes the selected battlefield's last preparation. This release does not add the later proposed power tradeoff or dam-specific boss.
+
+Validation: 146 CPU tests, production build, and seven real-GPU flood assertions passed. Two actual first-wave playthroughs cleared all 1,200 enemies in 64.8 / 64.9 simulated seconds with 100% integrity using a 2,710-Metal defense and two floods. The final pass entered via the UI selector and checked gate diversion, save/reload, pause, recharge, independent campaign saves, and zero invalid-particle/readback errors. First engagement was 19.5 seconds in the final run. Later-wave balance and arbitrary defenses remain unmeasured.

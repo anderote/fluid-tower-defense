@@ -1,3 +1,4 @@
+import {validDam} from '../content/dam.ts';
 import type {Rect, WorldMap} from '../contracts/index.ts';
 import {validateEditorMap} from '../editor/index.ts';
 import {createRun, type RunController} from '../game/index.ts';
@@ -37,6 +38,7 @@ export function decodeDefense(raw:string):SavedDefense {
     ...defense.builtWalls,
     ...defense.builtWires.filter(wire => !wire.breached),
   ];
+  if(!validDam(defense.map))throw new Error('Invalid saved floodgate state.');
   const issue = validateEditorMap(defense.map);
   if (issue) throw new Error(issue);
   const candidate = createRun(defense.map);

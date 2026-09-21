@@ -1,3 +1,4 @@
+import {inGateFootprint} from '../content/dam.ts';
 import {MAX_BODY_RADIUS} from '../sim/physics/model.ts';
 import {type NavigationField, type Tower, type Vec2, type WorldMap} from '../contracts/index.ts';
 
@@ -90,7 +91,7 @@ export function canPlace(map: WorldMap, towers: readonly Tower[], position: Vec2
   const overlaps=(a:{x:number;y:number;width:number;height:number},b:{x:number;y:number;width:number;height:number})=>a.x<b.x+b.width&&a.x+a.width>b.x&&a.y<b.y+b.height&&a.y+a.height>b.y;
   const reserved=towers.filter(t=>t.kind==='crusher').map(t=>({x:t.x-4,y:t.y-6,width:8,height:12}));
   const area=position.kind==='crusher'?{x:position.x-4,y:position.y-6,width:8,height:12}:{x:position.x-footprint,y:position.y-footprint,width:footprint*2,height:footprint*2};
-  if(reserved.some(rect=>overlaps(rect,area)))return false;
+  if(inGateFootprint(map,area)||reserved.some(rect=>overlaps(rect,area)))return false;
   if(position.kind==='crusher')return area.x>=0&&area.y>=0&&area.x+area.width<=map.width&&area.y+area.height<=map.height&&!map.obstacles.some(rect=>overlaps(rect,area))&&!turretObstacles(towers).some(rect=>overlaps(rect,area))&&Math.hypot(position.x-map.goal.x,position.y-map.goal.y)>8+map.goalRadius;
   const circleRect=(rect:{x:number;y:number;width:number;height:number})=>{ const x=Math.max(rect.x,Math.min(position.x,rect.x+rect.width)),y=Math.max(rect.y,Math.min(position.y,rect.y+rect.height)); return Math.hypot(position.x-x,position.y-y) < footprint; };
   const mount=mounts.find(rect=>footprint<=Math.min(rect.width,rect.height)/2&&Math.abs(position.x-(rect.x+rect.width/2))<.001&&Math.abs(position.y-(rect.y+rect.height/2))<.001);

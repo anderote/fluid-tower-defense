@@ -1,3 +1,4 @@
+import {DAM_CHANNELS,DAM_GATES} from '../content/dam.ts';
 import {createFireEffects} from './fire.ts';
 import {FIRE_STATE_BYTES} from '../effects/fire.ts';
 import {AUTOCANNON_MUZZLE_LIFT,SOLDAT_FACINGS} from './soldat-art.ts';
@@ -38,6 +39,7 @@ export async function createRenderer(device: GPUDevice, context: GPUCanvasContex
   const heatState=shared.heatState??emptyHeat!;
   const shamblers=await createShamblers(device,format,uniform,{...shared,teslaState,heatState});
   const aftermath=shared.aftermath?await createAftermathRenderer(device,format,uniform,shared.aftermath,shamblers.texture):null;
+  let damCapacity=1;let damSurface=device.createBuffer({label:'Animated spillway',size:24,usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST});
   let overlayCapacity=1;
   let overlays = device.createBuffer({ label:'Tactical overlays', size:24, usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST });
   let foregroundCapacity=1;
@@ -247,6 +249,59 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
       streak(a,x,y,.55,flip,.34,.055,c);streak(a,x,y,-.55,flip,.34,.055,c);
     }
   };
+  function damGeometry(scene:RenderScene):Float32Array {
+    const a:V[]=[],d=scene.map.dam;if(!d)return new Float32Array();
+    const time=scene.time;
+    rect(a,0,0,160,100,[.13,.19,.23,1]);
+    // Concrete approach and control-house apron, with inset expansion joints.
+    for(let x=0;x<160;x+=8)for(let y=0;y<100;y+=8){
+      const shade=((x*17+y*31)%13)/250;
+      rect(a,x+.12,y+.12,7.76,7.76,[.22+shade,.29+shade,.32+shade,1]);
+      rect(a,x+.3,y+.3,7.4,.15,[.48,.58,.6,.24]);
+    }
+    for(const ch of DAM_CHANNELS){
+      rect(a,ch.x,ch.y,ch.width,ch.height,[.015,.15,.23,1]);
+      for(let row=0;row<8;row++){
+        rect(a,ch.x,ch.y+row*2,ch.width,1.95,[.018+row*.004,.22+row*.007,.31+row*.008,1]);
+        for(let k=0;k<18;k++){
+          const x=ch.x+((k*6.1+row*2-time*6)%ch.width+ch.width)%ch.width;
+          rect(a,x,ch.y+row*2+.55,Math.min(2.4,ch.x+ch.width-x),.12,[.48,.86,.94,.2+.15*Math.sin(k+time*2)]);
+        }
+      }
+      // Deep spillway lips and bright safety rails flank each channel.
+      rect(a,32,ch.y-.5,100,.5,[.66,.73,.7,1]);rect(a,32,ch.y+16,100,.6,[.025,.07,.095,1]);
+      for(let x=34;x<132;x+=5){rect(a,x,ch.y-.85,1.7,.4,[1,.7,.21,.85]);rect(a,x,ch.y+16.6,1.7,.4,[1,.7,.21,.85]);}
+      // Falling-water curtain at the upstream end.
+      for(let j=0;j<16;j++)rect(a,127+(j%3)*.55,ch.y+j,4.5,.45,[.6,.94,1,.2+.2*Math.sin(time*4+j)]);
+    }
+    for(const y of [5,35,61,89]){
+      for(let x=36;x<128;x+=12){rect(a,x,y,10,4,[.12,.18,.21,.65]);for(let k=0;k<6;k++)rect(a,x+k*1.6,y+.25,.2,3.5,[.4,.49,.52,.35]);}
+    }
+    // Turbine housings and rotating cyan generator rings on the outer decks.
+    for(const y of [8,92])for(const x of [90,111]){
+      disc(a,x,y,6,[.07,.12,.16,1],24);ring(a,x,y,5.5,[.48,.59,.62,1],.65);
+      disc(a,x,y,3.8,[.13,.29,.35,1],20);ring(a,x,y,3.2,[.22,.83,.9,.75],.3);
+      for(let blade=0;blade<5;blade++){const angle=blade*Math.PI*2/5+time*(d.surge>0?4:1);orientedRect(a,x+Math.cos(angle)*1.6,y+Math.sin(angle)*1.6,1.5,.35,angle,[.42,.68,.71,1]);}
+      disc(a,x,y,.8,[.75,.88,.88,1],12);
+    }
+    for(const [i,g] of DAM_GATES.entries()){
+      rect(a,g.x-1,g.y-1,6,18,[.055,.09,.12,1]);
+      if(d.closed[i]){
+        rect(a,g.x,g.y,4,16,[.45,.53,.56,1]);
+        for(let y=g.y+.4;y<g.y+16;y+=2){rect(a,g.x+.2,y,3.6,.5,[.15,.22,.26,1]);rect(a,g.x+.2,y+.5,3.6,.16,[.7,.76,.75,1]);}
+        rect(a,g.x+1.6,g.y,1,16,[.83,.39,.12,.8]);
+      }else{
+        rect(a,g.x,g.y,4,16,[.02,.23,.33,1]);
+        for(const y of [g.y,g.y+15])rect(a,g.x,y,4,1,[.6,.69,.69,1]);
+      }
+      for(const y of [g.y-1,g.y+16]){disc(a,g.x+2,y,.7,d.closed[i]?[1,.25,.09,1]:[.25,1,.68,1],12);}
+    }
+    // The central bypass is permanently open; white chevrons point upstream.
+    for(const x of [44,82,110]){tri(a,{x:x-1,y:50},{x:x+1,y:48.7},{x:x+1,y:51.3},[.55,.92,1,.28]);}
+    rect(a,140,42,20,16,[.12,.23,.27,1]);rectOutline(a,140,42,20,16,[.4,.78,.8,.8],.25);
+    for(let y=44;y<57;y+=3)rect(a,142,y,3,1,[.35,.91,.79,.8]);
+    return new Float32Array(a.flatMap(v=>[v.x,v.y,v.r,v.g,v.b,v.a]));
+  }
   function geometry(scene:RenderScene): Float32Array { const a:V[]=[];
     const activeWires=(scene.wires??[]).filter(wire=>!wire.breached);
     if(!redAlert)for(const o of scene.map.obstacles){if(activeWires.some(wire=>sameRect(wire,o)))continue;rect(a,o.x-.22,o.y-.22,o.width+.44,o.height+.44,[.018,.021,.027,.78]);rect(a,o.x,o.y,o.width,o.height,[.13,.15,.19,.98]);rect(a,o.x+.38,o.y+.38,Math.max(0,o.width-.76),Math.max(0,o.height-.76),[.22,.25,.3,.92]);rect(a,o.x+.38,o.y+.38,Math.max(0,o.width-.76),.34,[.5,.57,.66,.42]);rect(a,o.x+o.width-.58,o.y+.45,.18,Math.max(0,o.height-.9),[.045,.052,.07,.74]);for(let y=o.y+2;y<o.y+o.height-1;y+=5)rect(a,o.x+.08,y,Math.min(.48,o.width*.16),1.5,[.95,.61,.12,.38]);}
@@ -307,11 +362,19 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
     }
     if(scene.wallGhost)rect(a,scene.wallGhost.x,scene.wallGhost.y,scene.wallGhost.width,scene.wallGhost.height,scene.wallGhost.valid?[.25,.85,.95,.5]:[1,.15,.08,.5]);
     if(scene.demolitionHover){const alpha=.78+.18*Math.sin(scene.time*8);rectOutline(a,scene.demolitionHover.x,scene.demolitionHover.y,scene.demolitionHover.width,scene.demolitionHover.height,[1,.06,.035,alpha],.42);}
-    for(const e of scene.effects){if(e.kind==='crush')continue;const progress=Math.max(0,Math.min(1,1-e.duration/.55)),ease=1-(1-progress)*(1-progress),alpha=(1-progress)*(1-progress);const c:[number,number,number,number]=e.kind==='blast'?[1,.34,.055,.88*alpha]:e.kind==='slow'?[.25,.8,1,.56*alpha]:[.45,.95,1,.62*alpha];const radius=Math.max(.35,e.radius*(.05+.95*ease));disc(a,e.x,e.y,Math.max(.2,e.radius*.22*(1-progress)),[c[0],c[1],c[2],.16*alpha],12);ring(a,e.x,e.y,radius,c,Math.max(.18,e.radius*.085*(1-progress)));if(progress>.16)ring(a,e.x,e.y,radius*.72,[c[0],c[1],c[2],c[3]*.38],Math.max(.12,e.radius*.035));if(e.kind==='push'){const q={x:e.x+e.direction.x*radius,y:e.y+e.direction.y*radius};tri(a,{x:e.x-.7,y:e.y-.7},{x:e.x+.7,y:e.y+.7},q,[c[0],c[1],c[2],c[3]*.32])}}
+    for(const e of scene.effects){if(e.kind==='crush'||e.kind==='flood')continue;const progress=Math.max(0,Math.min(1,1-e.duration/.55)),ease=1-(1-progress)*(1-progress),alpha=(1-progress)*(1-progress);const c:[number,number,number,number]=e.kind==='blast'?[1,.34,.055,.88*alpha]:e.kind==='slow'?[.25,.8,1,.56*alpha]:[.45,.95,1,.62*alpha];const radius=Math.max(.35,e.radius*(.05+.95*ease));disc(a,e.x,e.y,Math.max(.2,e.radius*.22*(1-progress)),[c[0],c[1],c[2],.16*alpha],12);ring(a,e.x,e.y,radius,c,Math.max(.18,e.radius*.085*(1-progress)));if(progress>.16)ring(a,e.x,e.y,radius*.72,[c[0],c[1],c[2],c[3]*.38],Math.max(.12,e.radius*.035));if(e.kind==='push'){const q={x:e.x+e.direction.x*radius,y:e.y+e.direction.y*radius};tri(a,{x:e.x-.7,y:e.y-.7},{x:e.x+.7,y:e.y+.7},q,[c[0],c[1],c[2],c[3]*.32])}}
     if(scene.boss){const c: [number,number,number,number]=scene.boss.phase===2?[1,.15,.04,.95]:scene.boss.phase===1?[.9,.72,.2,.95]:[.55,.78,1,.95];ring(a,scene.boss.x,scene.boss.y,2.5,c,.55);rect(a,scene.boss.x-3,scene.boss.y-4,6*Math.max(0,scene.boss.health/scene.boss.maxHealth),.45,c);}
     const data=new Float32Array(a.length*6);a.forEach((v,i)=>data.set([v.x,v.y,v.r,v.g,v.b,v.a],i*6));return data;
   }
   function foregroundGeometry(scene:RenderScene):Float32Array {const a:V[]=[];
+    if(scene.map.dam?.surge){
+      const d=scene.map.dam,x=132-(1-d.surge/3.2)*104;
+      for(const [i,ch] of DAM_CHANNELS.entries()){
+        if(i!==1&&d.closed[i===0?0:1]&&x<68)continue;
+        for(let k=0;k<10;k++)rect(a,x+k*1.7,ch.y+.25,1.8,15.5,[.35,.79,.91,(1-k/10)*.18]);
+        for(let j=0;j<22;j++){const y=ch.y+.5+j*.69,offset=Math.sin(j*2+scene.time*13)*.8;disc(a,x+offset,y,.55+(j%3)*.15,[.78,.98,1,.7],8);streak(a,x+offset+2,y,1,0,2.7,.16,[.65,.95,1,.55]);}
+      }
+    }
     for(const projectile of scene.heavyProjectiles??[]){
       const local=projectile.age-projectile.delay;if(local<0)continue;const t=Math.max(0,Math.min(1,local/projectile.flight));
       const dx=projectile.target.x-projectile.x,dy=projectile.target.y-projectile.y,length=Math.max(.001,Math.hypot(dx,dy)),forward={x:dx/length,y:dy/length},side={x:-forward.y,y:forward.x};
@@ -346,7 +409,9 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
       redAlert?.prepare(scene);
       shamblers.prepare(encoder,scene);fire.prepare(encoder,scene.count);
       if(scene.aftermathVisible!==false)aftermath?.prepare(scene);
-      const data=geometry(scene),fx=foregroundGeometry(scene);
+      const data=geometry(scene),fx=foregroundGeometry(scene),dam=damGeometry(scene);
+      if(dam.length/6>damCapacity){damSurface.destroy();damCapacity=2**Math.ceil(Math.log2(dam.length/6));damSurface=device.createBuffer({label:'Animated spillway',size:damCapacity*24,usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST});}
+      if(dam.byteLength)device.queue.writeBuffer(damSurface,0,dam);
       if(data.length/6>overlayCapacity){const previous=overlays;overlayCapacity=2**Math.ceil(Math.log2(data.length/6));overlays=device.createBuffer({label:'Tactical overlays',size:overlayCapacity*24,usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST});previous.destroy();}
       if(fx.length/6>foregroundCapacity){const previous=foreground;foregroundCapacity=2**Math.ceil(Math.log2(fx.length/6));foreground=device.createBuffer({label:'Foreground effects',size:foregroundCapacity*24,usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST});previous.destroy();}
       if(data.byteLength)device.queue.writeBuffer(overlays,0,data.buffer,data.byteOffset,data.byteLength);if(fx.byteLength)device.queue.writeBuffer(foreground,0,fx.buffer,fx.byteOffset,fx.byteLength);
@@ -354,6 +419,7 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
       let pass=encoder.beginRenderPass({colorAttachments:[{view:target,clearValue:{r:.075,g:.075,b:.078,a:1},loadOp:'clear',storeOp:'store'}]});
       pass.setPipeline(bg);pass.setBindGroup(0,cameraBG);pass.draw(3);
       redAlert?.drawFloor(pass);
+      if(dam.length){pass.setPipeline(overlay);pass.setBindGroup(0,cameraOverlay);pass.setVertexBuffer(0,damSurface);pass.draw(dam.length/6);}
       // Gore never covers defenses: altitude changes fragment motion, not its layer.
       if(scene.aftermathVisible!==false){aftermath?.ground(pass);aftermath?.fragments(pass);}
       redAlert?.drawStructures(pass);
@@ -371,6 +437,6 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
     pan(dx,dy){camera.x+=dx;camera.y+=dy;clampCamera();},
     zoomAt(factor,clientX,clientY){const before=screenToWorld(clientX,clientY);camera.zoom=Math.max(1,Math.min(5,camera.zoom*factor));const after=screenToWorld(clientX,clientY);camera.x+=before.x-after.x;camera.y+=before.y-after.y;clampCamera();},
     clearAftermath(){aftermath?.reset();},
-    destroy(){fire.destroy();emptyHeat?.destroy();aftermath?.destroy();tesla?.destroy();emptyTesla?.destroy();shamblers.destroy();redAlert?.destroy();uniform.destroy();overlays.destroy();foreground.destroy();towerVisuals.destroy();emptyShots.destroy();}
+    destroy(){damSurface.destroy();fire.destroy();emptyHeat?.destroy();aftermath?.destroy();tesla?.destroy();emptyTesla?.destroy();shamblers.destroy();redAlert?.destroy();uniform.destroy();overlays.destroy();foreground.destroy();towerVisuals.destroy();emptyShots.destroy();}
   };
 }
