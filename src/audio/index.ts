@@ -58,6 +58,8 @@ export function createAudio(){
         hiss(at,.2,.1,180,4400,pan,serial*.157);tone(at,96,49,.13,.07,pan,'sawtooth');break;
       case 'cryo':
         hiss(at,.16,.085,650,5200,pan,serial*.173);tone(at,420,170,.14,.035,pan,'sine');break;
+      case 'crusher':
+        hiss(at,.22,.24,40,4200,pan,serial*.173);tone(at,160,28,.28,.22,pan,'sine');tone(at+.04,730,90,.13,.08,pan,'sawtooth');break;
       case 'repulsor':
         tone(at,116,43,.2,.16,pan,'sine');tone(at,510,120,.12,.045,pan,'triangle');break;
     }

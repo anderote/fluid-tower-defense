@@ -90,8 +90,10 @@ fn roundFall(round:Round,point:vec2f,bodyRadius:f32)->vec3f {
 
 @compute @workgroup_size(64) fn acquire(@builtin(global_invocation_id) gid:vec3u){
  let t=gid.x;if(t>=u32(params.clock.w)){return;}let def=towers[t];var s=firing.towers[t];
- if(s.flags.x!=def.flags.x){s=TowerState(vec4f(0),vec4f(0),vec4f(def.flags.x,0,0,0));}
+ if(s.flags.x!=def.flags.x){s=TowerState(vec4f(0),vec4f(0),vec4f(def.flags.x,0,0,0));electricity.charges[t]=vec4f(0);}
  if(s.timing.y>0.0 && s.timing.y!=def.weapon.x){s.timing.x=s.timing.x/s.timing.y*def.weapon.x;}
+ if(u32(def.position.w)==15u){s.shot.x=0.;firing.towers[t]=s;return;}
+ if(u32(def.position.w)==13u){electricity.charges[t].z=def.flags.w;}
  s.timing.y=def.weapon.x;s.timing.x=max(0.0,s.timing.x-params.clock.x);s.shot.x=0;
  if(s.timing.x>0.0){firing.towers[t]=s;return;}
  var best=-1e20;var found=false;var selected=0u;
@@ -111,13 +113,15 @@ fn roundFall(round:Round,point:vec2f,bodyRadius:f32)->vec3f {
  }else if(found){let p=particles[selected];s.timing=vec4f(reload,def.weapon.x,p.pos.xy);s.shot=vec4f(1,f32(selected),p.status.w,atan2(p.pos.y-def.position.y,p.pos.x-def.position.x));s.flags.y+=1.;}
  if(u32(def.position.w)==13u&&s.shot.x>.5){
   s.flags.z=params.clock.y+1.;
+  let overloaded=def.flags.w>.5&&u32(s.flags.y)%6u==0u;
+  electricity.charges[t]=vec4f(f32(u32(s.flags.y)%6u)/6.,select(0.,1.,overloaded),def.flags.w,0.);
   let base=t*${TESLA_LINKS}u;
   for(var hop=0u;hop<${TESLA_LINKS}u;hop++){electricity.links[base+hop]=vec4f(0,0,-2,0);}
   electricity.links[base]=vec4f(s.timing.zw,s.shot.y,s.shot.z);
   var origin=s.timing.zw;
-  let limit=select(4u,${TESLA_LINKS}u,def.flags.y==1.);
+  let limit=select(select(4u,6u,def.flags.y==1.),${TESLA_LINKS}u,overloaded);
   for(var hop=1u;hop<limit;hop++){
-   var nearest=def.weapon.w*1.35;var candidate=-1;var generation=0.;var position=vec2f(0);
+   var nearest=def.weapon.w*select(1.35,1.8,overloaded);var candidate=-1;var generation=0.;var position=vec2f(0);
    for(var i=0u;i<u32(params.clock.z);i++){
     let p=particles[i];if(p.state.w<.5||p.body.z<=0.){continue;}
     var visited=false;for(var prior=0u;prior<hop;prior++){if(electricity.links[base+prior].z==f32(i)){visited=true;}}
@@ -147,7 +151,8 @@ fn roundFall(round:Round,point:vec2f,bodyRadius:f32)->vec3f {
    for(var hop=0u;hop<${TESLA_LINKS}u;hop++){
     let link=electricity.links[t*${TESLA_LINKS}u+hop];
     if(link.z==f32(i)&&link.w==p.status.w&&p.body.z>0.){
-     let power=select(.52*pow(.82,f32(hop)-1.),1.,hop==0u);
+     let normalPower=select(.52*pow(.82,f32(hop)-1.),1.,hop==0u);
+     let power=select(normalPower,3.*pow(.9,f32(hop)),electricity.charges[t].y>.5);
      p.body.z-=def.weapon.y*power;atomicStore(&owners[i],t+1u);
      p.status.y=max(p.status.y,.8);p.status.x=max(p.status.x,.32);
      electricity.victims[i].shock=vec4f(params.clock.y+1.,p.status.w,select(0.,1.,p.body.z<=0.),power);
@@ -180,7 +185,16 @@ fn roundFall(round:Round,point:vec2f,bodyRadius:f32)->vec3f {
   }
  }
  for(var e=0u;e<u32(params.damage.z);e++){
-  let f=effects[e];let delta=p.pos.xy-f.position.xy;let dist=length(delta);if(dist>f.position.z){continue;}
+  let f=effects[e];let delta=p.pos.xy-f.position.xy;
+  if(f.extra.x==4.){
+   if(p.body.z>0.&&abs(delta.x)<=4.&&abs(delta.y)<=5.){
+    p.body.z-=f.position.w*clamp(p.state.x,1.,2.)/enemyCrushResistance(u32(p.state.z));
+    p.pos.w-=sign(delta.y)*f.extra.y/max(.1,p.body.y);p.status.x=max(p.status.x,.6);
+    atomicStore(&owners[i],select(u32(f.extra.z),64u+u32(f.extra.z),p.body.z<=0.));
+   }
+   continue;
+  }
+  let dist=length(delta);if(dist>f.position.z){continue;}
   if(f.extra.x==1.0&&f.direction.z>0&&dot(safeDir(delta),f.direction.xy)<cos(f.direction.z*.5)){continue;}
   let effectFalloff=select(max(0.0,1.0-dist/max(.001,f.position.z)),blastFalloff(dist,f.position.z),f.extra.x==0.0);
   p.body.z-=f.position.w*effectFalloff;
@@ -209,7 +223,7 @@ fn roundFall(round:Round,point:vec2f,bodyRadius:f32)->vec3f {
   let s=firing.towers[t];if(s.shot.x<.5){continue;}let def=towers[t];let kind=u32(def.position.w);
   if(kind==1u||kind==12u){continue;}
   if(kind==2u){if(s.shot.y<0&&s.shot.z==b.flags.x){b.body.z-=def.weapon.y*vulnerable;}continue;}
-  if(kind==13u){if(s.shot.y<0&&s.shot.z==b.flags.x){b.body.z-=def.weapon.y*vulnerable;}continue;}
+  if(kind==13u){if(s.shot.y<0&&s.shot.z==b.flags.x){b.body.z-=def.weapon.y*select(1.,3.,electricity.charges[t].y>.5)*vulnerable;}continue;}
   let targetedBlast=kind==1u;let origin=select(def.position.xy,s.timing.zw,targetedBlast);let rad=select(def.position.z,def.weapon.w,targetedBlast);let delta=b.motion.xy-origin;let dist=max(0.0,length(delta)-b.body.x);if(dist>rad){continue;}
   let forward=vec2f(cos(s.shot.w),sin(s.shot.w));if(kind!=1u&&dot(safeDir(delta),forward)<cos(clamp(def.weapon.w*.18,.25,1.35))){continue;}
   let falloff=select(max(.25,1.0-dist/max(rad,.001)),blastFalloff(dist,rad),targetedBlast);
@@ -225,6 +239,9 @@ fn roundFall(round:Round,point:vec2f,bodyRadius:f32)->vec3f {
    b.body.z-=round.definition.weapon.y*blast.z*vulnerable;
   }
  }
+ for(var e=0u;e<u32(params.damage.z);e++){
+  let f=effects[e];if(f.extra.x==4.&&abs(b.motion.x-f.position.x)<=4.+b.body.x&&abs(b.motion.y-f.position.y)<=5.+b.body.x){b.body.z-=f.position.w*vulnerable;}
+ }
  boss[0]=b;
 }
 @compute @workgroup_size(128) fn settle(@builtin(global_invocation_id) gid:vec3u){
@@ -235,7 +252,7 @@ fn roundFall(round:Round,point:vec2f,bodyRadius:f32)->vec3f {
  let brittle=select(1.0,1.7,p.status.y>0.0);
  let crush=max(0.0,p.status.z)*brittle/tolerance;
  let wasAlive=p.body.z>0.0;p.body.z-=crush;p.status.z=0;
- if(p.body.z<=0.0){p.body.z=0;p.body.w=-params.clock.y;p.state.w=-1;atomicAdd(&counters[0],1u);if(wasAlive&&crush>0){atomicAdd(&counters[1],1u);}else{let owner=atomicLoad(&owners[i]);if(owner>0u&&owner<=64u){atomicAdd(&counters[16u+owner-1u],1u);}}let bounty=enemyBountyPoints(kind);let prior=atomicAdd(&counters[15],bounty);let payout=(prior+bounty)/${ENEMY_BOUNTY_DIVISOR}u-prior/${ENEMY_BOUNTY_DIVISOR}u;if(payout>0u){atomicAdd(&counters[3],payout);}}
+ if(p.body.z<=0.0){p.body.z=0;p.body.w=-params.clock.y;p.state.w=-1;atomicAdd(&counters[0],1u);let owner=atomicLoad(&owners[i]);let gateKill=owner>64u&&owner<=128u;if((wasAlive&&crush>0)||gateKill){atomicAdd(&counters[1],1u);}if(gateKill){atomicAdd(&counters[16u+owner-65u],1u);}else if(!(wasAlive&&crush>0)&&owner>0u&&owner<=64u){atomicAdd(&counters[16u+owner-1u],1u);}let bounty=enemyBountyPoints(kind);let prior=atomicAdd(&counters[15],bounty);let payout=(prior+bounty)/${ENEMY_BOUNTY_DIVISOR}u-prior/${ENEMY_BOUNTY_DIVISOR}u;if(payout>0u){atomicAdd(&counters[3],payout);}}
  else if(params.goal.w<.5&&distance(p.pos.xy,params.goal.xy)<params.goal.z){p.state.w=0;atomicAdd(&counters[2],enemyLeak(kind));}
  else{atomicAdd(&counters[4],1u);atomicMax(&counters[6],u32(clamp(p.state.x,0.0,1000.0)*1000.0));}
  if(p.state.w<.5){if(abs(p.state.w)<.5){heat[i]=Heat(vec4f(0));}atomicStore(&owners[i],0u);}
@@ -266,8 +283,8 @@ fn roundFall(round:Round,point:vec2f,bodyRadius:f32)->vec3f {
       if(frame.towers.length>MAX_TOWERS||frame.effects.length>MAX_EFFECTS)throw new Error('Combat command capacity exceeded');
       const u=new Float32Array([frame.dt,frame.tick,frame.count,frame.towers.length,frame.map.goal.x,frame.map.goal.y,frame.map.goalRadius,frame.lab?1:0,frame.tuning.crushDamage,0,frame.effects.length,0,0,0,0,0]);device.queue.writeBuffer(uniforms,0,u);
       const data=new Float32Array(Math.max(1,frame.towers.length)*12);
-      frame.towers.forEach(({tower:t,definition:d},i)=>{data.set([t.x,t.y,d.range,towerBehavior(t.kind),d.cooldown,d.damage,d.force,d.radius,t.id,t.branch,t.kind==='tesla'?1:0,t.kind==='railgun'?1:0],i*12);});device.queue.writeBuffer(towers,0,data);
-      if(frame.effects.length){const values=new Float32Array(frame.effects.length*12);frame.effects.forEach((e,i)=>values.set([e.x,e.y,e.radius,e.damage,e.direction.x,e.direction.y,e.cone,e.duration,['blast','push','slow','shot'].indexOf(e.kind),e.strength,e.source,0],i*12));device.queue.writeBuffer(effects,0,values);}
+      frame.towers.forEach(({tower:t,definition:d},i)=>{data.set([t.x,t.y,d.range,towerBehavior(t.kind),d.cooldown,d.damage,d.force,d.radius,t.id,t.branch,t.kind==='tesla'?1:0,t.kind==='railgun'||d.overload?1:0],i*12);});device.queue.writeBuffer(towers,0,data);
+      if(frame.effects.length){const values=new Float32Array(frame.effects.length*12);frame.effects.forEach((e,i)=>values.set([e.x,e.y,e.radius,e.damage,e.direction.x,e.direction.y,e.cone,e.duration,['blast','push','slow','shot','crush'].indexOf(e.kind),e.strength,e.source,0],i*12));device.queue.writeBuffer(effects,0,values);}
       aftermath.before(encoder,frame.count);
       encoder.clearBuffer(shared.counters,14*4,4);dispatch(encoder,0,Math.ceil(frame.towers.length/64));dispatch(encoder,1,Math.ceil(frame.count/128));dispatch(encoder,2,Math.ceil(frame.count/128));dispatch(encoder,4,1);
       aftermath.hits(encoder,frame.count);

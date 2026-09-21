@@ -19,6 +19,7 @@ const COMMON_16:readonly TurretPixelRect[]=[
 ];
 
 const ART_16:Record<TowerKind,readonly TurretPixelRect[]>={
+  crusher:[...COMMON_16,{x:2,y:2,width:12,height:3,ink:'accent'},{x:2,y:11,width:12,height:3,ink:'accent'}],
   repulsor:[...COMMON_16,
     {x:5,y:4,width:5,height:1,ink:'light'},{x:4,y:5,width:2,height:7,ink:'body'},
     {x:6,y:5,width:4,height:2,ink:'body'},{x:6,y:10,width:4,height:2,ink:'body'},
@@ -66,6 +67,7 @@ const ART_16:Record<TowerKind,readonly TurretPixelRect[]>={
 };
 
 const DETAILS_32:Record<TowerKind,readonly TurretPixelRect[]>={
+  crusher:[],
   repulsor:[
     {x:9,y:10,width:1,height:2,ink:'light'},{x:9,y:22,width:1,height:2,ink:'light'},
     {x:15,y:13,width:2,height:1,ink:'accent'},{x:15,y:20,width:2,height:1,ink:'accent'},
@@ -117,7 +119,7 @@ const detailed=(kind:TowerKind):readonly TurretPixelRect[]=>[
   })),...DETAILS_32[kind],
 ];
 const ART:Record<TowerKind,readonly TurretPixelRect[]>={
-  repulsor:detailed('repulsor'),mortar:detailed('mortar'),autocannon:detailed('autocannon'),cryo:detailed('cryo'),
+  crusher:detailed('crusher'),repulsor:detailed('repulsor'),mortar:detailed('mortar'),autocannon:detailed('autocannon'),cryo:detailed('cryo'),
   tesla:detailed('tesla'),rocket:detailed('rocket'),railgun:detailed('railgun'),incinerator:detailed('incinerator'),
 };
 
@@ -134,6 +136,7 @@ export interface TurretHardpoints {
  * from the rotating weapon art as each effect evolves.
  */
 const HARDPOINTS:Record<TowerKind,TurretHardpoints>={
+  crusher:{muzzles:[{x:0,y:0}]},
   repulsor:{muzzles:[{x:1.45,y:0}]},
   mortar:{muzzles:[{x:1.7,y:0}]},
   autocannon:{muzzles:[{x:AUTOCANNON_BARREL.length+.01,y:0}],ejection:{port:{x:.08,y:-.2},direction:{x:-.22,y:-1}}},

@@ -52,8 +52,9 @@ fn direction(v:vec2f)->vec2f{return select(vec2f(1,0),v/max(.001,length(v)),leng
   if(kind==13u){cause=4.;}if(kind==14u){cause=3.;}
  }
  for(var j=0u;j<u32(params.damage.z);j++){
-  let e=effects[j];if(damage>0.&&e.position.w>0.&&distance(p.pos.xy,e.position.xy)<e.position.z){
+  let e=effects[j];if(damage>0.&&e.position.w>0.&&select(distance(p.pos.xy,e.position.xy)<e.position.z,abs(p.pos.x-e.position.x)<=4.&&abs(p.pos.y-e.position.y)<=5.,e.extra.x==4.)){
    if(e.extra.x==0.){cause=1.;dir=direction(p.pos.xy-e.position.xy);}
+   else if(e.extra.x==4.){cause=2.;dir=vec2f(0.,sign(p.pos.y-e.position.y));}
    else if(e.extra.x==3.){cause=0.;dir=direction(e.direction.xy);}
   }
  }

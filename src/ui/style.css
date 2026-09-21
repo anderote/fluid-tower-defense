@@ -282,3 +282,11 @@ footer button:first-of-type { border-color: var(--term-accent); background: var(
 .wave-status b { color: var(--term-accent); }
 .wave-status p { margin: 8px 0; font-size: 18px; }
 .wave-status small { color: var(--term-muted); line-height: 1.5; }
+
+.crusher-controls { border-color: #bd893a; background: #221c12; }
+.crusher-controls > b { color: #ffc34d; }
+.crusher-controls button { width: 100%; margin-bottom: 8px; border-color: #e3ad4c; color: #ffdc8b; background: #493513; }
+.crusher-controls button:not(:disabled) { box-shadow: inset 0 0 14px #ffc34d33; }
+.crusher-controls small { display: block; line-height: 1.5; color: var(--term-muted); }
+[data-tower="crusher"] { grid-column: 1 / -1; }
+[data-tower="crusher"] .tower-shape { background: #ffc34d; clip-path: polygon(0 0,100% 0,100% 30%,70% 30%,70% 70%,100% 70%,100% 100%,0 100%,0 70%,30% 70%,30% 30%,0 30%); }

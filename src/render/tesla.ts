@@ -43,7 +43,15 @@ fn boltPoint(a:vec2f,b:vec2f,u:f32,seed:f32)->vec2f {
  let tower=instance/${TESLA_LINKS}u;let hop=instance%${TESLA_LINKS}u;let s=shots[tower];let t=towers[tower];let link=electricity.links[instance];
  let age=max(0.,camera.time.x-(s.flags.z-1.)/60.);let q=quad(vi);let piece=vi/6u;
  var o:Out;o.pos=vec4f(2.,2.,0.,1.);o.local=q;o.color=vec4f(0.);o.mode=0.;
- if(round(fract(t.w)*100.)!=4.||s.flags.x!=t.z||s.flags.y<1.||link.z< -1.||age>.34){return o;}
+ if(round(fract(t.w)*100.)!=4.||s.flags.x!=t.z){return o;}
+ let charge=electricity.charges[tower];
+ if(piece>=72u){
+  if(hop!=0u||charge.z<.5){return o;}
+  let pip=piece-72u;let lit=f32(pip)<round(charge.x*6.);
+  o.pos=clip(t.xy+vec2f((f32(pip)-2.5)*.65,-6.)+q*vec2f(.23,.3));
+  o.color=select(vec4f(.15,.18,.3,1.),vec4f(.65,.8,1.,1.),lit);return o;
+ }
+ if(s.flags.y<1.||link.z< -1.||age>.34){return o;}
  var a=t.xy+vec2f(0.,${style==='red-alert'?-4.5:-1.45});
  if(hop>0u){a=endpoint(electricity.links[instance-1u]);}
  let b=endpoint(link);let seed=f32(tower)*13.7+s.flags.y*31.+floor(age/.04)*7.;
@@ -54,7 +62,7 @@ fn boltPoint(a:vec2f,b:vec2f,u:f32,seed:f32)->vec2f {
   let strand=piece/18u;let segment=piece%18u;let u0=f32(segment)/18.;let u1=f32(segment+1u)/18.;
   let begin=boltPoint(a,b,u0,seed+f32(strand)*17.);let end=boltPoint(a,b,u1,seed+f32(strand)*17.);
   let d=end-begin;let side=vec2f(-d.y,d.x)/max(.001,length(d));
-  let width=select(.09,.19,strand<2u)*select(.72,1.,hop==0u);
+  let width=select(.09,.19,strand<2u)*select(.72,1.,hop==0u)*select(1.,2.6,charge.y>.5);
   p=mix(begin,end,(q.x+1.)*.5)+side*q.y*width;
   o.color=select(vec4f(.8,.94,1.,fade),vec4f(.16,.36,1.,fade*.65),strand<2u);
  }else if(piece<60u){
@@ -75,6 +83,7 @@ fn boltPoint(a:vec2f,b:vec2f,u:f32,seed:f32)->vec2f {
  }else{
   p=a+q*(.35+.12*sin(age*90.));o.mode=1.;o.color=vec4f(.5,.75,1.,fade*select(0.,.85,hop==0u));
  }
+ if(charge.y>.5){o.color=vec4f(mix(o.color.rgb,vec3f(.85,.55,1.),.35),min(1.,o.color.a*1.5));}
  o.pos=clip(p);return o;
 }
 @fragment fn fs(i:Out)->@location(0) vec4f {
@@ -109,7 +118,7 @@ struct Out {@builtin(position) pos:vec4f,@location(0) uv:vec2f,@location(1) alph
   return {
     draw(pass:GPURenderPassEncoder,count:number,towerCount:number){
       pass.setPipeline(victims);pass.setBindGroup(0,victimBindings);pass.draw(6,Math.min(count,shared.capacity)*2);
-      pass.setPipeline(bolts);pass.setBindGroup(0,boltBindings);pass.draw(72*6,Math.min(64,towerCount)*TESLA_LINKS);
+      pass.setPipeline(bolts);pass.setBindGroup(0,boltBindings);pass.draw(78*6,Math.min(64,towerCount)*TESLA_LINKS);
     },
     destroy(){texture.destroy();frames.destroy();}
   };

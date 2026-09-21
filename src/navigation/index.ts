@@ -9,12 +9,12 @@ const inside = (map:WorldMap,x:number,y:number) => x >= 0 && y >= 0 && x < map.w
 const blocked = (map:WorldMap,x:number,y:number) => map.obstacles.some(rect => x >= rect.x && x < rect.x+rect.width && y >= rect.y && y < rect.y+rect.height);
 
 /** Converts deployed turret centers into solid navigation and physics obstacles. */
-export function turretObstacles(towers:readonly Pick<Tower,'x'|'y'>[]): {x:number;y:number;width:number;height:number}[] {
-  return towers.map(tower=>({x:tower.x-TURRET_OBSTACLE_SIZE/2,y:tower.y-TURRET_OBSTACLE_SIZE/2,width:TURRET_OBSTACLE_SIZE,height:TURRET_OBSTACLE_SIZE}));
+export function turretObstacles(towers:readonly (Pick<Tower,'x'|'y'>&Partial<Pick<Tower,'kind'>>)[]): {x:number;y:number;width:number;height:number}[] {
+  return towers.flatMap(tower=>tower.kind==='crusher'?[{x:tower.x-4,y:tower.y-6,width:8,height:1},{x:tower.x-4,y:tower.y+5,width:8,height:1}]:[{x:tower.x-TURRET_OBSTACLE_SIZE/2,y:tower.y-TURRET_OBSTACLE_SIZE/2,width:TURRET_OBSTACLE_SIZE,height:TURRET_OBSTACLE_SIZE}]);
 }
 
 /** Keeps authored terrain separate while exposing every deployed turret as a solid. */
-export function mapWithTurretObstacles(map:WorldMap,towers:readonly Pick<Tower,'x'|'y'>[]):WorldMap {
+export function mapWithTurretObstacles(map:WorldMap,towers:readonly (Pick<Tower,'x'|'y'>&Partial<Pick<Tower,'kind'>>)[]):WorldMap {
   return {...map,obstacles:[...map.obstacles,...turretObstacles(towers)]};
 }
 
@@ -84,9 +84,14 @@ export function buildNavigation(map: WorldMap): NavigationField {
 }
 
 /** Checks a circular emplacement footprint, allowing a centered wall cell to act as its mount. */
-export function canPlace(map: WorldMap, towers: readonly Tower[], position: Vec2, footprint: number, mounts:readonly {x:number;y:number;width:number;height:number}[]=[]): boolean {
+export function canPlace(map: WorldMap, towers: readonly Tower[], position: Vec2 & {kind?:Tower['kind']}, footprint: number, mounts:readonly {x:number;y:number;width:number;height:number}[]=[]): boolean {
   if (!Number.isFinite(position.x) || !Number.isFinite(position.y) || !Number.isFinite(footprint) || footprint <= 0) return false;
   if (position.x-footprint<0 || position.y-footprint<0 || position.x+footprint>map.width || position.y+footprint>map.height) return false;
+  const overlaps=(a:{x:number;y:number;width:number;height:number},b:{x:number;y:number;width:number;height:number})=>a.x<b.x+b.width&&a.x+a.width>b.x&&a.y<b.y+b.height&&a.y+a.height>b.y;
+  const reserved=towers.filter(t=>t.kind==='crusher').map(t=>({x:t.x-4,y:t.y-6,width:8,height:12}));
+  const area=position.kind==='crusher'?{x:position.x-4,y:position.y-6,width:8,height:12}:{x:position.x-footprint,y:position.y-footprint,width:footprint*2,height:footprint*2};
+  if(reserved.some(rect=>overlaps(rect,area)))return false;
+  if(position.kind==='crusher')return area.x>=0&&area.y>=0&&area.x+area.width<=map.width&&area.y+area.height<=map.height&&!map.obstacles.some(rect=>overlaps(rect,area))&&!turretObstacles(towers).some(rect=>overlaps(rect,area))&&Math.hypot(position.x-map.goal.x,position.y-map.goal.y)>8+map.goalRadius;
   const circleRect=(rect:{x:number;y:number;width:number;height:number})=>{ const x=Math.max(rect.x,Math.min(position.x,rect.x+rect.width)),y=Math.max(rect.y,Math.min(position.y,rect.y+rect.height)); return Math.hypot(position.x-x,position.y-y) < footprint; };
   const mount=mounts.find(rect=>footprint<=Math.min(rect.width,rect.height)/2&&Math.abs(position.x-(rect.x+rect.width/2))<.001&&Math.abs(position.y-(rect.y+rect.height/2))<.001);
   const containsRect=(outer:{x:number;y:number;width:number;height:number},inner:{x:number;y:number;width:number;height:number})=>inner.x>=outer.x&&inner.y>=outer.y&&inner.x+inner.width<=outer.x+outer.width&&inner.y+inner.height<=outer.y+outer.height;

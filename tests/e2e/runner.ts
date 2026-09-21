@@ -39,6 +39,27 @@ async function navigate(path='/'){
 }
 async function fresh(path='/'){await loadFrame('about:blank');freshStorage();await navigate(path);}
 const cases:{name:string;run:()=>Promise<void>}[]=[
+ {name:'Crusher and overload: placement, research, persistence, manual slam, pause and recharge',run:async()=>{
+  await fresh();
+  doc().body.dispatchEvent(new KeyboardEvent('keydown',{key:'9',bubbles:true}));
+  await until(()=>element('[data-tower="crusher"]').classList.contains('active'),'9 did not select Crusher Gate');
+  point(40,48);await until(()=>text('#metal')==='2550','Crusher did not place: '+text('#message'));
+  assert(element<HTMLButtonElement>('[data-action="slam-gates"]').disabled,'Preparation allowed a slam');
+  click('[data-tower="tesla"]');point(36,60);await until(()=>text('#metal')==='1950','Tesla did not place');
+  click('#research-tab');click('[data-command="tesla-overload"]');await until(()=>text('#metal')==='1500','Overload research did not spend 450 Metal');
+  const saved=snapshot(),model=JSON.parse(saved.runState).model;assert(model.towers.some((t:{kind:string})=>t.kind==='crusher')&&model.commandUpgrades.includes('tesla-overload'),'Checkpoint omitted new equipment');
+  await until(()=>{const raw=localStorage.getItem('pressure-front.autosave.v1');return !!raw&&JSON.parse(JSON.parse(raw).runState).model.commandUpgrades.includes('tesla-overload');},'Autosave did not record overload');
+  await navigate();assert(text('#metal')==='1500','Reload changed equipment costs');assert(!element('#crusher-controls').hidden,'Reload lost crusher controls');
+  click('#research-tab');assert(text('[data-command="tesla-overload"]').includes('INSTALLED'),'Reload lost overload research');click('#build-tab');
+  click('[data-action="start-wave"]');await until(()=>!element<HTMLButtonElement>('[data-action="slam-gates"]').disabled,'Combat did not charge gate');
+  doc().body.dispatchEvent(new KeyboardEvent('keydown',{key:'g',bubbles:true}));await until(()=>text('#crusher-status').includes('0/1'),'G did not slam gate');
+  click('[data-action="pause"]');await sleep(250);const paused=text('#crusher-status');await sleep(1200);assert(text('#crusher-status')===paused,'Paused gate kept recharging');
+  assert(element<HTMLButtonElement>('[data-action="slam-gates"]').disabled,'Paused gate can fire');
+  click('[data-action="pause"]');await until(()=>!element<HTMLButtonElement>('[data-action="slam-gates"]').disabled,'Gate did not recharge',15000);
+  click('[data-action="slam-gates"]');await until(()=>text('#crusher-status').includes('0/1'),'Button did not slam recharged gate');
+  click('[data-action="pause"]');
+ }},
+
  {name:'Checkpoint survives later autosaves and restores structures, Metal, and flow',run:async()=>{
   await fresh();click('[data-action="wall-tool"]');point(22,22);await until(()=>text('#metal')==='2940','Wall was not charged');flow(2);snapshot();
   click('[data-action="wire-tool"]');point(30,22);flow(3);await until(()=>text('#metal')==='2895','Wire was not charged');
@@ -133,9 +154,10 @@ button.onclick=async()=>{
  button.disabled=true;results.replaceChildren();summary.textContent='Running…';
  let passed=0;
  try{backupSaves(localStorage);}catch(error){summary.textContent='Could not back up saves: '+String(error);button.disabled=false;return;}
- try{for(const item of cases){const row=document.createElement('li');row.textContent=item.name+' — running';results.append(row);try{await item.run();row.className='pass';row.textContent=item.name+' — PASS';passed++;}catch(error){row.className='fail';row.textContent=item.name+' — FAIL: '+String(error);}}}
+ const selectedCases=cases.filter(item=>!new URLSearchParams(location.search).has("spectacle")||item.name.startsWith("Crusher and overload"));
+ try{for(const item of selectedCases){const row=document.createElement('li');row.textContent=item.name+' — running';results.append(row);try{await item.run();row.className='pass';row.textContent=item.name+' — PASS';passed++;}catch(error){row.className='fail';row.textContent=item.name+' — FAIL: '+String(error);}}}
  finally{
-  try{await loadFrame('about:blank');restoreSaves(localStorage);summary.textContent=`${passed}/${cases.length} checks passed`;}
+  try{await loadFrame('about:blank');restoreSaves(localStorage);summary.textContent=`${passed}/${selectedCases.length} checks passed`;}
   catch(error){summary.textContent='Save recovery required: '+String(error)+'. Reload this page to retry.';}
   button.disabled=false;
  }

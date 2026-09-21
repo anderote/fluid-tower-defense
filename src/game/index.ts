@@ -1,7 +1,7 @@
-import {COMMAND_UPGRADES, DEFAULT_MAP, MAX_TOWER_LEVEL, MAX_VETERANCY, TOWERS, towerUpgradeCost, veterancyLevel} from '../content/index.ts';
+import {compileTower, COMMAND_UPGRADES, DEFAULT_MAP, MAX_TOWER_LEVEL, MAX_VETERANCY, TOWERS, towerUpgradeCost, veterancyLevel} from '../content/index.ts';
 import {canPlace, hasSpawnRoute, mapWithTurretObstacles, resolvePlacement} from '../navigation/index.ts';
 import {commandUpgradeAvailability} from './research.ts';
-import type {BonusChoice, StatUpgrade, Rect, RunModel, Settlement, SpawnBatch, Tower, TowerKind, TowerUnlock, Vec2, WorldMap} from '../contracts/index.ts';
+import type {Effect, BonusChoice, StatUpgrade, Rect, RunModel, Settlement, SpawnBatch, Tower, TowerKind, TowerUnlock, Vec2, WorldMap} from '../contracts/index.ts';
 
 export type ActionResult = {ok:true} | {ok:false; reason:string};
 export type PlaceResult = ActionResult & {tower?:Tower};
@@ -9,7 +9,7 @@ export type Wave = {spawns:readonly SpawnBatch[]; payment:number; boss:boolean; 
 type Applied = Pick<Settlement,'kills'|'crushKills'|'leaks'|'earned'> & {tick:number;towerKills:number[]};
 type SavedRun = {version:1; contentVersion:string; mapId?:string; model:RunModel; epoch:number; applied:Applied};
 
-export const CONTENT_VERSION = 'pressure-front-6';
+export const CONTENT_VERSION = 'pressure-front-7';
 const SAVE_KEY = 'pressure-front.run.v1';
 const MAX_TOWERS = 64;
 export const WAVES_PER_LEVEL=10;
@@ -95,6 +95,8 @@ function validTower(map:WorldMap, tower:unknown, prior:readonly Tower[], mounts:
   if (!tower || typeof tower !== 'object') return false;
   const value=tower as Tower;
   if (!isFiniteInteger(value.id) || value.id<=0 || !isTowerKind(value.kind) || !isNonNegative(value.x) || !isNonNegative(value.y) || !isFiniteInteger(value.level) || value.level<0 || value.level>MAX_TOWER_LEVEL || !isFiniteInteger(value.branch) || ![-1,0,1].includes(value.branch) || (value.level===0 && value.branch!==-1) || (value.level>0 && value.branch===-1) || !isNonNegative(value.angle) || !isNonNegative(value.cooldown) || !isFiniteInteger(value.spent) || value.spent!==spentAtLevel(value.kind,value.level) || prior.some(other=>other.id===value.id)) return false;
+  if(value.crusherRecharge!==undefined&&(!Number.isFinite(value.crusherRecharge)||value.crusherRecharge<=0))return false;
+  if(value.crusherAnimation!==undefined&&(!isNonNegative(value.crusherAnimation)||value.crusherAnimation>.7))return false;
   if(value.kills!==undefined&&(!isFiniteInteger(value.kills)||value.kills<0))return false;
   if(value.veterancy!==undefined&&(!isFiniteInteger(value.veterancy)||value.veterancy<0||value.veterancy>MAX_VETERANCY))return false;
   if(value.veterancyXp!==undefined&&!isNonNegative(value.veterancyXp))return false;
@@ -168,7 +170,7 @@ export class RunController {
     if (this.model.towers.length>=MAX_TOWERS) return {ok:false,reason:'The tower limit has been reached.'};
     const def=TOWERS[kind];
     if (this.model.metal<def.cost) return {ok:false,reason:'Insufficient Metal.'};
-    const placement=resolvePlacement(this.map,position,1.25,this.buildMounts);
+    const placement={...(kind==='crusher'?position:resolvePlacement(this.map,position,1.25,this.buildMounts)),kind};
     if (!canPlace(this.map,this.model.towers,placement,1.25,this.buildMounts)) return {ok:false,reason:'That position is blocked or too close to another tower.'};
     if (!hasSpawnRoute(mapWithTurretObstacles(this.map,[...this.model.towers,placement]))) return {ok:false,reason:'That turret would seal the zombie route to the goal.'};
     const tower:Tower={id:this.nextTowerId++,kind,x:placement.x,y:placement.y,level:0,branch:-1,angle:0,cooldown:0,spent:def.cost,kills:0,veterancy:0,veterancyXp:0};
@@ -195,10 +197,29 @@ export class RunController {
     this.model.metal-=cost; tower.spent+=cost; tower.level++; tower.branch=branch;
     return {ok:true};
   }
+  /** Cooldowns advance only with combat simulation, never while paused or preparing. */
+  advanceCrushers(seconds:number):void {
+    if(this.model.phase!=='combat'||!Number.isFinite(seconds)||seconds<=0)return;
+    for(const tower of this.model.towers)if(tower.kind==='crusher'){
+      tower.cooldown=Math.max(0,tower.cooldown-seconds);
+      tower.crusherAnimation=Math.max(0,(tower.crusherAnimation??0)-seconds);
+    }
+  }
+  slamCrushers():Effect[] {
+    if(this.model.phase!=='combat')return [];
+    const effects:Effect[]=[];
+    this.model.towers.forEach((tower,index)=>{
+      if(tower.kind!=='crusher'||tower.cooldown>0)return;
+      const definition=compileTower(tower,this.model.bonuses,this.model.commandUpgrades,this.statModifiers());
+      tower.cooldown=definition.cooldown;tower.crusherRecharge=definition.cooldown;tower.crusherAnimation=.7;
+      effects.push({x:tower.x,y:tower.y,kind:'crush',radius:6,strength:definition.force,damage:definition.damage,direction:{x:0,y:1},cone:0,duration:.7,source:index+1,peakPressureKpa:definition.peakPressureKpa});
+    });
+    return effects;
+  }
   startWave():ActionResult {
     if (this.model.phase!=='preparation') return {ok:false,reason:'The current wave is not ready to start.'};
     if(this.model.bonusChoices.length)return {ok:false,reason:'Choose a command boon before starting the wave.'};
-    const wave=waveFor(this.model.level,this.model.wave+1); this.waveStartBaseHealth=this.model.baseHealth;this.model.wave++; this.model.pending=wave.spawns.map(batch=>({...batch,credit:0})); this.model.phase='combat'; this.live=0;this.spawnElapsed=0;this.spawnAllocation=0;
+    const wave=waveFor(this.model.level,this.model.wave+1); this.waveStartBaseHealth=this.model.baseHealth;for(const tower of this.model.towers)if(tower.kind==='crusher'){tower.cooldown=0;tower.crusherAnimation=0;}this.model.wave++; this.model.pending=wave.spawns.map(batch=>({...batch,credit:0})); this.model.phase='combat'; this.live=0;this.spawnElapsed=0;this.spawnAllocation=0;
     return {ok:true};
   }
   restartWave():ActionResult {
@@ -319,7 +340,7 @@ export class RunController {
       const saved=JSON.parse(raw) as unknown;
       // Old saves keep their defense and run progress while gaining the full
       // weapon roster. Account-wide ranks are no longer used.
-      if (saved && typeof saved==='object' && 'contentVersion' in saved && (saved.contentVersion==='pressure-front-4'||saved.contentVersion==='pressure-front-5') && 'model' in saved && saved.model && typeof saved.model==='object' && 'towers' in saved.model && Array.isArray(saved.model.towers)) {
+      if (saved && typeof saved==='object' && 'contentVersion' in saved && (saved.contentVersion==='pressure-front-4'||saved.contentVersion==='pressure-front-5'||saved.contentVersion==='pressure-front-6') && 'model' in saved && saved.model && typeof saved.model==='object' && 'towers' in saved.model && Array.isArray(saved.model.towers)) {
         const legacyModel=saved.model as Partial<RunModel> & {towers:unknown[]};
         legacyModel.unlockedTowers=[...STARTER_TOWERS];
         if(saved.contentVersion==='pressure-front-4')legacyModel.statRanks={};

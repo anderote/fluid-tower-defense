@@ -10,6 +10,7 @@ export const TOWERS: Record<TowerKind, TowerDef> = {
   rocket: {id:'rocket', name:'Rocket Pod', description:'Saturates dense crowds with a three-warhead scatter salvo.', cost:1_600, range:44, cooldown:2.9, damage:34, force:24, radius:6.6, peakPressureKpa:1250, color:'#ff5f48', branches:['Warhead','Barrage']},
   railgun: {id:'railgun', name:'Railgun', description:'Penetrates and hurls targets along a long firing lane.', cost:2_500, range:48, cooldown:.78, damage:38, force:26, radius:1.1, peakPressureKpa:900, color:'#73f5d2', branches:['Slug','Accelerator']},
   incinerator: {id:'incinerator', name:'Incinerator', description:'Bathes a short cone in heat that burns enemies over time.', cost:800, range:16, cooldown:.55, damage:13, force:0, radius:4.8, peakPressureKpa:80, color:'#ff7848', branches:['Furnace','Wildfire']},
+  crusher: {id:'crusher',name:'Crusher Gate',description:'Open lane with hydraulic jaws. Press G to slam ready gates; packed crowds take up to double crush damage. Recharges in 8 seconds.',cost:450,range:6,cooldown:8,damage:60,force:18,radius:6,peakPressureKpa:900,color:'#ffc34d',branches:['Heavy Pistons','Rapid Hydraulics']},
 };
 
 export const MAX_TOWER_LEVEL=50;
@@ -18,6 +19,7 @@ export const towerUpgradeCost=(level:number):number=>45+Math.max(0,Math.floor(le
 const infrastructureResearch=(prefix:string,name:string,description:string,cost:number):readonly CommandUpgrade[]=>Array.from({length:20},(_,index)=>({id:`${prefix}-${index+1}`,name:`${name} ${index+1}`,description,cost:Math.round(cost+(index*42)+(Math.sqrt(index)*28))}));
 
 export const COMMAND_UPGRADES: readonly CommandUpgrade[] = [
+  {id:'tesla-overload',name:'Tesla Overload',description:'Every sixth Tesla discharge deals 3× damage and chains through up to 12 targets. Coils show their stored charge.',cost:450},
   {id:'targeting-grid',name:'Targeting Grid',description:'+18% range to every tower.',cost:260},
   {id:'ammunition-forge',name:'Ammunition Forge',description:'+25% damage to every tower.',cost:300},
   {id:'bulkhead-plating',name:'Bulkhead Plating',description:'+5 base integrity immediately.',cost:220},
@@ -37,7 +39,7 @@ export const barbedWireStats=(upgrades:readonly string[])=>{const multiplier=res
 export const metalWallStats=(upgrades:readonly string[])=>{const multiplier=researchMultiplier(researchLevel(upgrades,'wall-engineering'));return {durability:2_880*multiplier,resistance:90*multiplier};};
 
 /** Packs authored towers into the supported GPU weapon behaviours. */
-export const towerBehavior=(kind:TowerKind):number=>({repulsor:0,mortar:1,autocannon:2,cryo:3,tesla:13,rocket:12,railgun:2,incinerator:14}[kind]);
+export const towerBehavior=(kind:TowerKind):number=>({repulsor:0,mortar:1,autocannon:2,cryo:3,tesla:13,rocket:12,railgun:2,incinerator:14,crusher:15}[kind]);
 export const MAX_VETERANCY=100;
 /** 64.8 XP per squared rank: rank 10 requires 6,480 credited kills, rank 50 162,000, and rank 100 648,000. */
 export const veterancyXpForLevel=(level:number):number=>64.8*Math.max(0,Math.min(MAX_VETERANCY,Math.ceil(level)))**2;
@@ -120,6 +122,7 @@ export function compileTower(tower: Tower, bonuses: readonly string[] = [], comm
     if (tower.kind==='mortar') { damage *= 1.6; radius *= .78; cooldown *= 1.12; }
     if (tower.kind==='autocannon') { damage *= 1.5; range *= 1.25; }
     if (tower.kind==='cryo') { range *= 1.3; radius *= 1.2; cooldown *= .85; }
+    if (tower.kind==='crusher') { damage*=1.6; cooldown*=1.15; }
     if (tower.kind==='tesla') { damage *= 1.45; radius *= 1.25; }
     if (tower.kind==='rocket') { damage *= 1.6; radius *= .8; }
     if (tower.kind==='railgun') { damage *= 1.75; cooldown *= 1.15; }
@@ -130,6 +133,7 @@ export function compileTower(tower: Tower, bonuses: readonly string[] = [], comm
     if (tower.kind==='mortar') { cooldown *= .68; radius *= 1.45; damage *= .78; }
     if (tower.kind==='autocannon') { cooldown *= .65; radius *= 2; force += 3; }
     if (tower.kind==='cryo') { range *= 1.5; radius *= 1.5; cooldown *= .85; }
+    if (tower.kind==='crusher') { cooldown*=.65; }
     if (tower.kind==='tesla') { range *= 1.3; radius *= 1.5; cooldown *= .78; }
     if (tower.kind==='rocket') { cooldown *= .62; radius *= 1.45; damage *= .8; }
     if (tower.kind==='railgun') { cooldown *= .58; range *= 1.18; }
@@ -153,7 +157,8 @@ export function compileTower(tower: Tower, bonuses: readonly string[] = [], comm
   range*=1+ranks('range')*.03;
   cooldown/=1+ranks('rate')*.035;
   force*=1+ranks('force')*.05;
-  return {...base,range,cooldown,damage,force,radius,peakPressureKpa:scaledPeakPressure(base,damage,force)};
+  if(tower.kind==='crusher'){range=base.range;radius=base.radius;}
+  return {...base,range,cooldown,damage,force,radius,overload:tower.kind==='tesla'&&commandUpgrades.includes('tesla-overload'),peakPressureKpa:scaledPeakPressure(base,damage,force)};
 }
 
 function random(seed:number):()=>number { let state=(seed >>> 0) || 1; return ()=>{ state=(Math.imul(state,1664525)+1013904223)>>>0; return state / 0x1_0000_0000; }; }

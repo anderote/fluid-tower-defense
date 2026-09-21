@@ -148,6 +148,7 @@ struct Out{@builtin(position) pos:vec4<f32>,@location(0) uv:vec2<f32>,@location(
     upload(wireGhost,preview);
     const data:number[]=[];
     const draw=(t:{kind:TowerKind;x:number;y:number;angle?:number;level?:number},tint?:number[])=>{
+      if(t.kind==='crusher')return;
       if(customSprites){
         sprite(data,customSprites[soldatSpriteKey(t.kind,t.level)][soldatFacing(t.angle??0)],t.x-SOLDAT_WORLD_SIZE/2,t.y-SOLDAT_WORLD_SIZE/2,SOLDAT_WORLD_SIZE,SOLDAT_WORLD_SIZE,tint);return;
       }

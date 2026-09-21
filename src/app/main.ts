@@ -131,6 +131,16 @@ try {
    switch(action.type){
      case 'mode':state.mode=action.mode;resetWorld();break;
      case 'pause':state.paused=!state.paused;break;
+     case 'slam-gates':{
+       if(state.paused){state.message='Resume combat before slamming gates.';break;}
+       const ready=run.model.towers.filter(t=>t.kind==='crusher'&&t.cooldown<=0).length;
+       if(commands.length+ready>64){state.message='Wait for the current effects before slamming.';break;}
+       const slams=run.slamCrushers();commands.push(...slams);
+       for(const slam of slams){visuals.push({...slam});burst(slam,36,[1,.65,.15],15,.65,9,'spark',1.1);burst(slam,18,[.55,.6,.65],10,.8,12,'debris',1.2);showPressure(slam,slam.peakPressureKpa??900,clock.tick);audio.fire('crusher',slam.x,clock.tick);}
+       if(slams.length){cameraShake=Math.max(cameraShake,.85);state.message=`${slams.length} CRUSHER GATE${slams.length===1?'':'S'} SLAMMED — RECHARGING`;}
+       else state.message='Gates need combat and a full recharge before another slam.';
+       break;
+     }
      case 'reset':clearPlayerStructures();resetWorld(true,run.model.level);state.message='Level restarted. Placed defenses and run upgrades were removed.';break;
      case 'restart-wave':{
        const result=run.restartWave();actionResult(result,'Wave restarted. Defenses remain in position.');if(!result.ok)break;
@@ -190,7 +200,7 @@ try {
  };
  const previewStructure=createStructurePreview();
  const wallAt=(point:Vec2):Rect=>wallAtPoint(map,point);
- const towerPlacement=(point:Vec2):Vec2=>resolvePlacement(map,point,1.25,towerMounts());
+ const towerPlacement=(point:Vec2):Vec2=>state.selectedKind==='crusher'?point:resolvePlacement(map,point,1.25,towerMounts());
  const burst=(point:Vec2, count:number, color:[number,number,number], speed:number, life:number, gravity=0, style:VisualParticleStyle='spark', scale=1)=>{
    // Keep the CPU-side flourish bounded: the swarm itself stays entirely GPU simulated.
    const available=Math.max(0,520-visualParticles.length);
@@ -230,6 +240,9 @@ try {
      tower.angle=(event.angle+Math.PI*2)%(Math.PI*2);
      const shotDefinition=compileTower(tower,run.model.bonuses,run.model.commandUpgrades,run.statModifiers());
      audio.fire(tower.kind,tower.x,event.serial);
+     if(tower.kind==='tesla'&&shotDefinition.overload&&event.serial%6===0){
+       burst(tower,32,[.75,.5,1],12,.55,-1,'spark',1.2);cameraShake=Math.max(cameraShake,.28);state.message='TESLA OVERLOAD — CHAIN CASCADE';
+     }
      if(tower.kind==='mortar'||tower.kind==='rocket'){
        heavyProjectiles.push(...createHeavyProjectiles(tower.kind,turretMuzzlePoints(tower.kind,tower,event.angle),event.target,event.serial,shotDefinition.peakPressureKpa,shotDefinition.radius,event.angle).map(projectile=>({...projectile,launchTick:event.launchTick})));
        continue;
@@ -267,7 +280,7 @@ try {
      if(state.buildTool==='demolish'){demolishAt(point);return;}
      if(state.selectedKind){const result=run.place(state.selectedKind,towerPlacement(point));if(result.ok){refreshNavigation();combat.resetAttribution();run.resetTowerAttribution();}actionResult(result,result.tower?`${TOWERS[result.tower.kind].name} deployed.`:'Tower deployed.');}
      else{
-       const clicked=run.model.towers.find(t=>Math.hypot(t.x-point.x,t.y-point.y)<3.5);
+       const clicked=run.model.towers.find(t=>t.kind==='crusher'?Math.abs(t.x-point.x)<=4&&Math.abs(t.y-point.y)<=6:Math.hypot(t.x-point.x,t.y-point.y)<3.5);
        if(state.upgradeMode){setUpgradeTarget(clicked?.id??null);return;}
        run.model.selected=clicked?.id??null;
      }
@@ -294,11 +307,12 @@ try {
    if(event.code==='Space'&&target instanceof HTMLElement&&target.closest('button,a[href],[role=button]'))return;
    const key=event.key.toLowerCase();
    if(['w','a','s','d'].includes(key)){event.preventDefault();panKeys.add(key);return;}
-   if(event.repeat&&[' ','q','e','r','u','h','escape','1','2','3','4','5','6','7','8'].includes(key)){event.preventDefault();return;}
+   if(event.repeat&&[' ','q','e','r','u','h','escape','1','2','3','4','5','6','7','8','9','g'].includes(key)){event.preventDefault();return;}
    const towerIndex=Number(key)-1;
    if(Number.isInteger(towerIndex)&&towerIndex>=0&&towerIndex<Object.keys(TOWERS).length){
      event.preventDefault();handleAction({type:'select-tower',kind:Object.keys(TOWERS)[towerIndex] as keyof typeof TOWERS});return;
    }
+   if(key==='g'){event.preventDefault();handleAction({type:'slam-gates'});return;}
    if(key==='q'){event.preventDefault();handleAction({type:'wall-tool'});return;}
    if(key==='e'){event.preventDefault();handleAction({type:'wire-tool'});return;}
    if(key==='r'){event.preventDefault();handleAction({type:'demolish-tool'});return;}
@@ -319,6 +333,7 @@ try {
  document.addEventListener('focusin',event=>{const target=event.target;if(target instanceof HTMLElement&&(target.isContentEditable||target.closest('input,textarea,select')))panKeys.clear();});
  function updateUI(now:number){
    const report=metrics.report();state.fps=report.fps;state.frameMs=report.medianMs;
+   const gates=run.model.towers.filter(t=>t.kind==='crusher');state.crushers={total:gates.length,ready:gates.filter(t=>t.cooldown<=0).length,next:gates.length?Math.min(...gates.map(t=>t.cooldown)):0};
    state.metal=run.model.metal;state.baseHealth=run.model.baseHealth/20*100;state.level=run.model.level;state.wave=run.model.wave;state.waveCount=run.model.waveCount;state.phase=state.mode==='lab'?'combat':run.model.phase;
    state.mapTitle=map.scenery?.title;const nextLevel=Math.floor(run.model.wave/10)+1;state.nextMapTitle=isCampaignMap(map)&&nextLevel!==run.model.level&&nextLevel<=3?campaignMap(nextLevel).scenery!.title:undefined;
    state.selected=run.model.towers.find(t=>t.id===run.model.selected)??null;state.upgradeTarget=state.upgradeMode&&hoveredTowerId!==null?run.model.towers.find(t=>t.id===hoveredTowerId)??null:null;state.bonusChoices=state.mode==='game'?run.model.bonusChoices:[];state.bonuses=state.mode==='game'?run.model.bonuses:[];
@@ -343,7 +358,7 @@ try {
    upgradeInspector.style.top=`${Math.max(12,Math.min(arena.height-height-12,point.y-arena.top-height/2))}px`;
  }
  function tick(){
-   clock.tick++;simulatedTime+=clock.step;
+   clock.tick++;simulatedTime+=clock.step;run.advanceCrushers(clock.step);
    let arrivals:Float32Array=new Float32Array(0);
    if(state.mode==='game'&&run.model.phase==='combat'){
      const positions=hordeFront.advance(clock.step,map,(run.model.level-1)*10+run.model.wave,state.difficulty,run.model.pending);
@@ -354,7 +369,7 @@ try {
      hordeCapacity.add(clock.tick,added);count=Math.max(count,gpu.shared.capacity-hordeCapacity.available(gpu.shared.capacity));spawnSlot+=added;state.population+=added;
    }
    const wireStats=barbedWireStats(run.model.commandUpgrades),activeWires=builtWires.filter(wire=>!wire.breached);
-   const effects=[...activeWires.map(wire=>({x:wire.x+wire.width/2,y:wire.y+wire.height/2,kind:'slow' as const,radius:3.2,strength:.55,damage:wireStats.damage*clock.step,direction:{x:0,y:0},cone:0,duration:wireStats.slow,source:0})),...commands].slice(0,64);commands=[];
+   const effects=[...commands,...activeWires.map(wire=>({x:wire.x+wire.width/2,y:wire.y+wire.height/2,kind:'slow' as const,radius:3.2,strength:.55,damage:wireStats.damage*clock.step,direction:{x:0,y:0},cone:0,duration:wireStats.slow,source:0}))].slice(0,64);commands=[];
    if(state.mode==='game'&&run.model.phase==='combat'&&(builtWalls.length||builtWires.length)){
      const obstacleSnapshot=map.obstacles,telemetry=(segment:Rect)=>{const index=obstacleSnapshot.indexOf(segment);return index<0?{contact:0,packing:0,pressure:0}:{contact:Math.min(1,(latest.obstacleContacts?.[index]??0)/6),packing:latest.obstaclePacking?.[index]??0,pressure:latest.obstaclePressure?.[index]??0};};
      const wallLevel=run.model.commandUpgrades.filter(id=>/^wall-engineering-\d+$/.test(id)).length;
@@ -394,7 +409,7 @@ try {
      const encoder=gpu.device.createCommandEncoder({label:'Present'});
      const placement=pointer?towerPlacement(pointer):undefined;
      const structurePlacement=pointer?wallAt(pointer):undefined;
-     const ghost=state.mode==='game'&&state.selectedKind&&placement?{...placement,kind:state.selectedKind,range:compileTower({id:0,kind:state.selectedKind,x:placement.x,y:placement.y,level:0,branch:-1,angle:0,cooldown:0,spent:0},run.model.bonuses,run.model.commandUpgrades,run.statModifiers()).range,valid:canPlace(map,run.model.towers,placement,1.25,towerMounts())&&run.model.phase!=='won'&&run.model.phase!=='lost'}:undefined;
+     const ghost=state.mode==='game'&&state.selectedKind&&placement?{...placement,kind:state.selectedKind,range:compileTower({id:0,kind:state.selectedKind,x:placement.x,y:placement.y,level:0,branch:-1,angle:0,cooldown:0,spent:0},run.model.bonuses,run.model.commandUpgrades,run.statModifiers()).range,valid:canPlace(map,run.model.towers,{...placement,kind:state.selectedKind},1.25,towerMounts())&&run.model.metal>=TOWERS[state.selectedKind].cost&&run.model.phase!=='won'&&run.model.phase!=='lost'}:undefined;
      const placementKind=state.buildTool==='wall'||state.buildTool==='wire'?state.buildTool:undefined;
      const existingWall=placementKind==='wall'&&structurePlacement?builtWalls.find(wall=>wall.x===structurePlacement.x&&wall.y===structurePlacement.y):undefined;
      const placementCost=placementKind==='wall'?60:45;
