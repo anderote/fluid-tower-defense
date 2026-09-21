@@ -6,6 +6,8 @@ export const PHYSICS_CELL_SIZE = MAX_BODY_RADIUS * 2;
 export const PHYSICS_KERNEL_RADIUS = 1;
 export const PHYSICS_SUBSTEPS = 2;
 export const MIN_BODY_RADIUS = 0.05;
+/** Keeps the rendered zombie silhouette visibly clear of solid barriers. */
+export const OBSTACLE_STANDOFF = 0.2;
 
 // Crowd pressure (kPa), not explosive peak pressure. Saturation prevents runaway
 // feedback when forward effort further compresses a blocked crowd.

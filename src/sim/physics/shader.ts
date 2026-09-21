@@ -1,6 +1,6 @@
 import { PARTICLE_WGSL } from '../../contracts/index.ts';
 import { ENEMY_WGSL } from '../../content/index.ts';
-import {SURGE_START,SURGE_FULL,SURGE_SPEED_GAIN,SURGE_RELEASE_GAIN,SURGE_COAST_DRAG} from './model.ts';
+import {OBSTACLE_STANDOFF,SURGE_START,SURGE_FULL,SURGE_SPEED_GAIN,SURGE_RELEASE_GAIN,SURGE_COAST_DRAG} from './model.ts';
 import {AFTERMATH_WGSL,CORPSE_CAPACITY} from '../../effects/aftermath.ts';
 import {CORPSE_BLAST_EROSION,CORPSE_DECAY_SECONDS,CORPSE_DRAG,CORPSE_FIELD_SCALE,CORPSE_FIELD_WORD_OFFSET,CORPSE_MIN_MASS,CORPSE_SLOPE_FORCE} from './corpse-field.ts';
 
@@ -462,8 +462,8 @@ fn sweepAabb(start: vec2<f32>, finish: vec2<f32>, minimum: vec2<f32>, maximum: v
 }
 
 fn resolveObstacle(start: vec2<f32>, finish: vec2<f32>, velocity: vec2<f32>, radius: f32, rect: vec4<f32>) -> vec4<f32> {
-  let minimum = rect.xy - vec2<f32>(radius);
-  let maximum = rect.xy + rect.zw + vec2<f32>(radius);
+  let minimum = rect.xy - vec2<f32>(radius + ${OBSTACLE_STANDOFF});
+  let maximum = rect.xy + rect.zw + vec2<f32>(radius + ${OBSTACLE_STANDOFF});
   var resultPosition = finish;
   var resultVelocity = velocity;
 
@@ -545,7 +545,7 @@ fn integrateParticles(@builtin(global_invocation_id) gid: vec3<u32>) {
   var embedded=false;
   for(var candidate=0u;candidate<nearby.y;candidate++){
     let rect=obstacles[obstacleId(nearby.x+candidate)].rect;
-    if(all(start>rect.xy-vec2f(radius))&&all(start<rect.xy+rect.zw+vec2f(radius))){embedded=true;break;}
+    if(all(start>rect.xy-vec2f(radius+${OBSTACLE_STANDOFF}))&&all(start<rect.xy+rect.zw+vec2f(radius+${OBSTACLE_STANDOFF}))){embedded=true;break;}
   }
   let candidates=select(nearby.y,params.obstacleCount,embedded);
   for (var candidate=0u;candidate<candidates;candidate++) {
@@ -569,7 +569,7 @@ fn integrateParticles(@builtin(global_invocation_id) gid: vec3<u32>) {
     let obstacleIndex=obstacleId(contacts.x+candidate);
     let rect = obstacles[obstacleIndex].rect;
     let nearest = clamp(position, rect.xy, rect.xy + rect.zw);
-    if (distance(position, nearest) <= radius + 0.2) { obstacleContact = true; }
+    if (distance(position, nearest) <= radius + ${OBSTACLE_STANDOFF}) { obstacleContact = true; }
   }
 
   particles[index].pos = vec4<f32>(position, velocity);
