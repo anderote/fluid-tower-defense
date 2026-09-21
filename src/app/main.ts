@@ -149,7 +149,7 @@ try {
      }
      case 'dam-flood':{
        if(editor.active||state.paused||state.mode!=='game'||run.model.phase!=='combat'||!releaseFlood(map)){state.message='Flood release needs active combat and a full reservoir.';break;}
-       cameraShake=1;audio.flood();burst({x:128,y:50},70,[.55,.9,1],18,1.6,-2,'mist',3);
+       cameraShake=1;audio.flood();for(const y of [24,76])burst({x:128,y},35,[.55,.9,1],18,1.6,-2,'mist',3);
        state.message='SPILLWAY RELEASE — SWEEP THE HORDE BACK';break;
      }
      case 'slam-gates':{

@@ -116,3 +116,11 @@ Added a standalone dam selected through the visible Battlefield control above th
 Dam autosaves and checkpoints use separate keys from the campaign, including its legacy run save. Preparation saves preserve gates and reservoir state. Switching during combat resumes the selected battlefield's last preparation. This release does not add the later proposed power tradeoff or dam-specific boss.
 
 Validation: 146 CPU tests, production build, and seven real-GPU flood assertions passed. Two actual first-wave playthroughs cleared all 1,200 enemies in 64.8 / 64.9 simulated seconds with 100% integrity using a 2,710-Metal defense and two floods. The final pass entered via the UI selector and checked gate diversion, save/reload, pause, recharge, independent campaign saves, and zero invalid-particle/readback errors. First engagement was 19.5 seconds in the final run. Later-wave balance and arbitrary defenses remain unmeasured.
+
+## Dry dam bypass and opening balance
+
+Restricted reservoir surges to the north and south spillways. The permanently open center now renders as a dry concrete bypass with traffic markings; its role is explained in the dam controls. Flood fronts, damage, knockback, slow, and launch spray stay in the two water channels. Closing side gates still trades flood coverage for funneling enemies toward tower defenses.
+
+Raised only the dam's first wave from 1,200 to 1,320 enemies. Forecast, spawning, progress, and restart share that map-specific quota. Campaign and subsequent wave quotas are unchanged. A 1,440-enemy candidate with the old flood-dependent layout lost; the final test uses the same 2,710-Metal budget with its incinerator and rear autocannons repositioned to cover the dry bypass.
+
+Validation: 148 CPU tests, nine real-GPU flood checks, and production build passed. The final full-wave UI playtest cleared all 1,320 enemies in 79.0 simulated seconds at 100% integrity; first kill at 18.9 seconds, two side-channel flood releases, and no stranded enemies or invalid-particle/readback errors. The suite also checked map selection, gate diversion, save/reload, pause, recharge, and save isolation. This establishes a viable opening defense, not universal layout balance.

@@ -23,7 +23,8 @@ export function advanceDam(map:WorldMap,dt:number,combat:boolean):Effect[]{
  if(d.surge===0)d.reservoir=Math.min(100,d.reservoir+(dt-step)*100/30);
  const x=132-(1-d.surge/FLOOD_SECONDS)*104;
  return DAM_CHANNELS.flatMap((channel,i)=>{
-  // Closed side gates stop their surge at the shutter; the center always flows.
+  // Only the two controlled spillways flood; the central bypass stays dry.
+  if(i===1)return [];
   if(i!==1&&d.closed[i===0?0:1]&&x<68)return [];
   return [{x,y:channel.y+channel.height/2,kind:'flood' as const,radius:10,strength:95*step,damage:110*step,direction:{x:-1,y:0},cone:8,duration:step,source:0,peakPressureKpa:650}];
  });

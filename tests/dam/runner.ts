@@ -18,7 +18,7 @@ button.onclick=async()=>{
   backupSaves(localStorage);backed=true;for(const k of Object.keys(localStorage))if(k.startsWith('pressure-front.'))localStorage.removeItem(k);
   localStorage.setItem('pressure-front.autosave.v1','campaign-sentinel');
   const map=damMap(),run=createRun(map);run.setBuildMounts(terrainMounts(map));
-  for(const [kind,x,y] of [['tesla',54,38],['tesla',54,64],['incinerator',74,38],['mortar',78,64],['cryo',42,64],['autocannon',98,38],['autocannon',98,64]] as const)assert(run.place(kind,{x,y}).ok,'Invalid budgeted defense '+kind);
+  for(const [kind,x,y] of [['tesla',54,38],['tesla',54,64],['incinerator',82,50],['mortar',78,64],['cryo',42,64],['autocannon',112,44],['autocannon',112,56]] as const)assert(run.place(kind,{x,y}).ok,'Invalid budgeted defense '+kind);
   assert(run.model.metal===290,'Defense exceeded budget');
   localStorage.setItem(key,JSON.stringify({runState:run.serialize(),map,spawnBaseline:map.spawn,builtWalls:[],builtWires:[],difficulty:1,streamWidth:60}));
   await navigate('/');await until(()=>text('#adapter').includes('/ WEBGPU'));
@@ -33,6 +33,8 @@ button.onclick=async()=>{
   await until(()=>JSON.parse(localStorage.getItem(key)!).map.dam.closed.every(Boolean));
   await navigate('/?map=dam');await until(()=>text('#adapter').includes('/ WEBGPU')&&text('#metal')==='290');
   assert(el('[data-action="dam-north"]').getAttribute('aria-pressed')==='true','Gate state lost on reload');
+  assert(text('#wave-status-count')==='1,320 enemies','Dam opening forecast should be 1,320');
+  assert(text('#dam-controls').includes('always-open dry bypass'),'Missing center bypass explanation');
   click('[data-action="start-wave"]');await until(()=>text('#phase')==='COMBAT');
   let released=0,switched=false,paused=false,firstKill=0;const start=performance.now();
   while(['COMBAT','SETTLING'].includes(text('#phase'))){
@@ -48,7 +50,7 @@ button.onclick=async()=>{
    status.textContent=`Wave 1: ${d.simulationSeconds.toFixed(1)}s · ${d.kills} kills · ${d.waveProgress.queued+d.live} remaining · ${text('#base')} integrity · ${released} flood releases`;
    assert(performance.now()-start<240000,'Wave timeout');await sleep(300);
   }
-  const d=diagnostic();assert(text('#phase')==='PREPARATION','Defense lost');assert(firstKill>0&&firstKill<25,'Opening engagement too slow');assert(d.simulationSeconds<150,'Wave dragged on');assert(released>=1,'No flood exercised');assert(d.live===0&&d.waveProgress.queued===0,'Stranded enemies');
+  const d=diagnostic();assert(text('#phase')==='PREPARATION','Defense lost: '+text('.diagnostics pre'));assert(firstKill>0&&firstKill<25,'Opening engagement too slow');assert(d.simulationSeconds<150,'Wave dragged on');assert(released>=1,'No flood exercised');assert(d.live===0&&d.waveProgress.queued===0,'Stranded enemies');assert(d.kills===1320,'Wrong opening quota');
   assert(localStorage.getItem('pressure-front.run.v1')==='legacy-campaign-sentinel','Dam overwrote legacy campaign save');
   assert(localStorage.getItem('pressure-front.autosave.v1')===campaignSave,'Dam overwrote campaign save');
   status.textContent=`PASS: wave 1 cleared in ${d.simulationSeconds.toFixed(1)}s; ${d.kills} kills; ${text('#base')} integrity; first kill ${firstKill.toFixed(1)}s; ${released} floods. Gate diversion, reload, pause, recharge, save isolation, and GPU health passed.`;

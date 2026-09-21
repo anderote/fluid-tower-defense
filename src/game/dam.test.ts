@@ -1,11 +1,12 @@
+import {previewNextWave} from './wave-preview.ts';
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {damMap,DAM_GATES,validDam} from '../content/dam.ts';
+import {damMap,DAM_GATES,DAM_ID,validDam} from '../content/dam.ts';
 import {advanceDam,releaseFlood,toggleDamGate} from './dam.ts';
 import {canPlace,buildNavigation,hasSpawnRoute} from '../navigation/index.ts';
 import {terrainMounts,structurePlacementIssue} from './terrain.ts';
 import {validateEditorMap} from '../editor/index.ts';
-import {createRun} from './index.ts';
+import {createRun,waveFor} from './index.ts';
 import {decodeDefense} from '../persistence/defense.ts';
 for(const mask of [0,1,2,3])test(`dam gates ${mask}: entry and boss routes remain open`,()=>{
  const map=damMap();for(const i of [0,1] as const)if(mask&(1<<i)){assert.equal(toggleDamGate(map,i,[]),undefined);map.dam!.switchCooldown=0;}
@@ -23,7 +24,7 @@ test('reservoir costs a full charge, pauses, recharges, and gates stop their flo
  assert.ok(releaseFlood(map));assert.ok(!releaseFlood(map));assert.equal(map.dam!.reservoir,0);
  assert.deepEqual(advanceDam(map,20,false),[]);assert.equal(map.dam!.surge,3.2);
  assert.equal(toggleDamGate(map,1,[]),'Wait for the surge to pass before moving gates.');
- let effects=advanceDam(map,2.5,true);assert.equal(effects.length,2);assert.ok(effects.every(e=>e.kind==='flood'&&e.direction.x===-1));
+ let effects=advanceDam(map,2.5,true);assert.equal(effects.length,1);assert.ok(effects.every(e=>e.kind==='flood'&&e.direction.x===-1));
  advanceDam(map,.7,true);advanceDam(map,30,true);assert.equal(map.dam!.reservoir,100);assert.ok(releaseFlood(map));
 });
 test('dam state and mounted towers survive checkpoint validation',()=>{
@@ -37,4 +38,20 @@ test('gate closing refuses a player layout that would seal the final route',()=>
  const map=damMap();map.obstacles.push({x:72,y:42,width:4,height:16},{x:72,y:68,width:4,height:16});
  assert.ok(hasSpawnRoute(map));const before=JSON.stringify(map);
  assert.match(toggleDamGate(map,0,[])!,/clear spillway/);assert.equal(JSON.stringify(map),before);
+});
+
+test('only side spillways flood; central bypass stays dry for the whole surge',()=>{
+ const map=damMap();releaseFlood(map);
+ for(let tick=0;tick<192;tick++){
+  const effects=advanceDam(map,1/60,true);assert.equal(effects.length,2);
+  assert.deepEqual(effects.map(e=>e.y),[24,76]);assert.ok(effects.every(e=>Math.abs(e.y-50)>e.cone));
+ }
+});
+test('dam opening quota agrees across forecast, start, progress and restart; campaign stays unchanged',()=>{
+ const map=damMap(),run=createRun(map);
+ assert.equal(waveFor(1,1).total,1200);assert.equal(waveFor(1,1,DAM_ID).total,1320);
+ assert.equal(waveFor(1,2,DAM_ID).total,waveFor(1,2).total);
+ assert.equal(previewNextWave({mode:'game',phase:'preparation',level:1,wave:0,difficulty:1,dam:map.dam})!.total,1320);
+ run.startWave();assert.equal(run.waveProgress.total,1320);assert.equal(run.waveProgress.queued,1320);
+ run.takeSpawns(100,1);run.restartWave();assert.equal(run.waveProgress.queued,1320);
 });

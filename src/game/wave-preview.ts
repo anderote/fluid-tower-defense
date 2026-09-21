@@ -1,3 +1,4 @@
+import {DAM_ID} from '../content/dam.ts';
 import type {EnemyKind, UIState} from '../contracts/index.ts';
 import {ENEMIES} from '../content/index.ts';
 import {waveFor} from './index.ts';
@@ -11,13 +12,13 @@ const ROLES: Record<EnemyKind, string> = {
   softbody: 'Bloated and compression-resistant; use area damage and crowd control.',
 };
 
-type PreviewState = Pick<UIState, 'mode' | 'phase' | 'level' | 'wave' | 'difficulty'> & Partial<Pick<UIState, 'streamWidth'>>;
+type PreviewState = Pick<UIState, 'mode' | 'phase' | 'level' | 'wave' | 'difficulty'> & Partial<Pick<UIState, 'streamWidth'|'dam'>>;
 
 /** Read-only forecast of the same composition startWave queues. Bosses spawn separately. */
 export function previewNextWave(state: PreviewState) {
   if (state.mode !== 'game' || state.phase !== 'preparation') return null;
   const wave = state.wave + 1;
-  const definition = waveFor(state.level, wave);
+  const definition = waveFor(state.level, wave,state.dam?DAM_ID:undefined);
   return {
     level: state.level,
     wave,

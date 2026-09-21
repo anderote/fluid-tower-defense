@@ -1,3 +1,4 @@
+import {advanceDam,releaseFlood} from '../../src/game/dam.ts';
 import {connectGPU} from '../../src/runtime/gpu.ts';
 import {createCombat,type CombatFrame} from '../../src/sim/combat/index.ts';
 import {DEFAULT_TUNING,P,COUNTER_WORDS} from '../../src/contracts/index.ts';
@@ -20,6 +21,10 @@ try{
  assert(p[P.alive]===-1&&p[16+P.alive]===-1&&counters[0]===2,'Flood kills missing from settlement');
  assert(counters.slice(16,80).every(v=>v===0),'Flood assigned kills to an unrelated tower');
  assert(counters[15]>0,'Flood kills did not award bounty credit');
+ combat.reset();const map=damMap();releaseFlood(map);frame.effects=advanceDam(map,1/60,true);frame.count=3;
+ const targets=new Float32Array(48);[24,50,76].forEach((y,i)=>targets.set([131.5,y,0,0,.4125,1,100,100,0,0,0,1,0,0,0,1],i*16));device.queue.writeBuffer(shared.particles,0,targets);step();p=await read(shared.particles,192);
+ assert(p[P.hp]<100&&p[32+P.hp]<100,'Actual reservoir release missed a side spillway');
+ assert(p[16+P.hp]===100&&p[16+P.vx]===0&&p[16+P.slow]===0,'Actual reservoir release affected the dry central bypass');
  const error=await device.popErrorScope();if(error)throw Error(error.message);
- status.textContent='PASS: 7 GPU checks — rectangular damage, boundaries, upstream impulse, slow, kills, attribution, salvage.';combat.destroy();device.destroy();
+ status.textContent='PASS: 9 GPU checks — rectangular damage, boundaries, upstream impulse, slow, kills, attribution, salvage, side spillways and dry bypass.';combat.destroy();device.destroy();
 }catch(error){status.textContent='FAIL: '+String(error);console.error(error);}

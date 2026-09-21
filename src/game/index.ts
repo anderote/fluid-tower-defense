@@ -1,3 +1,4 @@
+import {DAM_ID} from '../content/dam.ts';
 import {compileTower, COMMAND_UPGRADES, DEFAULT_MAP, MAX_TOWER_LEVEL, MAX_VETERANCY, TOWERS, towerUpgradeCost, veterancyLevel} from '../content/index.ts';
 import {canPlace, hasSpawnRoute, mapWithTurretObstacles, resolvePlacement} from '../navigation/index.ts';
 import {commandUpgradeAvailability} from './research.ts';
@@ -53,7 +54,7 @@ const PHASE_WEIGHTS:readonly (readonly [SpawnBatch['kind'],number])[][]=[
 const burstFor=(_kind:SpawnBatch['kind']):number=>1;
 
 /** Deterministic authored-pattern director with bounded population and unbounded stat scaling. */
-export function waveFor(level:number,wave:number):Wave {
+export function waveFor(level:number,wave:number,mapId?:string):Wave {
   const globalWave=Math.max(1,Math.floor(wave>WAVES_PER_LEVEL?wave:(Math.max(1,level)-1)*WAVES_PER_LEVEL+wave));
   const threat=globalWave-1,phase=(globalWave-1)%WAVES_PER_LEVEL,cycle=Math.floor((globalWave-1)/WAVES_PER_LEVEL);
   // Short opening encounters; later difficulty grows through composition and health,
@@ -61,7 +62,7 @@ export function waveFor(level:number,wave:number):Wave {
   // Introducing brutes slows the physical front and adds much tougher bodies.
   // Trade numbers for that new threat instead of tripling the arrival window.
   const openingTotals=[1_200,1_800,2_400,1_700,1_800];
-  const total=openingTotals[globalWave-1]??Math.min(12_000,1_200+threat*600);
+  const total=mapId===DAM_ID&&globalWave===1?1_320:openingTotals[globalWave-1]??Math.min(12_000,1_200+threat*600);
   const healthScale=1+Math.max(0,globalWave-WAVES_PER_LEVEL)*.035;
   const seed=(globalWave*10_000+globalWave*977)>>>0;
   const weights=new Map(PHASE_WEIGHTS[phase]);
@@ -126,7 +127,7 @@ export class RunController {
   get epoch():number { return this.runEpoch; }
   get waveProgress(){
     const queued=this.model.pending.reduce((sum,batch)=>sum+batch.count,0);
-    return {total:this.model.wave>0?waveFor(this.model.level,this.model.wave).total:0,queued,live:this.live};
+    return {total:this.model.wave>0?waveFor(this.model.level,this.model.wave,this.map.id).total:0,queued,live:this.live};
   }
   get isBossWave():boolean { return this.model.wave>0&&this.model.wave%WAVES_PER_LEVEL===0; }
   setSpawnMultiplier(value:number):number { this.spawnMultiplier=Math.max(1,Math.min(40,Math.round(value)||1)); return this.spawnMultiplier; }
@@ -219,12 +220,12 @@ export class RunController {
   startWave():ActionResult {
     if (this.model.phase!=='preparation') return {ok:false,reason:'The current wave is not ready to start.'};
     if(this.model.bonusChoices.length)return {ok:false,reason:'Choose a command boon before starting the wave.'};
-    const wave=waveFor(this.model.level,this.model.wave+1); this.waveStartBaseHealth=this.model.baseHealth;for(const tower of this.model.towers)if(tower.kind==='crusher'){tower.cooldown=0;tower.crusherAnimation=0;}this.model.wave++; this.model.pending=wave.spawns.map(batch=>({...batch,credit:0})); this.model.phase='combat'; this.live=0;this.spawnElapsed=0;this.spawnAllocation=0;
+    const wave=waveFor(this.model.level,this.model.wave+1,this.map.id); this.waveStartBaseHealth=this.model.baseHealth;for(const tower of this.model.towers)if(tower.kind==='crusher'){tower.cooldown=0;tower.crusherAnimation=0;}this.model.wave++; this.model.pending=wave.spawns.map(batch=>({...batch,credit:0})); this.model.phase='combat'; this.live=0;this.spawnElapsed=0;this.spawnAllocation=0;
     return {ok:true};
   }
   restartWave():ActionResult {
     if(this.model.wave<1||!['combat','settling','lost'].includes(this.model.phase))return {ok:false,reason:'There is no active wave to restart.'};
-    const wave=waveFor(this.model.level,this.model.wave);this.model.pending=wave.spawns.map(batch=>({...batch,credit:0}));this.model.phase='combat';this.model.baseHealth=this.waveStartBaseHealth;this.model.selected=null;
+    const wave=waveFor(this.model.level,this.model.wave,this.map.id);this.model.pending=wave.spawns.map(batch=>({...batch,credit:0}));this.model.phase='combat';this.model.baseHealth=this.waveStartBaseHealth;this.model.selected=null;
     this.live=0;this.spawnElapsed=0;this.spawnAllocation=0;this.runEpoch++;this.applied=emptyApplied();
     return {ok:true};
   }
@@ -282,7 +283,7 @@ export class RunController {
   finishSettling():ActionResult {
     if (this.model.phase!=='combat' && this.model.phase!=='settling') return {ok:false,reason:'There is no wave to settle.'};
     if (this.model.pending.length || this.live>0) return {ok:false,reason:'Waiting for live enemies or queued spawns.'};
-    const completed=waveFor(this.model.level,this.model.wave); this.model.metal+=completed.payment;
+    const completed=waveFor(this.model.level,this.model.wave,this.map.id); this.model.metal+=completed.payment;
     this.model.bonusChoices=this.model.wave<WAVES_PER_LEVEL&&this.model.wave%3===0?offeredBonuses(this.model.level,this.model.wave,this.model.bonuses):[];
     this.model.phase=this.model.wave>=WAVES_PER_LEVEL?'checkpoint':'preparation';
     return {ok:true};
