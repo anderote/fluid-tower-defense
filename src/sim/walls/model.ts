@@ -1,9 +1,11 @@
 export const MAX_WALL_ENGINEERING = 20;
 export const METAL_WALL_COST = 200;
 export const CHAINLINK_FENCE_COST = 45;
-export const BASE_WALL_DURABILITY = 1_800;
+/** Base structural damage budgets, calibrated as death-equivalent damage. */
+export const BASE_WALL_DURABILITY = 5_000;
 export const BASE_WALL_PRESSURE_RESISTANCE = 20;
-export const BASE_FENCE_DURABILITY = 360;
+export const BASE_FENCE_DURABILITY = 200;
+export const BASE_BARBED_WIRE_DURABILITY = 350;
 export const BASE_FENCE_PRESSURE_RESISTANCE = 12;
 const WALL_FATIGUE_RATE = 0.012;
 const FENCE_FATIGUE_RATE = 0.02;
