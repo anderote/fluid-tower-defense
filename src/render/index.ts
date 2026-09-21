@@ -34,10 +34,15 @@ const MUZZLE_OFFSETS_WGSL=`fn muzzleOffset(weapon:f32,barrel:f32)->vec2<f32>{${W
 type V = { x:number; y:number; r:number; g:number; b:number; a:number };
 const sameRect=(left:{x:number;y:number;width:number;height:number},right:{x:number;y:number;width:number;height:number})=>left.x===right.x&&left.y===right.y&&left.width===right.width&&left.height===right.height;
 
-/** Wide tactical views need a stable camera; close views retain full impact. */
+/** Wide tactical views need a stable camera; close views retain full impact.
+ * Falloff is exponential in visible camera height, so shake becomes prominent
+ * only when the player is genuinely zoomed in on the impact. */
 export function explosionShakeScale(zoom:number){
-  const t=Math.max(0,Math.min(1,(zoom-1.15)/(3.25-1.15)));
-  return t*t*(3-2*t);
+  const minimumZoom=1.15,maximumZoom=12;
+  if(zoom<=minimumZoom)return 0;
+  const height=100/Math.max(minimumZoom,Math.min(maximumZoom,zoom)),minimumHeight=100/minimumZoom,maximumHeight=100/maximumZoom,decay=18;
+  const floor=Math.exp(-minimumHeight/decay),ceiling=Math.exp(-maximumHeight/decay);
+  return Math.max(0,Math.min(1,(Math.exp(-height/decay)-floor)/(ceiling-floor)));
 }
 
 /** GPU-only visualizer. Particle bodies remain in the shared simulation buffer. */
