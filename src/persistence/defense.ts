@@ -2,6 +2,7 @@ import type {Rect, WorldMap} from '../contracts/index.ts';
 import {validateEditorMap} from '../editor/index.ts';
 import {createRun, type RunController} from '../game/index.ts';
 import {clearPlayerTerrain,terrainMounts,wallMountCells} from '../game/terrain.ts';
+import type {BarrierPost} from '../game/post-barriers.ts';
 
 export const AUTOSAVE_KEY = 'pressure-front.autosave.v1';
 export const CHECKPOINT_KEY = 'pressure-front.checkpoint.v1';
@@ -13,6 +14,8 @@ export interface Defense {
   builtWalls:Rect[];
   builtWires:Wire[];
   builtFences?:Fence[];
+  wirePosts?:BarrierPost[];
+  fencePosts?:BarrierPost[];
   difficulty:number;
   streamWidth?:number;
 }
@@ -33,9 +36,14 @@ export function decodeDefense(raw:string):SavedDefense {
   if (!object(saved) || (saved.version !== undefined && saved.version !== 1) || typeof saved.runState !== 'string') throw new Error('Invalid saved defense.');
   const map = saved.map;
   if (!object(map) || typeof map.id !== 'string' || !finite(map.width) || !finite(map.height) || map.width <= 0 || map.height <= 0 || !Array.isArray(map.obstacles) || !map.obstacles.every(rect) || !rect(map.spawn) || !object(map.goal) || !finite(map.goal.x) || !finite(map.goal.y) || map.goal.x < 0 || map.goal.x > map.width || map.goal.y < 0 || map.goal.y > map.height || !finite(map.goalRadius) || map.goalRadius <= 0) throw new Error('Invalid saved map.');
-  if (!rect(saved.spawnBaseline) || !Array.isArray(saved.builtWalls) || !saved.builtWalls.every(rect) || !Array.isArray(saved.builtWires) || !saved.builtWires.every(wire => object(wire) && finite(wire.health) && finite(wire.maxHealth) && wire.health > 0 && wire.maxHealth > 0 && wire.health <= wire.maxHealth && typeof wire.breached === 'boolean' && rect(wire)) || (saved.builtFences!==undefined&&(!Array.isArray(saved.builtFences)||!saved.builtFences.every(fence=>object(fence)&&finite(fence.health)&&finite(fence.maxHealth)&&fence.health>0&&fence.maxHealth>0&&fence.health<=fence.maxHealth&&rect(fence)))) || !finite(saved.difficulty) || !Number.isInteger(saved.difficulty) || saved.difficulty < 1 || saved.difficulty > 40 || (saved.streamWidth !== undefined && (!finite(saved.streamWidth) || !Number.isInteger(saved.streamWidth) || saved.streamWidth < 1 || saved.streamWidth > 100))) throw new Error('Invalid saved structures or flow setting.');
-  saved.builtFences??=[];
+  const mapWidth=map.width as number,mapHeight=map.height as number;
+  const posts=(value:unknown)=>value===undefined||(Array.isArray(value)&&value.every(post=>object(post)&&finite(post.x)&&finite(post.y)&&post.x>=0&&post.y>=0&&post.x<=mapWidth-4&&post.y<=mapHeight-4));
+  if (!rect(saved.spawnBaseline) || !Array.isArray(saved.builtWalls) || !saved.builtWalls.every(rect) || !Array.isArray(saved.builtWires) || !saved.builtWires.every(wire => object(wire) && finite(wire.health) && finite(wire.maxHealth) && wire.health > 0 && wire.maxHealth > 0 && wire.health <= wire.maxHealth && typeof wire.breached === 'boolean' && rect(wire)) || (saved.builtFences!==undefined&&(!Array.isArray(saved.builtFences)||!saved.builtFences.every(fence=>object(fence)&&finite(fence.health)&&finite(fence.maxHealth)&&fence.health>0&&fence.maxHealth>0&&fence.health<=fence.maxHealth&&rect(fence)))) || !posts(saved.wirePosts)||!posts(saved.fencePosts) || !finite(saved.difficulty) || !Number.isInteger(saved.difficulty) || saved.difficulty < 1 || saved.difficulty > 40 || (saved.streamWidth !== undefined && (!finite(saved.streamWidth) || !Number.isInteger(saved.streamWidth) || saved.streamWidth < 1 || saved.streamWidth > 100))) throw new Error('Invalid saved structures or flow setting.');
   const defense = saved as unknown as SavedDefense;
+  defense.builtFences??=[];
+  // Legacy tile-painted defenses retain their exact layout by becoming posts.
+  defense.wirePosts??=defense.builtWires.map(wire=>({x:wire.x,y:wire.y}));
+  defense.fencePosts??=defense.builtFences.map(fence=>({x:fence.x,y:fence.y}));
   const dynamic = [...defense.builtWalls, ...defense.builtWires, ...(defense.builtFences??[])];
   // Collision/removal code uses object identity. Reconnect solid walls and fences
   // to map obstacles; wire intentionally remains outside the collision/navigation
