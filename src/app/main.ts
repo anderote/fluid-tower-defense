@@ -41,6 +41,7 @@ import {installInteractionGuards} from './interaction-guards.ts';
 const root=document.querySelector<HTMLElement>('#app')!;
 installInteractionGuards();
 const params=new URLSearchParams(location.search);
+const TURRET_HIT_RADIUS=2.25;
 if(params.has('validate')) {
  const {showValidation}=await import('./validation-page.ts');await showValidation(root);
 } else {
@@ -319,7 +320,7 @@ try {
  ui.canvas.addEventListener('pointermove',event=>{
    pointer=renderer.screenToWorld(event.clientX,event.clientY);
    if(infantryDrag&&(event.buttons&1))infantryDrag.current=pointer;
-   if(state.upgradeMode){const tower=run.model.towers.find(candidate=>Math.hypot(candidate.x-pointer!.x,candidate.y-pointer!.y)<3.5);if(tower)setUpgradeTarget(tower.id);else if(hoveredTowerId!==null)scheduleUpgradeTargetClear();}
+   if(state.upgradeMode){const tower=run.model.towers.find(candidate=>Math.hypot(candidate.x-pointer!.x,candidate.y-pointer!.y)<TURRET_HIT_RADIUS);if(tower)setUpgradeTarget(tower.id);else if(hoveredTowerId!==null)scheduleUpgradeTargetClear();}
    if(editor.active&&event.buttons)editor.paint(pointer,event.buttons&2?true:undefined);if((state.buildTool==='wall'||state.buildTool==='fence'||state.buildTool==='wire')&&(event.buttons&2))(state.buildTool==='wall'?removeWall:state.buildTool==='fence'?removeFence:removeWire)(pointer);if(state.buildTool==='wall'&&(event.buttons&1))placeWall(wallAt(pointer));
  });
  const removeWall=(point:Vec2)=>{const index=builtWalls.findIndex(w=>point.x>=w.x&&point.x<w.x+w.width&&point.y>=w.y&&point.y<w.y+w.height);if(index<0)return;const wall=builtWalls[index];if(run.model.towers.some(tower=>tower.x>=wall.x&&tower.x<wall.x+wall.width&&tower.y>=wall.y&&tower.y<wall.y+wall.height)){state.message='Sell the mounted turret before removing this wall.';return;}builtWalls.splice(index,1);removeStructuresFromMap([wall]);run.refundMetal(Math.floor(METAL_WALL_COST/2));state.message=`Metal wall recovered for ${Math.floor(METAL_WALL_COST/2)} Metal.`;};
@@ -349,7 +350,7 @@ try {
      if(state.moveMode&&movingTowerId!==null){const tower=run.model.towers.find(candidate=>candidate.id===movingTowerId),result=run.move(movingTowerId,towerPlacement(point));if(result.ok){movingTowerId=null;state.moveMode=false;refreshNavigation();combat.resetAttribution();run.resetTowerAttribution();}actionResult(result,tower?`${TOWERS[tower.kind].name} moved for ${TOWER_MOVE_COST} Metal.`:'Tower moved.');}
      else if(state.selectedKind){const result=run.place(state.selectedKind,towerPlacement(point));if(result.ok){refreshNavigation();combat.resetAttribution();run.resetTowerAttribution();}actionResult(result,result.tower?`${TOWERS[result.tower.kind].name} deployed.`:'Tower deployed.');}
      else{
-       const clicked=run.model.towers.find(t=>Math.hypot(t.x-point.x,t.y-point.y)<3.5);
+       const clicked=run.model.towers.find(t=>Math.hypot(t.x-point.x,t.y-point.y)<TURRET_HIT_RADIUS);
        if(state.upgradeMode){setUpgradeTarget(clicked?.id??null);return;}
        run.model.selected=clicked?.id??null;targetingTowerId=null;state.targetMode=false;
        if(!clicked)wallInspector.select(builtWalls.find(w=>point.x>=w.x&&point.x<=w.x+w.width&&point.y>=w.y&&point.y<=w.y+w.height));
