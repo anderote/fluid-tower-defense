@@ -36,8 +36,10 @@ import {turretEjection,turretMuzzlePoint,turretMuzzlePoints} from '../render/tur
 import {infantryMuzzle} from '../render/infantry-animation.ts';
 import {formatPressure,MANUAL_BLAST_PEAK_KPA,MANUAL_PUSH_PEAK_KPA} from '../sim/pressure/model.ts';
 import {barrierLine} from '../game/barrier-line.ts';
+import {installInteractionGuards} from './interaction-guards.ts';
 
 const root=document.querySelector<HTMLElement>('#app')!;
+installInteractionGuards();
 const params=new URLSearchParams(location.search);
 if(params.has('validate')) {
  const {showValidation}=await import('./validation-page.ts');await showValidation(root);

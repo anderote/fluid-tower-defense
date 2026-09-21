@@ -26,6 +26,7 @@
 }
 
 * { box-sizing: border-box; }
+body, body * { user-select: none; -webkit-user-select: none; }
 [hidden] { display: none !important; }
 body { margin: 0; background: var(--term-bg); }
 button, input { font: inherit; }
