@@ -66,7 +66,7 @@ struct Camera{viewport:vec4<f32>,world:vec4<f32>,time:vec4<f32>};
 @group(0) @binding(1) var atlas:texture_2d<f32>;
 struct Out{@builtin(position) pos:vec4<f32>,@location(0) uv:vec2<f32>,@location(1) tint:vec4<f32>};
 @vertex fn vs(@builtin(vertex_index) id:u32,@location(0) rect:vec4<f32>,@location(1) source:vec4<f32>,@location(2) tint:vec4<f32>,@location(3) angle:f32)->Out{
- let corners=array<vec2<f32>,6>(vec2(0.,0.),vec2(1.,0.),vec2(0.,1.),vec2(0.,1.),vec2(1.,0.),vec2(1.,1.));let q=corners[id];let local=(q-.5)*rect.zw;let c=cos(angle),s=sin(angle);let p=rect.xy+rect.zw*.5+vec2(local.x*c-local.y*s,local.x*s+local.y*c);
+ let corners=array<vec2<f32>,6>(vec2f(0.,0.),vec2f(1.,0.),vec2f(0.,1.),vec2f(0.,1.),vec2f(1.,0.),vec2f(1.,1.));let q=corners[id];let local=(q-.5)*rect.zw;let c=cos(angle);let s=sin(angle);let p=rect.xy+rect.zw*.5+vec2f(local.x*c-local.y*s,local.x*s+local.y*c);
  let aspect=camera.viewport.x/camera.viewport.y;let worldAspect=camera.world.z/camera.world.w;let scale=vec2(min(1.,worldAspect/aspect),min(1.,aspect/worldAspect));
  // A sprite's full footprint shares one depth: its lowest world-space edge.
  // Smaller depth is closer to the camera, matching the unit renderer.
