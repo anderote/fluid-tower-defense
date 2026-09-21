@@ -38,7 +38,7 @@ try{
  // burn, heavy impacts, generation recycling, focus changes and empty populations.
  const combatInitial=encodeHorde([{kind:'shambler',count:256,seed:2}],Array.from({length:256},(_,i)=>({x:5+(i%16)*2,y:5+Math.floor(i/16)*2})));
  const makeCombat=():SharedGPU=>({capacity:256,particles:gpu.device.createBuffer({size:combatInitial.byteLength,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST|GPUBufferUsage.COPY_SRC}),counters:gpu.device.createBuffer({size:COUNTER_WORDS*4,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST|GPUBufferUsage.COPY_SRC})});
- const cs=[makeCombat(),makeCombat()],cm=[await createCombat(gpu.device,cs[0]),await createCombat(gpu.device,cs[1],{spatialTargets:false})];
+ const cs=[makeCombat(),makeCombat()],cm=[await createCombat(gpu.device,cs[0]),await createCombat(gpu.device,cs[1],{spatialTargets:false,parallelTowers:false})];
  const kinds:TowerKind[]=['repulsor','mortar','autocannon','cryo','tesla','rocket','railgun','incinerator'];
  const towers:Tower[]=kinds.map((kind,i)=>({id:i+1,kind,x:10+i*2,y:18,level:0,branch:i%2,angle:0,cooldown:0,spent:0}));
  for(const s of cs)gpu.device.queue.writeBuffer(s.particles,0,combatInitial);

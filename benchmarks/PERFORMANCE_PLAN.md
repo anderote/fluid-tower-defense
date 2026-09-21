@@ -119,3 +119,9 @@ service restart, or interaction with the user's existing game tab is required.
   epoch and zero profiler errors. 191 tests and production build pass.
   Reduced-rate steering, collision dt changes and automatic hybrid simulation
   rejected for this release because they lack demonstrated gameplay parity.
+- Stage 7 follow-up: ABBA trials and an evolving/recycling soak added. At 25,000
+  enemies and maximum tested tower upgrades, independent tower workgroups reduce
+  acquisition tail latency further, while exact all-weapon/reference parity holds.
+  Blood compaction remains opt-in because its paired gain is inconclusive. Added
+  profiler resource-budget tests and mixed-species blast checks for the hybrid.
+  192 unit tests and build pass; final evidence and full GPU regression follow.

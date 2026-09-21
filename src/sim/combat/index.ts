@@ -29,8 +29,11 @@ export interface ShotSnapshot { id:number;x:number;y:number;angle:number;fired:b
 export interface CombatModule { encodeBefore(encoder:GPUCommandEncoder,frame:CombatFrame):void;encodeAfter(encoder:GPUCommandEncoder,frame:CombatFrame):void;reset():void;clearAftermath():void;resetAttribution():void;destroy():void;readonly shotState:GPUBuffer }
 
 /** GPU targeting and damage. Physics receives tower impulses directly in particle velocity. */
-export async function createCombat(device:GPUDevice,shared:SharedGPU,options:{spatialTargets?:boolean}={}):Promise<CombatModule>{
+export async function createCombat(device:GPUDevice,shared:SharedGPU,options:{spatialTargets?:boolean;parallelTowers?:boolean}={}):Promise<CombatModule>{
   const spatialTargets=options.spatialTargets!==false;
+  // Let independent towers be scheduled across GPU cores, rather than sharing
+  // one workgroup whose lanes diverge behind long acquisition/chain searches.
+  const parallelTowers=options.parallelTowers!==false;
   let obstacleSnapshot:Float32Array=new Float32Array(0);
   const uniforms=device.createBuffer({label:'Combat params',size:64,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST});
   const towers=device.createBuffer({label:'Tower definitions and line-of-sight obstacles',size:(MAX_TOWERS+MAX_COMBAT_OBSTACLES)*64,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
@@ -131,7 +134,7 @@ fn roundFall(round:Round,point:vec2f,bodyRadius:f32)->vec3f {
  return result;
 }
 
-@compute @workgroup_size(64) fn acquire(@builtin(global_invocation_id) gid:vec3u){
+@compute @workgroup_size(${parallelTowers?1:64}) fn acquire(@builtin(global_invocation_id) gid:vec3u){
  let t=gid.x;if(t>=u32(params.clock.w)){return;}let def=towers[t];var s=firing.towers[t];
  if(s.flags.x!=def.flags.x){s=TowerState(vec4f(0),vec4f(0),vec4f(def.flags.x,0,0,0));}
  if(s.timing.y>0.0 && s.timing.y!=def.weapon.x){s.timing.x=s.timing.x/s.timing.y*def.weapon.x;}
@@ -327,7 +330,7 @@ fn roundFall(round:Round,point:vec2f,bodyRadius:f32)->vec3f {
       if(frame.effects.length){const values=new Float32Array(frame.effects.length*12);frame.effects.forEach((e,i)=>values.set([e.x,e.y,e.radius,e.damage,e.direction.x,e.direction.y,e.cone,e.duration,['blast','push','slow','shot'].indexOf(e.kind),e.strength,e.source,0],i*12));device.queue.writeBuffer(effects,0,values);}
       aftermath.before(encoder,frame.count);
       if(spatialTargets&&frame.towers.length&&frame.count){encoder.clearBuffer(effects,MAX_EFFECTS*48,columns*rows*4);const pass=encoder.beginComputePass({label:'Index combat targets'});pass.setPipeline(binPipeline);pass.setBindGroup(0,bind);pass.dispatchWorkgroups(Math.ceil(frame.count/128));pass.end();}
-      encoder.clearBuffer(shared.counters,14*4,4);dispatch(encoder,0,Math.ceil(frame.towers.length/64));dispatch(encoder,1,Math.ceil(frame.count/128));dispatch(encoder,2,Math.ceil(frame.count/128));dispatch(encoder,4,1);
+      encoder.clearBuffer(shared.counters,14*4,4);dispatch(encoder,0,Math.ceil(frame.towers.length/(parallelTowers?1:64)));dispatch(encoder,1,Math.ceil(frame.count/128));dispatch(encoder,2,Math.ceil(frame.count/128));dispatch(encoder,4,1);
       aftermath.hits(encoder,frame.count);
     },
     encodeAfter(encoder,frame){encoder.clearBuffer(shared.counters,HORDE_PRESSURE_COUNTER*4,4);encoder.clearBuffer(shared.counters,16,4);encoder.clearBuffer(shared.counters,24,4);dispatch(encoder,3,Math.ceil(frame.count/128));aftermath.after(encoder,frame.count);},

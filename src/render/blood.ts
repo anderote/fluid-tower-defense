@@ -2,7 +2,9 @@ import {AFTERMATH_WGSL,CORPSE_CAPACITY,HIT_CAPACITY} from '../effects/aftermath.
 import {BLOOD_WALL_WGSL,BLOOD_WALL_CAPACITY,createBloodWallTable} from '../effects/blood-surfaces.ts';
 import type {SharedGPU,RenderScene} from '../contracts/index.ts';
 export const BLOOD_GRID=256,BLOOD_DROPLETS=12;
-export async function createBloodRenderer(device:GPUDevice,format:GPUTextureFormat,camera:GPUBuffer,shared:SharedGPU,compactDraws=true){
+// Paired trials did not establish a reliable total-frame gain. Keep the stable
+// compaction prototype explicit until a workload/adapter justifies promotion.
+export async function createBloodRenderer(device:GPUDevice,format:GPUTextureFormat,camera:GPUBuffer,shared:SharedGPU,compactDraws=false){
  const walls=shared.bloodWalls!,table=createBloodWallTable(device,walls);shared.bloodWallSlots=table.slots;
  const total=CORPSE_CAPACITY+HIT_CAPACITY;
  const visibleCapacity=BLOOD_GRID**2+total,groups=Math.ceil(visibleCapacity/128);
