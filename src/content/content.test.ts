@@ -84,8 +84,8 @@ test('Repulsor upgrades retain a short-range control role',()=>{
 });
 test('fortifications withstand sustained swarm pressure at base research',()=>{
  const wall=metalWallStats([]),wire=barbedWireStats([]);
- assert.deepEqual(wall,{durability:1_800,resistance:20});
- assert.equal(wire.durability,560);
+ assert.deepEqual(wall,{durability:5_000,resistance:20});
+ assert.equal(wire.durability,350);
  assert.equal(wire.resistance,7);
  assert.ok(wire.wear<wire.damage,'wire wear must be independent from its outgoing damage');
  const researched=barbedWireStats(Array.from({length:20},(_,index)=>`barbed-wire-${index+1}`));

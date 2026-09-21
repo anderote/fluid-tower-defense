@@ -1,6 +1,6 @@
 import {P, PARTICLE_FLOATS, type CommandUpgrade, type EnemyDef, type EnemyKind, type SpawnBatch, type Tower, type TowerDef, type TowerKind, type WorldMap} from '../contracts/index.ts';
 import {scaledPeakPressure} from '../sim/pressure/model.ts';
-import {BASE_WALL_DURABILITY,BASE_WALL_PRESSURE_RESISTANCE} from '../sim/walls/model.ts';
+import {BASE_BARBED_WIRE_DURABILITY,BASE_WALL_DURABILITY,BASE_WALL_PRESSURE_RESISTANCE} from '../sim/walls/model.ts';
 
 export const TOWERS: Record<TowerKind, TowerDef> = {
   repulsor: {id:'repulsor', name:'Repulsor', description:'Pulses enemies toward the choke walls.', cost:120, range:10, cooldown:1.35, damage:2, force:16, radius:2.7, peakPressureKpa:240, color:'#50d5ff', branches:['Ram','Wave']},
@@ -34,7 +34,7 @@ export const COMMAND_UPGRADES: readonly CommandUpgrade[] = [
 
 const researchLevel=(upgrades:readonly string[],prefix:string)=>upgrades.filter(id=>new RegExp(`^${prefix}-\\d+$`).test(id)).length;
 const researchMultiplier=(level:number)=>1+.58*Math.log1p(Math.max(0,Math.min(20,level)));
-export const barbedWireStats=(upgrades:readonly string[])=>{const multiplier=researchMultiplier(researchLevel(upgrades,'barbed-wire'));return {damage:.45*multiplier,slow:.65*multiplier,durability:560*multiplier,resistance:7*multiplier,wear:.18};};
+export const barbedWireStats=(upgrades:readonly string[])=>{const multiplier=researchMultiplier(researchLevel(upgrades,'barbed-wire'));return {damage:.45*multiplier,slow:.65*multiplier,durability:BASE_BARBED_WIRE_DURABILITY*multiplier,resistance:7*multiplier,wear:.18};};
 export const metalWallStats=(upgrades:readonly string[])=>{const multiplier=researchMultiplier(researchLevel(upgrades,'wall-engineering'));return {durability:BASE_WALL_DURABILITY*multiplier,resistance:BASE_WALL_PRESSURE_RESISTANCE*multiplier};};
 
 /** Packs authored towers into the supported GPU weapon behaviours. */
