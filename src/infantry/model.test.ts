@@ -112,6 +112,13 @@ test('rally movement reaches the firing line and stale threats cannot fire or hu
   f.threats.set(s.id,{target:0,generation:7,x:s.x-2,y:s.y,contact:120,age:1});const hp=s.health;assert.equal(advanceInfantry(f.state,f.active,f.fields,f.threats,.1,true).length,0);assert.equal(s.health,hp);
   f.threats.set(s.id,{target:0,generation:7,x:s.x-2,y:s.y,contact:10,age:0});const shots=advanceInfantry(f.state,f.active,f.fields,f.threats,.1,true);assert.equal(shots[0].generation,7);assert.ok(s.health<hp);
 });
+test('rally changes and building upgrades apply only to future recruits',()=>{
+ const f=setup();f.step(recruitInterval(0)+.1);const first=f.state.soldiers[0],oldRally={...first.rallyTarget!};
+ f.state.buildings[0].rally={x:30.5,y:23.5};f.state.buildings[0].defense=2;f.state.buildings[0].training=2;f.state.buildings[0].production=1;
+ f.step(recruitInterval(1)+.1);const second=f.state.soldiers.find(s=>s.id!==first.id)!;
+ assert.deepEqual(first.rallyTarget,oldRally);assert.equal(first.defense,0);assert.equal(first.quality,0);
+ assert.deepEqual(second.rallyTarget,{x:30.5,y:23.5});assert.equal(second.defense,2);assert.equal(second.quality,2);
+});
 test('rally validation requires one snapped point to be reachable from every selected barracks',()=>{
   const state=freshInfantry(),first={id:1,x:8.5,y:8.5,rally:{x:5.5,y:8.5},production:0,training:0,progress:0,spent:INFANTRY.rifle.cost,kind:'rifle' as const},second={id:2,x:20.5,y:20.5,rally:{x:17.5,y:20.5},production:0,training:0,progress:0,spent:INFANTRY.rifle.cost,kind:'rifle' as const};
   state.buildings.push(first,second);const active=infantryMap(map,state),rally={x:30.5,y:25.5};
