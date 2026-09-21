@@ -72,6 +72,20 @@ the original north/east/south/west connection frames; no sprite rotation is used
 Breaching or removing a segment immediately exposes the neighboring end pieces.
 Concrete walls do not count as wire connections.
 
+Fence and wire construction now follows a post-and-panel model instead of a
+painted-cell model. The player places posts on that native 4-unit grid. Each post
+connects to the nearest aligned post in every cardinal direction up to 16 world
+units, producing at most four short, legible runs and natural T/cross junctions.
+The placement preview includes the post and every newly generated panel before
+Metal is charged. Removing a post removes only panels no longer supported by the
+remaining topology; surviving panel damage is preserved. Older painted-section
+saves migrate losslessly by treating every saved section as a post.
+
+Chain-link panels use original `cycl.shp` connected and damaged frames. Barbed
+wire continues to use original `barb.shp` intact and fallen frames. Thus the new
+construction grammar changes gameplay data and interaction without substituting
+newly illustrated fence art for the verified Red Alert sources.
+
 Above 70% health the source sprite is unchanged. At 70% it receives a tarnished
 tint; at 35% the outer details give way to original fallen-wire fragments while
 central strands remain. These intermediate damage treatments are our runtime
