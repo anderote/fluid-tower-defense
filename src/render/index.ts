@@ -189,7 +189,11 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
       const closure=remaining>.5?(.7-remaining)/.2:remaining>.35?1:remaining/.35;
       rect(a,t.x-4,t.y-6,8,12,[.08,.1,.12,alpha*.7]);
       rectOutline(a,t.x-4,t.y-5,8,10,[.9,.65,.12,alpha*.55],.12);
+      // Painted double-ended arrows make the open axis readable even at rest.
+      rect(a,t.x-2,t.y-.16,4,.32,[.55,.85,.85,alpha*.8]);
       for(const side of [-1,1]){
+        tri(a,{x:t.x+side*3,y:t.y},{x:t.x+side*1.8,y:t.y-.9},{x:t.x+side*1.8,y:t.y+.9},[.55,.85,.85,alpha*.8]);
+
         const y=t.y+side*(5-4.5*Math.max(0,closure));
         for(const x of [-3,3])rect(a,t.x+x-.22,Math.min(y,t.y+side*5.5),.44,Math.abs(y-t.y-side*5.5)+.3,[.55,.62,.67,alpha]);
         rect(a,t.x-4,t.y+side*5.5-.5,8,1,[.22,.28,.31,alpha]);

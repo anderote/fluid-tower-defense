@@ -1,3 +1,5 @@
+import {createPhysics} from '../../src/sim/physics/index.ts';
+import {buildNavigation,mapWithTurretObstacles} from '../../src/navigation/index.ts';
 import {advanceDam,releaseFlood} from '../../src/game/dam.ts';
 import {connectGPU} from '../../src/runtime/gpu.ts';
 import {createCombat,type CombatFrame} from '../../src/sim/combat/index.ts';
@@ -25,6 +27,18 @@ try{
  const targets=new Float32Array(48);[24,50,76].forEach((y,i)=>targets.set([131.5,y,0,0,.4125,1,100,100,0,0,0,1,0,0,0,1],i*16));device.queue.writeBuffer(shared.particles,0,targets);step();p=await read(shared.particles,192);
  assert(p[P.hp]<100&&p[32+P.hp]<100,'Actual reservoir release missed a side spillway');
  assert(p[16+P.hp]===100&&p[16+P.vx]===0&&p[16+P.slow]===0,'Actual reservoir release affected the dry central bypass');
+ // Exercise production navigation and body collision through a deployed gate.
+ const physics=await createPhysics(device,shared);
+ const passageMap=mapWithTurretObstacles(damMap(),[{kind:'crusher',x:44,y:50}]);
+ const navigation=buildNavigation(passageMap);
+ const walkers=new Float32Array(48);[48,50,52].forEach((y,i)=>walkers.set([37,y,0,0,.4125,1,100,100,0,0,0,1,0,0,0,1],i*16));
+ device.queue.writeBuffer(shared.particles,0,walkers);
+ for(let tick=1;tick<=360;tick++){
+  const e=device.createCommandEncoder();physics.encode(e,{dt:1/60,tick,count:3,map:passageMap,navigation,effects:[],tuning:DEFAULT_TUNING,lab:false});device.queue.submit([e.finish()]);
+ }
+ p=await read(shared.particles,192);
+ for(let i=0;i<3;i++)assert(p[i*16+P.x]>49&&p[i*16+P.y]>45&&p[i*16+P.y]<55,'Zombie failed to cross the crusher mouth');
+ physics.destroy();
  const error=await device.popErrorScope();if(error)throw Error(error.message);
- status.textContent='PASS: 9 GPU checks — rectangular damage, boundaries, upstream impulse, slow, kills, attribution, salvage, side spillways and dry bypass.';combat.destroy();device.destroy();
+ status.textContent='PASS: 12 GPU checks — rectangular damage, boundaries, upstream impulse, slow, kills, attribution, salvage, side spillways, dry bypass and three zombies walking through a crusher.';combat.destroy();device.destroy();
 }catch(error){status.textContent='FAIL: '+String(error);console.error(error);}

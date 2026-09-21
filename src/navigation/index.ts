@@ -100,3 +100,20 @@ export function canPlace(map: WorldMap, towers: readonly Tower[], position: Vec2
   if (Math.hypot(position.x-map.goal.x,position.y-map.goal.y) < footprint+map.goalRadius) return false;
   return towers.every(tower=>Math.hypot(position.x-tower.x,position.y-tower.y) >= footprint+1.25);
 }
+
+/** New-placement guidance only: old saves may contain gates facing a dead end. */
+export function crusherPassageIssue(map:WorldMap,towers:readonly Tower[],position:Vec2):string|undefined {
+  const obstacles=[...map.obstacles,...turretObstacles(towers)];
+  // Each mouth needs a body-wide straight approach extending three units past
+  // the jaws. Sample across the opening so partially obstructed mouths work.
+  for(const side of [-1,1]){
+    const left=side<0?position.x-7:position.x+4;
+    let clear=false;
+    for(let offset=-4;offset<=4;offset+=.5){
+      const y=position.y+offset,r=MAX_BODY_RADIUS;
+      if(left-r<0||left+3+r>map.width||y-r<0||y+r>map.height)continue;
+      if(!obstacles.some(o=>left-r<o.x+o.width&&left+3+r>o.x&&y-r<o.y+o.height&&y+r>o.y)){clear=true;break;}
+    }
+    if(!clear)return 'Crusher gates open left and right. Leave a clear approach on both sides; this mouth faces a wall.';
+  }
+}

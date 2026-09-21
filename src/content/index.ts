@@ -10,7 +10,7 @@ export const TOWERS: Record<TowerKind, TowerDef> = {
   rocket: {id:'rocket', name:'Rocket Pod', description:'Saturates dense crowds with a three-warhead scatter salvo.', cost:1_600, range:44, cooldown:2.9, damage:34, force:24, radius:6.6, peakPressureKpa:1250, color:'#ff5f48', branches:['Warhead','Barrage']},
   railgun: {id:'railgun', name:'Railgun', description:'Penetrates and hurls targets along a long firing lane.', cost:2_500, range:48, cooldown:.78, damage:38, force:26, radius:1.1, peakPressureKpa:900, color:'#73f5d2', branches:['Slug','Accelerator']},
   incinerator: {id:'incinerator', name:'Incinerator', description:'Bathes a short cone in heat that burns enemies over time.', cost:800, range:16, cooldown:.55, damage:13, force:0, radius:4.8, peakPressureKpa:80, color:'#ff7848', branches:['Furnace','Wildfire']},
-  crusher: {id:'crusher',name:'Crusher Gate',description:'Open lane with hydraulic jaws. Press G to slam ready gates; packed crowds take up to double crush damage. Recharges in 8 seconds.',cost:450,range:6,cooldown:8,damage:60,force:18,radius:6,peakPressureKpa:900,color:'#ffc34d',branches:['Heavy Pistons','Rapid Hydraulics']},
+  crusher: {id:'crusher',name:'Crusher Gate',description:'Left-to-right passage; top and bottom jaws are solid. Keep both mouths clear. Press G to slam ready gates; packed crowds take up to double crush damage. Recharges in 8 seconds.',cost:450,range:6,cooldown:8,damage:60,force:18,radius:6,peakPressureKpa:900,color:'#ffc34d',branches:['Heavy Pistons','Rapid Hydraulics']},
 };
 
 export const MAX_TOWER_LEVEL=50;

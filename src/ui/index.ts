@@ -325,7 +325,7 @@ export function createUI(
                   : {label: "WAVE ACTIVE", reason: "A wave is already running. Clear the remaining horde before starting the next wave."};
       $("#help").textContent = s.upgradeMode
         ? "UPGRADE MODE [U] · Hover a tower to preview, then click Upgrade. Press U or Esc to exit."
-        : waveControl.reason || "Build during preparation. Click a deployed tower to inspect its combat record and upgrades.";
+        : s.selectedKind==='crusher' ? "CRUSHER · Open left ↔ right; striped jaws are solid. Place across a lane with both mouths clear. Press G to slam." : waveControl.reason || "Build during preparation. Click a deployed tower to inspect its combat record and upgrades.";
       $("#metal").textContent = String(s.metal).padStart(3, "0");
       $("#base").textContent = `${s.baseHealth}%`;
       $("#level").textContent = String(s.level).padStart(2, "0");
