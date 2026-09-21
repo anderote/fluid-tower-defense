@@ -243,6 +243,9 @@ button small { margin-top: 5px; color: var(--term-faint); font-size: var(--text-
 #commands .tech-node b em { display: block; margin-bottom: 3px; color: var(--term-accent); font-size: 9px; font-style: normal; font-weight: 600; letter-spacing: .09em; }
 #commands .tech-node.installed b em, #commands .tech-node.installed .cost { color: var(--term-ok); }
 .tech-requires { display: block; margin-top: 7px; color: var(--term-faint); font-size: 9px; line-height: 1.25; }
+.tech-progress { display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; margin-top: 8px; }
+.tech-progress i { height: 3px; background: var(--term-border-strong); }
+.tech-progress i.installed { background: var(--term-ok); }
 .research-progress { display: flex; gap: 4px; margin-top: 8px; }
 .research-progress i { display: block; width: 16px; height: 3px; background: var(--term-border-strong); }
 .research-progress i.installed { background: var(--term-accent); box-shadow: 0 0 6px color-mix(in srgb, var(--term-accent) 55%, transparent); }

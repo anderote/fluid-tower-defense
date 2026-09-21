@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {COMMAND_UPGRADES} from '../content/index.ts';
 import {createRun} from './index.ts';
-import {commandUpgradeAvailability} from './research.ts';
+import {commandUpgradeAvailability,researchCost,researchRank} from './research.ts';
 
 test('each technology prerequisite exists earlier in the registry and cannot be skipped', () => {
   for (const [index, upgrade] of COMMAND_UPGRADES.entries()) {
@@ -18,14 +18,14 @@ test('each technology prerequisite exists earlier in the registry and cannot be 
     assert.equal(availability.ok, false);
     assert.deepEqual(run.buyCommandUpgrade(upgrade.id), availability);
     assert.equal(run.save(), before, 'rejected purchases must not spend Metal or mutate the run');
-    run.model.commandUpgrades.push(...upgrade.requires);
+    for(const prerequisite of upgrade.requires) run.model.commandUpgrades.push(...Array(3).fill(prerequisite));
     assert.equal(commandUpgradeAvailability(run.model, upgrade.id).ok, true);
     assert.equal(run.buyCommandUpgrade(upgrade.id).ok, true);
-    assert.equal(run.model.metal, 100_000 - upgrade.cost);
+    assert.equal(run.model.metal, 100_000 - researchCost(upgrade,0));
   }
 });
 
-test('availability and purchases agree for insufficient funds, combat, installed, and unknown technology', () => {
+test('technology ranks stack, become more expensive, and cap at twenty', () => {
   const run = createRun();
   run.model.metal = 0;
   assert.deepEqual(commandUpgradeAvailability(run.model, 'ballistics'), {ok:false, reason:'Requires 180 more Metal.'});
@@ -36,17 +36,24 @@ test('availability and purchases agree for insufficient funds, combat, installed
   assert.equal(run.model.metal, 180);
   run.model.phase = 'preparation';
   assert.equal(run.buyCommandUpgrade('ballistics').ok, true);
-  assert.deepEqual(run.buyCommandUpgrade('ballistics'), {ok:false, reason:'Installed.'});
+  run.model.metal=100_000;
+  assert.equal(run.buyCommandUpgrade('ballistics').ok,true);
+  assert.equal(researchRank(run.model.commandUpgrades,'ballistics'),2);
+  run.model.metal=100_000;
+  for(let rank=2;rank<20;rank++)assert.equal(run.buyCommandUpgrade('ballistics').ok,true);
+  assert.deepEqual(run.buyCommandUpgrade('ballistics'), {ok:false, reason:'Maximum rank reached.'});
   assert.equal(run.buyCommandUpgrade('unknown').ok, false);
-  assert.equal(run.model.metal, 0);
+  assert.ok(run.model.metal>0);
 });
 
-test('technology tree purchases survive save/load and preserve fortified-core effect', () => {
+test('technology ranks survive save/load and three foundation ranks unlock specialists', () => {
   const run = createRun();
   run.model.metal = 100_000;
-  for (const upgrade of COMMAND_UPGRADES) assert.equal(run.buyCommandUpgrade(upgrade.id).ok, true, upgrade.id);
-  assert.equal(run.model.baseHealth, 25);
+  for(let rank=0;rank<3;rank++)assert.equal(run.buyCommandUpgrade('ballistics').ok,true);
+  assert.equal(run.buyCommandUpgrade('rifle-tech').ok,true);
+  assert.equal(researchRank(run.model.commandUpgrades,'rifle-tech'),1);
   const restored = createRun();
   assert.equal(restored.load(run.save()).ok, true);
-  for (const upgrade of COMMAND_UPGRADES) assert.deepEqual(commandUpgradeAvailability(restored.model, upgrade.id), {ok:false, reason:'Installed.'});
+  assert.equal(researchRank(restored.model.commandUpgrades,'ballistics'),3);
+  assert.equal(researchRank(restored.model.commandUpgrades,'rifle-tech'),1);
 });
