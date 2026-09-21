@@ -7,6 +7,12 @@ test('content registry is valid and has six readable enemy roles',()=>{ validate
 test('turret placement costs follow the intended power curve',()=>{
  assert.deepEqual(Object.fromEntries(Object.entries(TOWERS).map(([kind,tower])=>[kind,tower.cost])),{repulsor:120,mortar:350,autocannon:80,cryo:200,tesla:600,rocket:1_600,railgun:2_500,incinerator:800});
 });
+test('Incinerator remains a short, narrow, temporary-burning defense',()=>{
+ const base=TOWERS.incinerator,plain:Tower={id:1,kind:'incinerator',x:50,y:50,level:0,branch:-1,angle:0,cooldown:0,spent:base.cost};
+ assert.deepEqual({damage:base.damage,range:base.range,cooldown:base.cooldown,radius:base.radius},{damage:8,range:13,cooldown:.75,radius:3.7});
+ const wildfire=compileTower({...plain,branch:1});
+ assert.ok(wildfire.range<15&&wildfire.radius<5&&wildfire.cooldown>.6,'Wildfire must remain a constrained cone rather than broad crowd deletion');
+});
 test('enemy bodies use the tuned physical footprint',()=>{
  assert.deepEqual(Object.values(ENEMIES).map(enemy=>enemy.radius),[.4125,.31875,.6375,.43125,.5625,.35625]);
 });
