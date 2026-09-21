@@ -1,10 +1,13 @@
 import { PARTICLE_WGSL } from '../../contracts/index.ts';
 import { ENEMY_WGSL } from '../../content/index.ts';
 import {SURGE_START,SURGE_FULL,SURGE_SPEED_GAIN,SURGE_RELEASE_GAIN,SURGE_COAST_DRAG} from './model.ts';
+import {AFTERMATH_WGSL,CORPSE_CAPACITY} from '../../effects/aftermath.ts';
+import {CORPSE_BLAST_EROSION,CORPSE_DECAY_SECONDS,CORPSE_DRAG,CORPSE_FIELD_SCALE,CORPSE_FIELD_WORD_OFFSET,CORPSE_MIN_MASS,CORPSE_SLOPE_FORCE} from './corpse-field.ts';
 
 export const PHYSICS_WGSL = /* wgsl */ `
 ${PARTICLE_WGSL}
 ${ENEMY_WGSL}
+${AFTERMATH_WGSL}
 
 struct Params {
   count: u32,
@@ -56,6 +59,7 @@ struct Effect {
 @group(0) @binding(7) var<storage, read> navigation: array<vec4<f32>>;
 @group(0) @binding(8) var<storage, read_write> counters: array<atomic<u32>>;
 @group(0) @binding(9) var<storage, read_write> obstacleCounters: array<atomic<u32>>;
+@group(0) @binding(10) var<storage, read_write> aftermath: Aftermath;
 
 const PI: f32 = 3.141592653589793;
 const MAX_FORCE: f32 = 90.0;
@@ -93,6 +97,42 @@ fn validCell(cell: vec2<i32>) -> bool {
 
 fn cellIndex(cell: vec2<i32>) -> u32 {
   return u32(cell.y) * params.gridWidth + u32(cell.x);
+}
+fn corpseWord(cell:vec2i)->u32{return ${CORPSE_FIELD_WORD_OFFSET}u+cellIndex(cell);}
+
+fn blastFalloff(distance:f32,radius:f32)->f32 {
+  let safeRadius=max(radius,.0001);if(distance>=safeRadius){return 0.;}
+  let coreRadius=safeRadius*.2;let inverseRadius=coreRadius/max(coreRadius,distance);
+  return inverseRadius*(1.-smoothstep(.8,1.,distance/safeRadius));
+}
+
+@compute @workgroup_size(128)
+fn buildCorpseField(@builtin(global_invocation_id) gid:vec3u){
+  let i=gid.x;if(i>=${CORPSE_CAPACITY}u){return;}
+  var corpse=aftermath.deaths[i];
+  if(corpse.life.w<.5||corpse.life.z<=0.){return;}
+  var mass=corpse.life.z*max(0.,1.-params.fullDt/${CORPSE_DECAY_SECONDS});
+  for(var effectIndex=0u;effectIndex<params.effectCount;effectIndex++){
+    let effect=effects[effectIndex];
+    let kind=u32(max(0.,effect.flags.x)+.5);if(kind!=0u&&kind!=4u){continue;}
+    let d=max(0.,distance(corpse.body.xy,effect.posRadius.xy)-corpse.body.z);
+    mass=max(0.,mass-blastFalloff(d,effect.posRadius.z)*${CORPSE_BLAST_EROSION});
+  }
+  if(mass<${CORPSE_MIN_MASS}){mass=0.;}
+  corpse.life.z=mass;aftermath.deaths[i]=corpse;
+  let cell=cellFor(corpse.body.xy);
+  if(validCell(cell)&&mass>0.){atomicAdd(&cellHeads[corpseWord(cell)],u32(min(mass*${CORPSE_FIELD_SCALE},4294967040.)));}
+}
+
+fn corpseHeight(position:vec2f)->f32{
+  let grid=(position+vec2f(params.approach,0.))/params.cellSize-vec2f(.5);
+  let base=vec2i(floor(grid));let blend=fract(grid);var mass=0.;var weight=0.;
+  for(var y=0;y<=1;y++){for(var x=0;x<=1;x++){
+    let cell=base+vec2i(x,y);if(!validCell(cell)){continue;}
+    let w=select(1.-blend.x,blend.x,x==1)*select(1.-blend.y,blend.y,y==1);
+    mass+=w*f32(atomicLoad(&cellHeads[corpseWord(cell)]))/${CORPSE_FIELD_SCALE};weight+=w;
+  }}
+  return mass/max(.001,weight*params.cellSize*params.cellSize);
 }
 
 fn routeHash(index: u32, generation: f32, cell: vec2<i32>) -> u32 {
@@ -309,8 +349,10 @@ fn computeMotion(@builtin(global_invocation_id) gid: vec3<u32>) {
   let radius = safeRadius(particle.body.x);
   let mass = safeMass(particle.body.y);
   let kind = u32(clamp(particle.state.z, 0.0, 5.0) + 0.5);
+  let corpseDepth=corpseHeight(position);
+  let corpseSlow=max(.28,1./(1.+corpseDepth*${CORPSE_DRAG}));
   let direction = flowDirection(position, index, particle.status.w);
-  let slow = slowMultiplier(position, particle.status.x);
+  let slow = slowMultiplier(position, particle.status.x)*corpseSlow;
   let surge = pressureSurge(particle.state.y);
   let baseSpeed = enemySpeed(kind);
   let desiredSpeed = baseSpeed * (1.0 + ${SURGE_SPEED_GAIN} * surge) * slow;
@@ -324,6 +366,11 @@ fn computeMotion(@builtin(global_invocation_id) gid: vec3<u32>) {
     acceleration += direction * excess * max(0.0,drive-${SURGE_COAST_DRAG});
   }
   let releaseStrength = 0.055 * (1.0 + ${SURGE_RELEASE_GAIN} * surge);
+  if(corpseDepth>0.){
+    let h=params.cellSize*.5;
+    let slope=vec2f(corpseHeight(position+vec2f(h,0.))-corpseHeight(position-vec2f(h,0.)),corpseHeight(position+vec2f(0.,h))-corpseHeight(position-vec2f(0.,h)))/(2.*h);
+    acceleration-=slope*${CORPSE_SLOPE_FORCE}/mass;
+  }
   let centerCell = cellFor(position);
   let bulk=params.hybridCrowd!=0u&&nextParticle[params.capacity+index]!=0u;
   if(bulk){

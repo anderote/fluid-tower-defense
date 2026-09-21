@@ -28,7 +28,7 @@ button.onclick=async()=>{
    const gpu=await connectGPU(document.querySelector('canvas')!,{profile:params.get('timestamps')!=='off'}),errors:string[]=[];
    try{
    gpu.device.addEventListener('uncapturederror',e=>errors.push(e.error.message));
-   const profile=new GPUProfiler(gpu.device),physics=await createPhysics(gpu.device,gpu.shared,{pressureSurge:params.get('surge')!=='reference',indexedObstacles:params.get('obstacles')!=='reference',crowdMode:params.get('solver')==='hybrid'?'hybrid':'exact'}),combat=await createCombat(gpu.device,gpu.shared,{spatialTargets:params.get('targets')!=='reference',parallelTowers:params.get('dispatch')!=='reference'});
+   const profile=new GPUProfiler(gpu.device),combat=await createCombat(gpu.device,gpu.shared,{spatialTargets:params.get('targets')!=='reference',parallelTowers:params.get('dispatch')!=='reference'}),physics=await createPhysics(gpu.device,gpu.shared,{pressureSurge:params.get('surge')!=='reference',indexedObstacles:params.get('obstacles')!=='reference',crowdMode:params.get('solver')==='hybrid'?'hybrid':'exact'});
    gpu.shared.shotState=combat.shotState;
    const renderer=await createRenderer(gpu.device,gpu.context,gpu.format,gpu.shared,document.querySelector('canvas')!,{resolutionScale:Number(params.get('scale'))||1,compactBlood:params.get('blood')==='optimized'});
    const obstacles=scenario==='obstacles'?Array.from({length:400},(_,i)=>({x:110+(i%20)*2,y:2+Math.floor(i/20)*4,width:1,height:3})):scenario==='open'?[]:[{x:102,y:0,width:3,height:44},{x:102,y:56,width:3,height:44}];

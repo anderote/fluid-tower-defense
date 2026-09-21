@@ -27,16 +27,17 @@ async function readParticles(device:GPUDevice, source:GPUBuffer, count:number):P
   const result=new Float32Array(staging.getMappedRange()).slice(); staging.unmap(); staging.destroy(); return result;
 }
 
-async function scenario(device:GPUDevice, initial:number[][], frames:readonly {effects?:readonly Effect[]; tuning?:Partial<PhysicsFrame['tuning']>; lab?:boolean}[],world=map) {
+async function scenario(device:GPUDevice, initial:number[][], frames:readonly {effects?:readonly Effect[]; tuning?:Partial<PhysicsFrame['tuning']>; lab?:boolean}[],world=map,corpse?:{x:number;y:number;radius:number;kind:number;mass:number}) {
   const capacity=Math.max(1,initial.length);
   const shared:SharedGPU={
     particles:device.createBuffer({size:capacity*PARTICLE_FLOATS*4,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST|GPUBufferUsage.COPY_SRC}),
     counters:device.createBuffer({size:COUNTER_WORDS*4,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST|GPUBufferUsage.COPY_SRC}),capacity,
   };
-  const physics=await createPhysics(device,shared), combat=await createCombat(device,shared);
+  const combat=await createCombat(device,shared), physics=await createPhysics(device,shared);
   try {
     device.queue.writeBuffer(shared.particles,0,new Float32Array(initial.flat()));
     device.queue.writeBuffer(shared.counters,0,new Uint32Array(16));
+    if(corpse)device.queue.writeBuffer(shared.aftermath!,32,new Float32Array([corpse.x,corpse.y,corpse.radius,corpse.kind,0,0,0,0,0,1,corpse.mass,1]));
     const history:Uint32Array[]=[];
     for (let tick=0;tick<frames.length;tick++) {
       const step=frames[tick], frame:PhysicsFrame={dt:1/30,tick,count:initial.length,map:world,effects:step.effects??[],tuning:{...DEFAULT_TUNING,...step.tuning},lab:step.lab??true};
@@ -44,7 +45,8 @@ async function scenario(device:GPUDevice, initial:number[][], frames:readonly {e
       await device.queue.onSubmittedWorkDone();
       history.push(await read(device,shared.counters,64));
     }
-    return {particles:await readParticles(device,shared.particles,initial.length), counters:history.at(-1)!, history};
+    const remnant=device.createBuffer({size:48,usage:GPUBufferUsage.COPY_DST|GPUBufferUsage.MAP_READ}),copy=device.createCommandEncoder();copy.copyBufferToBuffer(shared.aftermath!,32,remnant,0,48);device.queue.submit([copy.finish()]);await remnant.mapAsync(GPUMapMode.READ);const corpseRecord=new Float32Array(remnant.getMappedRange()).slice();remnant.unmap();remnant.destroy();
+    return {particles:await readParticles(device,shared.particles,initial.length), counters:history.at(-1)!, history,corpse:corpseRecord};
   } finally { physics.destroy(); combat.destroy(); shared.particles.destroy(); shared.counters.destroy(); }
 }
 
@@ -89,6 +91,14 @@ export async function runGPUValidation(device:GPUDevice):Promise<GPUValidationRe
       const slowed=await scenario(device,[particle(20,50)],[{effects:[effect('slow',20,50,.8,0),effect('push',20,50,4,0,{x:0,y:1})],tuning:{drive:12,pressure:0}}]);
       const vx=slowed.particles[P.vx], vy=slowed.particles[P.vy];
       return !(vx<baseline.particles[P.vx] && vy>0 && slowed.particles[P.slow]>0) ? `expected slower drive plus y impulse; baseline vx=${baseline.particles[P.vx]}, slow vx=${vx}, vy=${vy}, remaining=${slowed.particles[P.slow]}` : undefined;
+    }),
+    check('corpse piles slow movement and blasts excavate mass',async()=>{
+      const frames=[{tuning:{drive:12,pressure:0}}];
+      const baseline=await scenario(device,[particle(50,50)],frames);
+      const piled=await scenario(device,[particle(50,50)],frames,map,{x:50,y:50,radius:.5,kind:2,mass:8});
+      const blasted=await scenario(device,[particle(50,50)],[{effects:[effect('blast',50,50,0,0)],tuning:{drive:12,pressure:0}}],map,{x:50,y:50,radius:.5,kind:2,mass:8});
+      if(!(Math.abs(piled.particles[P.vx])<Math.abs(baseline.particles[P.vx])))return `expected pile drag below baseline vx=${baseline.particles[P.vx]}, got ${piled.particles[P.vx]}`;
+      return blasted.corpse[10]>=piled.corpse[10]?`expected blast erosion below ${piled.corpse[10]}, got ${blasted.corpse[10]}`:undefined;
     }),
   ]);
 }

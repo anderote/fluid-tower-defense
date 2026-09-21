@@ -6,7 +6,7 @@ export const CORPSE_CAPACITY=2048,HIT_CAPACITY=1024,AFTERMATH_BATCH=512;
 export const AFTERMATH_HEADER_BYTES=32,AFTERMATH_RECORD_BYTES=48;
 export const AFTERMATH_BYTES=AFTERMATH_HEADER_BYTES+(CORPSE_CAPACITY+HIT_CAPACITY)*AFTERMATH_RECORD_BYTES;
 export const AFTERMATH_WGSL=`
-struct Remnant {body:vec4f,force:vec4f,life:vec4f}; // body: position/radius/kind; force: direction/facing/cause; life: time/seed/damage/valid
+struct Remnant {body:vec4f,force:vec4f,life:vec4f}; // body: position/radius/kind; force: direction/facing/cause; life: time/seed/damage-or-mass/valid
 struct Aftermath {
  heads:vec4u, // death cursor, hit cursor, retained deaths, retained hits
  deathsThisTick:atomic<u32>,hitsThisTick:atomic<u32>,padding:vec2u,
@@ -40,6 +40,10 @@ struct Snapshot {before:vec4f,velocity:vec4f,hit:vec4f,shape:vec4f};
 @group(0) @binding(8) var<storage,read> electricity:TeslaState;
 @group(0) @binding(9) var<storage,read_write> bloodWalls:BloodWalls;
 fn direction(v:vec2f)->vec2f{return select(vec2f(1,0),v/max(.001,length(v)),length(v)>.001);}
+fn corpseMass(radius:f32,kind:f32)->f32{
+ let weights=array<f32,6>(1.,.62,4.5,1.15,3.25,1.8);
+ return 3.14159265*radius*radius*weights[u32(clamp(round(kind),0.,5.))];
+}
 @compute @workgroup_size(128) fn before(@builtin(global_invocation_id) gid:vec3u){
  let i=gid.x;if(i>=u32(params.clock.z)){return;}let p=particles[i];
  snapshots[i]=Snapshot(vec4f(p.pos.xy,p.body.z,p.state.w),vec4f(p.pos.zw,p.status.w,p.state.z),vec4f(0),vec4f(p.body.x,atan2(p.pos.w,p.pos.z),0,p.body.z));
@@ -75,7 +79,7 @@ fn direction(v:vec2f)->vec2f{return select(vec2f(1,0),v/max(.001,length(v)),leng
  }
  if(!dead&&(s.hit.w<.25||cause==4.)){return;}
  var event:Remnant;event.body=vec4f(select(s.before.xy,p.pos.xy,dead),s.shape.x,s.velocity.w);
- event.force=vec4f(s.hit.xy,s.shape.y,cause);event.life=vec4f(params.clock.y/60.,f32(i)*.731+p.status.w*7.13+params.clock.y*.17,s.hit.w,1.);
+ event.force=vec4f(s.hit.xy,s.shape.y,cause);event.life=vec4f(params.clock.y/60.,f32(i)*.731+p.status.w*7.13+params.clock.y*.17,select(s.hit.w,corpseMass(s.shape.x,s.velocity.w),dead),1.);
  if(dead){let ticket=atomicAdd(&aftermath.deathsThisTick,1u);if(ticket<${AFTERMATH_BATCH}u){aftermath.deaths[(aftermath.heads.x+ticket)%${CORPSE_CAPACITY}u]=event;}}
  else{let ticket=atomicAdd(&aftermath.hitsThisTick,1u);if(ticket<${AFTERMATH_BATCH}u){aftermath.hits[(aftermath.heads.y+ticket)%${HIT_CAPACITY}u]=event;}}
 }

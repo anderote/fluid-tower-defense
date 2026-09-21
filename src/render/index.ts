@@ -19,6 +19,7 @@ import {SHOT_GEOMETRY_WGSL} from './shot-geometry.ts';
 import {createShamblers} from './shamblers.ts';
 import {ZOMBIE_ROSTER_WGSL} from './zombie-roster.ts';
 import {lineOfSightPolygon} from './line-of-sight.ts';
+import {createCorpseFieldRenderer} from './corpse-field.ts';
 
 const MAX_TOWERS = 64;
 const WEAPON_KINDS:readonly TowerKind[]=['repulsor','mortar','autocannon','cryo','tesla','rocket','railgun','incinerator'];
@@ -53,6 +54,7 @@ export async function createRenderer(device: GPUDevice, context: GPUCanvasContex
   const infantrySprites=await createInfantrySprites(device,format,uniform);
   const aftermath=shared.aftermath?await createAftermathRenderer(device,format,uniform,shared.aftermath,shamblers.texture):null;
   const blood=shared.bloodWalls&&shared.aftermath?await createBloodRenderer(device,format,uniform,shared,options.compactBlood):null;
+  const corpseField=shared.corpseField?await createCorpseFieldRenderer(device,format,uniform,shared.corpseField):null;
   let overlayCapacity=1;
   let overlays = device.createBuffer({ label:'Tactical overlays', size:24, usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST });
   let foregroundCapacity=1;
@@ -435,6 +437,7 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
       const visual=new Float32Array(Math.max(1,Math.min(MAX_TOWERS,scene.towers.length))*4);
       scene.towers.slice(0,MAX_TOWERS).forEach((t,i)=>visual.set([t.x,t.y,t.id,towerBehavior(t.kind)+WEAPON_KINDS.indexOf(t.kind)/100],i*4));device.queue.writeBuffer(towerVisuals,0,visual);
       redAlert?.prepare(scene);infantrySprites.prepare(scene);
+      corpseField?.prepare(scene);
       shamblers.prepare(encoder,scene);fire.prepare(encoder,scene.count);
       if(scene.aftermathVisible!==false){aftermath?.prepare(scene);blood?.prepare(encoder,scene);}
       const data=geometry(scene),fx=foregroundGeometry(scene);
@@ -445,6 +448,7 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
       let pass=encoder.beginRenderPass({colorAttachments:[{view:target,clearValue:{r:.075,g:.075,b:.078,a:1},loadOp:'clear',storeOp:'store'}]});
       pass.setPipeline(bg);pass.setBindGroup(0,cameraBG);pass.draw(3);
       redAlert?.drawFloor(pass);
+      corpseField?.draw(pass);
       // Gore never covers defenses: altitude changes fragment motion, not its layer.
       if(scene.aftermathVisible!==false){blood?.ground(pass);aftermath?.ground(pass);aftermath?.fragments(pass);}
       redAlert?.drawWires(pass);
@@ -474,6 +478,6 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
     pan(dx,dy){camera.x+=dx;camera.y+=dy;clampCamera();},
     zoomAt(factor,clientX,clientY){const before=screenToWorld(clientX,clientY);camera.zoom=Math.max(1,Math.min(12,camera.zoom*factor));const after=screenToWorld(clientX,clientY);camera.x+=before.x-after.x;camera.y+=before.y-after.y;clampCamera();},
     clearAftermath(preserveBlood=false){shamblers.reset();aftermath?.reset();if(!preserveBlood)blood?.reset();},
-    destroy(){blood?.destroy();fire.destroy();emptyHeat?.destroy();aftermath?.destroy();tesla?.destroy();emptyTesla?.destroy();shamblers.destroy();infantrySprites.destroy();redAlert?.destroy();sceneDepth?.destroy();uniform.destroy();overlays.destroy();foreground.destroy();towerVisuals.destroy();emptyShots.destroy();}
+    destroy(){corpseField?.destroy();blood?.destroy();fire.destroy();emptyHeat?.destroy();aftermath?.destroy();tesla?.destroy();emptyTesla?.destroy();shamblers.destroy();infantrySprites.destroy();redAlert?.destroy();sceneDepth?.destroy();uniform.destroy();overlays.destroy();foreground.destroy();towerVisuals.destroy();emptyShots.destroy();}
   };
 }

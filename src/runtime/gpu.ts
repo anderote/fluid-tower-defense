@@ -1,6 +1,6 @@
 import { COUNTER_WORDS, MAX_PARTICLES, PARTICLE_BYTES, type SharedGPU } from '../contracts/index.ts';
 
-const REQUIRED_STORAGE_BUFFERS_PER_SHADER_STAGE = 9;
+const REQUIRED_STORAGE_BUFFERS_PER_SHADER_STAGE = 10;
 
 export async function connectGPU(canvas: HTMLCanvasElement, options:{profile?:boolean}={}) {
   if (!navigator.gpu) throw new Error('WebGPU is unavailable. Open this game in a current Chrome or Safari with WebGPU enabled.');

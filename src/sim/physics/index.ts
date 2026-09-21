@@ -14,6 +14,8 @@ import {
 } from './model.ts';
 import { PHYSICS_WGSL } from './shader.ts';
 import {packObstacleGrid,sameObstacles} from './obstacles.ts';
+import {CORPSE_CAPACITY} from '../../effects/aftermath.ts';
+import {CORPSE_FIELD_WORD_OFFSET,MAX_CORPSE_FIELD_CELLS} from './corpse-field.ts';
 
 const WORKGROUP_SIZE = 128;
 // WGSL Params contains 29 scalar words and uniform bindings align the struct to 16 bytes.
@@ -22,7 +24,7 @@ const OBSTACLE_BYTES = 16;
 const EFFECT_BYTES = 48;
 const NAV_BYTES = 16;
 
-const EFFECT_KIND: Record<Effect['kind'], number> = { blast: 0, push: 1, slow: 2, shot: 3 };
+const EFFECT_KIND: Record<Effect['kind'], number> = { blast: 0, push: 1, slow: 2, shot: 3, 'corpse-blast':4 };
 
 function finite(value: number, fallback = 0): number {
   return Number.isFinite(value) ? value : fallback;
@@ -153,6 +155,7 @@ export async function createPhysics(device: GPUDevice, shared: SharedGPU,options
   if (shared.capacity <= 0 || !Number.isInteger(shared.capacity)) {
     throw new RangeError('Shared particle capacity must be a positive integer.');
   }
+  if(!shared.aftermath)throw new Error('Combat must be created before physics so corpse terrain can observe retained deaths.');
 
   const buffers: GPUBuffer[] = [];
   const makeBuffer = (descriptor: GPUBufferDescriptor): GPUBuffer => {
@@ -161,11 +164,12 @@ export async function createPhysics(device: GPUDevice, shared: SharedGPU,options
     return buffer;
   };
 
-  let cellHeads = makeBuffer({
-    label: 'Physics cell heads',
-    size: 4*gridWords,
+  const cellHeads = makeBuffer({
+    label: 'Physics cell heads, crowd values, and corpse terrain',
+    size: 4*(CORPSE_FIELD_WORD_OFFSET+MAX_CORPSE_FIELD_CELLS),
     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
   });
+  shared.corpseField=cellHeads;
   const nextParticle = makeBuffer({
     label: 'Physics linked-list next indices',
     size: shared.capacity * 8,
@@ -198,7 +202,6 @@ export async function createPhysics(device: GPUDevice, shared: SharedGPU,options
     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
   });
   let navigationCapacity = 1;
-  let gridCapacity = 1;
   let obstacleCapacity = 1;
   let navigationVersion = Number.NaN;
   let navigationWidth = 0;
@@ -218,6 +221,7 @@ export async function createPhysics(device: GPUDevice, shared: SharedGPU,options
       { binding: 7, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } },
       { binding: 8, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
       { binding: 9, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
+      { binding: 10, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
     ],
   });
   const pipelineLayout = device.createPipelineLayout({ label: 'Physics pipeline layout', bindGroupLayouts: [bindGroupLayout] });
@@ -230,7 +234,8 @@ export async function createPhysics(device: GPUDevice, shared: SharedGPU,options
       .join('\n');
     throw new Error(`Crowd physics shader compilation failed:\n${details}`);
   }
-  const [binPipeline, densityPipeline, motionPipeline, integrationPipeline] = await Promise.all([
+  const [corpsePipeline,binPipeline, densityPipeline, motionPipeline, integrationPipeline] = await Promise.all([
+    device.createComputePipelineAsync({label:'Build corpse pressure field',layout:pipelineLayout,compute:{module:shader,entryPoint:'buildCorpseField'}}),
     device.createComputePipelineAsync({ label: 'Physics bin particles', layout: pipelineLayout, compute: { module: shader, entryPoint: 'binParticles' } }),
     device.createComputePipelineAsync({ label: 'Physics measure density', layout: pipelineLayout, compute: { module: shader, entryPoint: 'measureDensity' } }),
     device.createComputePipelineAsync({ label: 'Physics compute motion', layout: pipelineLayout, compute: { module: shader, entryPoint: 'computeMotion' } }),
@@ -253,14 +258,12 @@ export async function createPhysics(device: GPUDevice, shared: SharedGPU,options
         { binding: 7, resource: { buffer: navigationBuffer } },
         { binding: 8, resource: { buffer: shared.counters } },
         { binding: 9, resource: { buffer: shared.obstacleCounters! } },
+        { binding: 10, resource: { buffer: shared.aftermath! } },
       ],
     }));
   };
   const ensureGridCapacity = (cells:number) => {
-    if(cells<=gridCapacity)return;
-    const previous=cellHeads;gridCapacity=nextPowerOfTwo(cells);
-    cellHeads=makeBuffer({label:'Physics cell heads and crowd field',size:gridCapacity*4*gridWords,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
-    rebuildBindGroups();previous.destroy();
+    if(cells>MAX_CORPSE_FIELD_CELLS)throw new RangeError(`Physics grid has ${cells} cells; maximum is ${MAX_CORPSE_FIELD_CELLS}.`);
   };
   const ensureObstacleCapacity = (count:number) => {
     if(count<=obstacleCapacity)return;
@@ -331,6 +334,9 @@ export async function createPhysics(device: GPUDevice, shared: SharedGPU,options
       });
 
       encoder.clearBuffer(shared.obstacleCounters!,0,frame.map.obstacles.length*3*4);
+      encoder.clearBuffer(cellHeads,CORPSE_FIELD_WORD_OFFSET*4,gridCells*4);
+      const corpsePass=encoder.beginComputePass({label:'Corpse terrain aggregation'});
+      corpsePass.setBindGroup(0,bindGroups[0]);corpsePass.setPipeline(corpsePipeline);corpsePass.dispatchWorkgroups(Math.ceil(CORPSE_CAPACITY/WORKGROUP_SIZE));corpsePass.end();
 
       if (frame.count === 0) return;
       const workgroups = Math.ceil(frame.count / WORKGROUP_SIZE);
@@ -356,6 +362,7 @@ export async function createPhysics(device: GPUDevice, shared: SharedGPU,options
       navigationWidth = 0;
       navigationHeight = 0;
       device.queue.writeBuffer(nextParticle,shared.capacity*4,new Uint32Array(shared.capacity));
+      device.queue.writeBuffer(cellHeads,CORPSE_FIELD_WORD_OFFSET*4,new Uint32Array(MAX_CORPSE_FIELD_CELLS));
     },
 
     destroy(): void {
@@ -363,6 +370,7 @@ export async function createPhysics(device: GPUDevice, shared: SharedGPU,options
       destroyed = true;
       for (const buffer of buffers) buffer.destroy();
       shared.obstacleCounters?.destroy();
+      if(shared.corpseField===cellHeads)shared.corpseField=undefined;
     },
   };
 }
