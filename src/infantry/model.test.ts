@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {INFANTRY,infantryStats,type InfantryKind,advanceInfantry,awardInfantryKills,clearForSoldier,clearInfantryPath,damageInfantry,recordInfantryCasualty,freshInfantry,infantryFanPoint,infantryMap,infantryField,rifleStats,recruitInterval,validInfantry,type Threat} from './model.ts';
+import {INFANTRY,infantryStats,infantryCapacity,type InfantryKind,advanceInfantry,awardInfantryKills,clearForSoldier,clearInfantryPath,damageInfantry,recordInfantryCasualty,freshInfantry,infantryFanPoint,infantryMap,infantryField,rifleStats,recruitInterval,validInfantry,type Threat} from './model.ts';
 import {createRun} from '../game/index.ts';
 import type {WorldMap} from '../contracts/index.ts';
 const map:WorldMap={id:'infantry-test',width:50,height:40,spawn:{x:0,y:10,width:3,height:20},goal:{x:47,y:20},goalRadius:2,obstacles:[]};
@@ -21,6 +21,10 @@ test('each specialized building produces only its own infantry at its configured
 test('starting rifleman recruitment takes five seconds',()=>{
   assert.equal(INFANTRY.rifle.interval,5);
   const f=setup('rifle');f.step(4.9);assert.equal(f.state.soldiers.length,0);f.step(.2);assert.equal(f.state.soldiers.length,1);
+});
+test('barracks population caps are type-specific and rise with production',()=>{
+  assert.deepEqual(Object.fromEntries((Object.keys(INFANTRY) as InfantryKind[]).map(kind=>[kind,infantryCapacity(kind)])),{rifle:100,rocket:20,flame:20,samurai:20,dog:40});
+  for(const kind of Object.keys(INFANTRY) as InfantryKind[]){assert.ok(infantryCapacity(kind,5)>infantryCapacity(kind));}
 });
 test('rocket and flame infantry trade area damage for restrained sustained power',()=>{
  const rocket=infantryStats('rocket'),flame=infantryStats('flame'),rifle=infantryStats('rifle');
@@ -90,8 +94,8 @@ test('crowd movement routes around an obstacle without entering it',()=>{
  for(let i=0;i<1200;i++)advanceInfantry(f.state,active,fields,f.threats,1/60,true);
  assert.ok(f.state.soldiers.some(s=>s.x<12));assert.ok(f.state.soldiers.every(s=>!(s.x>11.6&&s.x<14.4&&s.y>9.6&&s.y<28.4)));
 });
-test('recruitment pauses outside combat and grows beyond both former population caps',()=>{
-  const f=setup();f.step(80,false);assert.equal(f.state.soldiers.length,0);f.step(recruitInterval(0)+.1);assert.equal(f.state.soldiers.length,1);f.step(recruitInterval(0)*66);assert.ok(f.state.soldiers.filter(s=>s.health>0).length>64);const first=f.state.soldiers[0],before=f.state.soldiers.length;first.health=0;f.step(recruitInterval(0)*2+.1);assert.ok(f.state.soldiers.filter(s=>s.health>0).length>before);assert.ok(validInfantry(f.state,map));assert.ok(!f.state.soldiers.some(s=>s.id===first.id));
+test('recruitment pauses outside combat and respects the barracks population cap',()=>{
+  const f=setup();f.step(80,false);assert.equal(f.state.soldiers.length,0);f.step(recruitInterval(0)+.1);assert.equal(f.state.soldiers.length,1);f.step(recruitInterval(0)*110);assert.equal(f.state.soldiers.filter(s=>s.health>0).length,infantryCapacity('rifle'));const first=f.state.soldiers[0],before=f.state.soldiers.length;f.step(recruitInterval(0)*2+.1);assert.equal(f.state.soldiers.filter(s=>s.health>0).length,infantryCapacity('rifle'));first.health=0;f.step(recruitInterval(0)+.1);assert.equal(f.state.soldiers.filter(s=>s.health>0).length,infantryCapacity('rifle'));assert.ok(validInfantry(f.state,map));assert.ok(!f.state.soldiers.some(s=>s.id===first.id));
 });
 test('training snapshots recruits and production upgrades preserve normalized progress',()=>{
   const f=setup();f.step(recruitInterval(0)+.1);const first=f.state.soldiers[0];f.state.buildings[0].training=3;f.state.buildings[0].production=5;f.step(recruitInterval(5)+.1);assert.equal(first.quality,0);assert.equal(first.health,40);assert.equal(f.state.soldiers[1].quality,3);assert.equal(f.state.soldiers[1].health,rifleStats(3).health);

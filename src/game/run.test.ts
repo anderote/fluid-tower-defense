@@ -202,13 +202,13 @@ test('wave director streams until its large horde quota is defeated',()=>{
     assert.ok(wave.spawns.some(batch=>{const start=batch.start??0, end=start+batch.count/(batch.rate??1);return start<=second&&end>=second;}),`expected an active stream at ${second}s`);
   }
   const opening=waveFor(1,1),late=waveFor(3,10);
-  assert.equal(opening.rampSeconds,110);
+  assert.equal(opening.rampSeconds,11);
   assert.ok(late.rampSeconds>opening.rampSeconds);
 });
 
-test('horde quota starts at 100,000 and scales by global wave independently of frontage',()=>{
+test('horde quota starts at 10,000 and scales by global wave independently of frontage',()=>{
   const globalWave=4;
-  assert.equal(waveFor(1,1).total,100_000);
+  assert.equal(waveFor(1,1).total,10_000);
   assert.equal(waveFor(1,globalWave).total,Math.round(100_000*Math.pow(globalWave,1.67)));
   assert.equal(waveFor(2,1).total,Math.round(100_000*Math.pow(11,1.67)));
 });
@@ -216,18 +216,18 @@ test('horde quota starts at 100,000 and scales by global wave independently of f
 test('continuous horde arrival pauses at capacity and resumes when space opens',()=>{
   const run=createRun();assert.equal(run.startWave().ok,true);
   const first=run.takeSpawns(100,1).reduce((sum,batch)=>sum+batch.count,0);
-  assert.equal(first,7);
+  assert.equal(first,75);
   assert.equal(run.takeSpawns(0,1).length,0);
   const resumed=run.takeSpawns(100,1).reduce((sum,batch)=>sum+batch.count,0);
-  assert.equal(resumed,60);
+  assert.equal(resumed,100);
 });
 
-test('opening wave is an authored 100,000-enemy ramp with three enemy types',()=>{
+test('opening wave is an authored 10,000-enemy ramp with three enemy types',()=>{
   const wave=waveFor(1,1),run=createRun();
-  assert.equal(wave.total,100_000);
-  assert.equal(wave.spawns.reduce((sum,batch)=>sum+batch.count,0),100_000);
+  assert.equal(wave.total,10_000);
+  assert.equal(wave.spawns.reduce((sum,batch)=>sum+batch.count,0),10_000);
   assert.deepEqual([...new Set(wave.spawns.map(batch=>batch.kind))],['shambler','runner','husk']);
-  assert.deepEqual([...new Set(wave.spawns.map(batch=>batch.start))],[0,20,30,40,50,65,75,85,100]);
+  assert.deepEqual([...new Set(wave.spawns.map(batch=>batch.start))],[0,2,3,4,5,6.5,7.5,8.5,10]);
   assert.ok(wave.spawns.every(batch=>(batch.burst??0)===1));
   const rateAt=(second:number)=>wave.spawns.reduce((sum,batch)=>{
     const start=batch.start??0,duration=batch.duration??Infinity;
@@ -235,7 +235,7 @@ test('opening wave is an authored 100,000-enemy ramp with three enemy types',()=
     const progress=(second-start)/duration;
     return sum+(batch.rate??0)+((batch.endRate??batch.rate??0)-(batch.rate??0))*progress;
   },0);
-  assert.deepEqual([10,25,35,45,57.5,70,80,92.5,105].map(second=>Math.round(rateAt(second))),[150,300,600,1_200,1_500,1_000,800,1_100,1_900]);
+  assert.deepEqual([1,2.5,3.5,4.5,5.75,7,8,9.25,10.5].map(second=>Math.round(rateAt(second))),[150,300,600,1_200,1_500,1_000,800,1_100,1_900]);
   assert.equal(run.startWave().ok,true);
   const firstTick=run.takeSpawns(65_536,1/60).reduce((sum,batch)=>sum+batch.count,0);
   const firstSecond=firstTick+Array.from({length:59},()=>run.takeSpawns(65_536,1/60).reduce((sum,batch)=>sum+batch.count,0)).reduce((sum,count)=>sum+count,0);
@@ -244,7 +244,7 @@ test('opening wave is an authored 100,000-enemy ramp with three enemy types',()=
   assert.ok(firstSecond>0);
   let emitted=firstSecond;
   for(let tick=60;tick<7_200;tick++)emitted+=run.takeSpawns(65_536,1/60).reduce((sum,batch)=>sum+batch.count,0);
-  assert.equal(emitted,100_000);
+  assert.equal(emitted,10_000);
   assert.equal(run.model.pending.length,0);
 });
 

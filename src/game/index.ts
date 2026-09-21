@@ -57,15 +57,15 @@ const burstFor=(_kind:SpawnBatch['kind']):number=>1;
 
 type WaveStage={duration:number;from:number;to:number;mix:readonly (readonly [SpawnBatch['kind'],number])[]};
 const OPENING_STAGES:readonly WaveStage[]=[
-  {duration:20,from:0,to:300,mix:[['shambler',1]]},
-  {duration:10,from:300,to:300,mix:[['shambler',.95],['runner',.05]]},
-  {duration:10,from:300,to:900,mix:[['shambler',.85],['runner',.15]]},
-  {duration:10,from:900,to:1_500,mix:[['shambler',.65],['runner',.25],['husk',.1]]},
-  {duration:15,from:1_500,to:1_500,mix:[['shambler',.7],['runner',.2],['husk',.1]]},
-  {duration:10,from:1_500,to:500,mix:[['shambler',.9],['runner',.1]]},
-  {duration:10,from:500,to:1_100,mix:[['shambler',.6],['runner',.25],['husk',.15]]},
-  {duration:15,from:1_100,to:1_100,mix:[['shambler',.55],['runner',.25],['husk',.2]]},
-  {duration:10,from:1_100,to:2_700,mix:[['shambler',.5],['runner',.3],['husk',.2]]},
+  {duration:2,from:0,to:300,mix:[['shambler',1]]},
+  {duration:1,from:300,to:300,mix:[['shambler',.95],['runner',.05]]},
+  {duration:1,from:300,to:900,mix:[['shambler',.85],['runner',.15]]},
+  {duration:1,from:900,to:1_500,mix:[['shambler',.65],['runner',.25],['husk',.1]]},
+  {duration:1.5,from:1_500,to:1_500,mix:[['shambler',.7],['runner',.2],['husk',.1]]},
+  {duration:1,from:1_500,to:500,mix:[['shambler',.9],['runner',.1]]},
+  {duration:1,from:500,to:1_100,mix:[['shambler',.6],['runner',.25],['husk',.15]]},
+  {duration:1.5,from:1_100,to:1_100,mix:[['shambler',.55],['runner',.25],['husk',.2]]},
+  {duration:1,from:1_100,to:2_700,mix:[['shambler',.5],['runner',.3],['husk',.2]]},
 ];
 
 const stagedSpawns=(stages:readonly WaveStage[],seed:number,healthScale:number):SpawnBatch[]=>{
@@ -92,12 +92,12 @@ export function waveFor(level:number,wave:number):Wave {
   const threat=globalWave-1,phase=(globalWave-1)%WAVES_PER_LEVEL,cycle=Math.floor((globalWave-1)/WAVES_PER_LEVEL);
   // The quota is intentionally far beyond the on-screen population. The inlet
   // keeps feeding until it is met, while the runtime pauses it when capacity is full.
-  const total=Math.round(100_000*Math.pow(globalWave,1.67));
+  const total=globalWave===1?10_000:Math.round(100_000*Math.pow(globalWave,1.67));
   const healthScale=1+Math.max(0,globalWave-WAVES_PER_LEVEL)*.035;
   const seed=(globalWave*10_000+globalWave*977)>>>0;
   if(globalWave===1){
     const spawns=stagedSpawns(OPENING_STAGES,seed,healthScale);
-    return {spawns,payment:210,boss:false,total,healthScale,peakRate:2_700,rampSeconds:110};
+    return {spawns,payment:210,boss:false,total,healthScale,peakRate:2_700,rampSeconds:11};
   }
   const weights=new Map(PHASE_WEIGHTS[phase]);
   if(cycle>0){for(const kind of ['runner','brute','rager','softbody','husk'] as const)weights.set(kind,(weights.get(kind)??0)+.025);}
