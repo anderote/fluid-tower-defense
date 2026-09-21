@@ -16,26 +16,28 @@ export const TOWERS: Record<TowerKind, TowerDef> = {
 export const MAX_TOWER_LEVEL=50;
 export const towerUpgradeCost=(level:number):number=>45+Math.max(0,Math.floor(level))*35;
 
+const tech=(id:string,name:string,category:string,description:string,cost:number,requires?:readonly string[]):CommandUpgrade=>({id,name,category,description,cost,requires,maxRank:20,unlockRank:3});
 export const COMMAND_UPGRADES: readonly CommandUpgrade[] = [
-  {id:'ballistics',name:'Ballistics',category:'WEAPONS',description:'Foundation for conventional weapon systems.',cost:180},
-  {id:'rifle-tech',name:'Rifle Technology',category:'WEAPONS',requires:['ballistics'],description:'+20% damage to Rifle squads, Autocannons, and Railguns.',cost:300},
-  {id:'precision-optics',name:'Precision Optics',category:'WEAPONS',requires:['ballistics'],description:'+15% range to Rifle squads, Autocannons, and Railguns.',cost:280},
-  {id:'thermal-science',name:'Thermal Science',category:'WEAPONS',description:'Foundation for incendiary systems.',cost:190},
-  {id:'flame-tech',name:'Flame Technology',category:'WEAPONS',requires:['thermal-science'],description:'+30% damage to Flame squads and Incinerators.',cost:330},
-  {id:'explosive-ordnance',name:'Explosive Ordnance',category:'WEAPONS',description:'Foundation for high-yield munitions.',cost:220},
-  {id:'high-explosives',name:'High Explosives',category:'WEAPONS',requires:['explosive-ordnance'],description:'+25% damage to Mortars, Rocket Pods, and Rocket squads.',cost:360},
-  {id:'energy-systems',name:'Energy Systems',category:'WEAPONS',description:'Foundation for field-control and electrical weapons.',cost:220},
-  {id:'field-control',name:'Field Control',category:'WEAPONS',requires:['energy-systems'],description:'+20% force to Repulsors, Cryo Emitters, and Tesla Coils.',cost:320},
-  {id:'targeting-grid',name:'Targeting Grid',category:'COMMAND',requires:['ballistics','energy-systems'],description:'+12% range to every tower.',cost:380},
-  {id:'infantry-armor',name:'Infantry Armor',category:'SURVIVAL',description:'+25% health and +8% damage reduction for every squad.',cost:300},
-  {id:'structure-armor',name:'Structure Armor',category:'SURVIVAL',description:'+40% durability and resistance for walls, fences, and wire.',cost:280},
-  {id:'fortified-core',name:'Fortified Core',category:'SURVIVAL',requires:['structure-armor','infantry-armor'],description:'+5 base integrity immediately.',cost:450},
-  {id:'salvage-magnets',name:'Salvage Magnets',category:'COMMAND',description:'+25% Metal recovered from kills.',cost:280},
+  tech('ballistics','Ballistics','WEAPONS','Conventional weapon damage: +1% per rank.',180),
+  tech('rifle-tech','Rifle Technology','WEAPONS','Rifle squads, Autocannons, and Railguns: +2% damage per rank.',300,['ballistics']),
+  tech('precision-optics','Precision Optics','WEAPONS','Rifle squads, Autocannons, and Railguns: +1.5% range per rank.',280,['ballistics']),
+  tech('thermal-science','Thermal Science','WEAPONS','Incendiary weapon damage: +1% per rank.',190),
+  tech('flame-tech','Flame Technology','WEAPONS','Flame squads and Incinerators: +2.5% damage per rank.',330,['thermal-science']),
+  tech('explosive-ordnance','Explosive Ordnance','WEAPONS','Explosive weapon damage: +1% per rank.',220),
+  tech('high-explosives','High Explosives','WEAPONS','Mortars, Rocket Pods, and Rocket squads: +2% damage per rank.',360,['explosive-ordnance']),
+  tech('energy-systems','Energy Systems','WEAPONS','Energy weapon force: +1% per rank.',220),
+  tech('field-control','Field Control','WEAPONS','Repulsors, Cryo Emitters, and Tesla Coils: +1.5% force per rank.',320,['energy-systems']),
+  tech('targeting-grid','Targeting Grid','COMMAND','Every tower: +1% range per rank.',380,['ballistics','energy-systems']),
+  tech('infantry-armor','Infantry Armor','SURVIVAL','Every squad: +2% health and +1% damage reduction per rank.',300),
+  tech('structure-armor','Structure Armor','SURVIVAL','Walls, fences, and wire: +2% durability and resistance per rank.',280),
+  tech('fortified-core','Fortified Core','SURVIVAL','Base integrity: +1 immediately per rank.',450,['structure-armor','infantry-armor']),
+  tech('salvage-magnets','Salvage Magnets','COMMAND','Metal recovered from kills: +1.5% per rank.',280),
 ];
 
-export const hasTech=(upgrades:readonly string[],id:string)=>upgrades.includes(id);
-export const barbedWireStats=(upgrades:readonly string[])=>{const multiplier=hasTech(upgrades,'structure-armor')?1.4:1;return {damage:.45,slow:.65,durability:BASE_BARBED_WIRE_DURABILITY*multiplier,resistance:7*multiplier,wear:.18};};
-export const metalWallStats=(upgrades:readonly string[])=>{const multiplier=hasTech(upgrades,'structure-armor')?1.4:1;return {durability:BASE_WALL_DURABILITY*multiplier,resistance:BASE_WALL_PRESSURE_RESISTANCE*multiplier};};
+export const techRank=(upgrades:readonly string[],id:string)=>upgrades.filter(upgrade=>upgrade===id).length;
+export const hasTech=(upgrades:readonly string[],id:string)=>techRank(upgrades,id)>0;
+export const barbedWireStats=(upgrades:readonly string[])=>{const multiplier=1+techRank(upgrades,'structure-armor')*.02;return {damage:.45,slow:.65,durability:BASE_BARBED_WIRE_DURABILITY*multiplier,resistance:7*multiplier,wear:.18};};
+export const metalWallStats=(upgrades:readonly string[])=>{const multiplier=1+techRank(upgrades,'structure-armor')*.02;return {durability:BASE_WALL_DURABILITY*multiplier,resistance:BASE_WALL_PRESSURE_RESISTANCE*multiplier};};
 
 /** Packs authored towers into the supported GPU weapon behaviours. */
 export const towerBehavior=(kind:TowerKind):number=>({repulsor:0,mortar:1,autocannon:2,cryo:3,tesla:13,rocket:12,railgun:2,incinerator:14}[kind]);
@@ -151,12 +153,15 @@ export function compileTower(tower: Tower, bonuses: readonly string[] = [], comm
     if (bonus === 'kinetic-feed' && tower.kind === 'autocannon') cooldown *= .85;
     if (bonus === 'blast-casing' && (tower.kind === 'mortar' || tower.kind === 'rocket')) damage *= 1.15;
   }
-  if (hasTech(commandUpgrades,'targeting-grid')) range *= 1.12;
-  if (hasTech(commandUpgrades,'rifle-tech') && (tower.kind==='autocannon'||tower.kind==='railgun')) damage*=1.2;
-  if (hasTech(commandUpgrades,'precision-optics') && (tower.kind==='autocannon'||tower.kind==='railgun')) range*=1.15;
-  if (hasTech(commandUpgrades,'flame-tech') && tower.kind==='incinerator') damage*=1.3;
-  if (hasTech(commandUpgrades,'high-explosives') && (tower.kind==='mortar'||tower.kind==='rocket')) damage*=1.25;
-  if (hasTech(commandUpgrades,'field-control') && (tower.kind==='repulsor'||tower.kind==='cryo'||tower.kind==='tesla')) force*=1.2;
+  damage*=1+techRank(commandUpgrades,'ballistics')*.01*Number(tower.kind==='autocannon'||tower.kind==='railgun');
+  damage*=1+techRank(commandUpgrades,'thermal-science')*.01*(tower.kind==='incinerator'?1:0);
+  damage*=1+techRank(commandUpgrades,'explosive-ordnance')*.01*(tower.kind==='mortar'||tower.kind==='rocket'?1:0);
+  force*=1+techRank(commandUpgrades,'energy-systems')*.01*(tower.kind==='repulsor'||tower.kind==='cryo'||tower.kind==='tesla'?1:0);
+  range *= 1+techRank(commandUpgrades,'targeting-grid')*.01;
+  if (tower.kind==='autocannon'||tower.kind==='railgun') { damage*=1+techRank(commandUpgrades,'rifle-tech')*.02; range*=1+techRank(commandUpgrades,'precision-optics')*.015; }
+  if (tower.kind==='incinerator') damage*=1+techRank(commandUpgrades,'flame-tech')*.025;
+  if (tower.kind==='mortar'||tower.kind==='rocket') damage*=1+techRank(commandUpgrades,'high-explosives')*.02;
+  if (tower.kind==='repulsor'||tower.kind==='cryo'||tower.kind==='tesla') force*=1+techRank(commandUpgrades,'field-control')*.015;
   return {...base,range,cooldown,damage,force,radius,peakPressureKpa:scaledPeakPressure(base,damage,force)};
 }
 

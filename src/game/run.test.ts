@@ -307,7 +307,7 @@ test('credited kills add turret XP once and survive saving',()=>{
 });
 
 test('Salvage Magnets pays identical rewards for burst and trickle readbacks',()=>{
-  const reward=(batches:number[])=>{const run=createRun();run.model.commandUpgrades.push('salvage-magnets');
+  const reward=(batches:number[])=>{const run=createRun();run.model.commandUpgrades.push(...Array(20).fill('salvage-magnets'));
     batches.forEach((earned,index)=>run.applySettlement({epoch:run.epoch,tick:index+1,kills:earned*4,crushKills:0,leaks:0,earned,live:0,invalid:0,maxPacking:0}));
     return run.model;
   };
@@ -317,13 +317,13 @@ test('Salvage Magnets pays identical rewards for burst and trickle readbacks',()
 });
 
 test('fractional salvage survives save/load and resets with a new run',()=>{
- const run=createRun();run.model.commandUpgrades.push('salvage-magnets');
+ const run=createRun();run.model.commandUpgrades.push(...Array(20).fill('salvage-magnets'));
  const report={epoch:run.epoch,tick:1,kills:10,crushKills:0,leaks:0,earned:3,live:0,invalid:0,maxPacking:0};
- run.applySettlement(report);assert.equal(run.model.salvageCredit,3);
+ run.applySettlement(report);assert.ok(Math.abs((run.model.salvageCredit??0)-.9)<1e-9);
  const restored=createRun();assert.equal(restored.load(run.save()).ok,true);
  restored.applySettlement({...report,epoch:restored.epoch,earned:1});
- assert.equal(restored.model.metal,STARTING_METAL+5);assert.equal(restored.model.salvageCredit,0);
- const saved=JSON.parse(run.save());saved.model.salvageCredit=4;assert.equal(restored.load(JSON.stringify(saved)).ok,false);
+ assert.equal(restored.model.metal,STARTING_METAL+5);assert.ok(Math.abs((restored.model.salvageCredit??0)-.2)<1e-9);
+ const saved=JSON.parse(run.save());saved.model.salvageCredit=1;assert.equal(restored.load(JSON.stringify(saved)).ok,false);
  delete saved.model.salvageCredit;assert.equal(restored.load(JSON.stringify(saved)).ok,true);assert.equal(restored.model.salvageCredit,0);
  restored.reset();assert.equal(restored.model.salvageCredit,0);
 });

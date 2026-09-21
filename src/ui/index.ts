@@ -1,4 +1,4 @@
-import {commandUpgradeAvailability} from "../game/research.ts";
+import {commandUpgradeAvailability,researchCost,researchRank} from "../game/research.ts";
 import {TOWER_MOVE_COST} from "../game/index.ts";
 import {makeGameWindow} from './windows.ts';
 import {bossStatus} from "./boss-status.ts";
@@ -235,9 +235,9 @@ export function createUI(
   const renderCommandSystems = (s: UIState) => {
     const availability = (id: string) => commandUpgradeAvailability({phase:s.phase,metal:s.metal,commandUpgrades:s.commandUpgrades}, id);
     return COMMAND_UPGRADES.map(upgrade => {
-      const installed=s.commandUpgrades.includes(upgrade.id), ready=availability(upgrade.id), prerequisites=(upgrade.requires??[]).map(id=>COMMAND_UPGRADES.find(node=>node.id===id)!.name);
-      const state=installed?'installed':ready.ok?'available':'locked';
-      return `<button class="command-system tech-node ${state}" ${installed||!ready.ok?'disabled':`data-command="${upgrade.id}"`}><b><em>${upgrade.category??'COMMAND'}</em>${upgrade.name.toUpperCase()}</b><span class="cost">${installed?'INSTALLED':`${upgrade.cost} METAL`}</span><small>${upgrade.description}</small>${prerequisites.length?`<span class="tech-requires">↳ ${prerequisites.join(' + ')}</span>`:''}</button>`;
+      const rank=researchRank(s.commandUpgrades,upgrade.id),maxRank=upgrade.maxRank??1,ready=availability(upgrade.id),prerequisites=(upgrade.requires??[]).map(id=>COMMAND_UPGRADES.find(node=>node.id===id)!.name),maxed=rank>=maxRank;
+      const state=maxed?'installed':ready.ok?'available':'locked',cost=researchCost(upgrade,rank),progress=Array.from({length:maxRank},(_,index)=>`<i class="${index<rank?'installed':''}"></i>`).join('');
+      return `<button class="command-system tech-node ${state}" ${maxed||!ready.ok?'disabled':`data-command="${upgrade.id}"`}><b><em>${upgrade.category??'COMMAND'} · ${rank}/${maxRank}</em>${upgrade.name.toUpperCase()}</b><span class="cost">${maxed?'MAX':`${cost} METAL`}</span><small>${upgrade.description}</small><span class="tech-progress" aria-label="${rank} of ${maxRank} ranks researched">${progress}</span>${prerequisites.length?`<span class="tech-requires">↳ ${prerequisites.join(' + ')} rank 3</span>`:''}</button>`;
     }).join("");
   };
   const setPanel = (next: boolean) => {
