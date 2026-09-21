@@ -77,7 +77,7 @@ fn visible(a:vec2f,b:vec2f)->bool {
   const sense=device.createComputePipeline({layout:pipelineLayout,compute:{module:shader,entryPoint:'sense'}}),damage=device.createComputePipeline({layout:pipelineLayout,compute:{module:shader,entryPoint:'damage'}});
   const bucket=device.createComputePipeline({layout:pipelineLayout,compute:{module:shader,entryPoint:'bucket'}});
   let liveIds:number[]=[];
-  return {threats,get liveIds(){return liveIds;},reset(){version++;threats.clear();liveIds=[];},encode(encoder:GPUCommandEncoder,soldiers:Soldier[],shots:RifleShot[],map:WorldMap,count:number,sample:boolean,research:readonly string[]=[],dt=1/60){
+  return {threats,get liveIds(){return liveIds;},reset(){version++;threats.clear();liveIds=[];},encode(encoder:GPUCommandEncoder,soldiers:Soldier[],shots:RifleShot[],map:WorldMap,count:number,sample:boolean,research:readonly string[]=[],dt=1/60,lineOfSightMap:WorldMap=map){
     const live=soldiers.filter(s=>s.health>0);if(!live.length){liveIds=[];threats.clear();return;}
     if(live.length>capacity){
       capacity=2**Math.ceil(Math.log2(live.length));units.destroy();results.destroy();if(!busy)read.destroy();links.destroy();
@@ -88,9 +88,9 @@ fn visible(a:vec2f,b:vec2f)->bool {
     }
     const width=Math.ceil(map.width/8),height=Math.ceil(map.height/8),cells=width*height;
     if(cells>gridCapacity){heads.destroy();gridCapacity=cells;heads=storage(cells*8);}
-    if(map.obstacles.length>wallCapacity){walls.destroy();wallCapacity=2**Math.ceil(Math.log2(map.obstacles.length));walls=device.createBuffer({size:wallCapacity*16,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});}
-    if(map.obstacles.length)device.queue.writeBuffer(walls,0,new Float32Array(map.obstacles.flatMap(o=>[o.x,o.y,o.width,o.height])));
-    device.queue.writeBuffer(params,0,new Uint32Array([count,live.length,map.obstacles.length,cells]));
+    if(lineOfSightMap.obstacles.length>wallCapacity){walls.destroy();wallCapacity=2**Math.ceil(Math.log2(lineOfSightMap.obstacles.length));walls=device.createBuffer({size:wallCapacity*16,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});}
+    if(lineOfSightMap.obstacles.length)device.queue.writeBuffer(walls,0,new Float32Array(lineOfSightMap.obstacles.flatMap(o=>[o.x,o.y,o.width,o.height])));
+    device.queue.writeBuffer(params,0,new Uint32Array([count,live.length,lineOfSightMap.obstacles.length,cells]));
     liveIds=[];const shotMap=new Map(shots.map(s=>[s.soldier,s]));let maxRange=4;const data=new Float32Array(live.length*12);
     live.forEach((s,i)=>{const shot=shotMap.get(s.id),stats=infantryStats(s.kind,s.quality,s.defense,s.veterancy,research),slot=s.id-1,owner=slot<MAX_INFANTRY_KILL_SLOTS?MAX_TOWERS+slot+1:0;if(owner)liveIds[slot]=s.id;maxRange=Math.max(maxRange,stats.range+3.5);data.set([s.x,s.y,stats.range,['rifle','rocket','flame','samurai','dog'].indexOf(s.kind??'rifle'),shot?.target??-1,shot?.generation??0,shot?.damage??0,owner,shot?.x??0,shot?.y??0,s.angle,0],i*12);});device.queue.writeBuffer(units,0,data);
     device.queue.writeBuffer(params,16,new Float32Array([width,height,dt,maxRange]));encoder.clearBuffer(heads);
