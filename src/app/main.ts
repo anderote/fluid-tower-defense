@@ -27,7 +27,7 @@ import { createPhysics } from '../sim/physics/index.ts';
 import { createCombat, type CombatFrame } from '../sim/combat/index.ts';
 import { barbedWireStats, createParticles, DEFAULT_MAP, compileTower, TOWERS } from '../content/index.ts';
 import { buildNavigation, canPlace, mapWithTurretObstacles, resolvePlacement, turretObstacles } from '../navigation/index.ts';
-import {BASE_FENCE_DURABILITY, CHAINLINK_FENCE_COST, METAL_WALL_COST, wallCapacity, wallHealthAfterPressure} from '../sim/walls/model.ts';
+import {BASE_FENCE_DURABILITY, CHAINLINK_FENCE_COST, fenceHealthAfterPressure, METAL_WALL_COST, wallCapacity, wallHealthAfterPressure} from '../sim/walls/model.ts';
 import { createRun, STARTING_METAL, TOWER_MOVE_COST, waveFor } from '../game/index.ts';
 import { COUNTER_WORDS, DEFAULT_TUNING, HORDE_APPROACH, PARTICLE_FLOATS, type UIState, type GameAction, type Effect, type Vec2, type Rect, type Settlement, type VisualParticle, type VisualParticleStyle, type WorldMap, type HeavyProjectile, type HeavyExplosion, type InfantryRocketProjectile, type InfantryRocketExplosion } from '../contracts/index.ts';
 import {ShotEventReader} from '../runtime/shot-events.ts';
@@ -454,20 +454,22 @@ try {
    }
    const wireStats=barbedWireStats(run.model.commandUpgrades),activeWires=builtWires.filter(wire=>!wire.breached);
    const effects=[...activeWires.map(wire=>({x:wire.x+wire.width/2,y:wire.y+wire.height/2,kind:'slow' as const,radius:3.2,strength:.55,damage:wireStats.damage*clock.step,direction:{x:0,y:0},cone:0,duration:wireStats.slow,source:0})),...commands].slice(0,64);commands=[];
-   if(state.mode==='game'&&run.model.phase==='combat'&&(builtWalls.length||builtWires.length)){
+   if(state.mode==='game'&&run.model.phase==='combat'&&(builtWalls.length||builtFences.length||builtWires.length)){
      const obstacleSnapshot=map.obstacles,telemetry=(segment:Rect)=>{const index=obstacleSnapshot.indexOf(segment);return index<0?{contact:0,packing:0,pressure:0}:{contact:Math.min(1,(latest.obstacleContacts?.[index]??0)/6),packing:latest.obstaclePacking?.[index]??0,pressure:latest.obstaclePressure?.[index]??0};};
      const wallLevel=run.model.commandUpgrades.includes('structure-armor')?1:0;
      const collapsed=builtWalls.filter(wall=>{const sample=telemetry(wall);wall.health=wallHealthAfterPressure(wall.health,sample.pressure,sample.contact,clock.step,wallLevel);return wall.health<=0;});
+     const fallenFences=builtFences.filter(fence=>{const sample=telemetry(fence);fence.health=fenceHealthAfterPressure(fence.health,sample.pressure,sample.contact,clock.step);return fence.health<=0;});
      const breached=builtWires.filter(wire=>{if(wire.breached)return false;const sample=telemetry(wire);wire.health-=clock.step*wireStats.wear*sample.contact*(1+Math.max(0,sample.packing-1)*.4);if(sample.contact>0&&sample.packing>=wireStats.resistance){wire.breached=true;return true;}return false;});
      for(const wire of builtWires)if(wire.breached)wire.health-=wire.maxHealth*clock.step*.45;
      const spent=builtWires.filter(wire=>wire.health<=0);
-     if(collapsed.length||breached.length||spent.length){
+     if(collapsed.length||fallenFences.length||breached.length||spent.length){
        for(const wall of collapsed)burst({x:wall.x+wall.width/2,y:wall.y+wall.height/2},30,[.48,.54,.6],8,1.1,10,'debris',1.6);
+       for(const fence of fallenFences){const center={x:fence.x+fence.width/2,y:fence.y+fence.height/2};burst(center,26,[.42,.5,.49],10,1.2,9,'debris',1.15);burst(center,8,[.7,.73,.62],7,.7,4,'spark',.65);}
        for(const wire of breached){const center={x:wire.x+wire.width/2,y:wire.y+wire.height/2};burst(center,24,[1,.32,.08],14,.75,10,'spark',1.15);burst(center,22,[.5,.6,.62],9,1.05,9,'debris',1.45);burst(center,7,[.2,.19,.16],4,1.25,-2,'smoke',2.2);}
        for(const wire of spent)if(!breached.includes(wire))burst({x:wire.x+wire.width/2,y:wire.y+wire.height/2},22,[.56,.42,.22],8,.9,9,'debris',1.3);
-       builtWalls=builtWalls.filter(wall=>!collapsed.includes(wall));builtWires=builtWires.filter(wire=>!spent.includes(wire));
-       removeStructuresFromMap([...collapsed,...breached,...spent]);
-       state.message=collapsed.length?`${collapsed.length} Metal wall section${collapsed.length===1?'':'s'} collapsed under local pressure.`:breached.length?`${breached.length} barbed wire section${breached.length===1?'':'s'} gave way under local swarm pressure.`:`${spent.length} barbed wire section${spent.length===1?'':'s'} wore out.`;
+       builtWalls=builtWalls.filter(wall=>!collapsed.includes(wall));builtFences=builtFences.filter(fence=>!fallenFences.includes(fence));builtWires=builtWires.filter(wire=>!spent.includes(wire));
+       removeStructuresFromMap([...collapsed,...fallenFences,...breached,...spent]);
+       state.message=collapsed.length?`${collapsed.length} Metal wall section${collapsed.length===1?'':'s'} collapsed under local pressure.`:fallenFences.length?`${fallenFences.length} Chain-link Fence section${fallenFences.length===1?'':'s'} folded under swarm pressure.`:breached.length?`${breached.length} barbed wire section${breached.length===1?'':'s'} gave way under local swarm pressure.`:`${spent.length} barbed wire section${spent.length===1?'':'s'} wore out.`;
      }
    }
    const activeMap=combatMap();
