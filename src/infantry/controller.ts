@@ -1,7 +1,7 @@
 import {mapWithTurretObstacles} from '../navigation/index.ts';
 import type {NavigationField,Vec2,WorldMap} from '../contracts/index.ts';
 import type {RunController} from '../game/index.ts';
-import {INFANTRY,infantryStats,infantryCapacity,type InfantryKind,freshInfantry,infantryMap,infantryField,exitPoint,clearForSoldier,recruitInterval,infantryUpgradeCost,type Barracks} from './model.ts';
+import {INFANTRY,infantryStats,infantryCapacity,type InfantryKind,freshInfantry,infantryMap,infantryField,exitPoint,reachableRallyPoint,clearForSoldier,recruitInterval,infantryUpgradeCost,type Barracks} from './model.ts';
 import './style.css';
 import {makeGameWindow} from '../ui/windows.ts';
 
@@ -73,11 +73,11 @@ export function createInfantryController(root:HTMLElement,run:RunController,getM
   };
   const commandBuildings=(target:Vec2)=>{
     const buildings=state().buildings.filter(b=>selectedBuildings.has(b.id));if(!buildings.length)return false;
-    const active=map();if(!clearForSoldier(active,target)){message('Barracks need a clear rally point.');return true;}
-    const field=infantryField(active,target);let ordered=0;
-    for(const b of buildings)if(exitPoint(active,b,field)){b.rally={...target};ordered++;}
-    if(ordered){fieldKey='';commandTarget={...target};changed();}
-    message(ordered===buildings.length?`${ordered} rally points updated.`:`${ordered} of ${buildings.length} barracks can reach that rally point.`);update();return true;
+    const active=map(),rally={x:Math.floor(target.x)+.5,y:Math.floor(target.y)+.5};
+    const valid=buildings.filter(b=>reachableRallyPoint(active,b,rally));
+    if(valid.length!==buildings.length){message(valid.length?`That rally point is not reachable by ${buildings.length-valid.length} selected barracks.`:'Choose clear ground reachable from every selected barracks.');return true;}
+    for(const b of valid)b.rally={...rally};
+    fieldKey='';commandTarget={...rally};changed();message(`${valid.length} rally points updated.`);update();return true;
   };
   function ensureFields(){const active=map(),orders=state().soldiers.filter(s=>s.health>0&&s.moveTarget),key=JSON.stringify([active.obstacles,state().buildings.map(b=>[b.id,b.rally]),orders.map(s=>[s.id,s.moveTarget])]);if(key!==fieldKey){fields.clear();orderFields.clear();for(const b of state().buildings)fields.set(b.id,infantryField(active,b.rally));const cached=new Map<string,NavigationField>();for(const s of orders){const targetKey=`${s.moveTarget!.x},${s.moveTarget!.y}`;let field=cached.get(targetKey);if(!field){field=infantryField(active,s.moveTarget!);cached.set(targetKey,field);}orderFields.set(s.id,field);}fieldKey=key;}const living=new Set(state().soldiers.filter(s=>s.health>0).map(s=>s.id));for(const id of selectedSoldiers)if(!living.has(id))selectedSoldiers.delete(id);return active;}
   return {state,fields,orderFields,ensureFields,update,inspector,selectAt,selectBox,command:(target:Vec2)=>command(target)||commandBuildings(target),get selected(){return selected;},get selectedBuildings(){return selectedBuildings as ReadonlySet<number>;},get selectedSoldiers(){return selectedSoldiers as ReadonlySet<number>;},get commandTarget(){return commandTarget;},get tool(){return tool;},cancel(){tool=null;selected=null;selectedBuildings.clear();clearSoldierSelection();},reset(){tool=null;selected=null;selectedBuildings.clear();clearSoldierSelection();fieldKey='';fields.clear();orderFields.clear();},
@@ -96,7 +96,7 @@ export function createInfantryController(root:HTMLElement,run:RunController,getM
       }
       if(tool==='rally'){
         const b=state().buildings.find(b=>b.id===selected),active=map(),target={x:Math.floor(p.x)+.5,y:Math.floor(p.y)+.5};
-        if(b&&clearForSoldier(active,target)){const field=infantryField(active,target);if(exitPoint(active,b,field)){b.rally=target;fieldKey='';tool=null;changed();message('Rally point set. Troops will regroup at the yellow flag.');update();return true;}}
+        if(b&&reachableRallyPoint(active,b,target)){b.rally=target;fieldKey='';tool=null;changed();message('Rally point set. Troops will regroup at the yellow flag.');update();return true;}
         message('Choose clear ground that recruits can reach from the barracks.');return true;
       }
       if(select&&selectAt(p,additive))return true;

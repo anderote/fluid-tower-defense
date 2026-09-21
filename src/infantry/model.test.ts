@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {INFANTRY,infantryStats,infantryCapacity,type InfantryKind,advanceInfantry,awardInfantryKills,clearForSoldier,clearInfantryPath,damageInfantry,recordInfantryCasualty,freshInfantry,infantryFanPoint,infantryMap,infantryField,rifleStats,recruitInterval,validInfantry,type Threat} from './model.ts';
+import {INFANTRY,infantryStats,infantryCapacity,type InfantryKind,advanceInfantry,awardInfantryKills,clearForSoldier,clearInfantryPath,damageInfantry,recordInfantryCasualty,freshInfantry,infantryFanPoint,infantryMap,infantryField,reachableRallyPoint,rifleStats,recruitInterval,validInfantry,type Threat} from './model.ts';
 import {createRun} from '../game/index.ts';
 import type {WorldMap} from '../contracts/index.ts';
 const map:WorldMap={id:'infantry-test',width:50,height:40,spawn:{x:0,y:10,width:3,height:20},goal:{x:47,y:20},goalRadius:2,obstacles:[]};
@@ -111,6 +111,13 @@ test('rally movement reaches the firing line and stale threats cannot fire or hu
   const f=setup();f.step(8.1);const s=f.state.soldiers[0],rally=f.state.buildings[0].rally;f.step(4);assert.ok(Math.hypot(s.x-rally.x,s.y-rally.y)<3);
   f.threats.set(s.id,{target:0,generation:7,x:s.x-2,y:s.y,contact:120,age:1});const hp=s.health;assert.equal(advanceInfantry(f.state,f.active,f.fields,f.threats,.1,true).length,0);assert.equal(s.health,hp);
   f.threats.set(s.id,{target:0,generation:7,x:s.x-2,y:s.y,contact:10,age:0});const shots=advanceInfantry(f.state,f.active,f.fields,f.threats,.1,true);assert.equal(shots[0].generation,7);assert.ok(s.health<hp);
+});
+test('rally validation requires one snapped point to be reachable from every selected barracks',()=>{
+  const state=freshInfantry(),first={id:1,x:8.5,y:8.5,rally:{x:5.5,y:8.5},production:0,training:0,progress:0,spent:INFANTRY.rifle.cost,kind:'rifle' as const},second={id:2,x:20.5,y:20.5,rally:{x:17.5,y:20.5},production:0,training:0,progress:0,spent:INFANTRY.rifle.cost,kind:'rifle' as const};
+  state.buildings.push(first,second);const active=infantryMap(map,state),rally={x:30.5,y:25.5};
+  assert.equal(reachableRallyPoint(active,first,rally),true);assert.equal(reachableRallyPoint(active,second,rally),true);
+  const blocked={...active,obstacles:[...active.obstacles,{x:29,y:24,width:4,height:4}]};
+  assert.equal(reachableRallyPoint(blocked,first,rally),false);assert.equal(reachableRallyPoint(blocked,second,rally),false);
 });
 test('move orders route infantry around walls and hold the commanded position',()=>{
   const routeMap:WorldMap={id:'ordered-route',width:26,height:18,spawn:{x:0,y:5,width:2,height:8},goal:{x:24,y:9},goalRadius:1,obstacles:[{x:11,y:0,width:2,height:10}]};
