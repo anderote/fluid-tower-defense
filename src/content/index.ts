@@ -47,13 +47,10 @@ export const MAX_VETERANCY=100;
 /** 64.8 XP per squared rank: rank 10 requires 6,480 credited kills, rank 50 162,000, and rank 100 648,000. */
 export const veterancyXpForLevel=(level:number):number=>64.8*Math.max(0,Math.min(MAX_VETERANCY,Math.ceil(level)))**2;
 export const veterancyLevel=(xp:number):number=>Math.min(MAX_VETERANCY,Math.floor(Math.sqrt(Math.max(0,xp)/64.8)));
-/**
- * Each rank is a modest 0.9% improvement, but a long-serving rank-100 unit
- * reaches 2.5x base damage. The same veteran curve is deliberately tempered
- * for range and rate of fire in `compileTower`, so they top out at 1.83x and
- * 1.42x respectively.
- */
-export const veterancyMultiplier=(level:number):number=>2.5**(Math.min(MAX_VETERANCY,Math.max(0,level))/MAX_VETERANCY);
+/** Veteran service now has a strong identity: rank 100 reaches 5x base damage.
+ * Range and reload also scale meaningfully, while the exponential curve keeps
+ * the first few ranks modest and makes long-serving defenses feel legendary. */
+export const veterancyMultiplier=(level:number):number=>5**(Math.min(MAX_VETERANCY,Math.max(0,level))/MAX_VETERANCY);
 
 export const ENEMIES: Record<EnemyKind, EnemyDef> = {
   shambler: {id:'shambler',index:0,name:'Shambler',radius:.4125,mass:1,health:30,speed:3.1,drive:1,pressureLimit:24,crushResistance:1,bounty:3,leak:1,color:'#76c66e'},
@@ -126,7 +123,7 @@ export function compileTower(tower: Tower, bonuses: readonly string[] = [], comm
   force *= 1 + (powerPath?.05:.035) * (1-Math.exp(-level/12));
   radius *= 1 + level * (controlPath?.008:.004);
   const veteran=veterancyMultiplier(tower.veterancy ?? veterancyLevel(tower.veterancyXp ?? 0));
-  range*=1+(veteran-1)*.55; damage*=veteran; cooldown/=1+(veteran-1)*.28;
+  range*=1+(veteran-1)*.65; damage*=veteran; cooldown/=1+(veteran-1)*.5;
   if (tower.branch === 0) {
     if (tower.kind==='repulsor') { force *= 1.4; radius *= .8; range += 1; }
     if (tower.kind==='mortar') { damage *= 1.6; radius *= .78; cooldown *= 1.12; }
