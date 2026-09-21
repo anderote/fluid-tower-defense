@@ -2,7 +2,9 @@ import {connectGPU} from '../../src/runtime/gpu.ts';
 import {createPhysics} from '../../src/sim/physics/index.ts';
 import {runGPUValidation} from '../../src/validation/index.ts';
 import {encodeHorde} from '../../src/sim/horde/model.ts';
-import {COUNTER_WORDS,DEFAULT_TUNING,P,type SharedGPU,type WorldMap} from '../../src/contracts/index.ts';
+import {createCombat} from '../../src/sim/combat/index.ts';
+import {compileTower} from '../../src/content/index.ts';
+import {COUNTER_WORDS,DEFAULT_TUNING,P,type SharedGPU,type WorldMap,type Tower,type TowerKind} from '../../src/contracts/index.ts';
 const output=document.querySelector('#results')!,status=document.querySelector('#status')!;
 const assert=(v:unknown,m:string)=>{if(!v)throw Error(m);};
 const gpu=await connectGPU(document.querySelector('canvas')!),errors:string[]=[];
@@ -31,6 +33,27 @@ try{
  }
  output.textContent+=`PASS indexed/reference parity, thin walls, embedded recovery, offscreen obstacles, dynamic edits; max difference ${maxDifference}\n`;
  indexed.destroy();reference.destroy();for(const s of [left,right]){s.particles.destroy();s.counters.destroy();}
+ // Compare full-scan and indexed target acquisition through firing, Tesla chains,
+ // burn, heavy impacts, generation recycling, focus changes and empty populations.
+ const combatInitial=encodeHorde([{kind:'shambler',count:256,seed:2}],Array.from({length:256},(_,i)=>({x:5+(i%16)*2,y:5+Math.floor(i/16)*2})));
+ const makeCombat=():SharedGPU=>({capacity:256,particles:gpu.device.createBuffer({size:combatInitial.byteLength,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST|GPUBufferUsage.COPY_SRC}),counters:gpu.device.createBuffer({size:COUNTER_WORDS*4,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST|GPUBufferUsage.COPY_SRC})});
+ const cs=[makeCombat(),makeCombat()],cm=[await createCombat(gpu.device,cs[0]),await createCombat(gpu.device,cs[1],{spatialTargets:false})];
+ const kinds:TowerKind[]=['repulsor','mortar','autocannon','cryo','tesla','rocket','railgun','incinerator'];
+ const towers:Tower[]=kinds.map((kind,i)=>({id:i+1,kind,x:10+i*2,y:18,level:0,branch:i%2,angle:0,cooldown:0,spent:0}));
+ for(const s of cs)gpu.device.queue.writeBuffer(s.particles,0,combatInitial);
+ for(let tick=1;tick<=90;tick++){
+  if(tick===25)towers[4].groundTarget={x:20,y:20};
+  if(tick===40){for(let i=0;i<256;i++)combatInitial[i*16+P.generation]=2;for(const s of cs)gpu.device.queue.writeBuffer(s.particles,0,combatInitial);}
+  const frame={dt:1/60,tick,count:tick>=80?0:256,map:{...map,obstacles:[{x:28,y:8,width:1,height:30}]},effects:[],tuning:DEFAULT_TUNING,lab:true,towers:towers.map(tower=>({tower,definition:compileTower(tower,[])}))};
+  for(const combat of cm){const e=gpu.device.createCommandEncoder();combat.encodeBefore(e,frame);combat.encodeAfter(e,frame);gpu.device.queue.submit([e.finish()]);}
+  if(tick%10===0){
+   for(const [a,b,name] of [[cs[0].particles,cs[1].particles,'particles'],[cs[0].counters,cs[1].counters,'counters'],[cm[0].shotState,cm[1].shotState,'shots'],[cs[0].teslaState!,cs[1].teslaState!,'Tesla']] as const){
+    const av=new Uint32Array(await read(a)),bv=new Uint32Array(await read(b));assert(av.every((v,i)=>v===bv[i]),`target reference ${name} mismatch at tick ${tick}`);
+   }
+  }
+ }
+ for(const c of cm)c.destroy();for(const s of cs){s.particles.destroy();s.counters.destroy();}
+ output.textContent+='PASS indexed/full-scan combat parity for all eight weapons, focus, recycling and zero population\n';
  const checks=await runGPUValidation(gpu.device);for(const check of checks){output.textContent+=`${check.passed?'PASS':'FAIL'} ${check.name}: ${check.details}\n`;assert(check.passed,check.details);}
- await gpu.device.queue.onSubmittedWorkDone();assert(!errors.length,errors.join('\n'));status.textContent=`Complete: ${checks.length+1} checks passed, zero GPU errors`;
+ await gpu.device.queue.onSubmittedWorkDone();assert(!errors.length,errors.join('\n'));status.textContent=`Complete: ${checks.length+2} checks passed, zero GPU errors`;
 }catch(e){status.textContent='FAILED';output.textContent+='\n'+String(e)+'\n'+errors.join('\n');}finally{gpu.device.destroy();}

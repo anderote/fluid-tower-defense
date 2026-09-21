@@ -87,3 +87,12 @@ service restart, or interaction with the user's existing game tab is required.
   184 unit tests and production build pass. Initial obstacle fixture substeps
   fell from 0.262/0.197 ms medians to 0.131/0.131 ms, but concurrent load changed
   rendering costs substantially; final comparisons must run paired trials.
+- Stage 3: GPU target grid for acquisition/Tesla chains, deterministic slot-order
+  tie breaking, deferred line-of-sight checks, cached obstacle uploads and tower
+  definitions. Full-scan reference retained. All eight weapons match reference
+  particle state, counters, shot records and Tesla state byte-for-byte across
+  90 ticks, focus changes, generation reuse and empty population. Eight GPU checks,
+  185 unit tests and build pass. Mixed-tower target median 1.376 -> 0.197 ms in
+  initial samples (not a controlled end-to-end speedup claim). Damage passes were
+  below ~0.066 ms in these fixtures; active-attack restructuring is deferred unless
+  the later stress matrix identifies a material cost.
