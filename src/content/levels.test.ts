@@ -12,7 +12,7 @@ for(const level of [1,2,3]){
   test(`campaign ${level}: authored bounds, entry frontage, scenery assets and boss route are valid`,()=>{
     const map=campaignMap(level),scenery=map.scenery!,field=buildNavigation(map);
     assert.equal(validateEditorMap(map),undefined);assert.ok(isCampaignMap(map));
-    for(let y=0;y<100;y++)assert.ok(Number.isFinite(field.distances[y*field.width]),`west entry ${y} cannot reach the goal`);
+    for(let y=0;y<map.height;y++)assert.ok(Number.isFinite(field.distances[y*field.width]),`west entry ${y} cannot reach the goal`);
     const inflated={...map,obstacles:map.obstacles.map(r=>({x:r.x-3.5,y:r.y-3.5,width:r.width+7,height:r.height+7}))};
     const boss=buildNavigation(inflated);assert.ok(Number.isFinite(boss.distances[50*boss.width+4]),'boss-width route must reach goal');
     const atlas=JSON.parse(readFileSync(new URL('../../public/assets/red-alert/atlas.json',import.meta.url),'utf8'));
@@ -21,12 +21,16 @@ for(const level of [1,2,3]){
     const source=JSON.stringify(map);map.obstacles.pop();assert.equal(JSON.stringify(campaignMap(level)),source,'map calls must be isolated');
   });
 }
-test('forest, snow and interior offer distinct choke layouts, not palette swaps',()=>{
+test('the opening field is long, narrow, and almost entirely open',()=>{
   const maps=[1,2,3].map(campaignMap);
   assert.deepEqual(maps.map(m=>m.scenery!.biome),['forest','winter','interior']);
   assert.notDeepEqual(maps[0].obstacles,maps[1].obstacles);assert.notDeepEqual(maps[1].obstacles,maps[2].obstacles);
-  assert.ok(maps[0].scenery!.props.length>70);assert.ok(maps[1].scenery!.props.length>50);assert.ok(maps[2].scenery!.regions.some(r=>r.sprite==='grating'));
-  for(const [map,points] of [[maps[0],[[40,48],[68,44],[108,48]]],[maps[1],[[40,28],[40,68],[112,52]]],[maps[2],[[38,44],[82,58],[112,42]]]] as const)for(const [x,y]of points)assert.ok(canPlace(map,[],{x,y},1.25),`${map.id} needs clear defense site ${x},${y}`);
+  assert.deepEqual([maps[0].width,maps[0].height],[240,72]);
+  assert.equal(maps[0].obstacles.length,6);
+  assert.ok(maps[0].obstacles.every(obstacle=>obstacle.width===2&&obstacle.height===2));
+  assert.ok(maps[0].scenery!.props.length<=6);
+  assert.ok(maps[1].scenery!.props.length>50);assert.ok(maps[2].scenery!.regions.some(r=>r.sprite==='grating'));
+  for(const [map,points] of [[maps[0],[[40,36],[120,36],[200,36]]],[maps[1],[[40,28],[40,68],[112,52]]],[maps[2],[[38,44],[82,58],[112,42]]]] as const)for(const [x,y]of points)assert.ok(canPlace(map,[],{x,y},1.25),`${map.id} needs clear defense site ${x},${y}`);
 });
 test('outdoor roads meet matching edges without overlapping template cells',()=>{
   // Edge connections verified against the original road artwork, in row order.

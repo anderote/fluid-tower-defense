@@ -1,0 +1,82 @@
+# Performance execution plan
+
+Status: active. Baseline: local dev `c520abf`. Worktree: `.worktrees/performance-program`.
+Root main and the published service are outside this task's mutation scope.
+
+## Outcome and decision rules
+
+Make large, congested battles measurably cheaper while preserving enemy identity,
+health, damage ownership, rewards, wall collision, and pressure gameplay. Target
+60 Hz presentation and real-time simulation where the machine/workload supports
+it; report measured limits rather than guaranteeing an unmeasured population.
+The previously observed 188.5 ms median is a live symptom, not a subsystem profile.
+
+Every stage gets a focused commit, validation record, and integration into local
+dev. Feature development remains here, based on dev. If dev moves independently,
+merge its changes here and retest before integration. No fetch, push, publication,
+service restart, or interaction with the user's existing game tab is required.
+
+## Stages
+
+0. **Plan and baseline**: record this plan, current architecture, and release
+   boundaries. Establish clean feature and integration worktrees.
+1. **Measurement**: optional GPU timestamp profiler with asynchronous bounded
+   readback, CPU/subsystem timing, simulation/wall-time ratio, and deterministic
+   browser benchmark scenes. Test open flow, congestion, obstacle-heavy terrain,
+   combat, aftermath, and long runs; record actual sustained populations, timing
+   distributions, invalid values, errors, adapter and resolution. Provide
+   subsystem switches for controlled attribution and an unsupported-query path.
+2. **Terrain broad phase**: cache conservative per-cell obstacle candidates;
+   replace repeated all-obstacle physics scans while retaining exact narrow-phase
+   calculations, obstacle ordering, telemetry indices and swept-motion coverage.
+   Validate thin walls, corners, long walls, dynamic edits, and reference parity.
+3. **Combat and CPU preparation**: spatially restrict acquisition/chain searches
+   and active attack work where profiling justifies it; preserve target ordering,
+   generation validation and ownership. Cache stable definitions, terrain data,
+   and uploads. Record before/after and regression checks.
+4. **Rendering and effects**: compact active/visible effect work, reduce settled
+   blood/corpse cost, avoid repeated animation work at unchanged simulation time,
+   and add bounded render-resolution controls independent of UI resolution.
+   Validate effect visibility, layering, persistence and independent game state.
+5. **Scalable crowd prototype**: implement an explicit experimental shared-grid
+   density/velocity/pressure mode with bounded local separation. Keep the exact
+   solver as reference. Measure sparse, dense, obstacle, blast and mixed-size
+   behavior. Document a retain/promote/reject decision; an approximation that
+   fails gameplay invariants must not silently become the default.
+6. **Adaptive budgets**: use measured cost/local density to select validated
+   quality levels with hysteresis. Prefer cosmetic/resolution budgets first;
+   enable approximate simulation only where stage 5 establishes acceptable
+   behavior. Do not change damage, spawn quotas, money, or firing rate to hide
+   frame drops. Evaluate reduced-rate steering separately from collision dt.
+7. **Final regression and handoff**: run full tests/build, browser GPU checks,
+   sustained benchmarks and quality comparisons. Record measured gains and
+   limitations, final settings, remaining research choices, commit history, and
+   confirmation that all completed work is in dev and stable is unchanged.
+
+## Benchmark and acceptance protocol
+
+- Use feature Vite on 5174 or another free non-5173 port; dedicated automation tab.
+- Fixed seeds, maps, populations, warmup and measurement windows. Record sample
+  counts and timing method. Short GPU-batched throughput tests are distinct from
+  presented frame timing. Do not call CPU encode time GPU time.
+- Compare one change at a time against the same scenario. GPU pass timestamps
+  are attribution aids, not substitutes for end-to-end timing.
+- Keep the user's live game running. Record concurrent GPU workload as a source
+  of variance; do not claim uncontended hardware capacity from these samples.
+- Counters: actual live and slot count, density/neighbor work where available,
+  obstacle candidates, draw counts, errors and simulation seconds/wall second.
+- Gameplay: finite values, no tunneling, correct rewards/ownership, continuous
+  spawning, wall contact/crushing, target validity, and comparable throughput.
+- Approximate-mode acceptance: bounded search, stable dense behavior, retained
+  conservation/accounting, explicit differences and measured speed benefit.
+- Tests/build must pass before each integration; GPU changes also require a
+  browser execution check. Do not broaden tests repeatedly without new concerns.
+
+## Progress
+
+- Stage 0: plan established; dev includes unreleased permanent fences and terrain
+  changes, so all new measurements use dev rather than assuming published parity.
+- Stage 1: optional bounded GPU profiler, production simulation/wall ratio and
+  opt-in profiling, deterministic five-scenario browser laboratory, and raw
+  baseline evidence implemented. Apple timestamp support verified with no GPU
+  errors; targeting, not density, dominates this initial mixed-tower fixture.

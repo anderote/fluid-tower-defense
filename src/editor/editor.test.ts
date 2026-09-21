@@ -8,6 +8,10 @@ test('editor permits building in former protected lanes and the spawn area',()=>
   assert.equal(validateEditorMap({...DEFAULT_MAP,obstacles:[{x:100,y:48,width:4,height:4}]}),undefined);
   assert.equal(validateEditorMap({...DEFAULT_MAP,obstacles:[{x:4,y:36,width:4,height:4}]}),undefined);
 });
+test('editor permits sealing the zombie route',()=>{
+ const sealed:WorldMap={...DEFAULT_MAP,obstacles:[{x:76,y:0,width:4,height:100}]};
+ assert.equal(validateEditorMap(sealed),undefined);
+});
 test('wall cells snap clicks on every map edge into the last valid cell',()=>{
   assert.deepEqual(wallAtPoint(DEFAULT_MAP,{x:0,y:0}),{x:0,y:0,width:4,height:4});
   assert.deepEqual(wallAtPoint(DEFAULT_MAP,{x:160,y:100}),{x:156,y:96,width:4,height:4});
