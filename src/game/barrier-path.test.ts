@@ -9,6 +9,17 @@ test('straight barriers retain an arbitrary-angle centerline while their collisi
  assert.ok(segments.every(segment=>segment.width<1.5&&segment.height<1.5));
 });
 
+test('diagonal fence collision tiles stay centered with equal clearance on either side',()=>{
+ const segments=barrierSegments('fence',7,[{x:2,y:2},{x:8,y:8}]);
+ const expected=.72/Math.sqrt(2);
+ for(const segment of segments){
+  const center={x:segment.x+segment.width/2,y:segment.y+segment.height/2};
+  assert.ok(Math.abs(center.x-center.y)<.000001);
+  assert.ok(Math.abs(segment.width-expected)<.000001);
+  assert.equal(segment.width,segment.height);
+ }
+});
+
 test('freeform barriers charge one panel price per five world units',()=>{
  assert.equal(barrierCost(5,45),45);assert.equal(barrierCost(5.01,45),90);
 });
