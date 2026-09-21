@@ -5,12 +5,13 @@ import {buildNavigation} from '../navigation/index.ts';
 export const BARRACKS_COST=120;
 export type InfantryKind='rifle'|'rocket'|'flame'|'samurai'|'dog';
 export const INFANTRY={
- rifle:{building:'Rifle Barracks',name:'Riflemen',cost:120,interval:5,health:40,damage:12,range:14,cooldown:1.05,armor:0,speed:4,role:'Mass rifle infantry · free continuous recruitment'},
- rocket:{building:'Rocket Academy',name:'Rocket troops',cost:200,interval:4,health:55,damage:32,range:19,cooldown:2.5,armor:.1,speed:3.5,role:'Explosive splash against dense hordes'},
- flame:{building:'Flame Depot',name:'Flamethrowers',cost:160,interval:3,health:80,damage:8,range:7,cooldown:.3,armor:.2,speed:4,role:'Close-range cones of fire'},
- samurai:{building:'Samurai Dojo',name:'Samurai',cost:240,interval:6,health:95,damage:18,range:2.6,cooldown:.9,armor:.2,speed:4.8,role:'Close-range shock troops with a focused sword sweep'},
- dog:{building:'Dog Kennel',name:'Attack dogs',cost:60,interval:1.5,health:25,damage:24,range:1.8,cooldown:.6,armor:0,speed:8,role:'Fast packs that chase and bite nearby zombies'},
+ rifle:{building:'Rifle Barracks',name:'Riflemen',cost:120,interval:5,capacity:100,health:40,damage:12,range:14,cooldown:1.05,armor:0,speed:4,role:'Mass rifle infantry · free continuous recruitment'},
+ rocket:{building:'Rocket Academy',name:'Rocket troops',cost:200,interval:4,capacity:20,health:55,damage:22,range:16,cooldown:3.1,armor:.1,speed:3.5,role:'Deliberate splash volleys against dense hordes'},
+ flame:{building:'Flame Depot',name:'Flamethrowers',cost:160,interval:3,capacity:20,health:80,damage:6,range:6,cooldown:.45,armor:.2,speed:4,role:'Short-range cones that punish crowded approaches'},
+ samurai:{building:'Samurai Dojo',name:'Samurai',cost:240,interval:6,capacity:20,health:95,damage:18,range:2.6,cooldown:.9,armor:.2,speed:4.8,role:'Close-range shock troops with a focused sword sweep'},
+ dog:{building:'Dog Kennel',name:'Attack dogs',cost:60,interval:1.5,capacity:40,health:25,damage:24,range:1.8,cooldown:.6,armor:0,speed:8,role:'Fast packs that chase and bite nearby zombies'},
 } as const;
+export const infantryCapacity=(kind:InfantryKind='rifle',production=0)=>INFANTRY[kind].capacity+Math.ceil(INFANTRY[kind].capacity*.2)*Math.max(0,Math.min(5,production));
 export const infantryStats=(kind:InfantryKind='rifle',quality=0,defense=0,veterancy=0,research:readonly string[]=[] )=>{const v=INFANTRY[kind],ranks=(id:string)=>research.filter(upgrade=>upgrade===id).length,experience=veterancyMultiplier(veterancy);return {...v,health:v.health+quality*12+defense*20,damage:v.damage*(1+quality/3)*experience*(1+ranks('damage')*.04),range:v.range*(1+ranks('range')*.03),cooldown:v.cooldown/(1+quality*.08)/(1+ranks('rate')*.035),armor:Math.min(.7,v.armor+defense*.06)};};
 export interface Barracks extends Vec2 {kind?:InfantryKind;defense?:number;id:number;rally:Vec2;production:number;training:number;progress:number;spent:number;recruited?:number}
 export interface Soldier extends Vec2 {kind?:InfantryKind;defense?:number;id:number;home:number;quality:number;health:number;cooldown:number;angle:number;flash:number;walk:number;dead:number;kills?:number;veterancy?:number;veterancyXp?:number;casualtyRecorded?:boolean;deathCause?:'enemy'|'friendly-fire';attackAge?:number;moving?:boolean;pressure?:number;moveTarget?:Vec2;moveSlot?:number;rallySlot?:number}
@@ -54,7 +55,9 @@ export function clearInfantryPath(map:WorldMap,from:Vec2,to:Vec2,r=.4):boolean {
 /** Stable sunflower slots turn a rally coordinate into a loose, quiet staging area. */
 export function infantryFanPoint(map:WorldMap,center:Vec2,slot:number):Vec2 {
   if(slot<=0)return center;
-  const radius=Math.min(9,Math.sqrt(slot)*1.05),angle=slot*2.399963229728653;
+  // Keep squads compact after a move while preserving enough room for each
+  // soldier to settle without stacking on the same point.
+  const radius=Math.min(8.5,Math.sqrt(slot)*.9),angle=slot*2.399963229728653;
   const candidates=[0,.7,-.7,1.4,-1.4].flatMap(turn=>[1,.72,.45].map(scale=>({x:center.x+Math.cos(angle+turn)*radius*scale,y:center.y+Math.sin(angle+turn)*radius*scale})));
   return candidates.find(point=>clearForSoldier(map,point)&&clearInfantryPath(map,center,point))??center;
 }
@@ -77,8 +80,9 @@ export function advanceInfantry(state:InfantryState,map:WorldMap,fields:Map<numb
   const shots:RifleShot[]=[];
   for(const b of state.buildings){
     const field=fields.get(b.id);if(!field)continue;
-    b.progress=Math.min(1,b.progress+dt/recruitInterval(b.production,b.kind));
-    if(b.progress>=1){const p=exitPoint(map,b,field);if(p){const rallySlot=b.recruited??0;b.recruited=rallySlot+1;state.soldiers.push({...p,id:state.nextId++,home:b.id,kind:b.kind??'rifle',defense:b.defense??0,quality:b.training,health:infantryStats(b.kind,b.training,b.defense,0,research).health,cooldown:0,angle:Math.PI,flash:0,walk:0,dead:0,kills:0,veterancy:0,veterancyXp:0,rallySlot});b.progress=0;}}
+    const kind=b.kind??'rifle',living=state.soldiers.filter(s=>s.home===b.id&&s.health>0).length;
+    if(living<infantryCapacity(kind,b.production))b.progress=Math.min(1,b.progress+dt/recruitInterval(b.production,kind));
+    if(b.progress>=1&&living<infantryCapacity(kind,b.production)){const p=exitPoint(map,b,field);if(p){const rallySlot=b.recruited??0;b.recruited=rallySlot+1;state.soldiers.push({...p,id:state.nextId++,home:b.id,kind,defense:b.defense??0,quality:b.training,health:infantryStats(kind,b.training,b.defense,0,research).health,cooldown:0,angle:Math.PI,flash:0,walk:0,dead:0,kills:0,veterancy:0,veterancyXp:0,rallySlot});b.progress=0;}}
   }
   const homes=new Map(state.buildings.map(b=>[b.id,b]));
   const cells=new Map<string,Soldier[]>(),key=(x:number,y:number)=>`${Math.floor(x/2)},${Math.floor(y/2)}`;
@@ -101,10 +105,14 @@ export function advanceInfantry(state:InfantryState,map:WorldMap,fields:Map<numb
       if(s.cooldown===0){shots.push({soldier:s.id,target:fresh.target,generation:fresh.generation,damage:stats.damage,x:fresh.x,y:fresh.y});s.cooldown=stats.cooldown;s.attackAge=0;s.flash=s.kind==='samurai'?.28:s.kind==='dog'?.32:s.kind==='flame'?.2:.1;}
     }
     const center=s.moveTarget??b.rally,slot=s.moveTarget?s.moveSlot??0:s.rallySlot??s.id,destination=formationDestination(state,map,s,center,slot),rallyDistance=Math.hypot(s.x-destination.x,s.y-destination.y),ordered=!!s.moveTarget,melee=s.kind==='samurai'||s.kind==='dog',settled=rallyDistance<=.7;
+    // Hold a firing line instead of chasing every small target update. The
+    // extra approach margin creates hysteresis; the tighter retreat threshold
+    // prevents ranged troops from constantly stepping back and forth.
+    const approachDistance=stats.range+(melee?.25:1.1),retreatDistance=melee?0:1.6;
     let dx=0,dy=0;
-    if(!ordered&&fresh&&distance>stats.range*(melee?.7:.82)&&clearInfantryPath(map,s,fresh)){dx=(fresh.x-s.x)/distance;dy=(fresh.y-s.y)/distance;}
-    else if(!ordered&&!melee&&fresh&&distance<2.5&&rallyDistance<6){dx=(s.x-fresh.x)/Math.max(.01,distance);dy=(s.y-fresh.y)/Math.max(.01,distance);}
-    else if(!settled&&(ordered||distance>stats.range||rallyDistance>5)){
+    if(!ordered&&fresh&&distance>approachDistance&&clearInfantryPath(map,s,fresh)){dx=(fresh.x-s.x)/distance;dy=(fresh.y-s.y)/distance;}
+    else if(!ordered&&!melee&&fresh&&distance<retreatDistance&&rallyDistance<6){dx=(s.x-fresh.x)/Math.max(.01,distance);dy=(s.y-fresh.y)/Math.max(.01,distance);}
+    else if(!settled&&(ordered||(!fresh&&(distance>stats.range||rallyDistance>5)))){
       if(clearInfantryPath(map,s,destination)){dx=(destination.x-s.x)/rallyDistance;dy=(destination.y-s.y)/rallyDistance;}
       else{
         const cellX=Math.max(0,Math.min(field.width-1,Math.floor(s.x/field.cellSize))),cellY=Math.max(0,Math.min(field.height-1,Math.floor(s.y/field.cellSize))),at=cellY*field.width+cellX,fieldX=field.vectors[at*2]??0,fieldY=field.vectors[at*2+1]??0;

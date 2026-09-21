@@ -55,10 +55,13 @@ fn clip(p:vec2<f32>)->vec2<f32>{let aspect=camera.viewport.x/max(1.,camera.viewp
 }`});
   const pipeline=await device.createRenderPipelineAsync({layout:'auto',vertex:{module:shader,entryPoint:'vs'},fragment:{module:shader,entryPoint:'fs',targets:[{format,blend:{color:{srcFactor:'src-alpha',dstFactor:'one-minus-src-alpha',operation:'add'},alpha:{srcFactor:'one',dstFactor:'one-minus-src-alpha',operation:'add'}}}]},primitive:{topology:'triangle-list'},depthStencil:{format:'depth32float',depthWriteEnabled:true,depthCompare:'less-equal'}});
   const bindings=device.createBindGroup({layout:pipeline.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:camera}},{binding:1,resource:{buffer:shared.particles}},{binding:2,resource:{buffer:state}},{binding:3,resource:texture.createView()},{binding:4,resource:{buffer:shared.teslaState!}},{binding:5,resource:{buffer:shared.heatState!}}]});
-  let depth:GPUTexture|undefined,width=0,height=0,lastTime=-1;
+  let depth:GPUTexture|undefined,width=0,height=0,lastTime=-1,lastCount=-1;
   return {
     texture,
+    reset(){lastTime=-1;lastCount=-1;},
     prepare(encoder:GPUCommandEncoder,scene:RenderScene){
+      if(scene.time===lastTime&&scene.count===lastCount)return;
+      lastCount=scene.count;
       const reset=lastTime<0||scene.time<lastTime;const dt=reset?0:Math.min(.1,scene.time-lastTime);lastTime=scene.time;
       device.queue.writeBuffer(clock,0,new Float32Array([scene.time,dt,Math.min(scene.count,shared.capacity),reset?1:0]));
       if(!scene.count){lastTime=-1;return;}

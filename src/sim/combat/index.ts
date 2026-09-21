@@ -4,10 +4,13 @@ import {TESLA_STATE_WGSL,TESLA_LINKS,TESLA_HEADER_BYTES,TESLA_PARTICLE_BYTES} fr
 import {createAftermathEvents} from '../../effects/aftermath.ts';
 import { PARTICLE_WGSL, HORDE_PRESSURE_COUNTER, MAX_EFFECTS, MAX_INFANTRY_KILL_SLOTS, type SharedGPU, type PhysicsFrame, type Tower, type TowerDef, type TowerKind } from '../../contracts/index.ts';
 import { ENEMY_BOUNTY_DIVISOR, ENEMY_WGSL, towerBehavior } from '../../content/index.ts';
+import {sameObstacles} from '../physics/obstacles.ts';
+import {HORDE_APPROACH} from '../../contracts/index.ts';
 
 const MAX_TOWERS=64;
 const MAX_COMBAT_OBSTACLES=4096;
 const HEAVY_ROUND_BYTES=80;
+const TARGET_CELLS=256*256;
 /** The largest per-shot reload variance, reserved for Tesla coils. */
 export const RELOAD_JITTER=0.15;
 export const RELOAD_VARIANCE:Record<TowerKind,number>={
@@ -26,12 +29,17 @@ export interface ShotSnapshot { id:number;x:number;y:number;angle:number;fired:b
 export interface CombatModule { encodeBefore(encoder:GPUCommandEncoder,frame:CombatFrame):void;encodeAfter(encoder:GPUCommandEncoder,frame:CombatFrame):void;reset():void;clearAftermath():void;resetAttribution():void;destroy():void;readonly shotState:GPUBuffer }
 
 /** GPU targeting and damage. Physics receives tower impulses directly in particle velocity. */
-export async function createCombat(device:GPUDevice,shared:SharedGPU):Promise<CombatModule>{
+export async function createCombat(device:GPUDevice,shared:SharedGPU,options:{spatialTargets?:boolean;parallelTowers?:boolean}={}):Promise<CombatModule>{
+  const spatialTargets=options.spatialTargets!==false;
+  // Let independent towers be scheduled across GPU cores, rather than sharing
+  // one workgroup whose lanes diverge behind long acquisition/chain searches.
+  const parallelTowers=options.parallelTowers!==false;
+  let obstacleSnapshot:Float32Array=new Float32Array(0);
   const uniforms=device.createBuffer({label:'Combat params',size:64,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST});
   const towers=device.createBuffer({label:'Tower definitions and line-of-sight obstacles',size:(MAX_TOWERS+MAX_COMBAT_OBSTACLES)*64,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
   // Preserve the 48-byte shot-state prefix consumed by rendering/readback; append in-flight salvos.
   const state=device.createBuffer({label:'Tower firing state',size:MAX_TOWERS*48+MAX_TOWERS*HEAVY_SALVO_SLOTS*HEAVY_ROUND_BYTES,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST|GPUBufferUsage.COPY_SRC});
-  const effects=device.createBuffer({label:'Manual damage effects',size:MAX_EFFECTS*48,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
+  const effects=device.createBuffer({label:'Effects and targeting spatial index',size:MAX_EFFECTS*48+(TARGET_CELLS+shared.capacity)*4,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
   const tesla=device.createBuffer({label:'Tesla chain and electrocution state',size:TESLA_HEADER_BYTES+shared.capacity*TESLA_PARTICLE_BYTES,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST|GPUBufferUsage.COPY_SRC});
   shared.teslaState=tesla;
   const heat=device.createBuffer({label:'Burn status',size:shared.capacity*FIRE_STATE_BYTES,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST|GPUBufferUsage.COPY_SRC});
@@ -49,13 +57,14 @@ struct TowerState { timing:vec4f, shot:vec4f, flags:vec4f };
 struct Round { definition:Tower, aim:vec4f };
 struct Firing { towers:array<TowerState,64>, rounds:array<Round,${MAX_TOWERS*HEAVY_SALVO_SLOTS}> };
 struct Effect { position:vec4f, direction:vec4f, extra:vec4f };
+struct EffectGrid {items:array<Effect,${MAX_EFFECTS}>,data:array<atomic<u32>>};
 ${FIRE_STATE_WGSL}
 struct Boss { motion:vec4f, body:vec4f, mode:vec4f, flags:vec4f };
 @group(0) @binding(0) var<uniform> params:Params;
 @group(0) @binding(1) var<storage,read_write> particles:array<Particle>;
 @group(0) @binding(2) var<storage,read> towers:array<Tower>;
 @group(0) @binding(3) var<storage,read_write> firing:Firing;
-@group(0) @binding(4) var<storage,read> effects:array<Effect>;
+@group(0) @binding(4) var<storage,read_write> effectGrid:EffectGrid;
 @group(0) @binding(5) var<storage,read_write> counters:array<atomic<u32>>;
 @group(0) @binding(6) var<storage,read_write> boss:array<Boss>;
 @group(0) @binding(7) var<storage,read_write> heat:array<Heat>;
@@ -64,6 +73,14 @@ struct Boss { motion:vec4f, body:vec4f, mode:vec4f, flags:vec4f };
 fn safeDir(delta:vec2f)->vec2f { return delta/max(length(delta),0.0001); }
 fn focusRadius(def:Tower)->f32 { return max(1.4,min(3.,def.weapon.w*.5)); }
 fn requiresSight(def:Tower)->bool {let kind=u32(def.position.w);return kind==2u||kind==12u||kind==14u;}
+fn targetCell(p:vec2f)->vec2i {return clamp(vec2i(floor((p+vec2f(${HORDE_APPROACH}.,0.))/max(1.,params.reserved.y))),vec2i(0),vec2i(params.reserved.zw)-1);}
+fn targetBounds(p:vec2f,r:f32)->vec4i {if(params.reserved.y==0.){return vec4i(0);}return vec4i(targetCell(p-vec2f(r)),targetCell(p+vec2f(r)));}
+fn targetHead(x:i32,y:i32)->u32 {if(params.clock.z<=0.){return 0u;}if(params.reserved.y==0.){return 1u;}return atomicLoad(&effectGrid.data[u32(y)*u32(params.reserved.z)+u32(x)]);}
+fn targetNext(i:u32)->u32 {if(params.reserved.y==0.){return select(0u,i+2u,i+1u<u32(params.clock.z));}return atomicLoad(&effectGrid.data[${TARGET_CELLS}u+i]);}
+@compute @workgroup_size(128) fn binTargets(@builtin(global_invocation_id) gid:vec3u){
+ let i=gid.x;if(i>=u32(params.clock.z)){return;}let p=particles[i];if(p.state.w<.5||p.body.z<=0.){return;}
+ let cell=targetCell(p.pos.xy);let previous=atomicExchange(&effectGrid.data[u32(cell.y)*u32(params.reserved.z)+u32(cell.x)],i+1u);atomicStore(&effectGrid.data[${TARGET_CELLS}u+i],previous);
+}
 fn visible(a:vec2f,b:vec2f)->bool {
  let delta=b-a;
  for(var j=0u;j<u32(params.reserved.x);j++){
@@ -117,7 +134,7 @@ fn roundFall(round:Round,point:vec2f,bodyRadius:f32)->vec3f {
  return result;
 }
 
-@compute @workgroup_size(64) fn acquire(@builtin(global_invocation_id) gid:vec3u){
+@compute @workgroup_size(${parallelTowers?1:64}) fn acquire(@builtin(global_invocation_id) gid:vec3u){
  let t=gid.x;if(t>=u32(params.clock.w)){return;}let def=towers[t];var s=firing.towers[t];
  if(s.flags.x!=def.flags.x){s=TowerState(vec4f(0),vec4f(0),vec4f(def.flags.x,0,0,0));}
  if(s.timing.y>0.0 && s.timing.y!=def.weapon.x){s.timing.x=s.timing.x/s.timing.y*def.weapon.x;}
@@ -126,16 +143,18 @@ fn roundFall(round:Round,point:vec2f,bodyRadius:f32)->vec3f {
  let order=def.order;let focused=order.z>.5&&distance(order.xy,def.position.xy)<=def.position.z;
  if(focused&&requiresSight(def)&&!visible(def.position.xy,order.xy)){firing.towers[t]=s;return;}
  var best=-1e20;var found=false;var selected=0u;
- for(var i=0u;i<u32(params.clock.z);i++){
+ let bounds=targetBounds(select(def.position.xy,order.xy,focused),select(def.position.z,focusRadius(def)+.6375,focused));
+ for(var cy=bounds.y;cy<=bounds.w;cy++){for(var cx=bounds.x;cx<=bounds.z;cx++){var link=targetHead(cx,cy);loop{
+  if(link==0u){break;}let i=link-1u;link=targetNext(i);
   let p=particles[i];if(p.state.w<0.5 || p.body.z<=0.0){continue;}
-  let d=distance(p.pos.xy,def.position.xy);if(select(d>def.position.z,distance(p.pos.xy,order.xy)>focusRadius(def)+p.body.x,focused)||(requiresSight(def)&&!visible(def.position.xy,p.pos.xy))){continue;}
+  let d=distance(p.pos.xy,def.position.xy);if(select(d>def.position.z,distance(p.pos.xy,order.xy)>focusRadius(def)+p.body.x,focused)){continue;}
   var score=-distance(p.pos.xy,params.goal.xy);
   if(focused){score=-distance(p.pos.xy,order.xy);}
   if(u32(def.position.w)==1u){score=p.state.x*12.0-d*.03;}
   if(u32(def.position.w)==0u||u32(def.position.w)==3u){score=-d;}
   if(focused){score=-distance(p.pos.xy,order.xy);}
-  if(score>best){best=score;selected=i;found=true;}
- }
+  if(score>best||(found&&score==best&&i<selected)){if(requiresSight(def)&&!visible(def.position.xy,p.pos.xy)){continue;}best=score;selected=i;found=true;}
+ }}}
  let b=boss[0];let bossDistance=distance(b.motion.xy,def.position.xy);
  let bossAtFocus=distance(b.motion.xy,order.xy)<=focusRadius(def)+b.body.x;
  let bossScore=select(-distance(b.motion.xy,params.goal.xy)+select(0.0,30.0,u32(def.position.w)==2u),-distance(b.motion.xy,order.xy),focused);
@@ -152,12 +171,14 @@ fn roundFall(round:Round,point:vec2f,bodyRadius:f32)->vec3f {
   let limit=select(4u,${TESLA_LINKS}u,def.flags.y==1.);
   for(var hop=1u;hop<limit;hop++){
    var nearest=def.weapon.w*1.35;var candidate=-1;var generation=0.;var position=vec2f(0);
-   for(var i=0u;i<u32(params.clock.z);i++){
+   let chainBounds=targetBounds(origin,nearest);
+   for(var cy=chainBounds.y;cy<=chainBounds.w;cy++){for(var cx=chainBounds.x;cx<=chainBounds.z;cx++){var link=targetHead(cx,cy);loop{
+    if(link==0u){break;}let i=link-1u;link=targetNext(i);
     let p=particles[i];if(p.state.w<.5||p.body.z<=0.){continue;}
     var visited=false;for(var prior=0u;prior<hop;prior++){if(electricity.links[base+prior].z==f32(i)){visited=true;}}
     if(visited||(focused&&distance(p.pos.xy,order.xy)>focusRadius(def)+p.body.x)){continue;}let d=distance(origin,p.pos.xy);
-    if(d<nearest){nearest=d;candidate=i32(i);generation=p.status.w;position=p.pos.xy;}
-   }
+    if(d<nearest||(candidate>=0&&d==nearest&&i32(i)<candidate)){nearest=d;candidate=i32(i);generation=p.status.w;position=p.pos.xy;}
+   }}}
    if(candidate<0){break;}
    electricity.links[base+hop]=vec4f(position,f32(candidate),generation);origin=position;
   }
@@ -215,7 +236,7 @@ fn roundFall(round:Round,point:vec2f,bodyRadius:f32)->vec3f {
   }
  }
  for(var e=0u;e<u32(params.damage.z);e++){
-  let f=effects[e];let delta=p.pos.xy-f.position.xy;let dist=length(delta);if(dist>f.position.z){continue;}
+  let f=effectGrid.items[e];let delta=p.pos.xy-f.position.xy;let dist=length(delta);if(dist>f.position.z){continue;}
   if(f.extra.x==1.0&&f.direction.z>0&&dot(safeDir(delta),f.direction.xy)<cos(f.direction.z*.5)){continue;}
   let effectFalloff=select(max(0.0,1.0-dist/max(.001,f.position.z)),blastFalloff(dist,f.position.z),f.extra.x==0.0);
   p.body.z-=f.position.w*effectFalloff;
@@ -284,7 +305,7 @@ fn roundFall(round:Round,point:vec2f,bodyRadius:f32)->vec3f {
     {binding:1,visibility:GPUShaderStage.COMPUTE,buffer:{type:'storage'}},
     {binding:2,visibility:GPUShaderStage.COMPUTE,buffer:{type:'read-only-storage'}},
     {binding:3,visibility:GPUShaderStage.COMPUTE,buffer:{type:'storage'}},
-    {binding:4,visibility:GPUShaderStage.COMPUTE,buffer:{type:'read-only-storage'}},
+    {binding:4,visibility:GPUShaderStage.COMPUTE,buffer:{type:'storage'}},
     {binding:5,visibility:GPUShaderStage.COMPUTE,buffer:{type:'storage'}},
     {binding:6,visibility:GPUShaderStage.COMPUTE,buffer:{type:'storage'}},
     {binding:7,visibility:GPUShaderStage.COMPUTE,buffer:{type:'storage'}},
@@ -293,6 +314,7 @@ fn roundFall(round:Round,point:vec2f,bodyRadius:f32)->vec3f {
   ]});
   const pipelineLayout=device.createPipelineLayout({bindGroupLayouts:[layout]});
   const pipelines=await Promise.all(['acquire','burn','hit','settle','hitBoss'].map(entryPoint=>device.createComputePipelineAsync({label:`Combat ${entryPoint}`,layout:pipelineLayout,compute:{module:shader,entryPoint}})));
+  const binPipeline=await device.createComputePipelineAsync({label:'Index combat targets',layout:pipelineLayout,compute:{module:shader,entryPoint:'binTargets'}});
   const bind=device.createBindGroup({layout,entries:[uniforms,shared.particles,towers,state,effects,shared.counters,bossBuffer,heat,ownership,tesla].map((buffer,binding)=>({binding,resource:{buffer}}))});
   const aftermath=await createAftermathEvents(device,shared,{uniforms,towers,states:state,owners:ownership,effects,tesla});
   function dispatch(encoder:GPUCommandEncoder,index:number,groups:number){if(!groups)return;const pass=encoder.beginComputePass({label:['Target selection','Burn damage','Weapon effects','Settlement','Boss damage'][index]});pass.setPipeline(pipelines[index]);pass.setBindGroup(0,bind);pass.dispatchWorkgroups(groups);pass.end();}
@@ -300,13 +322,15 @@ fn roundFall(round:Round,point:vec2f,bodyRadius:f32)->vec3f {
     shotState:state,
     encodeBefore(encoder,frame){
       if(frame.towers.length>MAX_TOWERS||frame.effects.length>MAX_EFFECTS||frame.map.obstacles.length>MAX_COMBAT_OBSTACLES)throw new Error('Combat command capacity exceeded');
-      const u=new Float32Array([frame.dt,frame.tick,frame.count,frame.towers.length,frame.map.goal.x,frame.map.goal.y,frame.map.goalRadius,frame.lab?1:0,frame.tuning.crushDamage,0,frame.effects.length,0,frame.map.obstacles.length,0,0,0]);device.queue.writeBuffer(uniforms,0,u);
+      const cellSize=Math.max(8,Math.ceil((frame.map.width+HORDE_APPROACH)/256),Math.ceil(frame.map.height/256)),columns=Math.ceil((frame.map.width+HORDE_APPROACH)/cellSize),rows=Math.ceil(frame.map.height/cellSize);
+      const u=new Float32Array([frame.dt,frame.tick,frame.count,frame.towers.length,frame.map.goal.x,frame.map.goal.y,frame.map.goalRadius,frame.lab?1:0,frame.tuning.crushDamage,0,frame.effects.length,0,frame.map.obstacles.length,spatialTargets?cellSize:0,columns,rows]);device.queue.writeBuffer(uniforms,0,u);
       const data=new Float32Array(Math.max(1,frame.towers.length)*16);
       frame.towers.forEach(({tower:t,definition:d},i)=>{data.set([t.x,t.y,d.range,towerBehavior(t.kind),d.cooldown,d.damage,d.force,d.radius,t.id,t.branch,t.kind==='tesla'?1:0,t.kind==='railgun'?1:0,t.groundTarget?.x??0,t.groundTarget?.y??0,t.groundTarget?1:0,0],i*16);});device.queue.writeBuffer(towers,0,data);
-      if(frame.map.obstacles.length){const sightData=new Float32Array(frame.map.obstacles.length*16);frame.map.obstacles.forEach((o,i)=>sightData.set([o.x,o.y,o.width,o.height],i*16));device.queue.writeBuffer(towers,MAX_TOWERS*64,sightData);}
+      if(!sameObstacles(obstacleSnapshot,frame.map.obstacles)){obstacleSnapshot=new Float32Array(frame.map.obstacles.length*4);const sightData=new Float32Array(frame.map.obstacles.length*16);frame.map.obstacles.forEach((o,i)=>{const rect=[o.x,o.y,o.width,o.height];sightData.set(rect,i*16);obstacleSnapshot.set(rect,i*4);});if(sightData.length)device.queue.writeBuffer(towers,MAX_TOWERS*64,sightData);}
       if(frame.effects.length){const values=new Float32Array(frame.effects.length*12);frame.effects.forEach((e,i)=>values.set([e.x,e.y,e.radius,e.damage,e.direction.x,e.direction.y,e.cone,e.duration,['blast','push','slow','shot'].indexOf(e.kind),e.strength,e.source,0],i*12));device.queue.writeBuffer(effects,0,values);}
       aftermath.before(encoder,frame.count);
-      encoder.clearBuffer(shared.counters,14*4,4);dispatch(encoder,0,Math.ceil(frame.towers.length/64));dispatch(encoder,1,Math.ceil(frame.count/128));dispatch(encoder,2,Math.ceil(frame.count/128));dispatch(encoder,4,1);
+      if(spatialTargets&&frame.towers.length&&frame.count){encoder.clearBuffer(effects,MAX_EFFECTS*48,columns*rows*4);const pass=encoder.beginComputePass({label:'Index combat targets'});pass.setPipeline(binPipeline);pass.setBindGroup(0,bind);pass.dispatchWorkgroups(Math.ceil(frame.count/128));pass.end();}
+      encoder.clearBuffer(shared.counters,14*4,4);dispatch(encoder,0,Math.ceil(frame.towers.length/(parallelTowers?1:64)));dispatch(encoder,1,Math.ceil(frame.count/128));dispatch(encoder,2,Math.ceil(frame.count/128));dispatch(encoder,4,1);
       aftermath.hits(encoder,frame.count);
     },
     encodeAfter(encoder,frame){encoder.clearBuffer(shared.counters,HORDE_PRESSURE_COUNTER*4,4);encoder.clearBuffer(shared.counters,16,4);encoder.clearBuffer(shared.counters,24,4);dispatch(encoder,3,Math.ceil(frame.count/128));aftermath.after(encoder,frame.count);},

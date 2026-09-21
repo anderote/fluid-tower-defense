@@ -12,6 +12,11 @@ const assetBase=(import.meta as ImportMeta&{env?:{BASE_URL?:string}}).env?.BASE_
 const DEFENSES:Partial<Record<TowerKind,string>>={autocannon:'gun',tesla:'tsla',incinerator:'ftur'};
 export const redAlertFacing=(angle:number)=>((24-Math.round(angle*16/Math.PI))%32+32)%32;
 export const hasRedAlertSprite=(kind:TowerKind,style:TurretArtStyle='soldat')=>style==='soldat'||kind in DEFENSES;
+/** Lift the dark interior palette so chain-link mesh remains distinct from the floor. */
+export function fenceSpriteTint(integrity:number):[number,number,number,number]{
+  const value=Math.max(0,Math.min(1,integrity));
+  return [1.35+value*.25,1.38+value*.25,1.22+value*.2,.98+value*.02];
+}
 /**
  * These are the two fixed defenses whose original Red Alert silhouettes are
  * part of their identity.  Keep the project's directional artwork for every
@@ -190,7 +195,7 @@ struct Out{@builtin(position) pos:vec4<f32>,@location(0) uv:vec2<f32>,@location(
       for(const tile of wireTiles(fenceStates)){
         const fence=fenceStates.find(candidate=>tile.x>=candidate.x&&tile.x<candidate.x+candidate.width&&tile.y>=candidate.y&&tile.y<candidate.y+candidate.height)!;
         const source=fenceFrames[tile.mask],frame=atlas.frames[source],integrity=Math.max(0,Math.min(1,fence.health/fence.maxHealth));
-        const tint:[number,number,number,number]=[.56+integrity*.44,.6+integrity*.4,.56+integrity*.44,.74+integrity*.26];
+        const tint=fenceSpriteTint(integrity);
         sprite(data,source,tile.x,tile.y,tile.width,tile.height,tint,{...frame,width:tile.width*6,height:tile.height*6});
       }
       upload(fenceBatch,data);fenceKey=nextFenceKey;

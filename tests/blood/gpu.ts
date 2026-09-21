@@ -13,7 +13,7 @@ try{
  const events=await createAftermathEvents(device,shared,{uniforms,towers:buffer(64),states:buffer(48),owners:buffer(count*4),effects:buffer(48),tesla:buffer(TESLA_HEADER_BYTES+count*TESLA_PARTICLE_BYTES)});
  const camera=device.createBuffer({size:64,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST});
  const canvas=document.querySelector('canvas')!,context=canvas.getContext('webgpu')!,format=navigator.gpu.getPreferredCanvasFormat();context.configure({device,format});
- const blood=await createBloodRenderer(device,format,camera,shared);
+ const blood=await createBloodRenderer(device,format,camera,shared,true);
  const wall={x:20,y:8,width:3,height:22,health:100,maxHealth:100};
  const scene:RenderScene={time:1,count:0,map:{id:'blood-check',width:45,height:35,spawn:{x:0,y:0,width:2,height:4},goal:{x:40,y:17},goalRadius:2,obstacles:[wall]},towers:[],effects:[],walls:[wall],heatmap:false,selection:null};
  const setTime=(t:number)=>{scene.time=t;device.queue.writeBuffer(camera,0,new Float32Array([900,550,0,0,22.5,17.5,45,35,t,0,0,0,0,0,0,0]));};
@@ -34,6 +34,10 @@ try{
  assert(kills.reduce((a,b)=>a+b,0)===700,'all 700 wall crush assists count despite the 512-event visual cap');
  render(2);const first=new Uint32Array(await read(blood.storage.cells,0,blood.storage.cells.size));
  assert(first.some((v,i)=>i%2===0&&v>0),'GPU droplets deposit persistent pools');
+ const drawArgs=new Uint32Array(await read(blood.storage.args,0,32)),visible=new Uint32Array(await read(blood.storage.active,0,drawArgs[1]*4));
+ const occupied=Array.from(first).filter((v,i)=>i%2===0&&v>0).length;
+ assert(drawArgs[1]===occupied&&drawArgs[5]===0,'indirect draws include only occupied ground cells and omit expired droplets');
+ assert(visible.every((v,i)=>i===0||v>visible[i-1]),'compaction preserves stable alpha-blend order');
  const splashCounts=new Uint32Array(await read(shared.bloodWalls!,48,16));assert(splashCounts.reduce((a,b)=>a+b,0)>5600,'wall impacts accumulate additional GPU blood splashes even with zero-direction pressure deaths');
  render(2.1);const second=new Uint32Array(await read(blood.storage.cells,0,blood.storage.cells.size));
  assert(first.every((v,i)=>i%2===1||v===second[i]),'repeated render frames do not duplicate landed droplets');

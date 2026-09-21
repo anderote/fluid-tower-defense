@@ -2,12 +2,19 @@ import {AFTERMATH_WGSL,CORPSE_CAPACITY,HIT_CAPACITY} from '../effects/aftermath.
 import {BLOOD_WALL_WGSL,BLOOD_WALL_CAPACITY,createBloodWallTable} from '../effects/blood-surfaces.ts';
 import type {SharedGPU,RenderScene} from '../contracts/index.ts';
 export const BLOOD_GRID=256,BLOOD_DROPLETS=12;
-export async function createBloodRenderer(device:GPUDevice,format:GPUTextureFormat,camera:GPUBuffer,shared:SharedGPU){
+// Paired trials did not establish a reliable total-frame gain. Keep the stable
+// compaction prototype explicit until a workload/adapter justifies promotion.
+export async function createBloodRenderer(device:GPUDevice,format:GPUTextureFormat,camera:GPUBuffer,shared:SharedGPU,compactDraws=false){
  const walls=shared.bloodWalls!,table=createBloodWallTable(device,walls);shared.bloodWallSlots=table.slots;
  const total=CORPSE_CAPACITY+HIT_CAPACITY;
+ const visibleCapacity=BLOOD_GRID**2+total,groups=Math.ceil(visibleCapacity/128);
  const cells=device.createBuffer({label:'Persistent GPU blood pools',size:BLOOD_GRID**2*8,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST|GPUBufferUsage.COPY_SRC});
  const seen=device.createBuffer({label:'GPU droplet landing masks',size:total*16,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
  const impacts=device.createBuffer({label:'Cached GPU droplet wall contacts',size:total*BLOOD_DROPLETS*16,usage:GPUBufferUsage.STORAGE});
+ const active=device.createBuffer({label:'Visible blood cells and events',size:(BLOOD_GRID**2+total)*4,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_SRC});
+ const args=device.createBuffer({label:'Active blood draw arguments',size:32,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.INDIRECT|GPUBufferUsage.COPY_DST|GPUBufferUsage.COPY_SRC});
+ device.queue.writeBuffer(args,0,new Uint32Array([6,0,0,0,6*BLOOD_DROPLETS,0,0,0]));
+ const prefix=device.createBuffer({label:'Stable blood compaction prefix',size:(visibleCapacity+groups*2)*4,usage:GPUBufferUsage.STORAGE});
  const params=device.createBuffer({size:16,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST});
  const common=`${AFTERMATH_WGSL.replaceAll('atomic<u32>','u32')}${BLOOD_WALL_WGSL}
  struct Camera {viewport:vec4f,world:vec4f,time:vec4f};
@@ -19,6 +26,9 @@ export async function createBloodRenderer(device:GPUDevice,format:GPUTextureForm
  @group(0) @binding(4) var<storage,read_write> seen:array<vec4f>;
  @group(0) @binding(5) var<uniform> params:vec4f;
  @group(0) @binding(6) var<storage,read_write> impacts:array<vec4f>;
+ @group(0) @binding(7) var<storage,read_write> visibleIndices:array<u32>;
+ @group(0) @binding(8) var<storage,read_write> args:array<atomic<u32>>;
+ @group(0) @binding(9) var<storage,read_write> prefix:array<u32>;
  fn hash(v:f32)->f32{return fract(sin(v*12.9898)*43758.5453);}
  fn eventAt(i:u32)->Remnant{if(i<${CORPSE_CAPACITY}u){return events.deaths[i];}return events.hits[i-${CORPSE_CAPACITY}u];}
  // Analytic ballistic motion: no per-droplet CPU state or frame-dependent integration.
@@ -66,6 +76,30 @@ export async function createBloodRenderer(device:GPUDevice,format:GPUTextureForm
    mask|=1u<<j;
   }seen[i]=vec4f(e.life.y,e.life.x,f32(mask),1);
  }
+ var<workgroup> scan:array<u32,128>;
+ @compute @workgroup_size(128) fn compact(@builtin(global_invocation_id) gid:vec3u,@builtin(local_invocation_id) lid:vec3u){
+  let i=gid.x;var keep=0u;
+  if(i<${BLOOD_GRID**2}u&&atomicLoad(&cells[i].amount)>0u){
+   let size=params.xy/${BLOOD_GRID}.;let p=(vec2f(f32(i%${BLOOD_GRID}u),f32(i/${BLOOD_GRID}u))+.5)*size;
+   if(all(p+size>=camera.world.xy)&&all(p-size<=camera.world.xy+camera.world.zw)){keep=1u;}
+  }
+  if(i>=${BLOOD_GRID**2}u&&i<${visibleCapacity}u){let e=eventAt(i-${BLOOD_GRID**2}u);let age=camera.time.x-e.life.x;if(e.life.w>.5&&age>=0.&&age<=.9){keep=1u;}}
+  scan[lid.x]=keep;workgroupBarrier();
+  for(var stride=1u;stride<128u;stride*=2u){var previous=0u;if(lid.x>=stride){previous=scan[lid.x-stride];}workgroupBarrier();scan[lid.x]+=previous;workgroupBarrier();}
+  if(i<${visibleCapacity}u){prefix[i]=scan[lid.x];}
+  if(lid.x==127u){prefix[${visibleCapacity}u+i/128u]=scan[127];}
+ }
+ @compute @workgroup_size(1) fn offsets(){
+  var sum=0u;
+  for(var g=0u;g<${groups}u;g++){
+   if(g==${BLOOD_GRID**2/128}u){atomicStore(&args[1],sum);sum=0u;}
+   prefix[${visibleCapacity+groups}u+g]=sum;sum+=prefix[${visibleCapacity}u+g];
+  }atomicStore(&args[5],sum);
+ }
+ @compute @workgroup_size(128) fn scatter(@builtin(global_invocation_id) gid:vec3u){
+  let i=gid.x;if(i>=${visibleCapacity}u){return;}let rank=prefix[i];var previous=0u;if(i%128u>0u){previous=prefix[i-1u];}if(rank==previous){return;}
+  let base=select(0u,${BLOOD_GRID**2}u,i>=${BLOOD_GRID**2}u);visibleIndices[base+prefix[${visibleCapacity+groups}u+i/128u]+rank-1u]=i-base;
+ }
  `;
  const compute=device.createShaderModule({code:common});
  const render=device.createShaderModule({code:common.slice(0,common.indexOf(' fn deposit')).replaceAll('atomic<u32>','u32').replaceAll('storage,read_write','storage,read')+`
@@ -73,14 +107,16 @@ export async function createBloodRenderer(device:GPUDevice,format:GPUTextureForm
  fn corner(i:u32)->vec2f{let a=array<vec2f,6>(vec2f(-1,-1),vec2f(1,-1),vec2f(-1,1),vec2f(-1,1),vec2f(1,-1),vec2f(1,1));return a[i%6u];}
  fn vertex(p:vec2f,q:vec2f,c:vec4f,seed:f32)->Out{var o:Out;let aspect=camera.viewport.x/max(1.,camera.viewport.y);let wa=camera.world.z/camera.world.w;o.pos=vec4f((((p-camera.world.xy)/camera.world.zw)*2.-1.)*vec2f(min(1.,wa/aspect),-min(1.,aspect/wa)),0,1);o.local=q;o.color=c;o.seed=seed;return o;}
  fn empty()->Out{return vertex(vec2f(-10000),vec2f(0),vec4f(0),0.);}
- @vertex fn pool(@builtin(vertex_index) vi:u32,@builtin(instance_index) i:u32)->Out{
+ @vertex fn pool(@builtin(vertex_index) vi:u32,@builtin(instance_index) instance:u32)->Out{
+  let i=select(instance,visibleIndices[instance],params.z>.5);
   let cell=cells[i];if(cell.amount==0u){return empty();}let age=max(0.,camera.time.x-f32(cell.tick)/60.);let q=corner(vi);let seed=f32(i)*.37;
   let size=params.xy/${BLOOD_GRID}.;let center=(vec2f(f32(i%${BLOOD_GRID}u),f32(i/${BLOOD_GRID}u))+.5)*size;
   let saturation=min(1.,f32(cell.amount)/100.);let spread=(.3+.65*saturation)*(.65+.35*smoothstep(0.,2.,age));
   let color=mix(vec3f(.17,.014,.01),vec3f(.53,.025,.018),exp(-age*.12));
   return vertex(center+q*size*spread,q,vec4f(color,.35+.5*saturation),seed);
  }
- @vertex fn droplet(@builtin(vertex_index) vi:u32,@builtin(instance_index) i:u32)->Out{
+ @vertex fn droplet(@builtin(vertex_index) vi:u32,@builtin(instance_index) instance:u32)->Out{
+  let i=select(instance,visibleIndices[${BLOOD_GRID**2}u+instance],params.z>.5);
   let e=eventAt(i);let age=camera.time.x-e.life.x;if(e.life.w<.5||age<0.||age>.9){return empty();}
   let j=vi/6u;let path=trajectory(e,j);let hit=impacts[i*12u+j].xyz;if(age>path.z*hit.x){return empty();}
   let t=age/path.z;let p=e.body.xy+path.xy*t-vec2f(0,4.*path.w*t*(1.-t));
@@ -103,19 +139,25 @@ export async function createBloodRenderer(device:GPUDevice,format:GPUTextureForm
   if(length(q)>edge){discard;}return i.color;
  }`});
  for(const module of [compute,render]){const errors=(await module.getCompilationInfo()).messages.filter(m=>m.type==='error');if(errors.length)throw Error(errors.map(m=>m.message).join('\n'));}
- const layout=(read:boolean)=>device.createBindGroupLayout({entries:[0,1,2,3,4,5,6].map(binding=>({binding,visibility:read?GPUShaderStage.VERTEX:GPUShaderStage.COMPUTE,buffer:{type:binding===0||binding===5?'uniform':read||binding===1?'read-only-storage':'storage'}}))});
+ const layout=(read:boolean)=>device.createBindGroupLayout({entries:[0,1,2,3,4,5,6,7,8,9].map(binding=>({binding,visibility:read?GPUShaderStage.VERTEX:GPUShaderStage.COMPUTE,buffer:{type:binding===0||binding===5?'uniform':read||binding===1?'read-only-storage':'storage'}}))});
  const cl=layout(false),rl=layout(true);
  const cp=await device.createComputePipelineAsync({layout:device.createPipelineLayout({bindGroupLayouts:[cl]}),compute:{module:compute,entryPoint:'accumulate'}});
+ const compact=await device.createComputePipelineAsync({layout:device.createPipelineLayout({bindGroupLayouts:[cl]}),compute:{module:compute,entryPoint:'compact'}});
+ const offsets=await device.createComputePipelineAsync({layout:device.createPipelineLayout({bindGroupLayouts:[cl]}),compute:{module:compute,entryPoint:'offsets'}});
+ const scatter=await device.createComputePipelineAsync({layout:device.createPipelineLayout({bindGroupLayouts:[cl]}),compute:{module:compute,entryPoint:'scatter'}});
  const pipelines=await Promise.all(['pool','droplet','smear'].map(entryPoint=>device.createRenderPipelineAsync({layout:device.createPipelineLayout({bindGroupLayouts:[rl]}),vertex:{module:render,entryPoint},fragment:{module:render,entryPoint:'fs',targets:[{format,blend:{color:{srcFactor:'src-alpha',dstFactor:'one-minus-src-alpha'},alpha:{srcFactor:'one',dstFactor:'one-minus-src-alpha'}}}]}})));
- const buffers=[camera,shared.aftermath!,walls,cells,seen,params,impacts],bind=(layout:GPUBindGroupLayout)=>device.createBindGroup({layout,entries:buffers.map((buffer,binding)=>({binding,resource:{buffer}}))}),cb=bind(cl),rb=bind(rl);
+ const buffers=[camera,shared.aftermath!,walls,cells,seen,params,impacts,active,args,prefix],bind=(layout:GPUBindGroupLayout)=>device.createBindGroup({layout,entries:buffers.map((buffer,binding)=>({binding,resource:{buffer}}))}),cb=bind(cl),rb=bind(rl);
  let mapId='',lastTime=-1;
  const reset=()=>{table.reset();device.queue.writeBuffer(cells,0,new Uint8Array(cells.size));device.queue.writeBuffer(seen,0,new Uint8Array(seen.size));};
- return {storage:{cells,seen},reset,prepare(encoder:GPUCommandEncoder,scene:RenderScene){
+ return {storage:{cells,seen,active,args},reset,prepare(encoder:GPUCommandEncoder,scene:RenderScene){
   if(mapId!==scene.map.id||scene.time<lastTime)reset();mapId=scene.map.id;lastTime=scene.time;
-  table.update(scene.map.obstacles,scene.walls??[]);device.queue.writeBuffer(params,0,new Float32Array([scene.map.width,scene.map.height,0,0]));
-  const pass=encoder.beginComputePass();pass.setPipeline(cp);pass.setBindGroup(0,cb);pass.dispatchWorkgroups(Math.ceil(total/64));pass.end();
- },ground(pass:GPURenderPassEncoder){pass.setPipeline(pipelines[0]);pass.setBindGroup(0,rb);pass.draw(6,BLOOD_GRID**2);},
- spray(pass:GPURenderPassEncoder){pass.setPipeline(pipelines[1]);pass.setBindGroup(0,rb);pass.draw(6*BLOOD_DROPLETS,total);},
+  table.update(scene.map.obstacles,scene.walls??[]);device.queue.writeBuffer(params,0,new Float32Array([scene.map.width,scene.map.height,compactDraws?1:0,0]));
+  let pass=encoder.beginComputePass({label:'Deposit persistent blood'});pass.setPipeline(cp);pass.setBindGroup(0,cb);pass.dispatchWorkgroups(Math.ceil(total/64));pass.end();
+  if(!compactDraws)return;
+  encoder.clearBuffer(args,4,4);encoder.clearBuffer(args,20,4);
+  pass=encoder.beginComputePass({label:'Compact visible blood'});pass.setBindGroup(0,cb);pass.setPipeline(compact);pass.dispatchWorkgroups(groups);pass.setPipeline(offsets);pass.dispatchWorkgroups(1);pass.setPipeline(scatter);pass.dispatchWorkgroups(groups);pass.end();
+ },ground(pass:GPURenderPassEncoder){pass.setPipeline(pipelines[0]);pass.setBindGroup(0,rb);if(compactDraws)pass.drawIndirect(args,0);else pass.draw(6,BLOOD_GRID**2);},
+ spray(pass:GPURenderPassEncoder){pass.setPipeline(pipelines[1]);pass.setBindGroup(0,rb);if(compactDraws)pass.drawIndirect(args,16);else pass.draw(6*BLOOD_DROPLETS,total);},
  walls(pass:GPURenderPassEncoder){pass.setPipeline(pipelines[2]);pass.setBindGroup(0,rb);pass.draw(144,table.slots.size);},
- destroy(){impacts.destroy();cells.destroy();seen.destroy();params.destroy();}};
+ destroy(){prefix.destroy();active.destroy();args.destroy();impacts.destroy();cells.destroy();seen.destroy();params.destroy();}};
 }

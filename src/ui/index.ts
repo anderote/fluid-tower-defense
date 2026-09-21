@@ -66,7 +66,7 @@ export function createUI(
   arena.append(upgradeCard);
   const upgradeContent=document.createElement("div");upgradeCard.append(upgradeContent);
   const selectedWindow=makeGameWindow(selectedCard,"TOWER INSPECTOR");makeGameWindow(upgradeCard,"TOWER UPGRADES");
-  makeGameWindow(root.querySelector<HTMLElement>("#settings-gate > section")!,"AUDIO SETTINGS");
+  makeGameWindow(root.querySelector<HTMLElement>("#settings-gate > section")!,"SETTINGS");
   makeGameWindow(root.querySelector<HTMLElement>("#reset-gate > section")!,"RESTART LEVEL");
   const difficulty = document.createElement("label");
   difficulty.className = "difficulty";
@@ -403,8 +403,8 @@ export function createUI(
           return `<button data-stat="${upgrade.id}" ${maxed || s.phase==="won" || s.phase==="lost" || s.metal < cost ? "disabled" : ""}><b>${upgrade.name.toUpperCase()} · ${upgrade.rank}/${upgrade.maxRank}</b><span class="cost">${maxed ? "MAX" : `${cost} METAL`}</span><small>${upgrade.description}</small></button>`;
         })
         .join(""));
-      $("#selected-name").textContent = chosen
-        ? `${chosen.name.toUpperCase()} / LV ${s.selected!.level}`
+      $("#selected-name").innerHTML = chosen
+        ? `<span class="selection-icon tower-icon tower-icon-${s.selected!.kind}" aria-hidden="true"></span><span>${chosen.name.toUpperCase()} / LV ${s.selected!.level}</span>`
         : "TOWER INSPECTOR";
       renderTowerStats(s);
       renderUpgradeCard(s);
