@@ -9,7 +9,7 @@ import {AUTOCANNON_MUZZLE_LIFT,SOLDAT_FACINGS} from './soldat-art.ts';
 import {createTeslaEffects} from './tesla.ts';
 import {createAftermathRenderer} from './aftermath.ts';
 import {TESLA_STATE_WGSL,TESLA_HEADER_BYTES,TESLA_PARTICLE_BYTES} from '../effects/tesla.ts';
-import { ENEMY_WGSL, towerBehavior, towerRequiresLineOfSight } from '../content/index.ts';
+import { ENEMY_WGSL, MAX_VETERANCY, towerBehavior, towerRequiresLineOfSight, veterancyXpForLevel } from '../content/index.ts';
 import { PARTICLE_WGSL, type RenderScene, type Renderer, type SharedGPU, type TowerKind, type Vec2 } from '../contracts/index.ts';
 import {cameraPanBounds,screenToWorld as unproject, worldToScreen as project} from './camera.ts';
 import {TURRET_GRID, turretHardpoints, turretPixelRects, type TurretInk} from './turret-art.ts';
@@ -205,6 +205,11 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
     for(let i=0;i<chevrons;i++){const cx=x+(i-(chevrons-1)/2)*.28;streak(a,cx-.11,y-.99,-1,1,.22,.055,color);streak(a,cx+.11,y-.99,1,1,.22,.055,color);}
     for(let i=0;i<stripes;i++)rect(a,x+(i-(stripes-1)/2)*.18-.045,y-1.04,.09,.08,color);
   };
+  const infantryVeterancyXp=(a:V[],x:number,y:number,rank:number,xp:number)=>{
+    const previous=rank>0?veterancyXpForLevel(rank):0,next=rank>=MAX_VETERANCY?previous:veterancyXpForLevel(rank+1),progress=rank>=MAX_VETERANCY?1:Math.max(0,Math.min(1,(xp-previous)/Math.max(1,next-previous))),width=1.72,top=y-1.34;
+    rect(a,x-width/2-.045,top-.045,width+.09,.16,[.015,.018,.014,.9]);
+    rect(a,x-width/2,top,width*progress,.07,rank>=MAX_VETERANCY?[1,.82,.18,1]:[.35,.92,.45,1]);
+  };
   const infantrySelectionBrackets=(a:V[],x:number,y:number)=>{
     const shadow:[number,number,number,number]=[.02,.02,.018,.9],color:[number,number,number,number]=[.98,.98,.9,.98];
     const top=y-1.48,bottom=y+.72,left=x-1.16,right=x+1.16,arm=.38,width=.1;
@@ -390,7 +395,9 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
         else {disc(a,mx,my,.24,[1,.86,.29,.95],5);streak(a,mx+dx*2,my+dy*2,dx,dy,2,.025,[1,.89,.43,s.flash*6]);}
       }
       if(scene.selectedBarracksSet?.has(s.home)||scene.selectedBarracks===s.home||scene.selectedInfantry?.has(s.id)){const maxHealth=infantryStats(s.kind,s.quality,s.defense,s.veterancy).health;rect(a,x-.65,y-2.1,1.3,.13,[.12,.13,.1,1]);rect(a,x-.65,y-2.1,1.3*s.health/maxHealth,.13,[.5,.85,.22,1]);}
-      infantryRankMarks(a,x,y,s.veterancy??0);
+      const veterancy=s.veterancy??0;
+      infantryRankMarks(a,x,y,veterancy);
+      infantryVeterancyXp(a,x,y,veterancy,s.veterancyXp??0);
     }
     for(const projectile of scene.infantryRocketProjectiles??[]){
       const t=Math.max(0,Math.min(1,projectile.age/projectile.life)),dx=projectile.target.x-projectile.x,dy=projectile.target.y-projectile.y,length=Math.max(.001,Math.hypot(dx,dy)),forward={x:dx/length,y:dy/length},side={x:-forward.y,y:forward.x},x=projectile.x+dx*t,y=projectile.y+dy*t,angle=Math.atan2(forward.y,forward.x);
