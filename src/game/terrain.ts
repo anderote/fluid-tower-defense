@@ -84,7 +84,7 @@ export function structurePlacementIssue(map:WorldMap,towers:readonly Tower[],rec
   if(map.obstacles.some(other=>rect.x<other.x+other.width&&rect.x+rect.width>other.x&&rect.y<other.y+other.height&&rect.y+rect.height>other.y))return 'That ground already contains a wall or wire.';
   if(towers.some(tower=>tower.kind==='crusher'&&rect.x<tower.x+4&&rect.x+rect.width>tower.x-4&&rect.y<tower.y+6&&rect.y+rect.height>tower.y-6))return 'Keep the crusher jaws and passage clear.';
   if(towers.some(tower=>Math.hypot(tower.x-Math.max(rect.x,Math.min(tower.x,rect.x+rect.width)),tower.y-Math.max(rect.y,Math.min(tower.y,rect.y+rect.height)))<1.25))return 'Place structures clear of deployed towers.';
-  return validateEditorMap({...map,obstacles:[...map.obstacles,rect]});
+  return validateEditorMap(map,[rect]);
 }
 
 /** Cache only the last preview; geometry changes invalidate it even after in-place edits. */
