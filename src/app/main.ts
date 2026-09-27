@@ -397,7 +397,7 @@ try {
    const delta=Math.max(-100,Math.min(100,event.deltaY*unit));
    renderer.zoomAt(Math.exp(-delta*.001),event.clientX,event.clientY);
  },{passive:false});
- ui.canvas.addEventListener('contextmenu',event=>{if(editor.active||state.buildTool||infantry.selectedSoldiers.size)event.preventDefault();});
+ ui.canvas.addEventListener('contextmenu',event=>{if(editor.active||state.buildTool||infantry.selectedSoldiers.size||infantry.selectedBuildings.size)event.preventDefault();});
  ui.canvas.addEventListener('pointerleave',()=>{pointer=undefined;if(state.upgradeMode)scheduleUpgradeTargetClear();});
  ui.canvas.addEventListener('pointerdown',event=>{
    audio.arm();if(failed)return;if(event.button===0)renderer.clearEnemySelection?.();const point=renderer.screenToWorld(event.clientX,event.clientY);
@@ -437,7 +437,8 @@ try {
  ui.canvas.addEventListener('dblclick',event=>{
    if(event.button!==0||failed||editor.active||state.mode!=='game'||state.buildTool||state.selectedKind||state.upgradeMode||state.moveMode||state.targetMode||infantry.tool)return;
    const point=renderer.screenToWorld(event.clientX,event.clientY);
-   if(infantry.selectAt(point,event.shiftKey,true)){renderer.clearEnemySelection?.();run.model.selected=null;infantryDrag=undefined;return;}
+   const view=ui.canvas.getBoundingClientRect(),visible=(building:Vec2)=>{const screen=renderer.worldToScreen(building.x,building.y);return screen.x>=view.left&&screen.x<=view.right&&screen.y>=view.top&&screen.y<=view.bottom;};
+   if(infantry.selectBuildingType(point,visible,event.shiftKey)||infantry.selectAt(point,event.shiftKey,true)){event.preventDefault();renderer.clearEnemySelection?.();run.model.selected=null;infantryDrag=undefined;return;}
    if(run.model.selected!==null||infantry.selectedBuildings.size)return;
    event.preventDefault();infantryDrag=undefined;renderer.selectEnemies?.(point);
  });
