@@ -1,3 +1,4 @@
+import {wavePressure,WAVE_PEAK_PRESSURE} from './wave-rhythm.ts';
 import {canFinishWaveEarly} from './wave-progress.ts';
 import {COMMAND_UPGRADES, compileTower, DEFAULT_MAP, MAX_TOWER_LEVEL, MAX_VETERANCY, TOWERS, towerUpgradeCost, veterancyLevel} from '../content/index.ts';
 import {crusherPassageIssue,hasSpawnRoute,canPlace, mapWithTurretObstacles, resolvePlacement} from '../navigation/index.ts';
@@ -71,7 +72,7 @@ export function waveFor(level:number,wave:number,mapId?:string):Wave {
     spawns.push({kind,count,seed:seed+index*17,start:0,rate:Math.max(1,count/duration),burst:burstFor(kind),band:'inlet',healthScale});
     index++;
   }
-  return {spawns,payment:Math.round(210+threat*86+Math.pow(threat,1.25)*14),boss:globalWave%WAVES_PER_LEVEL===0,total,healthScale,peakRate:total/duration,rampSeconds:duration};
+  return {spawns,payment:Math.round(210+threat*86+Math.pow(threat,1.25)*14),boss:globalWave%WAVES_PER_LEVEL===0,total,healthScale,peakRate:total/duration*WAVE_PEAK_PRESSURE,rampSeconds:duration};
 }
 const offeredBonuses=(level:number,wave:number,owned:readonly string[]):BonusChoice[]=>{
   const available=BONUSES.filter(choice=>choice.id==='salvage-contract'||!owned.includes(choice.id));
@@ -122,6 +123,11 @@ export class RunController {
   get waveProgress(){
     const queued=this.model.pending.reduce((sum,batch)=>sum+batch.count,0);
     return {total:this.model.wave>0?waveFor(this.model.level,this.model.wave,this.map.id).total:0,queued,live:this.live};
+  }
+  get spawnPressure():number {
+    const {total,queued}=this.waveProgress;
+    const globalWave=this.model.wave>WAVES_PER_LEVEL?this.model.wave:(this.model.level-1)*WAVES_PER_LEVEL+this.model.wave;
+    return wavePressure(globalWave,total>0?1-queued/total:0);
   }
   get isBossWave():boolean { return this.model.wave>0&&this.model.wave%WAVES_PER_LEVEL===0; }
   setSpawnMultiplier(value:number):number { this.spawnMultiplier=Math.max(1,Math.min(40,Math.round(value)||1)); return this.spawnMultiplier; }
@@ -250,6 +256,7 @@ export class RunController {
     if (this.model.phase!=='combat' || !isFiniteInteger(capacity) || capacity<0) return [];
     const previous=this.spawnElapsed;this.spawnElapsed+=Math.max(0,seconds)*this.spawnMultiplier;
     const accepted:SpawnBatch[]=[];
+    const pressure=this.spawnPressure;
     const earned=this.model.pending.map(batch=>{
       const start=batch.start??0,duration=batch.duration;
       let demand=0;
@@ -263,8 +270,8 @@ export class RunController {
         demand+=tail*(first+last)/2;
       }
       // Credit is bounded: a blocked entrance cannot accumulate a catch-up explosion.
-      const creditRate=Math.max(batch.rate??1,batch.endRate??batch.rate??1);
-      batch.credit=seconds===0?batch.count:Math.min((batch.credit??0)+demand,Math.max(1,creditRate*this.spawnMultiplier*.5));
+      const creditRate=Math.max(batch.rate??1,batch.endRate??batch.rate??1)*pressure;
+      batch.credit=seconds===0?batch.count:Math.min((batch.credit??0)+demand*pressure,Math.max(1,creditRate*this.spawnMultiplier*.5));
       return Math.min(batch.count,Math.floor(batch.credit));
     });
     const total=earned.reduce((sum,value)=>sum+value,0), budget=seconds===0?total:Math.min(capacity,total,Math.max(1,Math.ceil(this.spawnPeakRate*this.spawnMultiplier*.5)));

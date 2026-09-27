@@ -524,7 +524,7 @@ try {
    clock.tick++;simulatedTime+=clock.step;run.advanceCrushers(clock.step);
    let arrivals:Float32Array=new Float32Array(0);
    if(state.mode==='game'&&run.model.phase==='combat'){
-     const positions=hordeFront.advance(clock.step,map,(run.model.level-1)*10+run.model.wave,state.difficulty,run.model.pending);
+     const positions=hordeFront.advance(clock.step,map,(run.model.level-1)*10+run.model.wave,state.difficulty,run.model.pending,run.spawnPressure);
      const capacity=latest.inletBlocked?0:Math.min(positions.length,hordeCapacity.available(gpu.shared.capacity));
      const batches=run.takeSpawns(capacity,clock.step);
      arrivals=encodeHorde(batches,positions,map.goal);

@@ -14,7 +14,7 @@ export class HordeFront {
   private nextRow=0;
   private row=0;
   reset(){this.elapsed=0;this.nextRow=0;this.row=0;}
-  advance(dt:number,map:WorldMap,wave:number,difficulty:number,kinds:readonly SpawnBatch[]):{x:number;y:number}[]{
+  advance(dt:number,map:WorldMap,wave:number,difficulty:number,kinds:readonly SpawnBatch[],pressure=1):{x:number;y:number}[]{
     this.elapsed+=dt;
     if(!kinds.length)return [];
     const radius=Math.max(...kinds.map(batch=>ENEMIES[batch.kind].radius));
@@ -29,7 +29,7 @@ export class HordeFront {
         const span=Math.max(0,entry.to-entry.from),lanes=Math.max(1,Math.floor(span/spacing));
         for(let lane=0;lane<lanes;lane++){
           const hash=(Math.imul(this.row+1,73856093)^Math.imul(lane+1,19349663))>>>0,noise=((Math.imul(hash^(hash>>>16),1597334677)>>>0)%10000)/10000;
-          if(noise>density)continue;
+          if(noise>Math.min(.98,density*pressure))continue;
           const along=entry.from+(lane+.5)*span/lanes+(noise-.5)*.08;
           const x=entry.side==='west'?-HORDE_APPROACH+2:entry.side==='east'?map.width-1.5:along;
           const y=entry.side==='north'?1.5:entry.side==='south'?map.height-1.5:along;
@@ -41,7 +41,7 @@ export class HordeFront {
         const patch=.17*Math.sin(this.nextRow*.63+lane*.29)+.12*Math.sin(this.nextRow*.27-lane*.51);
         const hash=(Math.imul(this.row+1,73856093)^Math.imul(lane+1,19349663))>>>0;
         const noise=((Math.imul(hash^(hash>>>16),1597334677)>>>0)%10000)/10000;
-        if(noise>density+patch)continue;
+        if(noise>Math.min(.98,Math.max(.05,density+patch)*pressure))continue;
         positions.push({x:-HORDE_APPROACH+2+((lane*.61803398875)%1)*spacing*.8+(this.elapsed-this.nextRow)*speed,y:bottom+(lane+.5)*spacing+(.5-noise)*.06});
       }
       this.row++;this.nextRow+=interval;
