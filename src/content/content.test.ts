@@ -102,3 +102,15 @@ test('fortifications withstand sustained swarm pressure at base research',()=>{
  assert.ok(researched.durability>wire.durability&&researched.resistance>wire.resistance);
  assert.equal(researched.wear,wire.wear);
 });
+
+
+test('Tesla chain capacity stacks Storm Cell levels, veterancy and research',()=>{
+ const tower:Tower={id:1,kind:'tesla',level:0,branch:-1,x:10,y:10,angle:0,cooldown:0,spent:600};
+ assert.equal(compileTower(tower).chainTargets,4);
+ const storm={...tower,branch:1,level:1};
+ assert.equal(compileTower({...storm,level:2}).chainTargets,compileTower(storm).chainTargets!+1);
+ assert.equal(compileTower({...storm,veterancy:10}).chainTargets,compileTower(storm).chainTargets!+1);
+ assert.equal(compileTower(storm,[],['chain-conduction','chain-conduction']).chainTargets,compileTower(storm).chainTargets!+2);
+ assert.equal(compileTower({...tower,branch:0,level:50}).chainTargets,4);
+ assert.equal(compileTower({...storm,level:50,veterancy:100},[],Array(20).fill('chain-conduction')).chainTargets,86);
+});

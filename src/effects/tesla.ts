@@ -1,5 +1,5 @@
-/** Normal coils use four or six links; overload can jump through twelve targets. GPU damage and drawing share these links. */
-export const TESLA_LINKS=12;
+/** Shared GPU capacity covers Storm Cell, veterancy, research, and overload links. */
+export const TESLA_LINKS=96;
 export const TESLA_HEADER_BYTES=(64*TESLA_LINKS+64)*16;
 export const TESLA_PARTICLE_BYTES=32;
 export const TESLA_STATE_WGSL=`
