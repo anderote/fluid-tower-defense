@@ -3,10 +3,11 @@ export class FixedClock {
   readonly step = 1 / 60;
   tick = 0;
   private accumulator = 0;
-  advance(elapsed: number, paused: boolean): number {
+  advance(elapsed: number, paused: boolean, speed=1): number {
     if (paused) { this.accumulator = 0; return 0; }
-    this.accumulator += Math.min(Math.max(elapsed, 0), .05);
-    const steps = Math.min(3, Math.floor((this.accumulator + 1e-9) / this.step));
+    const rate=[1,2,3,5].includes(speed)?speed:1;
+    this.accumulator += Math.min(Math.max(elapsed, 0), .05)*rate;
+    const steps = Math.min(3*rate, Math.floor((this.accumulator + 1e-9) / this.step));
     this.accumulator -= steps * this.step;
     return steps;
   }

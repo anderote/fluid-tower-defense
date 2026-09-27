@@ -253,7 +253,7 @@ test('staged wave backlog remains bounded after the inlet is blocked',()=>{
 test('extracting after the checkpoint ends the run',()=>{
   const run=createRun();
   for(let wave=1;wave<=10;wave++){
-    assert.equal(run.startWave().ok,true);run.takeSpawns(65_536);run.applySettlement({epoch:1,tick:wave,kills:0,crushKills:0,leaks:0,earned:0,live:0,invalid:0,maxPacking:0});assert.equal(run.finishSettling().ok,true);
+    assert.equal(run.startWave().ok,true);run.takeSpawns(waveFor(run.model.level,run.model.wave).total);run.applySettlement({epoch:1,tick:wave,kills:0,crushKills:0,leaks:0,earned:0,live:0,invalid:0,maxPacking:0});assert.equal(run.finishSettling().ok,true);
     if(run.model.bonusChoices.length)run.chooseBonus(run.model.bonusChoices[0].id);
   }
   const result=run.finishRun();assert.ok(result.ok);assert.equal(run.model.phase,'won');

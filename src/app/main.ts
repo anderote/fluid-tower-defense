@@ -58,7 +58,7 @@ if(location.pathname.startsWith('/coop')||params.has('join')) {
  const {showValidation}=await import('./validation-page.ts');await showValidation(root);
 } else {
 const run=createRun(initialMap);
-const state:UIState={mode:params.get('mode')==='lab'?'lab':'game',phase:'preparation',paused:false,fps:0,frameMs:0,population:10000,capacity:65536,kills:0,crushKills:0,leaks:0,earned:0,maxPressure:0,metal:STARTING_METAL,baseHealth:100,level:1,wave:0,waveCount:10,difficulty:1,streamWidth:60,selected:null,upgradeTarget:null,selectedKind:null,buildTool:null,upgradeMode:false,moveMode:false,targetMode:false,heatmap:true,tool:'blast',message:'Connecting to local GPU…',adapter:'WebGPU',bonusChoices:[],bonuses:[],commandUpgrades:[],statUpgrades:run.statUpgrades(),towerUnlocks:run.towerUnlocks()};
+const state:UIState={mode:params.get('mode')==='lab'?'lab':'game',phase:'preparation',paused:false,simulationSpeed:1,fps:0,frameMs:0,population:10000,capacity:65536,kills:0,crushKills:0,leaks:0,earned:0,maxPressure:0,metal:STARTING_METAL,baseHealth:100,level:1,wave:0,waveCount:10,difficulty:1,streamWidth:60,selected:null,upgradeTarget:null,selectedKind:null,buildTool:null,upgradeMode:false,moveMode:false,targetMode:false,heatmap:true,tool:'blast',message:'Connecting to local GPU…',adapter:'WebGPU',bonusChoices:[],bonuses:[],commandUpgrades:[],statUpgrades:run.statUpgrades(),towerUnlocks:run.towerUnlocks()};
 let handleAction:(action:GameAction)=>void=()=>{};
 const ui=createUI(root,action=>handleAction(action));
 try {
@@ -81,6 +81,7 @@ try {
  const physics=await createPhysics(gpu.device,gpu.shared,{crowdMode:params.get('solver')==='hybrid'?'hybrid':'exact'});
  const infantryGPU=await createInfantryGPU(gpu.device,gpu.shared);
  const horde=await createHorde(gpu.device,gpu.shared), hordeFront=new HordeFront(), hordeCapacity=new HordeCapacity();
+ const enemiesActive=()=>['combat','settling'].includes(run.model.phase)||(['preparation','checkpoint'].includes(run.model.phase)&&run.hasRemainingEnemies);
  const resetHorde=()=>{horde.reset();hordeFront.reset();hordeCapacity.reset();};
  gpu.shared.shotState=combat.shotState;
  const renderer=await createRenderer(gpu.device,gpu.context,gpu.format,gpu.shared,ui.canvas,{turretArt:params.get('turretArt')==='red-alert'?'red-alert':'soldat',floorArt:params.get('floor')==='grating'?'grating':'panels'});
@@ -115,7 +116,7 @@ try {
  const infantry=createInfantryController(root,run,()=>map,refreshNavigation,text=>{state.message=text;},()=>{state.selectedKind=null;state.buildTool=null;state.upgradeMode=false;state.moveMode=false;state.targetMode=false;movingTowerId=null;targetingTowerId=null;run.model.selected=null;});
  const resizeSpawn=()=>{const width=Math.max(1,Math.min(100,Math.round(state.streamWidth)));map={...map,spawn:{...spawnBaseline,y:(map.height-width)/2,height:width}};};
  const restoreSegment=<T extends {x:number;y:number;width:number;height:number}>(kind:BarrierKind,segment:T,index:number)=>{const saved=segment as T&Partial<BarrierSegment>;return {...segment,from:saved.from??{x:segment.x,y:segment.y+segment.height/2},to:saved.to??{x:segment.x+segment.width,y:segment.y+segment.height/2},run:saved.run??index+1,kind} as T&BarrierSegment;};
- const saveSession=()=>{if(state.mode!=='game'||!['preparation','checkpoint'].includes(run.model.phase))return;try{const runState=damScenario?run.serialize():run.save();localStorage.setItem(AUTOSAVE_KEY,JSON.stringify({runState,map,spawnBaseline,builtWalls,builtWires,builtFences,difficulty:state.difficulty,streamWidth:state.streamWidth}));}catch{/* Local persistence is optional. */}};
+ const saveSession=()=>{if(state.mode!=='game'||run.hasRemainingEnemies||!['preparation','checkpoint'].includes(run.model.phase))return;try{const runState=damScenario?run.serialize():run.save();localStorage.setItem(AUTOSAVE_KEY,JSON.stringify({runState,map,spawnBaseline,builtWalls,builtWires,builtFences,difficulty:state.difficulty,streamWidth:state.streamWidth}));}catch{/* Local persistence is optional. */}};
  const restoreSession=()=>{try{const saved=JSON.parse(localStorage.getItem(AUTOSAVE_KEY)??'null') as {runState?:string;map?:WorldMap;spawnBaseline?:Rect;builtWalls?:(Rect & Partial<{health:number;maxHealth:number}>)[];builtWires?:(Rect & {health:number;maxHealth:number;breached:boolean})[];builtFences?:(Rect & {health:number;maxHealth:number})[];difficulty?:number;streamWidth?:number}|null;if(!saved?.runState||!saved.map||saved.map.id!==initialMap.id||!validDam(saved.map))return false;builtWalls=(saved.builtWalls??[]).filter(w=>Number.isFinite(w.x)&&Number.isFinite(w.y)).map(w=>{const maxHealth=typeof w.maxHealth==='number'&&Number.isFinite(w.maxHealth)?w.maxHealth:wallCapacity(0),health=typeof w.health==='number'&&Number.isFinite(w.health)?w.health:maxHealth;return {...w,health,maxHealth};});builtWires=(saved.builtWires??[]).filter(w=>Number.isFinite(w.x)&&Number.isFinite(w.y)&&Number.isFinite(w.health)).map((wire,index)=>restoreSegment('wire',wire,index));builtFences=(saved.builtFences??[]).filter(f=>Number.isFinite(f.x)&&Number.isFinite(f.y)&&Number.isFinite(f.health)).map((fence,index)=>restoreSegment('fence',fence,index));nextBarrierRun=1+Math.max(0,...builtWires.map(wire=>wire.run),...builtFences.map(fence=>fence.run));const defaultSession=saved.map.id===DEFAULT_MAP.id;map=restoreSessionTerrain(saved.map,DEFAULT_MAP,builtWalls,builtWires,builtFences);spawnBaseline=defaultSession?DEFAULT_MAP.spawn:saved.spawnBaseline??saved.map.spawn;state.difficulty=run.setSpawnMultiplier(saved.difficulty??1);state.streamWidth=Math.max(1,Math.min(100,Math.round(saved.streamWidth??map.spawn.height)));resizeSpawn();run.setMap(map);syncTowerMounts();const loaded=run.load(saved.runState).ok;if(loaded)refreshNavigation();return loaded;}catch{return false;}};
  const editor=createLevelEditor(root.querySelector<HTMLElement>('.view-menu')!,map,newMap=>{
    map=newMap;if(map.id!==DAM_ID)delete map.dam;spawnBaseline=newMap.spawn;builtWalls=[];builtWires=[];builtFences=[];nextBarrierRun=1;resizeSpawn();navigation=buildNavigation(map);run.setMap(map);syncTowerMounts();state.mode='game';resetWorld();previousPaused=false;
@@ -178,6 +179,7 @@ try {
      case 'select-map':saveSession();location.assign(`/?map=${encodeURIComponent(action.map)}`);break;
      case 'mode':state.mode=action.mode;resetWorld();break;
      case 'pause':state.paused=!state.paused;break;
+     case 'simulation-speed':if(!editor.active&&[1,2,3,5].includes(action.value)){state.simulationSpeed=action.value;state.paused=false;}break;
      case 'dam-north':case 'dam-south':{
        if(editor.active||state.paused||state.mode!=='game'||!['preparation','combat'].includes(run.model.phase)){state.message='Resume the defense to operate floodgates.';break;}
        const index=action.type==='dam-north'?0:1;
@@ -227,17 +229,15 @@ try {
      case 'skip-wave':{
        const result=run.finishWaveEarly(run.isBossWave&&latest.boss?.active!==false);
        if(!result.ok){state.message=result.reason;break;}
-       // Ignore outstanding telemetry from the discarded tail of this wave.
-       waveStartTick=clock.tick+1;count=0;spawnSlot=0;state.population=0;
-       commands=[];visuals=[];heavyProjectiles=[];heavyExplosions=[];infantryRocketProjectiles=[];infantryRocketExplosions=[];
-       latest={...latest,live:0,inletBlocked:false,boss:undefined};
-       physics.reset();combat.reset();resetHorde();shotReader.reset();boss.reset(false);state.paused=false;
+       state.paused=false;
        if(run.model.phase==='preparation'&&!run.model.bonusChoices.length)handleAction({type:'start-wave'});
-       else state.message=run.model.bonusChoices.length?'Wave finished. Choose a command boon before the next wave.':'Wave finished. Extract or continue your run.';
+       else state.message=run.model.bonusChoices.length?'Wave advanced. Remaining enemies stay in play. Choose a command boon.':'Wave advanced. Remaining enemies stay in play. Extract or continue your run.';
        break;
      }
      case 'start-wave':{
+       const preserveEnemies=run.hasRemainingEnemies;
        const result=run.startWave();actionResult(result,'Wave incoming. Hold the choke.');if(!result.ok)break;
+       if(preserveEnemies){hordeFront.reset();boss.reset(run.isBossWave);state.paused=false;state.selectedKind=null;state.message='Next wave incoming. Surviving enemies remain on the field.';break;}
        latest={...latest,inletBlocked:false};count=0;spawnSlot=0;heavyProjectiles=[];heavyExplosions=[];infantryRocketProjectiles=[];infantryRocketExplosions=[];cameraShake=0;state.population=0;physics.reset();combat.reset();resetHorde();shotReader.reset();boss.reset(run.isBossWave);waveStartTick=clock.tick+1;state.paused=false;state.selectedKind=null;break;
      }
      case 'continue-run':{
@@ -259,8 +259,8 @@ try {
      case 'difficulty':state.difficulty=run.setSpawnMultiplier(action.value);resizeSpawn();state.message=`Horde intensity ${state.difficulty}: denser groups approach from the west.`;break;
      case 'stream-width':state.streamWidth=Math.max(1,Math.min(100,Math.round(action.value)));resizeSpawn();run.setMap(map);refreshNavigation();state.message=`Stream width ${state.streamWidth}. Next-wave quota remains ${waveFor(run.model.level,run.model.wave+1).total.toLocaleString()} zombies.`;break;
      case 'bonus':actionResult(run.chooseBonus(action.id),'Bonus installed for this run.');break;
-     case 'save':try{
-       if(state.mode!=='game'||!['preparation','checkpoint'].includes(run.model.phase))throw new Error('Defenses can only be saved between waves in Game mode.');
+     case 'save':if(run.hasRemainingEnemies){state.message='Clear the remaining enemies before saving your defense.';break;}try{
+       if(state.mode!=='game'||run.hasRemainingEnemies||!['preparation','checkpoint'].includes(run.model.phase))throw new Error('Defenses can only be saved between waves in Game mode.');
        saveDefense(localStorage,CHECKPOINT_KEY,run,{map,spawnBaseline,builtWalls,builtWires,builtFences,difficulty:state.difficulty,streamWidth:state.streamWidth});
        state.message='Defense checkpoint saved. Autosaves will not overwrite it.';
      }catch(error){state.message=`Could not save defense: ${error instanceof Error?error.message:String(error)}`;}break;
@@ -381,7 +381,14 @@ try {
  const removeWall=(point:Vec2)=>{const index=builtWalls.findIndex(w=>point.x>=w.x&&point.x<w.x+w.width&&point.y>=w.y&&point.y<w.y+w.height);if(index<0)return;const wall=builtWalls[index];if(run.model.towers.some(tower=>tower.x>=wall.x&&tower.x<wall.x+wall.width&&tower.y>=wall.y&&tower.y<wall.y+wall.height)){state.message='Sell the mounted turret before removing this wall.';return;}builtWalls.splice(index,1);removeStructuresFromMap([wall]);run.refundMetal(Math.floor(METAL_WALL_COST/2));state.message=`Metal wall recovered for ${Math.floor(METAL_WALL_COST/2)} Metal.`;};
  const removeFence=(point:Vec2)=>{const hit=nearestBarrier(builtFences,point);if(!hit)return;const removed=builtFences.filter(section=>section.run===hit.run);builtFences=builtFences.filter(section=>section.run!==hit.run);removeStructuresFromMap(removed);run.setMap(map);syncTowerMounts();refreshNavigation();const refund=Math.floor(barrierCost(removed.reduce((sum,segment)=>sum+Math.hypot(segment.to.x-segment.from.x,segment.to.y-segment.from.y),0),CHAINLINK_FENCE_COST)/2);run.refundMetal(refund);state.message=`Chain-link section recycled for ${refund} Metal.`;};
  const removeWire=(point:Vec2)=>{const hit=nearestBarrier(builtWires,point);if(!hit)return;const removed=builtWires.filter(section=>section.run===hit.run);builtWires=builtWires.filter(section=>section.run!==hit.run);const refund=Math.floor(barrierCost(removed.reduce((sum,segment)=>sum+Math.hypot(segment.to.x-segment.from.x,segment.to.y-segment.from.y),0),45)/2);run.refundMetal(refund);state.message=`Barbed-wire path recycled for ${refund} Metal.`;};
- ui.canvas.addEventListener('wheel',event=>{if(editor.active)return;event.preventDefault();renderer.zoomAt(event.deltaY<0?1.13:1/1.13,event.clientX,event.clientY);},{passive:false});
+ ui.canvas.addEventListener('wheel',event=>{
+   if(editor.active)return;event.preventDefault();
+   // Trackpads emit many tiny deltas; scale by distance instead of taking a
+   // full zoom step per event. Normalize mouse-wheel line/page units too.
+   const unit=event.deltaMode===1?16:event.deltaMode===2?ui.canvas.clientHeight:1;
+   const delta=Math.max(-100,Math.min(100,event.deltaY*unit));
+   renderer.zoomAt(Math.exp(-delta*.001),event.clientX,event.clientY);
+ },{passive:false});
  ui.canvas.addEventListener('contextmenu',event=>{if(editor.active||state.buildTool||infantry.selectedSoldiers.size)event.preventDefault();});
  ui.canvas.addEventListener('pointerleave',()=>{pointer=undefined;if(state.upgradeMode)scheduleUpgradeTargetClear();});
  ui.canvas.addEventListener('pointerdown',event=>{
@@ -497,7 +504,7 @@ try {
    ui.update(state);positionInspector();positionUpgradeInspector();positionInfantryInspector();if(now-lastAutosave>1500){saveSession();lastAutosave=now;}lastUI=now;
    // Sorting timing windows is diagnostic work: do it at 1 Hz, not every UI update.
    if(profiler&&now-lastProfileReport>=1000){profileSnapshot={cpuProfile:cpuProfile?.report(),gpuProfile:profiler.report()};lastProfileReport=now;}
-   diagnosticText.textContent=JSON.stringify({adapter:gpu.adapter,abi:'passed',dam:map.dam,wave:run.model.wave,waveProgress:run.waveProgress,epoch,tick:clock.tick,simulationSeconds:simulatedTime,simulationSecondsPerWallSecond:simulationRate.report(),slots:count,live:latest.live,requested:requestedPopulation,invalid:latest.invalid,peakPacking:latest.maxPacking,crushKills:latest.crushKills,kills:latest.kills,medianMs:report.medianMs,p95Ms:report.p95Ms,frameSamples:report.samples,canvas:[ui.canvas.width,ui.canvas.height],graphics:{mode:graphics.mode,scale:graphics.scale},solver:params.get('solver')==='hybrid'?'hybrid':'exact',readbackErrors:errors,boss:latest.boss,...profileSnapshot},null,2);
+   diagnosticText.textContent=JSON.stringify({adapter:gpu.adapter,abi:'passed',dam:map.dam,wave:run.model.wave,waveProgress:run.waveProgress,epoch,tick:clock.tick,simulationSeconds:simulatedTime,simulationSpeed:state.simulationSpeed??1,paused:state.paused,simulationSecondsPerWallSecond:simulationRate.report(),slots:count,live:latest.live,requested:requestedPopulation,invalid:latest.invalid,peakPacking:latest.maxPacking,crushKills:latest.crushKills,kills:latest.kills,medianMs:report.medianMs,p95Ms:report.p95Ms,frameSamples:report.samples,canvas:[ui.canvas.width,ui.canvas.height],graphics:{mode:graphics.mode,scale:graphics.scale},solver:params.get('solver')==='hybrid'?'hybrid':'exact',readbackErrors:errors,boss:latest.boss,...profileSnapshot},null,2);
  }
  function positionInfantryInspector(){
    const b=infantry.state().buildings.find(b=>b.id===infantry.selected),panel=infantry.inspector;
@@ -525,8 +532,8 @@ try {
  function tick(){
    clock.tick++;simulatedTime+=clock.step;run.advanceCrushers(clock.step);
    let arrivals:Float32Array=new Float32Array(0);
-   if(state.mode==='game'&&run.model.phase==='combat'){
-     const positions=hordeFront.advance(clock.step,map,(run.model.level-1)*10+run.model.wave,state.difficulty,run.model.pending);
+   if(state.mode==='game'&&enemiesActive()){
+     const positions=hordeFront.advance(clock.step,map,(run.model.level-1)*10+run.model.wave,state.difficulty,run.model.pending,run.spawnPressure);
      const capacity=latest.inletBlocked?0:Math.min(positions.length,hordeCapacity.available(gpu.shared.capacity));
      const batches=run.takeSpawns(capacity,clock.step);
      arrivals=encodeHorde(batches,positions,map.goal);
@@ -534,10 +541,10 @@ try {
      hordeCapacity.add(clock.tick,added);count=Math.max(count,gpu.shared.capacity-hordeCapacity.available(gpu.shared.capacity));spawnSlot+=added;state.population+=added;
    }
    const wireStats=barbedWireStats(run.model.commandUpgrades),activeWires=builtWires.filter(wire=>!wire.breached);
-   const floodEffects=advanceDam(map,clock.step,run.model.phase==='combat');
-   const currentEffects=advanceCurrents(map,clock.step,simulatedTime,run.model.phase==='combat');
+   const floodEffects=advanceDam(map,clock.step,enemiesActive());
+   const currentEffects=advanceCurrents(map,clock.step,simulatedTime,enemiesActive());
    const effects=[...floodEffects,...currentEffects,...activeWires.map(wire=>({x:wire.x+wire.width/2,y:wire.y+wire.height/2,kind:'slow' as const,radius:3.2,strength:.55,damage:wireStats.damage*clock.step,direction:{x:0,y:0},cone:0,duration:wireStats.slow,source:0})),...commands].slice(0,64);commands=[];
-   if(state.mode==='game'&&run.model.phase==='combat'&&(builtWalls.length||builtFences.length||builtWires.length)){
+   if(state.mode==='game'&&enemiesActive()&&(builtWalls.length||builtFences.length||builtWires.length)){
      const obstacleSnapshot=map.obstacles,telemetry=(segment:Rect)=>{const index=obstacleSnapshot.indexOf(segment);return index<0?{contact:0,packing:0,pressure:0}:{contact:Math.min(1,(latest.obstacleContacts?.[index]??0)/6),packing:latest.obstaclePacking?.[index]??0,pressure:latest.obstaclePressure?.[index]??0};};
      const wallLevel=techRank(run.model.commandUpgrades,'structure-armor');
      const collapsed=builtWalls.filter(wall=>{const sample=telemetry(wall);wall.health=wallHealthAfterPressure(wall.health,sample.pressure,sample.contact,clock.step,wallLevel);return wall.health<=0;});
@@ -563,7 +570,7 @@ try {
    const nativeEncoder=gpu.device.createCommandEncoder({label:`Simulation tick ${clock.tick}`}),measurement=profiler?.wrap(nativeEncoder),encoder=measurement?.encoder??nativeEncoder;
    const bossFrame={dt:clock.step,tick:clock.tick,count,map:activeMap.scenery?activeMap:{...activeMap,spawn:{x:50,y:35,width:32,height:30}},active:state.mode==='game'&&run.isBossWave};
    horde.encode(encoder,arrivals,count);
-   const infantryShots=advanceInfantry(infantry.state(),infantry.ensureFields(),infantry.fields,infantryGPU.threats,clock.step,state.mode==='game'&&run.model.phase==='combat',researchModifiers,infantry.orderFields);
+   const infantryShots=advanceInfantry(infantry.state(),infantry.ensureFields(),infantry.fields,infantryGPU.threats,clock.step,state.mode==='game'&&enemiesActive(),researchModifiers,infantry.orderFields);
    const finishInfantry=state.mode==='game'?infantryGPU.encode(encoder,infantry.state().soldiers,infantryShots,activeMap,count,clock.tick%6===0,researchModifiers,clock.step,infantrySightMap):undefined;
    if(infantryShots.length){for(const shot of infantryShots){const soldier=infantry.state().soldiers.find(s=>s.id===shot.soldier),kind=soldier?.kind;if(kind==='rocket'&&soldier){const muzzle=infantryMuzzle(soldier);infantryRocketProjectiles.push({x:muzzle.x,y:muzzle.y,target:{x:shot.x,y:shot.y},age:0,life:.26,serial:clock.tick*1000+shot.soldier});}setCombatAudioGain();if(kind==='dog')audio.bark(shot.x,clock.tick);else if(kind==='samurai')audio.slash(shot.x,clock.tick);else audio.infantryFire(kind==='rocket'?'rocket':kind==='flame'?'flame':'rifle',shot.x,clock.tick);}}
    combat.encodeBefore(encoder,frame);boss.encode(encoder,bossFrame);physics.encode(encoder,frame);combat.encodeAfter(encoder,frame);boss.encodeResolve(encoder,bossFrame);
@@ -578,13 +585,14 @@ try {
      const cpuStart=cpuProfile?performance.now():0;
      const elapsed=(now-previous)/1000;previous=now;metrics.push(elapsed*1000);
      renderer.setResolutionScale?.(graphics.observe(elapsed*1000,!document.hidden&&!state.paused));
-     const active=state.mode==='lab'||run.model.phase==='combat'||run.model.phase==='settling';
+     const active=state.mode==='lab'||enemiesActive();
      if(!editor.active&&panKeys.size){const speed=52*(panFast?2:1)*elapsed;renderer.pan((panKeys.has('d')?speed:0)-(panKeys.has('a')?speed:0),(panKeys.has('s')?speed:0)-(panKeys.has('w')?speed:0));}
-     const steps=editor.active?0:clock.advance(elapsed,state.paused||!active);
+     const steps=editor.active?0:clock.advance(elapsed,state.paused||!active,state.simulationSpeed??1);
      if(active&&!state.paused&&!editor.active)simulationRate.push(elapsed,steps*clock.step);else simulationRate.reset();
      for(let i=0;i<steps;i++)tick();
      const cpuEffectsStart=cpuProfile?performance.now():0;cpuProfile?.record('Simulation and frame setup',cpuEffectsStart-cpuStart);
-     if(!state.paused){for(const effect of visuals)effect.duration-=elapsed;visuals=visuals.filter(e=>e.duration>0);for(const particle of visualParticles)particle.age+=elapsed;visualParticles=visualParticles.filter(particle=>particle.age<particle.life);for(const explosion of heavyExplosions)explosion.age+=elapsed;heavyExplosions=heavyExplosions.filter(explosion=>explosion.age<explosion.life);for(const projectile of infantryRocketProjectiles)projectile.age+=elapsed;const infantryImpacts=infantryRocketProjectiles.filter(projectile=>projectile.age>=projectile.life);infantryRocketProjectiles=infantryRocketProjectiles.filter(projectile=>projectile.age<projectile.life);for(const projectile of infantryImpacts)detonateInfantryRocket(projectile);for(const explosion of infantryRocketExplosions)explosion.age+=elapsed;infantryRocketExplosions=infantryRocketExplosions.filter(explosion=>explosion.age<explosion.life);const advanced=advanceHeavyProjectiles(heavyProjectiles,0,clock.tick);heavyProjectiles=advanced.active;for(const impact of advanced.impacts)detonateHeavy(impact);for(const popup of pressurePopups)popup.age+=elapsed;for(const popup of pressurePopups.filter(popup=>popup.age>=popup.life))popup.element.remove();pressurePopups=pressurePopups.filter(popup=>popup.age<popup.life);cameraShake*=Math.exp(-8.5*elapsed);}
+     const effectsElapsed=active?steps*clock.step:elapsed;
+     if(!state.paused){for(const effect of visuals)effect.duration-=effectsElapsed;visuals=visuals.filter(e=>e.duration>0);for(const particle of visualParticles)particle.age+=effectsElapsed;visualParticles=visualParticles.filter(particle=>particle.age<particle.life);for(const explosion of heavyExplosions)explosion.age+=effectsElapsed;heavyExplosions=heavyExplosions.filter(explosion=>explosion.age<explosion.life);for(const projectile of infantryRocketProjectiles)projectile.age+=effectsElapsed;const infantryImpacts=infantryRocketProjectiles.filter(projectile=>projectile.age>=projectile.life);infantryRocketProjectiles=infantryRocketProjectiles.filter(projectile=>projectile.age<projectile.life);for(const projectile of infantryImpacts)detonateInfantryRocket(projectile);for(const explosion of infantryRocketExplosions)explosion.age+=effectsElapsed;infantryRocketExplosions=infantryRocketExplosions.filter(explosion=>explosion.age<explosion.life);const advanced=advanceHeavyProjectiles(heavyProjectiles,0,clock.tick);heavyProjectiles=advanced.active;for(const impact of advanced.impacts)detonateHeavy(impact);for(const popup of pressurePopups)popup.age+=effectsElapsed;for(const popup of pressurePopups.filter(popup=>popup.age>=popup.life))popup.element.remove();pressurePopups=pressurePopups.filter(popup=>popup.age<popup.life);cameraShake*=Math.exp(-8.5*effectsElapsed);}
      const cpuRenderStart=cpuProfile?performance.now():0;cpuProfile?.record('Effects update',cpuRenderStart-cpuEffectsStart);
      const nativeEncoder=gpu.device.createCommandEncoder({label:'Present'}),measurement=profiler?.wrap(nativeEncoder),encoder=measurement?.encoder??nativeEncoder;
      const placement=pointer?towerPlacement(pointer):undefined;
