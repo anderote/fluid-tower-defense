@@ -172,7 +172,7 @@ fn roundFall(round:Round,point:vec2f,bodyRadius:f32)->vec3f {
   for(var hop=0u;hop<${TESLA_LINKS}u;hop++){electricity.links[base+hop]=vec4f(0,0,-2,0);}
   electricity.links[base]=vec4f(s.timing.zw,s.shot.y,s.shot.z);
   var origin=s.timing.zw;
-  let limit=select(select(4u,6u,def.flags.y==1.),${TESLA_LINKS}u,overloaded);
+  let limit=min(${TESLA_LINKS}u,u32(def.flags.z)+select(0u,8u,overloaded));
   for(var hop=1u;hop<limit;hop++){
    var nearest=def.weapon.w*select(1.35,1.8,overloaded);var candidate=-1;var generation=0.;var position=vec2f(0);
    let chainBounds=targetBounds(origin,nearest);
@@ -349,7 +349,7 @@ fn roundFall(round:Round,point:vec2f,bodyRadius:f32)->vec3f {
       const cellSize=Math.max(8,Math.ceil((frame.map.width+HORDE_APPROACH)/256),Math.ceil(frame.map.height/256)),columns=Math.ceil((frame.map.width+HORDE_APPROACH)/cellSize),rows=Math.ceil(frame.map.height/cellSize);
       const u=new Float32Array([frame.dt,frame.tick,frame.count,frame.towers.length,frame.map.goal.x,frame.map.goal.y,frame.map.goalRadius,frame.lab?1:0,frame.tuning.crushDamage,0,frame.effects.length,0,sightObstacles.length,spatialTargets?cellSize:0,columns,rows]);device.queue.writeBuffer(uniforms,0,u);
       const data=new Float32Array(Math.max(1,frame.towers.length)*16);
-      frame.towers.forEach(({tower:t,definition:d},i)=>{data.set([t.x,t.y,d.range,towerBehavior(t.kind),d.cooldown,d.damage,d.force,d.radius,t.id,t.branch,t.kind==='tesla'?1:0,t.kind==='railgun'||d.overload?1:0,t.groundTarget?.x??0,t.groundTarget?.y??0,t.groundTarget?1:0,0],i*16);});device.queue.writeBuffer(towers,0,data);
+      frame.towers.forEach(({tower:t,definition:d},i)=>{data.set([t.x,t.y,d.range,towerBehavior(t.kind),d.cooldown,d.damage,d.force,d.radius,t.id,t.branch,d.chainTargets??(t.kind==='tesla'?(t.branch===1?6:4):0),t.kind==='railgun'||d.overload?1:0,t.groundTarget?.x??0,t.groundTarget?.y??0,t.groundTarget?1:0,0],i*16);});device.queue.writeBuffer(towers,0,data);
       if(!sameObstacles(obstacleSnapshot,sightObstacles)){obstacleSnapshot=new Float32Array(sightObstacles.length*4);const sightData=new Float32Array(sightObstacles.length*16);sightObstacles.forEach((o,i)=>{const rect=[o.x,o.y,o.width,o.height];sightData.set(rect,i*16);obstacleSnapshot.set(rect,i*4);});if(sightData.length)device.queue.writeBuffer(towers,MAX_TOWERS*64,sightData);}
       if(frame.effects.length){const values=new Float32Array(frame.effects.length*12);frame.effects.forEach((e,i)=>values.set([e.x,e.y,e.radius,e.damage,e.direction.x,e.direction.y,e.cone,e.duration,['blast','push','slow','shot','corpse-blast','flood','crush'].indexOf(e.kind),e.strength,e.source,0],i*12));device.queue.writeBuffer(effects,0,values);}
       aftermath.before(encoder,frame.count);
