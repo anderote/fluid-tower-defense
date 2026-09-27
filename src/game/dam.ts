@@ -28,3 +28,15 @@ export function advanceDam(map:WorldMap,dt:number,combat:boolean):Effect[]{
   return [{x,y:channel.y+channel.height/2,kind:'flood' as const,radius:10,strength:95*step,damage:110*step,direction:{x:-1,y:0},cone:8,duration:step,source:0,peakPressureKpa:650}];
  });
 }
+
+/** Moving pulses carry attackers through authored river and wind lanes. */
+export function advanceCurrents(map:WorldMap,dt:number,time:number,combat:boolean):Effect[]{
+ if(!combat||!Number.isFinite(dt)||dt<=0||!Number.isFinite(time))return [];
+ return (map.currents??[]).map(lane=>{
+  const phase=(Math.sin(time*.46)+1)*.5;
+  const x=lane.axis==='x'?lane.x+phase*lane.width:lane.x+lane.width/2;
+  const y=lane.axis==='y'?lane.y+phase*lane.height:lane.y+lane.height/2;
+  const radius=Math.max(4,(lane.axis==='x'?lane.height:lane.width)*.55);
+  return {x,y,kind:'push' as const,radius,strength:lane.strength*dt,damage:0,direction:lane.direction,cone:0,duration:dt,source:0,environmental:true};
+ });
+}
