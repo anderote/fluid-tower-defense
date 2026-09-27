@@ -1,3 +1,5 @@
+import {firingObstacles} from './terrain.ts';
+import {lineOfSightDistance} from '../render/line-of-sight.ts';
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {DEFAULT_MAP} from '../content/index.ts';
@@ -65,4 +67,14 @@ test('cached previews follow pointer cells, terrain edits, tower placement and r
  assert.equal(preview(map,run.model.towers,{...rect,x:28}),undefined);
  assert.equal(preview(map,[],rect),undefined);
  map.goal={x:22,y:22};assert.ok(preview(map,[],rect));
+});
+
+test('chain-link fences are transparent to firing while walls still block and movement terrain stays intact',()=>{
+ const fence={x:5,y:-1,width:1,height:2},wall={x:10,y:-1,width:1,height:2};
+ const obstacles=[fence,wall];
+ const sight=firingObstacles(obstacles,[{...fence}]);
+ assert.deepEqual(sight,[wall]);
+ assert.deepEqual(obstacles,[fence,wall]);
+ assert.equal(lineOfSightDistance({x:0,y:0},{x:1,y:0},20,sight),10);
+ assert.equal(lineOfSightDistance({x:0,y:0},{x:1,y:0},20,firingObstacles([fence],[fence])),20);
 });
