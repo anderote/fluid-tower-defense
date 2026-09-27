@@ -36,6 +36,7 @@ export function mountCoop(canvas:HTMLCanvasElement,callbacks:{screenToWorld:(x:n
   if(!sharing||generation!==token)return;
   try{const response=await fetch(url('commands'),{headers:headers()});if(!response.ok)throw Error('Room unavailable');const data=await response.json();
    if(generation!==token)return;
+   if(detail.textContent?.startsWith('Connection interrupted'))showLinks();
    for(const item of data.commands){if(!seen.has(item.id)&&Date.now()-item.time<12000){seen.add(item.id);receive(item.command);}}
    if(data.commands.length)await fetch(url('ack'),{method:'POST',headers:headers(),body:JSON.stringify({ids:data.commands.map((item:{id:string})=>item.id)})});
    if(seen.size>2048)seen.clear();
