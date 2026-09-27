@@ -1,3 +1,4 @@
+import '../coop/style.css';
 import {mountCoop} from '../coop/host.ts';
 import {createWallInspector} from '../ui/wall-inspector.ts';
 import {createStructurePreview, clearPlayerTerrain, restoreSessionTerrain, terrainMounts, wallMountCells} from '../game/terrain.ts';
@@ -48,7 +49,9 @@ const TURRET_HIT_RADIUS=2.25;
 const damScenario=params.get('map')==='dam';
 const AUTOSAVE_KEY=damScenario?'pressure-front.dam.autosave.v1':DEFAULT_AUTOSAVE_KEY;
 const CHECKPOINT_KEY=damScenario?'pressure-front.dam.checkpoint.v1':DEFAULT_CHECKPOINT_KEY;
-if(params.has('validate')) {
+if(location.pathname.startsWith('/coop')||params.has('join')) {
+ const {mountPartner}=await import('../coop/partner.ts');await mountPartner(root);
+} else if(params.has('validate')) {
  const {showValidation}=await import('./validation-page.ts');await showValidation(root);
 } else {
 const initialMap=damScenario?damMap():campaignMap(Math.max(1,Math.min(3,Number(params.get('map'))||1)));
@@ -374,11 +377,11 @@ try {
    if(state.mode==='game'){
      const neutral=!state.buildTool&&!state.selectedKind&&!state.upgradeMode&&!state.moveMode&&!state.targetMode&&!infantry.tool;
      if(event.button===2&&neutral&&infantry.command(point)){event.preventDefault();run.model.selected=null;return;}
-     if(event.button===0&&neutral){infantryDrag={start:point,current:point,clientX:event.clientX,clientY:event.clientY,additive:event.shiftKey};ui.canvas.setPointerCapture(event.pointerId);}
+     if(event.button===0&&neutral){infantryDrag={start:point,current:point,clientX:event.clientX,clientY:event.clientY,additive:event.shiftKey};if(event.isTrusted)ui.canvas.setPointerCapture(event.pointerId);}
      if(state.targetMode&&targetingTowerId!==null){const tower=run.model.towers.find(candidate=>candidate.id===targetingTowerId),result=run.setGroundTarget(targetingTowerId,point);if(result.ok){targetingTowerId=null;state.targetMode=false;}actionResult(result,tower?`${TOWERS[tower.kind].name} focused on the marked ground.`:'Ground target set.');return;}
      if(event.button===0&&infantry.click(point,!state.buildTool&&!state.selectedKind&&!state.upgradeMode&&!state.moveMode&&!state.targetMode,event.shiftKey)){run.model.selected=null;return;}
      if(state.buildTool==='wall'){if(event.button===2)removeWall(point);else placeWall(wallAt(point));return;}
-     if(state.buildTool==='fence'||state.buildTool==='wire'){if(event.button===2){(state.buildTool==='fence'?removeFence:removeWire)(point);return;}if(event.button===0){barrierDrag={kind:state.buildTool,points:[point],pointerId:event.pointerId};ui.canvas.setPointerCapture(event.pointerId);return;}}
+     if(state.buildTool==='fence'||state.buildTool==='wire'){if(event.button===2){(state.buildTool==='fence'?removeFence:removeWire)(point);return;}if(event.button===0){barrierDrag={kind:state.buildTool,points:[point],pointerId:event.pointerId};if(event.isTrusted)ui.canvas.setPointerCapture(event.pointerId);return;}}
      if(state.buildTool==='demolish'){demolishAt(point);return;}
      if(state.moveMode&&movingTowerId!==null){const tower=run.model.towers.find(candidate=>candidate.id===movingTowerId),result=run.move(movingTowerId,towerPlacement(point));if(result.ok){movingTowerId=null;state.moveMode=false;refreshNavigation();combat.resetAttribution();run.resetTowerAttribution();}actionResult(result,tower?`${TOWERS[tower.kind].name} moved for ${TOWER_MOVE_COST} Metal.`:'Tower moved.');}
      else if(state.selectedKind){const result=run.place(state.selectedKind,towerPlacement(point));if(result.ok){refreshNavigation();combat.resetAttribution();run.resetTowerAttribution();}actionResult(result,result.tower?`${TOWERS[result.tower.kind].name} deployed.`:'Tower deployed.');}
@@ -405,10 +408,17 @@ try {
  ui.canvas.addEventListener('pointerup',event=>{if(barrierDrag&&event.pointerId===barrierDrag.pointerId&&event.button===0){const drag=barrierDrag;barrierDrag=undefined;placeBarrier(drag.kind,drag.points);return;}if(!infantryDrag||event.button!==0)return;const drag=infantryDrag;infantryDrag=undefined;if(Math.hypot(event.clientX-drag.clientX,event.clientY-drag.clientY)>5){infantry.selectBox(drag.start,drag.current,drag.additive);run.model.selected=null;}});
  const coop=mountCoop(ui.canvas,{
    screenToWorld:(x,y)=>renderer.screenToWorld(x,y),
+   snapshot:()=>({ui:state,infantry:infantry.snapshot()}),
    status:()=>`Metal ${run.model.metal} · Integrity ${Math.round(run.model.baseHealth)}% · Wave ${run.model.wave} · ${run.model.phase}${state.paused?' · PAUSED':''}\n${state.message}`,
    command:(command,point)=>{
      if(failed||editor.active||state.mode!=='game')return;
-     if(command.type==='place'&&point&&command.kind){
+     if(command.type==='action'){handleAction(command.action as GameAction);}
+     else if(command.type==='infantry'){const target=root.querySelector<HTMLButtonElement>(`[data-infantry="${command.action}"]${command.kind?`[data-kind="${command.kind}"]`:''}`);target?.click();}
+     else if(command.type==='key'){window.dispatchEvent(new KeyboardEvent('keydown',{key:command.key,bubbles:true}));}
+     else if(command.type==='pan'){renderer.pan(command.dx,command.dy);}
+     else if(command.type==='zoom'&&point){const screen=renderer.worldToScreen(point.x,point.y);renderer.zoomAt(command.factor,screen.x,screen.y);}
+     else if(command.type==='pointer'&&point){const screen=renderer.worldToScreen(point.x,point.y);ui.canvas.dispatchEvent(new PointerEvent(command.phase,{clientX:screen.x,clientY:screen.y,button:command.button,buttons:command.buttons,shiftKey:command.shiftKey,pointerId:9001,bubbles:true}));}
+     else if(command.type==='place'&&point&&command.kind){
        const position=command.kind==='crusher'?point:resolvePlacement(map,point,1.25,towerMounts());
        const result=run.place(command.kind,position);
        if(result.ok){refreshNavigation();combat.resetAttribution();run.resetTowerAttribution();}
