@@ -1,3 +1,4 @@
+import {mountCoop} from '../coop/host.ts';
 import {damMap,DAM_ID,DAM_GATES,freshDam,sameRect,validDam} from '../content/dam.ts';
 import {advanceDam,releaseFlood,toggleDamGate} from '../game/dam.ts';
 import {createStructurePreview, clearPlayerTerrain, restoreSessionTerrain, terrainMounts} from '../game/terrain.ts';
@@ -319,6 +320,19 @@ try {
      state.message=state.tool==='blast'?'Concussive blast deployed.':'Pressure pulse deployed toward the base.';
    }else state.message=`World position ${point.x.toFixed(1)}, ${point.y.toFixed(1)} · peak packing ${latest.maxPacking.toFixed(2)}`;
  });
+ const coop=mountCoop(ui.canvas,{
+   screenToWorld:(x,y)=>renderer.screenToWorld(x,y),
+   status:()=>`Metal ${run.model.metal} · Integrity ${Math.round(run.model.baseHealth)}% · Wave ${run.model.wave} · ${run.model.phase}${state.paused?' · PAUSED':''}\n${state.message}`,
+   command:(command,point)=>{
+     if(failed||editor.active||state.mode!=='game')return;
+     if(command.type==='place'&&point&&command.kind){
+       const position=command.kind==='crusher'?point:resolvePlacement(map,point,1.25,towerMounts());
+       const result=run.place(command.kind,position);
+       if(result.ok){refreshNavigation();combat.resetAttribution();run.resetTowerAttribution();}
+       actionResult(result,result.tower?`Partner deployed ${TOWERS[result.tower.kind].name}.`:'Partner deployed a tower.');
+     }else if(['start-wave','pause','slam-gates','dam-north','dam-south','dam-flood'].includes(command.type))handleAction({type:command.type} as GameAction);
+   }
+ });
  const panKeys=new Set<string>();
  window.addEventListener('keydown',event=>{
    audio.arm();
@@ -442,6 +456,7 @@ try {
      renderer.encode(encoder,{aftermathVisible:!editor.active,count:editor.active?0:count,time:simulatedTime,map:editor.active?editor.map:map,towers:!editor.active&&state.mode==='game'?run.model.towers:[],effects:editor.active?[]:visuals,visualParticles:editor.active?[]:visualParticles,heavyProjectiles:editor.active?[]:heavyProjectiles,heavyExplosions:editor.active?[]:heavyExplosions,cameraShake:editor.active?0:Math.max(cameraShake,map.dam?.surge? .12:0),walls:editor.active?[]:builtWalls,wires:editor.active?[]:builtWires,heatmap:state.heatmap,selection:run.model.selected,ghost:editor.active?undefined:ghost,placementGhost,boss:!editor.active&&latest.boss?.active?latest.boss:undefined});
      const arena=ui.canvas.parentElement!.getBoundingClientRect();for(const popup of pressurePopups){const screen=renderer.worldToScreen(popup.x,popup.y),progress=popup.age/popup.life;popup.element.style.left=`${screen.x-arena.left+popup.drift*progress}px`;popup.element.style.top=`${screen.y-arena.top-progress*34}px`;popup.element.style.opacity=String(Math.min(1,(1-progress)*2.8));}
      gpu.device.queue.submit([encoder.finish()]);
+     coop.frame(now);
      if(now-lastUI>100)updateUI(now);else{positionInspector();positionUpgradeInspector();}
      requestAnimationFrame(frame);
    }catch(error){fail(error);}

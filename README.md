@@ -13,15 +13,41 @@ npm run dev
 
 Open the localhost URL printed by Vite in a browser with WebGPU enabled (a current Chrome or Safari). No API keys or server-side GPU are needed.
 
+## Offline play and local co-op
+
+Build once while dependencies are installed, then start the bundled server:
+
+```sh
+npm run build
+npm run play       # offline solo, localhost only
+# or
+npm run play:lan   # shared defense over a local network
+```
+
+Open `http://127.0.0.1:5173/` on the host Mac. Assets, soundtrack, saves, and simulation stay local; starting `play` needs Node but no npm install, internet, account, or cloud service. Keep the terminal running. If port 5173 is busy, stop the old server or use `PORT=5174 npm run play:lan`. Saves are tied to the browser and host/port; keep using 127.0.0.1:5173 to retain your existing run.
+
+For co-op, click **HOST CO-OP** at the top of the host game and give your partner the complete join link. Both devices need a working local network connection. Your partner only needs a browser: the host sends a lightweight battlefield view (about 5 frames/second), while the partner can build towers, start/pause waves, slam crushers, and operate the dam. Both spend the same Metal and defend the same base. Upgrades, research, saves, and camera control remain on the host. Keep the host game visible and the Mac awake. **STOP CO-OP** revokes control until you host again; restarting the server changes the join code. This is basic cooperative control, not separate armies or competitive multiplayer.
+
+The host runs WebGPU on localhost; the partner page does not require WebGPU or HTTPS. The LAN server serves only `dist/`, never the repository or home directory. Treat the join link as a room key and share it only with your partner. Local co-op uses plain HTTP and is intended for a trusted local network.
+
+### On a plane
+
+- A shared Wi-Fi network can work without internet, provided it allows devices to reach each other. Airline networks may isolate passengers; this game cannot bypass that.
+- A direct Thunderbolt connection can provide the local network without Wi-Fi. Use an actual Thunderbolt cable and configure **Thunderbolt Bridge** in macOS Network settings; see [Apple's IP over Thunderbolt guide](https://support.apple.com/guide/mac-help/mchld53dd2f5/mac).
+- Do not rely on an iPhone hotspot in airplane mode: [Apple documents Personal Hotspot as sharing cellular data](https://support.apple.com/guide/iphone/iph45447ca6/ios).
+- Connect the network before launching `play:lan`. If it changes, restart the server to refresh join addresses. If the join page cannot load, check that both Macs are on the same network and that macOS permits incoming connections for Node. No internet subscription is needed by the game itself.
+
+Run `npm run test:local-server` for server/security checks. For the real two-player GPU test, build, copy `tests/coop/index.html` to `dist/tests/coop/index.html`, start `PORT=5201 npm run play:lan`, and open `/tests/coop/` on that dedicated port. It checks rendered stream pixels, shared placement/economy, wave start, flood, pause, and disconnect; it temporarily backs up that origin's saves. Do not run it alongside another game tab on the same test origin.
+
 ## Play
 
 Use the **Battlefield** selector at the top of the sidebar to switch between **Campaign** and **Thunderhead Dam**. Each has separate autosave and checkpoint slots. Switching during combat resumes that battlefield from its last preparation save.
 
 ### Thunderhead Dam
 
-Two floodable spillways flank a permanently open, dry central bypass between concrete turbine islands. Build towers on the concrete, close the north/south gates to divert enemies, and leave the central bypass covered. Gate operation has a three-second combat cooldown; a closure that would seal the last route is rejected. Buildings cannot occupy gate machinery.
+Three floodable spillways include a permanently open central bypass between concrete turbine islands. Build towers on the concrete, close the north/south gates to divert enemies, and leave the central bypass covered. Gate operation has a three-second combat cooldown; a closure that would seal the last route is rejected. Buildings cannot occupy gate machinery.
 
-Press **F** or **Release Flood** during combat to spend a full reservoir on a 3.2-second surge. It travels along the north and south water channels from the turbine end toward the inlet, damaging, slowing, and pushing enemies backward. The dry center never receives flood damage or knockback; cover it with towers. Closed side gates stop their water as well as enemies. The reservoir refills over 30 combat seconds, and pause freezes both the flood and recharge. The map starts with a full reservoir and the normal 3,000 Metal budget. Its first wave contains 1,320 enemies (10% more than the campaign opening); subsequent quotas and campaign waves are unchanged.
+Press **F** or **Release Flood** during combat to spend a full reservoir on a 3.2-second surge. It travels along all three water channels from the turbine end toward the inlet, damaging, slowing, and pushing enemies backward. The center always receives the surge, even when both side gates are closed. Closed side gates stop their water as well as enemies. The reservoir refills over 30 combat seconds, and pause freezes both the flood and recharge. The map starts with a full reservoir and the normal 3,000 Metal budget. Its first wave contains 1,320 enemies (10% more than the campaign opening); subsequent quotas and campaign waves are unchanged.
 
 
 - **Crusher Gate [9] — 450 Metal:** build an open horizontal passage with hydraulic jaws. Press **G** or **Slam Gates** to fire all ready gates. The 8 × 10 jaw zone deals 60 damage, up to double in packed crowds before enemy crush resistance. Gates recharge in 8 simulation seconds, pause with the game, and start each new wave ready. Heavy Pistons favor damage; Rapid Hydraulics favor recharge. Gate kills earn salvage and veterancy.
@@ -79,4 +105,4 @@ Run `/tests/wave-pacing/` on a dedicated development port and click **Run first 
 
 The spectacle lab at `/tests/spectacle/` checks actual GPU overload cadence, chain limits, damage, crusher bounds, packed-crowd damage, and kill attribution. **Freeze strike** holds the production renderer on the impact frame. `/tests/e2e/?spectacle` runs the focused real-game placement, research, autosave/reload, keyboard/button activation, pause, and recharge checks on a dedicated development origin.
 
-The dedicated `/tests/dam/` playtest enters through the visible Battlefield selector, spends 2,710 Metal on a valid defense, operates both gates, reloads saved gate state, pauses a live flood, recharges and releases it again, and clears the actual first wave. It checks simulation health and that both campaign save formats remain untouched. `/tests/dam/gpu.html` checks exact flood bounds, upstream impulse, slow, kills, salvage, and that actual reservoir releases spare the dry center on the production GPU combat pipeline. Run on a dedicated port; the UI suite backs up and restores saves. Later campaign balance and a dam-specific boss are not part of this first map release.
+The dedicated `/tests/dam/` playtest enters through the visible Battlefield selector, spends 2,710 Metal on a valid defense, operates both gates, reloads saved gate state, pauses a live flood, recharges and releases it again, and clears the actual first wave. It checks simulation health and that both campaign save formats remain untouched. `/tests/dam/gpu.html` checks exact flood bounds, upstream impulse, slow, kills, salvage, and that actual reservoir releases affect all three channels on the production GPU combat pipeline. Run on a dedicated port; the UI suite backs up and restores saves. Later campaign balance and a dam-specific boss are not part of this first map release.
