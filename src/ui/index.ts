@@ -496,7 +496,7 @@ export function createUI(
       waveButton.classList.toggle("is-active", waveActive);
       waveButton.disabled = !!waveControl.reason;
       waveButton.textContent = waveControl.label;
-      waveButton.title = waveControl.reason || (skipReady ? "95% cleared. Remove the remaining enemies and advance; no salvage is awarded for skipped enemies." : waveActive ? "Pause or resume the current wave." : "Start the next wave.");
+      waveButton.title = waveControl.reason || (skipReady ? "95% cleared. Start the next wave while surviving enemies remain in play." : waveActive ? "Pause or resume the current wave." : "Start the next wave.");
       const bonusCard = $("#bonuses");
       bonusCard.hidden = !s.bonusChoices.length;
       renderMarkup($("#bonus-choices"), s.bonusChoices
