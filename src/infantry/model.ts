@@ -157,7 +157,9 @@ export function advanceInfantry(state:InfantryState,map:WorldMap,fields:Map<numb
     s.cooldown=Math.max(0,s.cooldown-dt);
     if(fresh&&fresh.target>=0&&distance<=stats.range){
       s.angle=Math.atan2(fresh.y-s.y,fresh.x-s.x);
-      if(s.cooldown===0){shots.push({soldier:s.id,target:fresh.target,generation:fresh.generation,damage:stats.damage,x:fresh.x,y:fresh.y});s.cooldown=stats.cooldown;s.attackAge=0;s.flash=s.kind==='samurai'?.28:s.kind==='dog'?.32:s.kind==='flame'?.2:.1;}
+      // Sustain the nozzle while tracking a live target, independent of damage pulses.
+      if(s.kind==='flame')s.flash=.12;
+      if(s.cooldown===0){shots.push({soldier:s.id,target:fresh.target,generation:fresh.generation,damage:stats.damage,x:fresh.x,y:fresh.y});s.cooldown=stats.cooldown;s.attackAge=0;s.flash=s.kind==='samurai'?.28:s.kind==='dog'?.32:s.kind==='flame'?.12:.1;}
     }
     const center=s.moveTarget??s.rallyTarget??b.rally,slot=s.moveTarget?s.moveSlot??0:s.rallySlot??s.id,destination=formationDestination(state,map,s,center,slot),rallyDistance=Math.hypot(s.x-destination.x,s.y-destination.y),ordered=!!s.moveTarget,melee=s.kind==='samurai'||s.kind==='dog',settled=rallyDistance<=.7;
     // Hold a firing line instead of chasing every small target update. The

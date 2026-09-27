@@ -24,7 +24,7 @@ export interface HeavyProjectile extends Vec2 { kind:'mortar'|'rocket'; target:V
 export interface HeavyExplosion extends Vec2 { kind:'mortar'|'rocket'; age:number; life:number; scale:number; direction:Vec2; serial:number }
 export interface InfantryRocketProjectile extends Vec2 { target:Vec2; age:number; life:number; serial:number }
 export interface InfantryRocketExplosion extends Vec2 { age:number; life:number; serial:number }
-export interface TowerDef { overload?:boolean; id: TowerKind; name: string; description: string; cost: number; range: number; cooldown: number; damage: number; force: number; radius: number; peakPressureKpa:number; color: string; branches: readonly [string, string] }
+export interface TowerDef { chainTargets?:number; overload?:boolean; id: TowerKind; name: string; description: string; cost: number; range: number; cooldown: number; damage: number; force: number; radius: number; peakPressureKpa:number; color: string; branches: readonly [string, string] }
 export interface EnemyDef { id: EnemyKind; index: number; name: string; radius: number; mass: number; health: number; speed: number; drive: number; pressureLimit: number; crushResistance: number; bounty: number; leak: number; color: string }
 export interface Tower extends Vec2 { id: number; kind: TowerKind; level: number; branch: number; angle: number; cooldown: number; spent: number; groundTarget?:Vec2; crusherAnimation?:number; crusherRecharge?:number; kills?:number; veterancy?:number; veterancyXp?:number }
 export interface NavigationField { width: number; height: number; cellSize: number; vectors: Float32Array; alternateVectors: Float32Array; distances: Float32Array; version: number }

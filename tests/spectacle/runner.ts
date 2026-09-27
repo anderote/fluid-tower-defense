@@ -25,6 +25,10 @@ try{
   assert(Math.abs(particles[P.hp]-(shot===6?70:90))<.001,'Overload primary damage mismatch');checks++;
  }
  seed(chain);step();let charge=await read(shared.teslaState!,16,64*TESLA_LINKS*16);assert(charge[1]===0,'Overload continued after sixth shot');checks++;
+ combat.reset();definition.chainTargets=20;
+ seed(Array.from({length:32},(_,i)=>[30+i*3,16+(i%2)*2]));step();
+ const expanded=await read(shared.teslaState!,TESLA_LINKS*16);
+ assert(expanded.filter((_,i)=>i%4===2&&expanded[i]>=0).length===20,'Expanded chain target count was not sent to GPU');checks++;
  combat.reset();tower.kind='crusher';tower.x=30;tower.y=16;frame.towers=[{tower,definition:TOWERS.crusher}];
  seed([[30,16],[33.9,20.9],[34.1,16],[30,21.1]],50);step();let particles=await read(shared.particles,4*64);assert(particles[P.hp]===50,'Crusher fired automatically');checks++;
  frame.effects=[{kind:'crush',x:30,y:16,radius:6,damage:60,strength:18,direction:{x:0,y:1},cone:0,duration:.7,source:1}];step();

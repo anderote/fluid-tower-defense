@@ -177,3 +177,15 @@ test('fresh no-target GPU sensing lets every recruit reach its assigned rally po
    assert.ok(Math.hypot(soldier.x-destination.x,soldier.y-destination.y)<=.7,`${kind} should arrive at its rally slot`);
   }
 });
+
+test('flame troops sustain their stream between damage pulses and stop after losing a target',()=>{
+ const f=setup('flame');f.step(3.1);const soldier=f.state.soldiers[0];
+ let hits=0;
+ for(let i=0;i<60;i++){
+  f.threats.set(soldier.id,{target:0,generation:1,x:soldier.x+3,y:soldier.y,age:0,contact:0});
+  hits+=advanceInfantry(f.state,f.active,f.fields,f.threats,1/60,true).filter(shot=>shot.soldier===soldier.id).length;
+  assert.equal(soldier.flash,.12,'stream must stay lit through cooldown');
+ }
+ assert.equal(hits,3,'continuous visuals must preserve the existing damage cadence');
+ f.threats.clear();f.step(.2);assert.equal(soldier.flash,0);
+});

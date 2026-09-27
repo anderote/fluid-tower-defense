@@ -19,7 +19,7 @@ export const towerUpgradeCost=(level:number):number=>45+Math.max(0,Math.floor(le
 
 const tech=(id:string,name:string,category:string,description:string,cost:number,requires?:readonly string[]):CommandUpgrade=>({id,name,category,description,cost,requires,maxRank:20,unlockRank:3});
 export const COMMAND_UPGRADES: readonly CommandUpgrade[] = [
-  {id:'tesla-overload',name:'Tesla Overload',category:'WEAPONS',description:'Every sixth Tesla discharge deals 3× damage and chains through up to 12 targets.',cost:450,maxRank:1},
+  {id:'tesla-overload',name:'Tesla Overload',category:'WEAPONS',description:'Every sixth Tesla discharge deals 3× damage and adds 8 chain targets.',cost:450,maxRank:1},
   tech('ballistics','Ballistics','WEAPONS','Conventional weapon damage: +1% per rank.',180),
   tech('rifle-tech','Rifle Technology','WEAPONS','Rifle squads, Autocannons, and Railguns: +2% damage per rank.',300,['ballistics']),
   tech('precision-optics','Precision Optics','WEAPONS','Rifle squads, Autocannons, and Railguns: +1.5% range per rank.',280,['ballistics']),
@@ -28,6 +28,7 @@ export const COMMAND_UPGRADES: readonly CommandUpgrade[] = [
   tech('explosive-ordnance','Explosive Ordnance','WEAPONS','Explosive weapon damage: +1% per rank.',220),
   tech('high-explosives','High Explosives','WEAPONS','Mortars, Rocket Pods, and Rocket squads: +2% damage per rank.',360,['explosive-ordnance']),
   tech('energy-systems','Energy Systems','WEAPONS','Energy weapon force: +1% per rank.',220),
+  tech('chain-conduction','Chain Conduction','WEAPONS','Tesla Coils: +1 chain target per rank. Stacks with Storm Cell and veterancy.',360,['energy-systems']),
   tech('field-control','Field Control','WEAPONS','Repulsors, Cryo Emitters, and Tesla Coils: +1.5% force per rank.',320,['energy-systems']),
   tech('targeting-grid','Targeting Grid','COMMAND','Every tower: +1% range per rank.',380,['ballistics','energy-systems']),
   tech('infantry-armor','Infantry Armor','SURVIVAL','Every squad: +2% health and +1% damage reduction per rank.',300),
@@ -183,7 +184,9 @@ export function compileTower(tower: Tower, bonuses: readonly string[] = [], comm
   if (tower.kind==='mortar'||tower.kind==='rocket') damage*=1+techRank(commandUpgrades,'high-explosives')*.02;
   if (tower.kind==='repulsor'||tower.kind==='cryo'||tower.kind==='tesla') force*=1+techRank(commandUpgrades,'field-control')*.015;
   if(tower.kind==='crusher'){range=base.range;radius=base.radius;}
-  return {...base,range,cooldown,damage,force,radius,overload:tower.kind==='tesla'&&commandUpgrades.includes('tesla-overload'),peakPressureKpa:scaledPeakPressure(base,damage,force)};
+  const rank=Math.min(MAX_VETERANCY,Math.max(0,tower.veterancy??veterancyLevel(tower.veterancyXp??0)));
+  const chainTargets=tower.kind==='tesla'?4+(controlPath?2+level:0)+Math.floor(rank/10)+techRank(commandUpgrades,'chain-conduction'):undefined;
+  return {...base,range,cooldown,damage,force,radius,chainTargets,overload:tower.kind==='tesla'&&commandUpgrades.includes('tesla-overload'),peakPressureKpa:scaledPeakPressure(base,damage,force)};
 }
 
 function random(seed:number):()=>number { let state=(seed >>> 0) || 1; return ()=>{ state=(Math.imul(state,1664525)+1013904223)>>>0; return state / 0x1_0000_0000; }; }

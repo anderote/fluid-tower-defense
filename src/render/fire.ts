@@ -22,7 +22,16 @@ fn hidden()->Out{return output(vec2(1e6),vec2(0.),0.,0.,0.);}
  // rather than a translucent modern particle.
  let clock=floor(camera.time.x*12.);let victimFlame=i.smoke < -.5;
  let grid=select(vec2(3.,4.),vec2(2.,3.),victimFlame);let rows=grid.y*2.;
- let cell=floor((i.local+1.)*grid);let q=(cell+.5)/grid*2.-1.;
+ let cell=floor((i.local+1.)*grid);let q=select((cell+.5)/grid-1.,(cell+.5)/grid*2.-1.,victimFlame);
+ if(i.smoke==0.){
+  // Narrow bright fuel core inside a ragged orange tongue, aligned with flight.
+  let edge=.22+.62*(1.-q.x)*.5;
+  if(abs(q.y)>edge||abs(q.x)>1.){discard;}
+  let core=abs(q.y)/edge;var color=vec3(1.,.19,.012);
+  if(core<.62){color=vec3(1.,.51,.025);}
+  if(core<.24){color=vec3(1.,.91,.38);}
+  return vec4(color,i.life*.9);
+ }
  let row=clamp(cell.y,0.,rows-1.);let flicker=select(-.22,.22,(u32(clock+i.seed*7.+row)&1u)==1u);
  let width=.18+row*.76/(rows-1.);let shape=max(abs(q.x+flicker*(1.-row/rows))/width,abs(q.y));
  if(shape>1.){discard;}
@@ -45,24 +54,21 @@ export async function createFireEffects(device:GPUDevice,format:GPUTextureFormat
   const code=PREAMBLE+`
 @vertex fn jet(@builtin(vertex_index) vi:u32,@builtin(instance_index) i:u32)->Out{
  let t=towers[i];if(round(fract(t.w)*100.)!=7.){return hidden();}
- let s=shots[i];let elapsed=max(0.,s.timing.y-s.timing.x);
- if(s.timing.y<=0.||elapsed>min(.52,s.timing.y*.95)||abs(s.flags.x-t.z)>.5){return hidden();}
- let q=corner(vi);let shard=vi/6u;let smoke=shard>=24u;let k=f32(shard%24u);
- let age=fract(k/24.+elapsed*2.1);let seed=f32(i)*2.399+k*1.71;
+ let s=shots[i];
+ // Keep fuel flowing throughout the firing cycle. The simulation clears the
+ // countdown when no target can be acquired; never leave a stale jet running.
+ if(s.flags.y<1.||s.timing.x<=0.||abs(s.flags.x-t.z)>.5){return hidden();}
+ let q=corner(vi);let shard=vi/6u;let smoke=shard>=48u;let k=f32(shard%48u);
+ // Global simulation time keeps the plume moving across reload boundaries.
+ let age=fract(k/48.+camera.time.x*2.4);let seed=f32(i)*2.399+k*1.71;
  let angle=s.shot.w;let f=vec2(cos(angle),sin(angle));let side=vec2(-f.y,f.x);
- // The Flame Tower is a fixed, top-down structure.  Start its jet at the
- // raised furnace mouth rather than at the center of the old rotating model.
- // The small forward offset keeps the first flame tongue clear of the sprite.
  let muzzle=t.xy+f*1.18-vec2(0.,1.02);
- let range=max(1.,length(s.timing.zw-t.xy)-1.18);
- let reach=min(range,2.+elapsed/max(.04,min(.52,s.timing.y*.95))*range*3.);let along=age*reach;
- // Chunky, fast tongues retain the hot yellow core / orange edge of the
- // original flame weapon instead of reading as a smooth modern particle cone.
- let spread=sin(seed+floor(camera.time.x*12.)*.7)*(.1+age*1.12);
- let size=(.38+age*1.45)*select(1.,1.18,smoke);
- let center=muzzle+f*along+side*spread-vec2(0.,select(age*.32,age*1.55,smoke));
- let position=center+f*q.x*size*1.35+side*q.y*size;
- let fade=(1.-smoothstep(min(.52,s.timing.y*.95)*.55,min(.52,s.timing.y*.95),elapsed))*(1.-smoothstep(.78,1.,age));
+ let reach=max(1.,length(s.timing.zw-t.xy)-1.18);
+ let spread=sin(seed+camera.time.x*17.-age*8.)*(.06+age*age*.72);
+ let size=(.2+age*.82)*select(1.,1.2,smoke);
+ let center=muzzle+f*age*reach+side*spread-vec2(0.,select(age*.18,age*1.3,smoke));
+ let position=center+f*q.x*size*1.9+side*q.y*size;
+ let fade=(1.-smoothstep(.82,1.,age))*select(1.,.42,smoke);
  return output(position,q,fade,seed,select(0.,1.,smoke));
 }
 @vertex fn victim(@builtin(vertex_index) vi:u32,@builtin(instance_index) instance:u32)->Out{
@@ -117,7 +123,7 @@ export async function createFireEffects(device:GPUDevice,format:GPUTextureFormat
     const pass=encoder.beginComputePass({label:'Find burning enemies'});pass.setPipeline(compact);pass.setBindGroup(0,compactBind);pass.dispatchWorkgroups(Math.ceil(Math.min(shared.capacity,count)/128));pass.end();
    },
    draw(pass:GPURenderPassEncoder,count:number,towerCount:number){
-    pass.setPipeline(jet);pass.setBindGroup(0,jetBind);pass.draw(30*6,Math.min(64,towerCount));
+    pass.setPipeline(jet);pass.setBindGroup(0,jetBind);pass.draw(56*6,Math.min(64,towerCount));
     pass.setPipeline(victim);pass.setBindGroup(0,victimBind);if(count)pass.drawIndirect(indirect,0);
   },destroy(){burning.destroy();indirect.destroy();countUniform.destroy();}};
 }
