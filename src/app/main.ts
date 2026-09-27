@@ -38,7 +38,7 @@ import {advanceHeavyProjectiles,createHeavyProjectiles,type HeavyImpact} from '.
 import {turretEjection,turretMuzzlePoint,turretMuzzlePoints} from '../render/turret-art.ts';
 import {infantryMuzzle} from '../render/infantry-animation.ts';
 import {formatPressure,MANUAL_BLAST_PEAK_KPA,MANUAL_PUSH_PEAK_KPA} from '../sim/pressure/model.ts';
-import {barrierCost,barrierLength,barrierSegments,MIN_BARRIER_LENGTH,pointToBarrierDistance,sampleBarrier,simplifyBarrier,snapBarrierEndpoints,barrierRectDistance,barrierLinesConflict,type BarrierKind,type BarrierSegment} from '../game/barrier-path.ts';
+import {barrierCost,barrierLength,barrierSegments,MIN_BARRIER_LENGTH,pointToBarrierDistance,sampleBarrier,simplifyBarrier,snapBarrierEndpoints,barrierRectDistance,barrierPlacementConflict,type BarrierKind,type BarrierSegment} from '../game/barrier-path.ts';
 import {installInteractionGuards} from './interaction-guards.ts';
 
 const root=document.querySelector<HTMLElement>('#app')!;
@@ -338,7 +338,7 @@ try {
    const points=kind==='fence'?snapBarrierEndpoints(rawPoints,fenceTargets):rawPoints;
    const length=barrierLength(points),sections=barrierSegments(kind,nextBarrierRun,points),unitCost=kind==='fence'?CHAINLINK_FENCE_COST:45,cost=barrierCost(length,unitCost);
    const baseObstacles=map.obstacles.filter(obstacle=>!builtFences.some(section=>sameRect(obstacle,section)));
-   const conflict=sections.some(section=>infantry.state().buildings.some(building=>barrierRectDistance(section,{x:building.x-2,y:building.y-2,width:4,height:4})<.36)||(kind==='fence'&&builtWires.some(wire=>barrierLinesConflict(section,wire)))||builtFences.some(fence=>barrierLinesConflict(section,fence))||baseObstacles.some(obstacle=>barrierRectDistance(section,obstacle)<.36)||run.model.towers.some(tower=>pointToBarrierDistance(tower,section)<2));
+   const conflict=sections.some(section=>infantry.state().buildings.some(building=>barrierRectDistance(section,{x:building.x-2,y:building.y-2,width:4,height:4})<.36)||(kind==='fence'&&builtWires.some(wire=>barrierPlacementConflict(section,wire)))||builtFences.some(fence=>barrierPlacementConflict(section,fence))||baseObstacles.some(obstacle=>barrierRectDistance(section,obstacle)<.36)||run.model.towers.some(tower=>pointToBarrierDistance(tower,section)<2));
    const mapIssue=kind==='fence'&&!conflict?validateEditorMap({...map,obstacles:[...baseObstacles,...sections]}):undefined;
    const ended=run.model.phase==='won'||run.model.phase==='lost',valid=length>=MIN_BARRIER_LENGTH&&!!sections.length&&!conflict&&!mapIssue&&!ended&&run.model.metal>=cost;
    const reason=length<MIN_BARRIER_LENGTH?'Drag farther to place a barrier.':conflict?'Barrier paths must stay clear of walls, the other barrier type, barracks, and towers.':mapIssue??(ended?'Barriers cannot be placed after the run ends.':run.model.metal<cost?`Need ${cost} Metal for this ${kind==='fence'?'fence':'wire'} run.`:'');
