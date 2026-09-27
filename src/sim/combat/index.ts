@@ -2,7 +2,7 @@ import {FIRE_STATE_BYTES,FIRE_STATE_WGSL,FIRE_BURN_SECONDS} from '../../effects/
 import {HEAVY_SALVO_SLOTS,impactTickOffset} from '../../effects/heavy-weapons.ts';
 import {TESLA_STATE_WGSL,TESLA_LINKS,TESLA_HEADER_BYTES,TESLA_PARTICLE_BYTES} from '../../effects/tesla.ts';
 import {createAftermathEvents} from '../../effects/aftermath.ts';
-import { PARTICLE_WGSL, HORDE_PRESSURE_COUNTER, MAX_EFFECTS, MAX_INFANTRY_KILL_SLOTS, type SharedGPU, type PhysicsFrame, type Tower, type TowerDef, type TowerKind } from '../../contracts/index.ts';
+import { PARTICLE_WGSL, HORDE_PRESSURE_COUNTER, MAX_EFFECTS, MAX_INFANTRY_KILL_SLOTS, type Rect, type SharedGPU, type PhysicsFrame, type Tower, type TowerDef, type TowerKind } from '../../contracts/index.ts';
 import { ENEMY_BOUNTY_DIVISOR, ENEMY_WGSL, towerBehavior } from '../../content/index.ts';
 import {sameObstacles} from '../physics/obstacles.ts';
 import {HORDE_APPROACH} from '../../contracts/index.ts';
@@ -24,7 +24,7 @@ export function reloadMultiplier(towerId:number,shot:number,variance=RELOAD_JITT
   return 1-variance+(seed&65535)/65535*(variance*2);
 }
 
-export interface CombatFrame extends PhysicsFrame { towers:readonly {tower:Tower;definition:TowerDef}[] }
+export interface CombatFrame extends PhysicsFrame { sightObstacles?:readonly Rect[]; towers:readonly {tower:Tower;definition:TowerDef}[] }
 export interface ShotSnapshot { id:number;x:number;y:number;angle:number;fired:boolean }
 export interface CombatModule { encodeBefore(encoder:GPUCommandEncoder,frame:CombatFrame):void;encodeAfter(encoder:GPUCommandEncoder,frame:CombatFrame):void;reset():void;clearAftermath():void;resetAttribution():void;destroy():void;readonly shotState:GPUBuffer }
 
@@ -344,12 +344,13 @@ fn roundFall(round:Round,point:vec2f,bodyRadius:f32)->vec3f {
   return {
     shotState:state,
     encodeBefore(encoder,frame){
-      if(frame.towers.length>MAX_TOWERS||frame.effects.length>MAX_EFFECTS||frame.map.obstacles.length>MAX_COMBAT_OBSTACLES)throw new Error('Combat command capacity exceeded');
+      const sightObstacles=frame.sightObstacles??frame.map.obstacles;
+      if(frame.towers.length>MAX_TOWERS||frame.effects.length>MAX_EFFECTS||sightObstacles.length>MAX_COMBAT_OBSTACLES)throw new Error('Combat command capacity exceeded');
       const cellSize=Math.max(8,Math.ceil((frame.map.width+HORDE_APPROACH)/256),Math.ceil(frame.map.height/256)),columns=Math.ceil((frame.map.width+HORDE_APPROACH)/cellSize),rows=Math.ceil(frame.map.height/cellSize);
-      const u=new Float32Array([frame.dt,frame.tick,frame.count,frame.towers.length,frame.map.goal.x,frame.map.goal.y,frame.map.goalRadius,frame.lab?1:0,frame.tuning.crushDamage,0,frame.effects.length,0,frame.map.obstacles.length,spatialTargets?cellSize:0,columns,rows]);device.queue.writeBuffer(uniforms,0,u);
+      const u=new Float32Array([frame.dt,frame.tick,frame.count,frame.towers.length,frame.map.goal.x,frame.map.goal.y,frame.map.goalRadius,frame.lab?1:0,frame.tuning.crushDamage,0,frame.effects.length,0,sightObstacles.length,spatialTargets?cellSize:0,columns,rows]);device.queue.writeBuffer(uniforms,0,u);
       const data=new Float32Array(Math.max(1,frame.towers.length)*16);
       frame.towers.forEach(({tower:t,definition:d},i)=>{data.set([t.x,t.y,d.range,towerBehavior(t.kind),d.cooldown,d.damage,d.force,d.radius,t.id,t.branch,t.kind==='tesla'?1:0,t.kind==='railgun'||d.overload?1:0,t.groundTarget?.x??0,t.groundTarget?.y??0,t.groundTarget?1:0,0],i*16);});device.queue.writeBuffer(towers,0,data);
-      if(!sameObstacles(obstacleSnapshot,frame.map.obstacles)){obstacleSnapshot=new Float32Array(frame.map.obstacles.length*4);const sightData=new Float32Array(frame.map.obstacles.length*16);frame.map.obstacles.forEach((o,i)=>{const rect=[o.x,o.y,o.width,o.height];sightData.set(rect,i*16);obstacleSnapshot.set(rect,i*4);});if(sightData.length)device.queue.writeBuffer(towers,MAX_TOWERS*64,sightData);}
+      if(!sameObstacles(obstacleSnapshot,sightObstacles)){obstacleSnapshot=new Float32Array(sightObstacles.length*4);const sightData=new Float32Array(sightObstacles.length*16);sightObstacles.forEach((o,i)=>{const rect=[o.x,o.y,o.width,o.height];sightData.set(rect,i*16);obstacleSnapshot.set(rect,i*4);});if(sightData.length)device.queue.writeBuffer(towers,MAX_TOWERS*64,sightData);}
       if(frame.effects.length){const values=new Float32Array(frame.effects.length*12);frame.effects.forEach((e,i)=>values.set([e.x,e.y,e.radius,e.damage,e.direction.x,e.direction.y,e.cone,e.duration,['blast','push','slow','shot','corpse-blast','flood','crush'].indexOf(e.kind),e.strength,e.source,0],i*12));device.queue.writeBuffer(effects,0,values);}
       aftermath.before(encoder,frame.count);
       if(spatialTargets&&frame.towers.length&&frame.count){encoder.clearBuffer(effects,MAX_EFFECTS*48,columns*rows*4);const pass=encoder.beginComputePass({label:'Index combat targets'});pass.setPipeline(binPipeline);pass.setBindGroup(0,bind);pass.dispatchWorkgroups(Math.ceil(frame.count/128));pass.end();}

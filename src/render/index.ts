@@ -19,6 +19,7 @@ import type {WireArtStyle} from './wire-art.ts';
 import {SHOT_GEOMETRY_WGSL} from './shot-geometry.ts';
 import {createShamblers} from './shamblers.ts';
 import {ZOMBIE_ROSTER_WGSL} from './zombie-roster.ts';
+import {firingObstacles} from '../game/terrain.ts';
 import {lineOfSightPolygon} from './line-of-sight.ts';
 import {createCorpseFieldRenderer} from './corpse-field.ts';
 
@@ -373,8 +374,9 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
     const focused=scene.selection===null?undefined:scene.towers.find(tower=>tower.id===scene.selection);
     if(focused&&scene.selectionRange){
       const color:[number,number,number,number]=focused.kind==='incinerator'?[1,.25,.055,.105]:focused.kind==='rocket'?[1,.32,.15,.09]:focused.kind==='railgun'?[.25,1,.74,.09]:focused.kind==='autocannon'?[1,.82,.25,.09]:[.55,.9,1,.075];
-      const nextSightKey=[focused.id,focused.x,focused.y,focused.kind,scene.selectionRange,...scene.map.obstacles.flatMap(obstacle=>[obstacle.x,obstacle.y,obstacle.width,obstacle.height])].join('|');
-      if(nextSightKey!==sightKey){sightKey=nextSightKey;sightPoints=towerRequiresLineOfSight(focused.kind)?lineOfSightPolygon(focused,scene.selectionRange,scene.map.obstacles,128):Array.from({length:128},(_,index)=>{const angle=index/128*Math.PI*2;return {x:focused.x+Math.cos(angle)*scene.selectionRange!,y:focused.y+Math.sin(angle)*scene.selectionRange!};});}
+      const sightObstacles=firingObstacles(scene.map.obstacles,activeFences);
+      const nextSightKey=[focused.id,focused.x,focused.y,focused.kind,scene.selectionRange,...sightObstacles.flatMap(obstacle=>[obstacle.x,obstacle.y,obstacle.width,obstacle.height])].join('|');
+      if(nextSightKey!==sightKey){sightKey=nextSightKey;sightPoints=towerRequiresLineOfSight(focused.kind)?lineOfSightPolygon(focused,scene.selectionRange,sightObstacles,128):Array.from({length:128},(_,index)=>{const angle=index/128*Math.PI*2;return {x:focused.x+Math.cos(angle)*scene.selectionRange!,y:focused.y+Math.sin(angle)*scene.selectionRange!};});}
       const points=sightPoints;
       for(let index=0;index<points.length;index++)tri(a,focused,points[index],points[(index+1)%points.length],color);
       const edge:[number,number,number,number]=[color[0],color[1],color[2],.34];
