@@ -75,3 +75,31 @@ export function snapBarrierEndpoints(points:readonly Vec2[],targets:readonly Vec
   }
   return result;
 }
+
+/** Minimum distance between a barrier centerline and an axis-aligned rectangle. */
+export function barrierRectDistance(segment:Pick<BarrierSegment,'from'|'to'>,rect:Rect):number{
+  const {from:a,to:b}=segment,dx=b.x-a.x,dy=b.y-a.y;
+  const inside=(p:Vec2)=>p.x>=rect.x&&p.x<=rect.x+rect.width&&p.y>=rect.y&&p.y<=rect.y+rect.height;
+  const pointRect=(p:Vec2)=>Math.hypot(Math.max(rect.x-p.x,0,p.x-(rect.x+rect.width)),Math.max(rect.y-p.y,0,p.y-(rect.y+rect.height)));
+  const tRange=[0,1];
+  for(const [origin,direction,min,max] of [[a.x,dx,rect.x,rect.x+rect.width],[a.y,dy,rect.y,rect.y+rect.height]] as const){
+    if(Math.abs(direction)<1e-9){if(origin<min||origin>max)return Math.min(pointRect(a),pointRect(b));}
+    else {const t1=(min-origin)/direction,t2=(max-origin)/direction;tRange[0]=Math.max(tRange[0],Math.min(t1,t2));tRange[1]=Math.min(tRange[1],Math.max(t1,t2));}
+  }
+  if(tRange[0]<=tRange[1]&&tRange[0]<=1&&tRange[1]>=0)return 0;
+  const pointSegment=(p:Vec2)=>{const length=dx*dx+dy*dy,t=length?Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/length)):0;return Math.hypot(p.x-a.x-dx*t,p.y-a.y-dy*t);};
+  if(inside(a)||inside(b))return 0;
+  return Math.min(pointRect(a),pointRect(b),...[
+    {x:rect.x,y:rect.y},{x:rect.x+rect.width,y:rect.y},{x:rect.x,y:rect.y+rect.height},{x:rect.x+rect.width,y:rect.y+rect.height},
+  ].map(pointSegment));
+}
+
+/** Two runs may meet at shared endpoints; all other close approaches conflict. */
+export function barrierLinesConflict(a:Pick<BarrierSegment,'from'|'to'>,b:Pick<BarrierSegment,'from'|'to'>,clearance=.72):boolean{
+  const endpointsA=[a.from,a.to],endpointsB=[b.from,b.to];
+  if(endpointsA.some(p=>endpointsB.some(q=>distance(p,q)<.02)))return false;
+  const orient=(p:Vec2,q:Vec2,r:Vec2)=>(q.x-p.x)*(r.y-p.y)-(q.y-p.y)*(r.x-p.x);
+  if(orient(a.from,a.to,b.from)*orient(a.from,a.to,b.to)<=0&&orient(b.from,b.to,a.from)*orient(b.from,b.to,a.to)<=0)return true;
+  const candidates=[pointToBarrierDistance(a.from,b),pointToBarrierDistance(a.to,b),pointToBarrierDistance(b.from,a),pointToBarrierDistance(b.to,a)];
+  return Math.min(...candidates)<clearance;
+}
