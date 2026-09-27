@@ -63,7 +63,7 @@ export function waveFor(level:number,wave:number,mapId?:string):Wave {
   const weights=new Map(PHASE_WEIGHTS[phase]);
   if(cycle>0){for(const kind of ['runner','brute','rager','softbody','husk'] as const)weights.set(kind,(weights.get(kind)??0)+.025);}
   const weightTotal=[...weights.values()].reduce((sum,value)=>sum+value,0);
-  const arrivalRate=Math.min(180,90+threat*6);
+  const arrivalRate=Math.min(1_200,90+threat*30);
   const duration=total/arrivalRate;
   const spawns:SpawnBatch[]=[];
   let assigned=0,index=0;

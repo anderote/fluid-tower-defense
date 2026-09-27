@@ -66,3 +66,19 @@ test('blocked entrances preserve the current beat and restarting restores its op
  run.restartWave();assert.equal(run.spawnPressure,opening);
  assert.ok(run.takeSpawns(65_536,1/60).reduce((sum,b)=>sum+b.count,0)<10,'restart must clear stored arrival credit');
 });
+
+
+test('higher levels deliver substantially faster arrivals through the physical inlet',()=>{
+ const emitted=(level:number)=>{
+  const run=createRun(),front=new HordeFront();run.model.level=level;run.startWave();let count=0;
+  for(let tick=0;tick<3600;tick++){
+   const positions=front.advance(1/60,DEFAULT_MAP,(level-1)*10+1,1,run.model.pending,run.spawnPressure);
+   count+=run.takeSpawns(positions.length,1/60).reduce((sum,b)=>sum+b.count,0);
+  }
+  return count;
+ };
+ assert.ok(waveFor(2,1).peakRate>waveFor(1,1).peakRate*4);
+ const opening=emitted(1),second=emitted(2),third=emitted(3);
+ assert.ok(second>opening*2,`level two arrivals ${second} must exceed opening ${opening} substantially`);
+ assert.ok(third>second,`level three arrivals ${third} must keep increasing beyond ${second}`);
+});
