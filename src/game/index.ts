@@ -1,5 +1,4 @@
 import {canFinishWaveEarly} from './wave-progress.ts';
-import {DAM_ID} from '../content/dam.ts';
 import {COMMAND_UPGRADES, compileTower, DEFAULT_MAP, MAX_TOWER_LEVEL, MAX_VETERANCY, TOWERS, towerUpgradeCost, veterancyLevel} from '../content/index.ts';
 import {crusherPassageIssue,hasSpawnRoute,canPlace, mapWithTurretObstacles, resolvePlacement} from '../navigation/index.ts';
 import {commandUpgradeAvailability,researchCost,researchRank} from './research.ts';
@@ -36,11 +35,11 @@ const copy = (model:RunModel):RunModel => ({...model,towers:model.towers.map(t=>
 const fresh = ():RunModel => ({phase:'preparation',metal:STARTING_METAL,salvageCredit:0,baseHealth:20,level:1,wave:0,waveCount:WAVES_PER_LEVEL,towers:[],selected:null,pending:[],bonusChoices:[],bonuses:[],commandUpgrades:[],unlockedTowers:[...STARTER_TOWERS],statRanks:{}});
 
 const PHASE_WEIGHTS:readonly (readonly [SpawnBatch['kind'],number])[][]=[
-  [['shambler',1]],
-  [['shambler',.76],['runner',.24]],
-  [['shambler',.56],['runner',.12],['husk',.32]],
-  [['shambler',.57],['runner',.2],['brute',.23]],
-  [['shambler',.42],['husk',.38],['brute',.2]],
+  [['shambler',.65],['runner',.15],['husk',.12],['brute',.04],['rager',.02],['softbody',.02]],
+  [['shambler',.55],['runner',.2],['husk',.12],['brute',.06],['rager',.05],['softbody',.02]],
+  [['shambler',.45],['runner',.18],['husk',.2],['brute',.08],['rager',.06],['softbody',.03]],
+  [['shambler',.4],['runner',.2],['husk',.15],['brute',.1],['rager',.1],['softbody',.05]],
+  [['shambler',.35],['runner',.18],['husk',.18],['brute',.12],['rager',.1],['softbody',.07]],
   [['shambler',.46],['runner',.13],['brute',.12],['rager',.29]],
   [['shambler',.34],['runner',.25],['husk',.2],['rager',.21]],
   [['shambler',.3],['runner',.12],['brute',.16],['rager',.16],['softbody',.26]],
@@ -55,17 +54,12 @@ const burstFor=(_kind:SpawnBatch['kind']):number=>1;
 export function waveFor(level:number,wave:number,mapId?:string):Wave {
   const globalWave=Math.max(1,Math.floor(wave>WAVES_PER_LEVEL?wave:(Math.max(1,level)-1)*WAVES_PER_LEVEL+wave));
   const threat=globalWave-1,phase=(globalWave-1)%WAVES_PER_LEVEL,cycle=Math.floor((globalWave-1)/WAVES_PER_LEVEL);
-  // Short opening encounters; later difficulty grows through composition and health,
-  // not an unbounded backlog multiplied by the physical inlet width.
-  // Introducing brutes slows the physical front and adds much tougher bodies.
-  // Trade numbers for that new threat instead of tripling the arrival window.
-  const openingTotals=[1_200,1_800,2_400,1_700,1_800];
-  const total=mapId===DAM_ID&&globalWave===1?1_320:openingTotals[globalWave-1]??Math.min(12_000,1_200+threat*600);
-  const healthScale=1+Math.max(0,globalWave-WAVES_PER_LEVEL)*.035;
+  // Larger sustained hordes share a fixed quota across all inlet widths and maps.
+  const openingTotals=[5_000,10_000,15_000,25_000,50_000];
+  const total=openingTotals[globalWave-1]??Math.min(250_000,50_000+(globalWave-5)*10_000);
+  const healthScale=1+threat*.035;
   const seed=(globalWave*10_000+globalWave*977)>>>0;
   const weights=new Map(PHASE_WEIGHTS[phase]);
-  if(globalWave===4){weights.set('shambler',.68);weights.set('brute',.12);}
-  if(globalWave===5){weights.set('shambler',.5);weights.set('brute',.12);}
   if(cycle>0){for(const kind of ['runner','brute','rager','softbody','husk'] as const)weights.set(kind,(weights.get(kind)??0)+.025);}
   const weightTotal=[...weights.values()].reduce((sum,value)=>sum+value,0);
   const arrivalRate=Math.min(180,90+threat*6);

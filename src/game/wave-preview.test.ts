@@ -39,7 +39,7 @@ test('flow multiplier affects forecast rate but not enemy counts or rewards', ()
   assert.equal(fast.rampSeconds, normal.rampSeconds);
   assert.deepEqual(fast.enemies, normal.enemies);
   assert.equal(fast.payment, normal.payment);
-  assert.deepEqual(normal.enemies.map(enemy => enemy.kind), ['shambler','runner','brute']);
+  assert.deepEqual(normal.enemies.map(enemy => enemy.kind), ['shambler','runner','husk','brute','rager','softbody']);
 });
 
 test('forecast is absent outside game preparation and survives a saved-run restore', () => {
