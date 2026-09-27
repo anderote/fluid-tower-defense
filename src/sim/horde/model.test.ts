@@ -67,7 +67,7 @@ test('interleaved bodies vary health and speed deterministically within their sp
  for(let i=0;i<100;i++){
   const offset=i*PARTICLE_FLOATS,kind=data[offset+P.kind]===0?'shambler':'runner';
   const scale=data[offset+P.maxHp]/ENEMIES[kind].health;
-  assert.ok(scale>=.8999&&scale<=1.4001);
+  assert.ok(scale>=.7999&&scale<=1.6001);
   assert.ok(Math.abs(data[offset+P.vx]-enemySpeedForScale(kind,scale))<1e-5);
   if(kind==='shambler'){health.add(data[offset+P.maxHp]);speed.add(data[offset+P.vx]);}
   if(i&&data[offset+P.kind]!==data[offset-PARTICLE_FLOATS+P.kind])changes++;

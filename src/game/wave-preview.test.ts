@@ -20,7 +20,7 @@ test('forecast matches queued enemies, completion payout, and boss at every leve
     assert.deepEqual(preview.enemies.map(({kind, count}) => ({kind, count})),
       [...queued].map(([kind,count])=>({kind,count})));
     assert.equal(preview.boss, run.isBossWave);
-    const spawned = run.takeSpawns(65_536);
+    const spawned = run.takeSpawns(preview.total);
     assert.equal(preview.total, spawned.reduce((sum, batch) => sum + batch.count, 0));
     const metal = run.model.metal;
     run.applySettlement({epoch:run.epoch, tick, kills:0, crushKills:0, leaks:0, earned:0, live:0, invalid:0, maxPacking:0});

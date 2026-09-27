@@ -12,17 +12,25 @@ test('advance unlocks at exactly 95%, including queued enemies and excluding act
  assert.equal(canFinishWaveEarly({total:0,queued:0,live:0},'combat'),false);
 });
 
-test('early completion rewards the wave once without awarding kills or salvage for stragglers',()=>{
+test('early advancement rewards the wave once and keeps surviving enemies live',()=>{
  const run=createRun();run.startWave();const total=waveFor(1,1).total;
  run.takeSpawns(total);
  run.applySettlement({epoch:run.epoch,tick:1,kills:Math.ceil(total*.95),crushKills:0,leaks:0,earned:0,live:Math.floor(total*.05),invalid:0,maxPacking:0});
  const metal=run.model.metal;
  assert.equal(run.finishWaveEarly().ok,true);
  assert.equal(run.model.metal,metal+waveFor(1,1).payment);
- assert.deepEqual(run.waveProgress,{total,queued:0,live:0});
+ assert.deepEqual(run.waveProgress,{total,queued:0,live:Math.floor(total*.05)});
  assert.equal(run.finishWaveEarly().ok,false);
  assert.equal(run.model.metal,metal+waveFor(1,1).payment);
  assert.equal(run.startWave().ok,true);assert.equal(run.model.wave,2);
+ assert.equal(run.waveProgress.live,Math.floor(total*.05));
+ assert.equal(run.waveProgress.queued,waveFor(1,2).total);
+ assert.equal(run.waveProgress.total,waveFor(1,2).total+Math.floor(total*.05));
+ // The old survivors still grant normal salvage and can damage the base.
+ const beforeHealth=run.model.baseHealth;
+ run.applySettlement({epoch:run.epoch,tick:2,kills:Math.ceil(total*.95)+10,crushKills:0,leaks:1,earned:2,live:Math.floor(total*.05)-11,invalid:0,maxPacking:0});
+ assert.equal(run.model.metal,metal+waveFor(1,1).payment+2);
+ assert.equal(run.model.baseHealth,beforeHealth-1);
 });
 
 test('early completion cannot skip most of a wave or bypass boons and extraction',()=>{
@@ -36,4 +44,25 @@ test('early completion cannot skip most of a wave or bypass boons and extraction
   assert.equal(run.model.phase,wave===10?'checkpoint':'preparation');
   if(wave===3)assert.ok(run.model.bonusChoices.length);
  }
+});
+
+test('early advancement carries unspawned enemies alongside the next wave and restart clears carryover',()=>{
+ const run=createRun();run.startWave();const total=waveFor(1,1).total;
+ run.takeSpawns(total-20);
+ run.applySettlement({epoch:run.epoch,tick:1,kills:total-50,crushKills:0,leaks:0,earned:0,live:30,invalid:0,maxPacking:0});
+ assert.equal(run.finishWaveEarly().ok,true);
+ assert.equal(run.waveProgress.queued,20);assert.equal(run.waveProgress.live,30);
+ assert.equal(run.startWave().ok,true);
+ assert.equal(run.waveProgress.queued,waveFor(1,2).total+20);
+ assert.equal(run.waveProgress.total,waveFor(1,2).total+50);
+ run.restartWave();assert.deepEqual(run.waveProgress,{total:waveFor(1,2).total,queued:waveFor(1,2).total,live:0});
+});
+
+test('old enemies keep spawning while choosing boons and relocation waits for survivors',()=>{
+ const run=createRun();run.model.wave=2;run.startWave();const total=waveFor(1,3).total;
+ run.takeSpawns(total-10);run.applySettlement({epoch:run.epoch,tick:1,kills:total-10,crushKills:0,leaks:0,earned:0,live:0,invalid:0,maxPacking:0});
+ assert.equal(run.finishWaveEarly().ok,true);assert.ok(run.model.bonusChoices.length);
+ assert.equal(run.takeSpawns(10).reduce((sum,b)=>sum+b.count,0),10);
+ assert.equal(run.waveProgress.live,10);
+ run.model.phase='checkpoint';assert.equal(run.continueRun({id:'next',width:20,height:20,goal:{x:18,y:10},goalRadius:1,spawn:{x:0,y:0,width:1,height:20},obstacles:[]}).ok,false);
 });
