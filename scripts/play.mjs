@@ -36,14 +36,14 @@ export function createLocalServer(root,{lan=false}={}){
     if(!local||key!==hostKey||!lan)return fail(403,'Host unavailable');
     if(host)return fail(409,'Another host tab is sharing');
     res.writeHead(200,{'Content-Type':'text/event-stream','Connection':'keep-alive'});res.write(': connected\n\n');host=res;enabled=true;
-    req.on('close',()=>{if(host===res){host=null;enabled=false;latest=null;broadcast('offline',{});}});return;
+    res.on('close',()=>{if(host===res){host=null;enabled=false;latest=null;broadcast('offline',{});}});return;
    }
    if(url.pathname==='/coop/events'&&req.method==='GET'){
     if(!lan||key!==guestKey)return fail(403,'Invalid join link');
     if(guests.size>=2)return fail(409,'Room full');
     res.writeHead(200,{'Content-Type':'text/event-stream','Connection':'keep-alive'});res.write(': connected\n\n');guests.add(res);
     if(latest&&Date.now()-lastFrame<3000)send(res,'frame',latest);else send(res,'offline',{});
-    req.on('close',()=>guests.delete(res));return;
+    res.on('close',()=>guests.delete(res));return;
    }
    if(url.pathname==='/coop/frame'&&req.method==='POST'){
     if(!local||key!==hostKey||!enabled)return fail(403,'Sharing is off');
