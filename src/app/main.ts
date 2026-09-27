@@ -38,7 +38,7 @@ import {advanceHeavyProjectiles,createHeavyProjectiles,type HeavyImpact} from '.
 import {turretEjection,turretMuzzlePoint,turretMuzzlePoints} from '../render/turret-art.ts';
 import {infantryMuzzle} from '../render/infantry-animation.ts';
 import {formatPressure,MANUAL_BLAST_PEAK_KPA,MANUAL_PUSH_PEAK_KPA} from '../sim/pressure/model.ts';
-import {barrierCost,barrierLength,barrierSegments,MIN_BARRIER_LENGTH,pointToBarrierDistance,sampleBarrier,simplifyBarrier,type BarrierKind,type BarrierSegment} from '../game/barrier-path.ts';
+import {barrierCost,barrierLength,barrierSegments,MIN_BARRIER_LENGTH,pointToBarrierDistance,sampleBarrier,simplifyBarrier,snapBarrierEndpoints,type BarrierKind,type BarrierSegment} from '../game/barrier-path.ts';
 import {installInteractionGuards} from './interaction-guards.ts';
 
 const root=document.querySelector<HTMLElement>('#app')!;
@@ -333,14 +333,16 @@ try {
    }
  },error=>errors.push(`shot readback: ${String(error)}`));
  const placeWall=(wall:Rect)=>{if(infantry.state().buildings.some(b=>Math.abs(b.x-(wall.x+2))<4&&Math.abs(b.y-(wall.y+2))<4)){state.message='Keep the barracks foundation clear.';return;}const existing=builtWalls.find(candidate=>candidate.x===wall.x&&candidate.y===wall.y);if(existing){if(existing.health>=existing.maxHealth){state.message='Metal wall is already at full integrity.';return;}const result=run.spendMetal(METAL_WALL_COST);if(!result.ok){state.message=result.reason??'Could not reinforce wall.';return;}existing.health=existing.maxHealth;state.message='Metal wall reinforced to full integrity.';return;}const capacity=wallCapacity(0),builtWall={...wall,health:capacity,maxHealth:capacity};const issue=previewStructure(map,run.model.towers,builtWall);if(issue){state.message=issue;return;}const result=run.spendMetal(METAL_WALL_COST);if(!result.ok){state.message=result.reason??'Could not build wall.';return;}builtWalls.push(builtWall);map={...map,obstacles:[...map.obstacles,builtWall]};run.setMap(map);syncTowerMounts();refreshNavigation();state.message='Metal wall installed. Link wall sections to add shared turret hardpoints.';};
- const barrierPlan=(kind:BarrierKind,points:readonly Vec2[])=>{
+ const barrierPlan=(kind:BarrierKind,rawPoints:readonly Vec2[])=>{
+   const fenceTargets=kind==='fence'?[...new Map(builtFences.map(section=>[section.run,section])).values()].flatMap(section=>{const run=builtFences.filter(candidate=>candidate.run===section.run);return [run[0].from,run.at(-1)!.to];}):[];
+   const points=kind==='fence'?snapBarrierEndpoints(rawPoints,fenceTargets):rawPoints;
    const length=barrierLength(points),sections=barrierSegments(kind,nextBarrierRun,points),unitCost=kind==='fence'?CHAINLINK_FENCE_COST:45,cost=barrierCost(length,unitCost);
    const baseObstacles=map.obstacles.filter(obstacle=>!builtFences.some(section=>sameRect(obstacle,section)));
-   const conflict=sections.some(section=>blocksBarracks(section)||builtWires.some(wire=>overlaps(wire,section))||builtFences.some(fence=>overlaps(fence,section))||baseObstacles.some(obstacle=>overlaps(obstacle,section))||run.model.towers.some(tower=>Math.hypot(tower.x-(section.x+section.width/2),tower.y-(section.y+section.height/2))<2));
+   const conflict=sections.some(section=>blocksBarracks(section)||(kind==='fence'&&builtWires.some(wire=>overlaps(wire,section)))||builtFences.some(fence=>overlaps(fence,section)&&!([points[0],points.at(-1)!].some(endpoint=>Math.hypot(endpoint.x-(section.x+section.width/2),endpoint.y-(section.y+section.height/2))<=1.1)&&![fence.from,fence.to].some(endpoint=>Math.hypot(endpoint.x-(section.x+section.width/2),endpoint.y-(section.y+section.height/2))<=1.1)))||baseObstacles.some(obstacle=>overlaps(obstacle,section))||run.model.towers.some(tower=>Math.hypot(tower.x-(section.x+section.width/2),tower.y-(section.y+section.height/2))<2));
    const mapIssue=kind==='fence'&&!conflict?validateEditorMap({...map,obstacles:[...baseObstacles,...sections]}):undefined;
    const ended=run.model.phase==='won'||run.model.phase==='lost',valid=length>=MIN_BARRIER_LENGTH&&!!sections.length&&!conflict&&!mapIssue&&!ended&&run.model.metal>=cost;
    const reason=length<MIN_BARRIER_LENGTH?'Drag farther to place a barrier.':conflict?'Barrier paths must stay clear of walls, the other barrier type, barracks, and towers.':mapIssue??(ended?'Barriers cannot be placed after the run ends.':run.model.metal<cost?`Need ${cost} Metal for this ${kind==='fence'?'fence':'wire'} run.`:'');
-   return {sections,cost,valid,reason};
+   return {sections,cost,valid,reason,points};
  };
  const placeBarrier=(kind:BarrierKind,rawPoints:readonly Vec2[])=>{
    const points=kind==='fence'?[rawPoints[0],rawPoints.at(-1)!]:simplifyBarrier(rawPoints),plan=barrierPlan(kind,points);if(!plan.valid){state.message=plan.reason;return;}
