@@ -83,13 +83,17 @@ export function buildNavigation(map: WorldMap, clearance=MAX_BODY_RADIUS+OBSTACL
   // back to reachable ground instead of falling back to a line through a wall.
   for(let y=0;y<height;y++)for(let x=0;x<width;x++){
     const at=index(x,y);if(Number.isFinite(distances[at]))continue;
-    let nearest=Infinity,bx=x,by=y;
+    let nearest=Infinity,bestRoute=Infinity,bx=x,by=y,escapeX=0,escapeY=0;
     for(let dy=-3;dy<=3;dy++)for(let dx=-3;dx<=3;dx++){
       const nx=x+dx,ny=y+dy;if(nx<0||ny<0||nx>=width||ny>=height||!Number.isFinite(distances[index(nx,ny)]))continue;
       const distance=dx*dx+dy*dy;
-      if(distance<nearest){nearest=distance;bx=nx;by=ny;}
+      const route=distances[index(nx,ny)];
+      if(distance<nearest){nearest=distance;bestRoute=route;bx=nx;by=ny;escapeX=dx;escapeY=dy;}
+      else if(distance===nearest){escapeX+=dx;escapeY+=dy;if(route<bestRoute){bestRoute=route;bx=nx;by=ny;}}
     }
-    if(Number.isFinite(nearest)){const length=Math.hypot(bx-x,by-y);vectors[at*2]=(bx-x)/length;vectors[at*2+1]=(by-y)/length;}
+    // At a corner, escape both wall faces. A cardinal waypoint can steer a
+    // body back into the other face and repeatedly cancel its whole swept step.
+    if(Number.isFinite(nearest)){if(!escapeX&&!escapeY){escapeX=bx-x;escapeY=by-y;}const length=Math.hypot(escapeX,escapeY);vectors[at*2]=escapeX/length;vectors[at*2+1]=escapeY/length;}
   }
   return {width,height,cellSize:CELL_SIZE,vectors,alternateVectors,distances,version:++version};
 }

@@ -58,6 +58,8 @@ Public deployment uses Sites with an R2 relay declared in `.openai/hosting.json`
 
 Validation: `node --test server/worker.test.mjs scripts/play.test.mjs` checks relay isolation and input bounds. `PORT=5205 node scripts/preview-cloud.mjs` serves a test-only in-memory version of the exact Worker, after `npm run build`. Copy `tests/public-coop/index.html` to `dist/tests/public-coop/index.html` and open `/tests/public-coop/` there for the real two-browser-interface test. Never use the preview adapter as a public server.
 
+For the full three-client endurance test, open `/tests/coop-endurance/` on the dedicated preview or public game origin and choose **Run host + two partners**. It builds a defense using the normal 3,000 Metal budget, alternates purchases between partners, reconnects one partner, checks cross-client pause/resume, releases floods, and waits for the entire 5,000-enemy dam wave to clear. The report includes command latency, wave progress, integrity, and browser/GPU errors. Use the view buttons to visually inspect both partners, then **Stop and restore saves**. Do not run this beside another active game on the same origin; the test temporarily backs up that origin’s saves.
+
 ### On a plane
 
 See [the complete hotspot setup, undo, and partner guide](docs/PLANE-COOP.md). It includes a macOS-only offline Wi-Fi hotspot workaround and explicit recovery steps. The partner needs only a browser.

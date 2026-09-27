@@ -428,7 +428,7 @@ try {
      if(failed||editor.active||state.mode!=='game')return;
      if(command.type==='action'){handleAction(command.action as GameAction);}
      else if(command.type==='infantry'){const target=root.querySelector<HTMLButtonElement>(`[data-infantry="${command.action}"]${command.kind?`[data-kind="${command.kind}"]`:''}`);target?.click();}
-     else if(command.type==='key'){window.dispatchEvent(new KeyboardEvent('keydown',{key:command.key,bubbles:true}));}
+     else if(command.type==='key'){window.dispatchEvent(new KeyboardEvent('keydown',{key:command.key,code:command.key===' '?'Space':'Escape',bubbles:true}));}
      else if(command.type==='pan'){renderer.pan(command.dx,command.dy);}
      else if(command.type==='zoom'&&point){const screen=renderer.worldToScreen(point.x,point.y);renderer.zoomAt(command.factor,screen.x,screen.y);}
      else if(command.type==='pointer'&&point){const screen=renderer.worldToScreen(point.x,point.y);ui.canvas.dispatchEvent(new PointerEvent(command.phase,{clientX:screen.x,clientY:screen.y,button:command.button,buttons:command.buttons,shiftKey:command.shiftKey,pointerId:9001,bubbles:true}));}

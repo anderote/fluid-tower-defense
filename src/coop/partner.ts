@@ -45,10 +45,15 @@ export async function mountPartner(root:HTMLElement){
  ui.canvas.addEventListener('contextmenu',e=>e.preventDefault());
  ui.canvas.addEventListener('wheel',event=>{event.preventDefault();const p=point(event);if(p)send({type:'zoom',...p,frame:frameId,factor:event.deltaY<0?1.12:.89});},{passive:false});
  window.addEventListener('keydown',event=>{
-  if((event.target as HTMLElement).closest('input,textarea,select')||event.metaKey||event.ctrlKey||!online)return;
-  const key=event.key.toLowerCase(),towers=['repulsor','mortar','autocannon','cryo','tesla','rocket','railgun','incinerator','crusher'];
+  const target=event.target;
+  if((target instanceof HTMLElement&&(target.isContentEditable||target.closest('input,textarea,select')))||event.metaKey||event.ctrlKey||event.altKey||event.isComposing||event.defaultPrevented||!online)return;
+  if(event.code==='Space'&&target instanceof HTMLElement&&target.closest('button,a[href],[role=button]'))return;
+  const key=event.key.toLowerCase();
+  if(event.repeat&&!['arrowleft','arrowright','arrowup','arrowdown','w','a','s','d'].includes(key)){event.preventDefault();return;}
+  const towers=['repulsor','mortar','autocannon','cryo','tesla','rocket','railgun','incinerator','crusher'];
   if(/^[1-9]$/.test(key)){event.preventDefault();send({type:'action',action:{type:'select-tower',kind:towers[Number(key)-1]}});return;}
   if(['escape',' '].includes(key)){event.preventDefault();send({type:'key',key:event.key});return;}
+  if((key==='q'||key==='e')&&snapshot?.ui.upgradeMode){event.preventDefault();const tower=snapshot.ui.upgradeTarget;if(tower)send({type:'action',action:{type:'upgrade-tower',id:tower.id,branch:key==='q'?0:1}});return;}
   const actions:Record<string,string>={q:'wall-tool',e:'wire-tool',r:'demolish-tool',u:'upgrade-tool',g:'slam-gates',f:snapshot?.ui.dam?'dam-flood':'fence-tool'};
   if(actions[key]){event.preventDefault();send({type:'action',action:{type:actions[key]}});}
   const directions:Record<string,[number,number]>={arrowleft:[-8,0],a:[-8,0],arrowright:[8,0],d:[8,0],arrowup:[0,-8],w:[0,-8],arrowdown:[0,8],s:[0,8]};if(directions[key]){event.preventDefault();const[dx,dy]=directions[key];send({type:'pan',dx,dy});}
