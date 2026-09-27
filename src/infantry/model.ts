@@ -167,7 +167,8 @@ export function advanceInfantry(state:InfantryState,map:WorldMap,fields:Map<numb
     let dx=0,dy=0;
     if(!ordered&&pursuit&&distance>approachDistance&&clearInfantryPath(map,s,pursuit)){dx=(pursuit.x-s.x)/distance;dy=(pursuit.y-s.y)/distance;}
     else if(!ordered&&!melee&&fresh&&distance<retreatDistance&&rallyDistance<6){dx=(s.x-fresh.x)/Math.max(.01,distance);dy=(s.y-fresh.y)/Math.max(.01,distance);}
-    else if(!settled&&(ordered||(!fresh&&(distance>stats.range||rallyDistance>5)))){
+    // GPU sensing also returns fresh records with target -1 when no enemy is nearby.
+    else if(!settled&&(ordered||((!fresh||fresh.target<0)&&(distance>stats.range||rallyDistance>5)))){
       if(clearInfantryPath(map,s,destination)){dx=(destination.x-s.x)/rallyDistance;dy=(destination.y-s.y)/rallyDistance;}
       else{
         const waypoint=infantryNavigationWaypoint(map,field,s,destination,s.id),toWaypoint=Math.hypot(waypoint.x-s.x,waypoint.y-s.y);

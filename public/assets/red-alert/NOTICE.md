@@ -17,3 +17,8 @@ node --openssl-legacy-provider scripts/import-red-alert.mjs /path/to/ra-base.zip
 ```
 
 See https://www.openra.net/legal/ for the OpenRA legal notice.
+
+Freeform chain-link panels are projected at runtime from intact `cycl.shp`
+frame 10. The ground axis follows the path while the vertical axis remains
+upright; short panels compress only the ground axis. No new source assets
+are imported by this projection.

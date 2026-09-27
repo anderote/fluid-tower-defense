@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {readFileSync} from 'node:fs';
-import {wireTiles,wireDamage,type WireState} from './wire-art.ts';
+import {fencePanels,wireTiles,wireDamage,type WireState} from './wire-art.ts';
 const wire=(x:number,y:number,extra:Partial<WireState>={}):WireState=>({x,y,width:4,height:4,health:100,maxHealth:100,breached:false,...extra});
 
 test('wire atlas masks cover all sixteen cardinal neighbor combinations',()=>{
@@ -67,4 +67,18 @@ test('the OpenRA chain-link sheet retains connected intact and damaged frames',(
     assert.ok(frame.x>=0&&frame.y>=0&&frame.x+24<=atlas.size&&frame.y+24<=atlas.size);
   }
   assert.match(atlas.source.palette,/wall sprites.*temperat\.pal/);
+});
+
+test('freeform fence panels preserve corners, gaps and damage boundaries',()=>{
+  const section=(from:{x:number;y:number},to:{x:number;y:number},health=100)=>({kind:'fence',run:1,from,to,health,maxHealth:100});
+  const panels=fencePanels([section({x:0,y:0},{x:4,y:0}),section({x:4,y:0},{x:4,y:4}),section({x:4,y:4},{x:4,y:8},20),section({x:9,y:8},{x:13,y:8})]);
+  assert.deepEqual(panels.map(p=>[p.x,p.y,p.angle]),[[2,0,0],[4,2,Math.PI/2],[4,6,Math.PI/2],[11,8,0]]);
+  assert.equal(panels[2].health,20);
+});
+test('fence coverage follows long diagonal paths in either drawing direction',()=>{
+  const a={x:0,y:0},b={x:6,y:8};
+  const forward=fencePanels([{kind:'fence',run:1,from:a,to:b,health:100,maxHealth:100}]);
+  const reverse=fencePanels([{kind:'fence',run:1,from:b,to:a,health:100,maxHealth:100}]).reverse();
+  assert.equal(forward.length,3);
+  for(let i=0;i<3;i++){assert.ok(Math.hypot(forward[i].x-reverse[i].x,forward[i].y-reverse[i].y)<1e-10);assert.ok(forward[i].length<=4);}
 });
