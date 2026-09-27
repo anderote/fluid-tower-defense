@@ -153,7 +153,13 @@ fn flowDirection(position: vec2<f32>, index: u32, generation: f32) -> vec2<f32> 
       var sample = routes.xy;
       if (length(routes.zw) > 0.0001 && routeHash(index, generation, cell) % 5u == 0u) { sample = routes.zw; }
       let sampleLength = length(sample);
-      if (finite2(sample) && sampleLength > 0.0001) { return sample / sampleLength; }
+      if (finite2(sample) && sampleLength > 0.0001) {
+        // Aim through the next cell center, not parallel to a wall at an
+        // arbitrary offset. This recenters bodies before a fence/tree corner.
+        let waypoint=(vec2f(cell)+vec2f(0.5)+sample)*params.navCellSize;
+        let toward=waypoint-position;
+        return toward/max(length(toward),0.0001);
+      }
     }
   }
   let direct = vec2<f32>(params.goalX, params.goalY) - position;

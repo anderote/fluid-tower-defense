@@ -1,6 +1,6 @@
 import {mountCoop} from '../coop/host.ts';
 import {createWallInspector} from '../ui/wall-inspector.ts';
-import {createStructurePreview, clearPlayerTerrain, restoreSessionTerrain, terrainMounts, wallMountCells} from '../game/terrain.ts';
+import {firingObstacles, createStructurePreview, clearPlayerTerrain, restoreSessionTerrain, terrainMounts, wallMountCells} from '../game/terrain.ts';
 import {createInfantryController} from '../infantry/controller.ts';
 import {createInfantryGPU} from '../infantry/gpu.ts';
 import {advanceInfantry,awardInfantryKills,infantryMap,freshInfantry} from '../infantry/model.ts';
@@ -38,7 +38,7 @@ import {advanceHeavyProjectiles,createHeavyProjectiles,type HeavyImpact} from '.
 import {turretEjection,turretMuzzlePoint,turretMuzzlePoints} from '../render/turret-art.ts';
 import {infantryMuzzle} from '../render/infantry-animation.ts';
 import {formatPressure,MANUAL_BLAST_PEAK_KPA,MANUAL_PUSH_PEAK_KPA} from '../sim/pressure/model.ts';
-import {barrierCost,barrierLength,barrierSegments,MIN_BARRIER_LENGTH,pointToBarrierDistance,sampleBarrier,simplifyBarrier,snapBarrierEndpoints,barrierRectDistance,barrierLinesConflict,type BarrierKind,type BarrierSegment} from '../game/barrier-path.ts';
+import {barrierCost,barrierLength,barrierSegments,MIN_BARRIER_LENGTH,pointToBarrierDistance,sampleBarrier,simplifyBarrier,snapBarrierEndpoints,barrierRectDistance,barrierPlacementConflict,type BarrierKind,type BarrierSegment} from '../game/barrier-path.ts';
 import {installInteractionGuards} from './interaction-guards.ts';
 
 const root=document.querySelector<HTMLElement>('#app')!;
@@ -219,6 +219,18 @@ try {
      case 'move':if(run.model.selected===null)break;movingTowerId=state.moveMode?null:run.model.selected;targetingTowerId=null;state.moveMode=movingTowerId!==null;state.targetMode=false;state.buildTool=null;state.selectedKind=null;state.upgradeMode=false;state.message=state.moveMode?`Move mode: click a clear location for this tower (${TOWER_MOVE_COST} Metal). Its ground target will be cleared.`:'Move mode cancelled.';break;
      case 'set-ground-target':if(run.model.selected===null)break;targetingTowerId=state.targetMode?null:run.model.selected;movingTowerId=null;state.targetMode=targetingTowerId!==null;state.moveMode=false;state.buildTool=null;state.selectedKind=null;state.upgradeMode=false;state.message=state.targetMode?'Focus ground: click a point inside the highlighted range. This turret will ignore enemies elsewhere.':'Ground targeting cancelled.';break;
      case 'clear-ground-target':if(run.model.selected!==null){const result=run.setGroundTarget(run.model.selected,null);targetingTowerId=null;state.targetMode=false;actionResult(result,'Ground target cleared. Automatic targeting restored.');}break;
+     case 'skip-wave':{
+       const result=run.finishWaveEarly(run.isBossWave&&latest.boss?.active!==false);
+       if(!result.ok){state.message=result.reason;break;}
+       // Ignore outstanding telemetry from the discarded tail of this wave.
+       waveStartTick=clock.tick+1;count=0;spawnSlot=0;state.population=0;
+       commands=[];visuals=[];heavyProjectiles=[];heavyExplosions=[];infantryRocketProjectiles=[];infantryRocketExplosions=[];
+       latest={...latest,live:0,inletBlocked:false,boss:undefined};
+       physics.reset();combat.reset();resetHorde();shotReader.reset();boss.reset(false);state.paused=false;
+       if(run.model.phase==='preparation'&&!run.model.bonusChoices.length)handleAction({type:'start-wave'});
+       else state.message=run.model.bonusChoices.length?'Wave finished. Choose a command boon before the next wave.':'Wave finished. Extract or continue your run.';
+       break;
+     }
      case 'start-wave':{
        const result=run.startWave();actionResult(result,'Wave incoming. Hold the choke.');if(!result.ok)break;
        latest={...latest,inletBlocked:false};count=0;spawnSlot=0;heavyProjectiles=[];heavyExplosions=[];infantryRocketProjectiles=[];infantryRocketExplosions=[];cameraShake=0;state.population=0;physics.reset();combat.reset();resetHorde();shotReader.reset();boss.reset(run.isBossWave);waveStartTick=clock.tick+1;state.paused=false;state.selectedKind=null;break;
@@ -338,7 +350,7 @@ try {
    const points=kind==='fence'?snapBarrierEndpoints(rawPoints,fenceTargets):rawPoints;
    const length=barrierLength(points),sections=barrierSegments(kind,nextBarrierRun,points),unitCost=kind==='fence'?CHAINLINK_FENCE_COST:45,cost=barrierCost(length,unitCost);
    const baseObstacles=map.obstacles.filter(obstacle=>!builtFences.some(section=>sameRect(obstacle,section)));
-   const conflict=sections.some(section=>infantry.state().buildings.some(building=>barrierRectDistance(section,{x:building.x-2,y:building.y-2,width:4,height:4})<.36)||(kind==='fence'&&builtWires.some(wire=>barrierLinesConflict(section,wire)))||builtFences.some(fence=>barrierLinesConflict(section,fence))||baseObstacles.some(obstacle=>barrierRectDistance(section,obstacle)<.36)||run.model.towers.some(tower=>pointToBarrierDistance(tower,section)<2));
+   const conflict=sections.some(section=>infantry.state().buildings.some(building=>barrierRectDistance(section,{x:building.x-2,y:building.y-2,width:4,height:4})<.36)||(kind==='fence'&&builtWires.some(wire=>barrierPlacementConflict(section,wire)))||builtFences.some(fence=>barrierPlacementConflict(section,fence))||baseObstacles.some(obstacle=>barrierRectDistance(section,obstacle)<.36)||run.model.towers.some(tower=>pointToBarrierDistance(tower,section)<2));
    const mapIssue=kind==='fence'&&!conflict?validateEditorMap({...map,obstacles:[...baseObstacles,...sections]}):undefined;
    const ended=run.model.phase==='won'||run.model.phase==='lost',valid=length>=MIN_BARRIER_LENGTH&&!!sections.length&&!conflict&&!mapIssue&&!ended&&run.model.metal>=cost;
    const reason=length<MIN_BARRIER_LENGTH?'Drag farther to place a barrier.':conflict?'Barrier paths must stay clear of walls, the other barrier type, barracks, and towers.':mapIssue??(ended?'Barriers cannot be placed after the run ends.':run.model.metal<cost?`Need ${cost} Metal for this ${kind==='fence'?'fence':'wire'} run.`:'');
@@ -534,7 +546,7 @@ try {
    const transparentSightObstacles=[...builtWires,...builtFences,...turretObstacles(run.model.towers)];
    const infantrySightMap={...activeMap,obstacles:activeMap.obstacles.filter(obstacle=>!transparentSightObstacles.some(transparent=>sameRect(obstacle,transparent)))};
    const statModifiers=run.statModifiers(),researchModifiers=run.researchModifiers();
-   const frame:CombatFrame={dt:clock.step,tick:clock.tick,count,map:activeMap,effects,tuning:DEFAULT_TUNING,navigation,lab:state.mode==='lab',towers:state.mode==='game'?run.model.towers.map(tower=>({tower,definition:cachedTower(tower,run.model.bonuses,run.model.commandUpgrades,statModifiers)})):[]};
+   const frame:CombatFrame={dt:clock.step,tick:clock.tick,count,map:activeMap,sightObstacles:firingObstacles(activeMap.obstacles,builtFences),effects,tuning:DEFAULT_TUNING,navigation,lab:state.mode==='lab',towers:state.mode==='game'?run.model.towers.map(tower=>({tower,definition:cachedTower(tower,run.model.bonuses,run.model.commandUpgrades,statModifiers)})):[]};
    const nativeEncoder=gpu.device.createCommandEncoder({label:`Simulation tick ${clock.tick}`}),measurement=profiler?.wrap(nativeEncoder),encoder=measurement?.encoder??nativeEncoder;
    const bossFrame={dt:clock.step,tick:clock.tick,count,map:activeMap.scenery?activeMap:{...activeMap,spawn:{x:50,y:35,width:32,height:30}},active:state.mode==='game'&&run.isBossWave};
    horde.encode(encoder,arrivals,count);

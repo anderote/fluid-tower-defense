@@ -170,7 +170,7 @@ test('counter rollback is ignored and settling keeps combat running while enemie
 test('ten waves unlock extraction while endless continuation retains the defense',()=>{
   const run=createRun();
   const finish=(tick:number)=>{
-    assert.equal(run.startWave().ok,true); run.takeSpawns(65_536);
+    assert.equal(run.startWave().ok,true); run.takeSpawns(waveFor(run.model.level,run.model.wave).total);
     run.applySettlement({epoch:1,tick,kills:0,crushKills:0,leaks:0,earned:0,live:0,invalid:0,maxPacking:0});
     assert.equal(run.finishSettling().ok,true);
     if(run.model.bonusChoices.length)assert.equal(run.chooseBonus(run.model.bonusChoices[0].id).ok,true);
@@ -206,9 +206,9 @@ test('wave director streams a bounded escalating horde',()=>{
 });
 
 test('campaign wave sizes are bounded and independent of physical stream width',()=>{
-  assert.equal(waveFor(1,1).total,1200);
+  assert.equal(waveFor(1,1).total,5000);
   assert.equal(waveFor(2,1).total,waveFor(1,11).total);
-  assert.equal(waveFor(1,10000).total,12000);
+  assert.equal(waveFor(1,10000).total,250000);
 });
 
 test('continuous horde arrival pauses at capacity and resumes when space opens',()=>{
@@ -220,9 +220,9 @@ test('continuous horde arrival pauses at capacity and resumes when space opens',
   assert.ok(resumed>0&&resumed<=100);
 });
 
-test('opening waves are a short continuous stream, never an initial packet dump',()=>{
+test('opening waves are a sustained continuous stream, never an initial packet dump',()=>{
   const wave=waveFor(1,1),run=createRun();
-  assert.equal(wave.total,1200);
+  assert.equal(wave.total,5000);
   assert.ok(wave.spawns.every(batch=>(batch.burst??0)===1));
   const rateAt=(second:number)=>wave.spawns.reduce((sum,batch)=>{
     const start=batch.start??0,duration=batch.duration??Infinity;

@@ -1,6 +1,13 @@
 import {ENEMIES,enemySpeedForScale} from '../../content/index.ts';
 import {HORDE_APPROACH, P, PARTICLE_FLOATS, type SpawnBatch, type WorldMap} from '../../contracts/index.ts';
 
+/** Stable per-body variation also feeds the GPU's health-based speed/strength tiers. */
+export function hordeHealthScale(seed:number,ordinal:number,waveScale=1):number{
+  let hash=Math.imul((seed+ordinal)>>>0,1597334677)>>>0;
+  hash=Math.imul(hash^(hash>>>16),2246822519)>>>0;
+  return waveScale*(.9+(hash%10000)/10000*.5);
+}
+
 /** A moving cross-section of a much larger horde, generated in O(new arrivals). */
 export class HordeFront {
   private elapsed=0;
@@ -40,10 +47,11 @@ export function encodeHorde(batches:readonly SpawnBatch[],positions:readonly {x:
     let selected=-1,score=-Infinity;
     for(let i=0;i<batches.length;i++)if(remaining[i]>0){const deficit=(index+1)*batches[i].count/count-assigned[i];if(deficit>score){selected=i;score=deficit;}}
     const batch=batches[selected],enemy=ENEMIES[batch.kind],offset=index*PARTICLE_FLOATS;
+    const healthScale=hordeHealthScale(batch.seed,assigned[selected],batch.healthScale??1);
     remaining[selected]--;assigned[selected]++;
     output[offset+P.x]=positions[index].x;output[offset+P.y]=positions[index].y;
-    output[offset+P.vx]=enemySpeedForScale(batch.kind,batch.healthScale??1);output[offset+P.radius]=enemy.radius;output[offset+P.mass]=enemy.mass;
-    output[offset+P.hp]=output[offset+P.maxHp]=enemy.health*(batch.healthScale??1);
+    output[offset+P.vx]=enemySpeedForScale(batch.kind,healthScale);output[offset+P.radius]=enemy.radius;output[offset+P.mass]=enemy.mass;
+    output[offset+P.hp]=output[offset+P.maxHp]=enemy.health*healthScale;
     output[offset+P.kind]=enemy.index;output[offset+P.alive]=1;
   }
   return output;
