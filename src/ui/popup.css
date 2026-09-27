@@ -27,17 +27,17 @@
   box-shadow: 8px 8px 0 rgba(0, 0, 0, .45);
   pointer-events: auto;
 }
-.upgrade-hover-card header { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; height: auto; padding: 8px 10px; border: 0; border-bottom: 1px solid var(--term-border); background: linear-gradient(100deg, color-mix(in srgb, var(--term-accent) 11%, transparent), transparent 72%); }
+.upgrade-hover-card header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; height: auto; padding: 7px 10px; border: 0; border-bottom: 1px solid var(--term-border); background: linear-gradient(100deg, color-mix(in srgb, var(--term-accent) 11%, transparent), transparent 72%); }
 .upgrade-hover-card header span { color: var(--term-fg); font-size: var(--text-small); font-weight: 700; letter-spacing: .06em; }
 .upgrade-hover-card header b { color: var(--term-accent); font-size: var(--text-caption); white-space: nowrap; }
 .quick-stats { padding: 5px 10px; }
-.quick-stats > div { display: grid; grid-template-columns: 1fr auto; align-items: baseline; min-height: 24px; padding: 4px 0; border-bottom: 1px solid color-mix(in srgb, var(--term-border) 65%, transparent); }
+.quick-stats > div { display: grid; grid-template-columns: 1fr auto; align-items: baseline; min-height: 24px; line-height: 18px; padding: 2px 0; border-bottom: 1px solid color-mix(in srgb, var(--term-border) 65%, transparent); }
 .quick-stats > div:last-child { border: 0; }
-.quick-stats > div > span { color: var(--term-faint); font-size: 9px; letter-spacing: .1em; }
+.quick-stats > div > span { color: var(--term-faint); font-size: 11px; letter-spacing: .02em; }
 .quick-stats b { display: grid; grid-template-columns: 52px 12px 64px; align-items: baseline; color: var(--term-muted); font-size: var(--text-caption); font-weight: 500; text-align: right; }
 .quick-stats b span { text-align: right; }
 .quick-stats b i { color: var(--term-faint); font-style: normal; text-align: center; }
-.quick-stats b strong { color: var(--term-ok); font-size: var(--text-small); font-weight: 700; text-align: right; }
+.quick-stats b strong { color: var(--term-ok); font-size: 15px; font-weight: 700; text-align: right; }
 .quick-stats b strong.unchanged { color: var(--term-muted); }
 .quick-stats p { margin: 6px 0; color: var(--term-accent); font-size: var(--text-caption); text-align: center; letter-spacing: .1em; }
 .quick-upgrade-actions { display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px; padding: 7px; border-top: 1px solid var(--term-border); }
