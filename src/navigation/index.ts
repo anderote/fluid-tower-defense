@@ -21,11 +21,16 @@ export function mapWithTurretObstacles(map:WorldMap,towers:readonly (Pick<Tower,
 
 /** True when at least one spawn cell can reach the goal in the supplied field. */
 export function hasSpawnRoute(map:WorldMap):boolean {
-  const field=buildNavigation(map);
-  const minX=Math.max(0,Math.floor(map.spawn.x/field.cellSize)),maxX=Math.min(field.width,Math.ceil((map.spawn.x+map.spawn.width)/field.cellSize));
-  const minY=Math.max(0,Math.floor(map.spawn.y/field.cellSize)),maxY=Math.min(field.height,Math.ceil((map.spawn.y+map.spawn.height)/field.cellSize));
-  for(let y=minY;y<maxY;y++)for(let x=minX;x<maxX;x++)if(Number.isFinite(field.distances[y*field.width+x]))return true;
-  return false;
+  const field=buildNavigation(map),entries=map.entries??[{side:'west' as const,from:map.spawn.y,to:map.spawn.y+map.spawn.height}];
+  return entries.some(entry=>{
+    const from=Math.max(0,Math.floor(entry.from/field.cellSize)),to=Math.min(entry.side==='west'||entry.side==='east'?field.height:field.width,Math.ceil(entry.to/field.cellSize));
+    for(let point=from;point<to;point++){
+      const x=entry.side==='west'?0:entry.side==='east'?field.width-1:point;
+      const y=entry.side==='north'?0:entry.side==='south'?field.height-1:point;
+      if(Number.isFinite(field.distances[y*field.width+x]))return true;
+    }
+    return false;
+  });
 }
 
 const MOUNT_PICKUP_RADIUS=1.4;
