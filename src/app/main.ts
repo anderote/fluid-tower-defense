@@ -378,7 +378,14 @@ try {
  const removeWall=(point:Vec2)=>{const index=builtWalls.findIndex(w=>point.x>=w.x&&point.x<w.x+w.width&&point.y>=w.y&&point.y<w.y+w.height);if(index<0)return;const wall=builtWalls[index];if(run.model.towers.some(tower=>tower.x>=wall.x&&tower.x<wall.x+wall.width&&tower.y>=wall.y&&tower.y<wall.y+wall.height)){state.message='Sell the mounted turret before removing this wall.';return;}builtWalls.splice(index,1);removeStructuresFromMap([wall]);run.refundMetal(Math.floor(METAL_WALL_COST/2));state.message=`Metal wall recovered for ${Math.floor(METAL_WALL_COST/2)} Metal.`;};
  const removeFence=(point:Vec2)=>{const hit=nearestBarrier(builtFences,point);if(!hit)return;const removed=builtFences.filter(section=>section.run===hit.run);builtFences=builtFences.filter(section=>section.run!==hit.run);removeStructuresFromMap(removed);run.setMap(map);syncTowerMounts();refreshNavigation();const refund=Math.floor(barrierCost(removed.reduce((sum,segment)=>sum+Math.hypot(segment.to.x-segment.from.x,segment.to.y-segment.from.y),0),CHAINLINK_FENCE_COST)/2);run.refundMetal(refund);state.message=`Chain-link section recycled for ${refund} Metal.`;};
  const removeWire=(point:Vec2)=>{const hit=nearestBarrier(builtWires,point);if(!hit)return;const removed=builtWires.filter(section=>section.run===hit.run);builtWires=builtWires.filter(section=>section.run!==hit.run);const refund=Math.floor(barrierCost(removed.reduce((sum,segment)=>sum+Math.hypot(segment.to.x-segment.from.x,segment.to.y-segment.from.y),0),45)/2);run.refundMetal(refund);state.message=`Barbed-wire path recycled for ${refund} Metal.`;};
- ui.canvas.addEventListener('wheel',event=>{if(editor.active)return;event.preventDefault();renderer.zoomAt(event.deltaY<0?1.13:1/1.13,event.clientX,event.clientY);},{passive:false});
+ ui.canvas.addEventListener('wheel',event=>{
+   if(editor.active)return;event.preventDefault();
+   // Trackpads emit many tiny deltas; scale by distance instead of taking a
+   // full zoom step per event. Normalize mouse-wheel line/page units too.
+   const unit=event.deltaMode===1?16:event.deltaMode===2?ui.canvas.clientHeight:1;
+   const delta=Math.max(-100,Math.min(100,event.deltaY*unit));
+   renderer.zoomAt(Math.exp(-delta*.001),event.clientX,event.clientY);
+ },{passive:false});
  ui.canvas.addEventListener('contextmenu',event=>{if(editor.active||state.buildTool||infantry.selectedSoldiers.size)event.preventDefault();});
  ui.canvas.addEventListener('pointerleave',()=>{pointer=undefined;if(state.upgradeMode)scheduleUpgradeTargetClear();});
  ui.canvas.addEventListener('pointerdown',event=>{
