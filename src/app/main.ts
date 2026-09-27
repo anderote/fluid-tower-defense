@@ -1,3 +1,4 @@
+import {attachFormationPlacement} from '../infantry/formation-input.ts';
 import '../coop/style.css';
 import {mountCoop} from '../coop/host.ts';
 import {createWallInspector} from '../ui/wall-inspector.ts';
@@ -173,7 +174,7 @@ try {
  handleAction=action=>{
    if(failed)return;
    if(editor.active){state.message='Apply or cancel your level before using game controls.';return;}
-   if(['select-tower','wall-tool','fence-tool','wire-tool','demolish-tool','upgrade-tool','move','set-ground-target','mode','new-game','reset','load','restart-wave'].includes(action.type))infantry.cancel();
+   if(['select-tower','wall-tool','fence-tool','wire-tool','demolish-tool','upgrade-tool','move','set-ground-target','mode','new-game','reset','load','restart-wave'].includes(action.type)){infantry.cancel();renderer.clearEnemySelection?.();}
    if(['start-wave','restart-wave','continue-run','load'].includes(action.type))infantryGPU.reset();
    switch(action.type){
      case 'select-map':saveSession();location.assign(`/?map=${encodeURIComponent(action.map)}`);break;
@@ -371,6 +372,13 @@ try {
  };
  const nearestBarrier=(segments:readonly BarrierSegment[],point:Vec2)=>segments.map(segment=>({segment,distance:pointToBarrierDistance(point,segment)})).filter(candidate=>candidate.distance<=1.3).sort((a,b)=>a.distance-b.distance)[0]?.segment;
  const demolishAt=(point:Vec2)=>{const wall=builtWalls.find(candidate=>point.x>=candidate.x&&point.x<candidate.x+candidate.width&&point.y>=candidate.y&&point.y<candidate.y+candidate.height);if(wall){removeWall(point);return;}if(nearestBarrier(builtFences,point)){removeFence(point);return;}if(nearestBarrier(builtWires,point)){removeWire(point);return;}state.message='Only player-built Metal Walls, Chain-link Fences, and Barbed Wire can be demolished.';};
+ const formationPlacement=attachFormationPlacement(ui.canvas,{
+   canStart:()=>!failed&&!editor.active&&state.mode==='game'&&!state.buildTool&&!state.selectedKind&&!state.upgradeMode&&!state.moveMode&&!state.targetMode&&!infantry.tool&&infantry.selectedSoldiers.size>0,
+   point:(x,y)=>renderer.screenToWorld(x,y),
+   preview:(from,to)=>{infantry.previewFormation(from,to);},
+   clear:()=>infantry.clearFormationPreview(),
+   commit:(from,to)=>{if(to)infantry.commandFormation(from,to);else infantry.command(from);run.model.selected=null;},
+ });
  ui.canvas.addEventListener('pointermove',event=>{
    pointer=renderer.screenToWorld(event.clientX,event.clientY);
    if(infantryDrag&&(event.buttons&1))infantryDrag.current=pointer;
@@ -392,7 +400,7 @@ try {
  ui.canvas.addEventListener('contextmenu',event=>{if(editor.active||state.buildTool||infantry.selectedSoldiers.size)event.preventDefault();});
  ui.canvas.addEventListener('pointerleave',()=>{pointer=undefined;if(state.upgradeMode)scheduleUpgradeTargetClear();});
  ui.canvas.addEventListener('pointerdown',event=>{
-   audio.arm();if(failed)return;const point=renderer.screenToWorld(event.clientX,event.clientY);
+   audio.arm();if(failed)return;if(event.button===0)renderer.clearEnemySelection?.();const point=renderer.screenToWorld(event.clientX,event.clientY);
    wallInspector.select(undefined);
    if(editor.active){editor.paint(point,event.button===2?true:undefined);return;}
    if(state.mode==='game'){
@@ -425,6 +433,13 @@ try {
      }
      state.message=state.tool==='blast'?'Concussive blast deployed.':'Pressure pulse deployed toward the base.';
    }else state.message=`World position ${point.x.toFixed(1)}, ${point.y.toFixed(1)} · peak packing ${latest.maxPacking.toFixed(2)}`;
+ });
+ ui.canvas.addEventListener('dblclick',event=>{
+   if(event.button!==0||failed||editor.active||state.mode!=='game'||state.buildTool||state.selectedKind||state.upgradeMode||state.moveMode||state.targetMode||infantry.tool)return;
+   const point=renderer.screenToWorld(event.clientX,event.clientY);
+   if(infantry.selectAt(point,event.shiftKey,true)){renderer.clearEnemySelection?.();run.model.selected=null;infantryDrag=undefined;return;}
+   if(run.model.selected!==null||infantry.selectedBuildings.size)return;
+   event.preventDefault();infantryDrag=undefined;renderer.selectEnemies?.(point);
  });
  ui.canvas.addEventListener('pointerup',event=>{if(barrierDrag&&event.pointerId===barrierDrag.pointerId&&event.button===0){const drag=barrierDrag;barrierDrag=undefined;placeBarrier(drag.kind,drag.points);return;}if(!infantryDrag||event.button!==0)return;const drag=infantryDrag;infantryDrag=undefined;if(Math.hypot(event.clientX-drag.clientX,event.clientY-drag.clientY)>5){infantry.selectBox(drag.start,drag.current,drag.additive);run.model.selected=null;}});
  const coop=mountCoop(ui.canvas,{
@@ -477,7 +492,7 @@ try {
      event.preventDefault();handleAction(state.mode==='game'&&run.model.phase==='preparation'?{type:'start-wave'}:{type:'pause'});
    }
    if(event.key==='Escape'){
-     infantry.cancel();
+     renderer.clearEnemySelection?.();formationPlacement.cancel();infantry.cancel();
      event.preventDefault();state.selectedKind=null;state.buildTool=null;state.upgradeMode=false;state.moveMode=false;state.targetMode=false;movingTowerId=null;targetingTowerId=null;run.model.selected=null;state.message='Placement cancelled.';
    }
    if(key==='h')handleAction({type:'heatmap',value:!state.heatmap});
@@ -507,7 +522,7 @@ try {
    diagnosticText.textContent=JSON.stringify({adapter:gpu.adapter,abi:'passed',dam:map.dam,wave:run.model.wave,waveProgress:run.waveProgress,epoch,tick:clock.tick,simulationSeconds:simulatedTime,simulationSpeed:state.simulationSpeed??1,paused:state.paused,simulationSecondsPerWallSecond:simulationRate.report(),slots:count,live:latest.live,requested:requestedPopulation,invalid:latest.invalid,peakPacking:latest.maxPacking,crushKills:latest.crushKills,kills:latest.kills,medianMs:report.medianMs,p95Ms:report.p95Ms,frameSamples:report.samples,canvas:[ui.canvas.width,ui.canvas.height],graphics:{mode:graphics.mode,scale:graphics.scale},solver:params.get('solver')==='hybrid'?'hybrid':'exact',readbackErrors:errors,boss:latest.boss,...profileSnapshot},null,2);
  }
  function positionInfantryInspector(){
-   const b=infantry.state().buildings.find(b=>b.id===infantry.selected),panel=infantry.inspector;
+   const unit=infantry.selectedUnit,b=unit??infantry.state().buildings.find(b=>b.id===infantry.selected),panel=unit?infantry.unitInspector:infantry.inspector;
    if(!b||panel.hidden||panel.dataset.windowMoved)return;
    const point=renderer.worldToScreen(b.x,b.y),arena=ui.canvas.parentElement!.getBoundingClientRect(),w=panel.offsetWidth||310,h=panel.offsetHeight||400;
    const x=point.x-arena.left+24;
@@ -608,7 +623,7 @@ try {
      const previewPoints=barrierDrag?.points,barrierPreview=state.mode==='game'&&barrierDrag?barrierPlan(barrierDrag.kind,barrierDrag.kind==='fence'?[previewPoints![0],previewPoints!.at(-1)!]:simplifyBarrier(previewPoints!)):undefined;
      const placementGhosts=barrierPreview?.sections.map(section=>({...section,kind:barrierDrag!.kind,valid:barrierPreview.valid}));
      const infantrySelectionBox=infantryDrag?{x:Math.min(infantryDrag.start.x,infantryDrag.current.x),y:Math.min(infantryDrag.start.y,infantryDrag.current.y),width:Math.abs(infantryDrag.current.x-infantryDrag.start.x),height:Math.abs(infantryDrag.current.y-infantryDrag.start.y)}:undefined;
-     renderer.encode(encoder,{barracksGhost:!editor.active&&state.mode==='game'&&infantry.tool==='build'&&pointer?infantry.preview(pointer):undefined,infantry:!editor.active&&state.mode==='game'?infantry.state():undefined,selectedBarracks:infantry.selected,selectedBarracksSet:infantry.selectedBuildings,selectedInfantry:infantry.selectedSoldiers,infantrySelectionBox,infantryCommandTarget:infantry.commandTarget,aftermathVisible:!editor.active,corpseFieldApproach:state.mode==='game'?HORDE_APPROACH:0,count:editor.active?0:count,time:simulatedTime,map:editor.active?editor.map:map,towers:!editor.active&&state.mode==='game'?run.model.towers:[],effects:editor.active?[]:visuals,visualParticles:editor.active?[]:visualParticles,heavyProjectiles:editor.active?[]:heavyProjectiles,heavyExplosions:editor.active?[]:heavyExplosions,infantryRocketProjectiles:editor.active?[]:infantryRocketProjectiles,infantryRocketExplosions:editor.active?[]:infantryRocketExplosions,cameraShake:editor.active?0:cameraShake,walls:editor.active?[]:builtWalls,fences:editor.active?[]:builtFences,wires:editor.active?[]:builtWires,barrierSegments:[...builtFences,...builtWires],heatmap:state.heatmap,selection:run.model.selected,selectionRange,ghost:editor.active?undefined:ghost,groundTargetGhost,placementGhost,placementGhosts,boss:!editor.active&&latest.boss?.active?latest.boss:undefined});
+     renderer.encode(encoder,{barracksGhost:!editor.active&&state.mode==='game'&&infantry.tool==='build'&&pointer?infantry.preview(pointer):undefined,infantry:!editor.active&&state.mode==='game'?infantry.state():undefined,selectedBarracks:infantry.selected,selectedBarracksSet:infantry.selectedBuildings,selectedInfantry:infantry.selectedSoldiers,infantrySelectionBox,infantryCommandTarget:infantry.commandTarget,infantryFormationPreview:infantry.formationPreview,infantryResearch:run.researchModifiers(),aftermathVisible:!editor.active,corpseFieldApproach:state.mode==='game'?HORDE_APPROACH:0,count:editor.active?0:count,time:simulatedTime,map:editor.active?editor.map:map,towers:!editor.active&&state.mode==='game'?run.model.towers:[],effects:editor.active?[]:visuals,visualParticles:editor.active?[]:visualParticles,heavyProjectiles:editor.active?[]:heavyProjectiles,heavyExplosions:editor.active?[]:heavyExplosions,infantryRocketProjectiles:editor.active?[]:infantryRocketProjectiles,infantryRocketExplosions:editor.active?[]:infantryRocketExplosions,cameraShake:editor.active?0:cameraShake,walls:editor.active?[]:builtWalls,fences:editor.active?[]:builtFences,wires:editor.active?[]:builtWires,barrierSegments:[...builtFences,...builtWires],heatmap:state.heatmap,selection:run.model.selected,selectionRange,ghost:editor.active?undefined:ghost,groundTargetGhost,placementGhost,placementGhosts,boss:!editor.active&&latest.boss?.active?latest.boss:undefined});
      const arena=ui.canvas.parentElement!.getBoundingClientRect();for(const popup of pressurePopups){const screen=renderer.worldToScreen(popup.x,popup.y),progress=popup.age/popup.life;popup.element.style.left=`${screen.x-arena.left+popup.drift*progress}px`;popup.element.style.top=`${screen.y-arena.top-progress*34}px`;popup.element.style.opacity=String(Math.min(1,(1-progress)*2.8));}
      measurement?.resolve();gpu.device.queue.submit([encoder.finish()]);void measurement?.read();
      coop.frame(now);

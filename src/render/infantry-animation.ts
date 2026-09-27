@@ -1,7 +1,8 @@
 import {infantryStats,type Soldier,type InfantryKind} from '../infantry/model.ts';
 
-export const INFANTRY_FRAME=48,INFANTRY_FRAMES=31,INFANTRY_FACINGS=8;
-export const INFANTRY_PIVOT={x:24,y:32};
+// Extra transparent padding accommodates long spears without scaling troop bodies.
+export const INFANTRY_FRAME=64,INFANTRY_FRAMES=31,INFANTRY_FACINGS=8;
+export const INFANTRY_PIVOT={x:32,y:40};
 export const INFANTRY_PIXEL=.1;
 export const INFANTRY_KINDS=['rifle','rocket','flame','samurai','dog','phalanx'] as const;
 // Shared atlas layout: idle, six run frames, sixteen attack slots, eight collapse frames.

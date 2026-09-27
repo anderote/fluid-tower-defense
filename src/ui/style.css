@@ -94,7 +94,10 @@ header, footer { flex: none; display: flex; align-items: center; padding: 0 20px
 .pressure-popup { position: absolute; display: block; transform: translate(-50%,-100%); color: #c9fbff; font: 800 var(--text-body)/1 var(--font-ui); letter-spacing: .04em; white-space: nowrap; text-shadow: 0 0 4px #00d9ff, 1px 1px 0 #020606; }
 .pressure-popup.is-mpa { color: #fff0a2; font-size: var(--text-title); text-shadow: 0 0 6px #ff8a00, 1px 1px 0 #090400; }
 .hud b { white-space: nowrap; }
-.body > aside { position: absolute; z-index: 10; right: 18px; bottom: 18px; width: min(350px, calc(100% - 36px)); max-height: calc(100% - 36px); overflow: auto; padding: 10px; border: 1px solid rgba(255,255,255,.2); border-radius: 12px; background: rgba(10, 10, 12, .68); box-shadow: 0 18px 60px rgba(0,0,0,.35); backdrop-filter: blur(16px) saturate(125%); -webkit-backdrop-filter: blur(16px) saturate(125%); scrollbar-color: var(--term-border-strong) transparent; scrollbar-width: thin; }
+.body > aside, .body > .wave-command { position: absolute; z-index: 10; right: 18px; bottom: 18px; width: min(350px, calc(100% - 36px)); max-height: calc(100% - 36px); overflow: auto; padding: 10px; border: 1px solid rgba(255,255,255,.2); border-radius: 12px; background: rgba(10, 10, 12, .68); box-shadow: 0 18px 60px rgba(0,0,0,.35); backdrop-filter: blur(16px) saturate(125%); -webkit-backdrop-filter: blur(16px) saturate(125%); scrollbar-color: var(--term-border-strong) transparent; scrollbar-width: thin; }
+.body > .wave-command { left:18px; right:auto; top:18px; bottom:auto; width:min(300px,calc(100% - 36px)); }
+.wave-command[hidden] { display:none; }
+.wave-command > .card:last-child { margin-bottom:0; }
 .tabs { display: grid; grid-template-columns: repeat(3,1fr); margin-bottom: 8px; padding: 3px; border: 1px solid rgba(255,255,255,.13); border-radius: 8px; background: rgba(255,255,255,.05); }
 .tabs button { font-weight: 600; letter-spacing: .08em; }
 .card { margin-bottom: 8px; padding: 9px; border: 1px solid rgba(255,255,255,.13); border-radius: 8px; background: rgba(7, 8, 10, .42); }
@@ -118,9 +121,12 @@ button small { margin-top: 4px; color: var(--term-faint); font-size: var(--text-
 .cost::after { content: " M"; color: var(--term-faint); font-size: var(--text-caption); }
 
 .tower-grid, .defense-tools { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
-.defense-tools { grid-template-columns: 1fr 1fr; }
+.defense-tools { grid-template-columns: repeat(5,minmax(0,1fr)); }
 .defense-tools { margin-bottom: 0; }
-.defense-tools button { min-height: 48px; background: rgba(255,255,255,.045); }
+.defense-tools button { display:grid; place-items:center; height:40px; min-height:40px; padding:7px; background:rgba(255,255,255,.045); }
+.defense-tools svg { width:24px; height:24px; fill:none; stroke:currentColor; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; pointer-events:none; }
+.defense-tools button.active { background:var(--term-accent); color:#000; }
+.defense-tools button:focus-visible { outline:2px solid var(--term-accent); outline-offset:2px; }
 .defense-tools button b { font-size: var(--text-small); }
 .build-divider { display: flex; align-items: center; gap: 7px; margin: 11px 0 8px; color: var(--term-faint); font-size: var(--text-caption); letter-spacing: .08em; }
 .build-divider::before, .build-divider::after { content: ""; height: 1px; flex: 1; background: var(--term-border); }
@@ -230,16 +236,20 @@ button small { margin-top: 4px; color: var(--term-faint); font-size: var(--text-
 .audio-setting input { grid-column: 1 / -1; width: 100%; margin: 0; accent-color: var(--term-accent); }
 .settings-gate section > button { width: 100%; border-color: var(--term-accent); color: var(--term-accent); }
 
-#commands { display: grid; gap: 6px; }
-#commands button { position: relative; min-height: 59px; padding-right: 80px; text-align: left; }
-#commands .cost { position: absolute; top: 8px; right: 8px; margin: 0; }
+#commands { display: grid; gap: 16px; }
+.research-group h3 { margin: 0 0 7px; padding-bottom: 6px; border-bottom: 1px solid var(--term-border); color: var(--term-muted); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
+.research-items { display: grid; gap: 6px; }
+#commands .command-system { display: grid; grid-template-columns: 30px minmax(0,1fr) auto; gap: 5px 8px; width: 100%; padding: 9px; text-align: left; }
+.research-icon { width: 28px; height: 28px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linejoin: round; stroke-linecap: round; color: var(--term-accent); grid-row: 1 / 3; }
+#commands .command-system b { font-size: 11px; line-height: 1.4; }
+#commands .cost { position: static; align-self: center; margin: 0; font-size: 10px; white-space: nowrap; }
 #commands .cost::after { content: ""; }
-#commands { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-#commands .command-system { min-height: 112px; padding: 8px; text-align: left; }
+#commands .command-system small { grid-column: 2 / -1; line-height: 1.4; }
+#commands .tech-progress, #commands .tech-requires { grid-column: 2 / -1; margin-top: 2px; }
 #commands .tech-node { position: relative; border-left: 3px solid var(--term-border-strong); background: rgba(255,255,255,.025); }
 #commands .tech-node.available { border-color: var(--term-accent); background: color-mix(in srgb, var(--term-accent) 8%, transparent); }
 #commands .tech-node.installed { border-color: var(--term-ok); background: color-mix(in srgb, var(--term-ok) 10%, transparent); opacity: 1; }
-#commands .tech-node.locked { border-color: var(--term-border); }
+#commands .tech-node.locked { border-color: var(--term-border); opacity: .75; }
 #commands .tech-node b em { display: block; margin-bottom: 3px; color: var(--term-accent); font-size: 9px; font-style: normal; font-weight: 600; letter-spacing: .09em; }
 #commands .tech-node.installed b em, #commands .tech-node.installed .cost { color: var(--term-ok); }
 .tech-requires { display: block; margin-top: 7px; color: var(--term-faint); font-size: 9px; line-height: 1.25; }
@@ -337,3 +347,8 @@ footer button:first-of-type { border-color: var(--term-accent); background: var(
 .boon-gate #bonus-choices { display: grid; gap: 10px; margin-top: 16px; }
 .boon-gate button { width: 100%; text-align: left; padding: 14px; }
 .boon-gate button small { display: block; margin-top: 6px; line-height: 1.5; }
+
+@media (max-width:720px) {
+  .body > .wave-command { left:8px; top:8px; width:calc(100% - 16px); max-height:42%; padding:6px; }
+  .body > aside { right:8px; bottom:8px; width:calc(100% - 16px); max-height:45%; }
+}

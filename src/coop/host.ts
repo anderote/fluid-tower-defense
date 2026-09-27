@@ -1,6 +1,6 @@
 import type {Vec2,UIState} from '../contracts/index.ts';
 import type {InfantryState,InfantryKind} from '../infantry/model.ts';
-export type CoopSnapshot={ui:UIState;infantry:{state:InfantryState;selected:number|null;tool:'build'|'rally'|null;buildKind:InfantryKind}};
+export type CoopSnapshot={ui:UIState;infantry:{state:InfantryState;selected:number|null;tool:'build'|'rally'|null;buildKind:InfantryKind;selectedSoldiers?:number[]}};
 export type Command={type:string;[key:string]:any};
 /** One authoritative simulation, with the production UI rendered independently on the partner. */
 export function mountCoop(canvas:HTMLCanvasElement,callbacks:{screenToWorld:(x:number,y:number)=>Vec2;status:()=>string;snapshot:()=>CoopSnapshot;command:(command:Command,point?:Vec2)=>void}){

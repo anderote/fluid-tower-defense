@@ -29,7 +29,7 @@ export async function mountPartner(root:HTMLElement){
   if(!frame.ui||!frame.image)return;if(frame.id===frameId){lastSeen=Date.now();return;}
   const image=new Image();image.src=frame.image;await image.decode();if(closed)return;
   frame={...frame,ui:safeSnapshot(frame.ui),infantry:safeSnapshot(frame.infantry)};snapshot=frame;frameId=frame.id;lastSeen=Date.now();ui.canvas.width=image.naturalWidth;ui.canvas.height=image.naturalHeight;context.drawImage(image,0,0);
-  ui.update(frame.ui);run.model.metal=frame.ui.metal;run.model.phase=frame.ui.phase;run.model.infantry=frame.infantry?.state??freshInfantry();infantry.update();connection(true);
+  ui.update(frame.ui);run.model.commandUpgrades=[...frame.ui.commandUpgrades];run.model.metal=frame.ui.metal;run.model.phase=frame.ui.phase;run.model.infantry=frame.infantry?.state??freshInfantry();infantry.update();connection(true);
   status.textContent='CONNECTED · ROOM '+code.toUpperCase().replace(/(.{5})(.{5})/,'$1-$2')+' · Shared tools, camera and Metal';form.hidden=true;
  };
  let loading=false;
@@ -41,7 +41,7 @@ export async function mountPartner(root:HTMLElement){
  const interval=window.setInterval(()=>{if(lastSeen&&Date.now()-lastSeen>12000){connection(false);status.textContent='Host connection paused. Waiting for a live battlefield…';}},1000);
  const point=(event:MouseEvent)=>{const b=ui.canvas.getBoundingClientRect(),scale=Math.min(b.width/ui.canvas.width,b.height/ui.canvas.height),w=ui.canvas.width*scale,h=ui.canvas.height*scale;const x=(event.clientX-b.left-(b.width-w)/2)/w,y=(event.clientY-b.top-(b.height-h)/2)/h;return x>=0&&x<=1&&y>=0&&y<=1?{x,y}:null;};
  let moved=0;
- for(const phase of ['pointerdown','pointermove','pointerup'])ui.canvas.addEventListener(phase,event=>{const e=event as PointerEvent;if(phase==='pointermove'&&performance.now()-moved<(cloud?400:100))return;if(phase==='pointermove')moved=performance.now();const p=point(e);if(!p)return;if(phase==='pointerdown'&&e.isTrusted)ui.canvas.setPointerCapture(e.pointerId);send({type:'pointer',phase,...p,button:e.button===2?2:0,buttons:e.buttons&2?2:e.buttons&1?1:0,shiftKey:e.shiftKey,frame:frameId});});
+ for(const phase of ['pointerdown','pointermove','pointerup','dblclick'])ui.canvas.addEventListener(phase,event=>{const e=event as PointerEvent;if(phase==='pointermove'&&performance.now()-moved<(cloud?400:100))return;if(phase==='pointermove')moved=performance.now();const p=point(e);if(!p)return;if(phase==='pointerdown'&&e.isTrusted)ui.canvas.setPointerCapture(e.pointerId);send({type:'pointer',phase,...p,button:e.button===2?2:0,buttons:e.buttons&2?2:e.buttons&1?1:0,shiftKey:e.shiftKey,frame:frameId});});
  ui.canvas.addEventListener('contextmenu',e=>e.preventDefault());
  ui.canvas.addEventListener('wheel',event=>{event.preventDefault();const p=point(event);if(p)send({type:'zoom',...p,frame:frameId,factor:event.deltaY<0?1.12:.89});},{passive:false});
  window.addEventListener('keydown',event=>{
