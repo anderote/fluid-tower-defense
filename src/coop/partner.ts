@@ -1,3 +1,4 @@
+import {safeSnapshot} from './snapshot.ts';
 import {createUI} from '../ui/index.ts';
 import {createInfantryController} from '../infantry/controller.ts';
 import {freshInfantry} from '../infantry/model.ts';
@@ -27,7 +28,7 @@ export async function mountPartner(root:HTMLElement){
  const receive=async(frame:CoopSnapshot&{id:number;image:string})=>{
   if(!frame.ui||!frame.image)return;if(frame.id===frameId){lastSeen=Date.now();return;}
   const image=new Image();image.src=frame.image;await image.decode();if(closed)return;
-  snapshot=frame;frameId=frame.id;lastSeen=Date.now();ui.canvas.width=image.naturalWidth;ui.canvas.height=image.naturalHeight;context.drawImage(image,0,0);
+  frame={...frame,ui:safeSnapshot(frame.ui),infantry:safeSnapshot(frame.infantry)};snapshot=frame;frameId=frame.id;lastSeen=Date.now();ui.canvas.width=image.naturalWidth;ui.canvas.height=image.naturalHeight;context.drawImage(image,0,0);
   ui.update(frame.ui);run.model.metal=frame.ui.metal;run.model.phase=frame.ui.phase;run.model.infantry=frame.infantry?.state??freshInfantry();infantry.update();connection(true);
   status.textContent='CONNECTED · ROOM '+code.toUpperCase().replace(/(.{5})(.{5})/,'$1-$2')+' · Shared tools, camera and Metal';form.hidden=true;
  };
