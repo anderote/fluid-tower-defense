@@ -40,8 +40,8 @@ export function createUI(
     return `<button data-tower="${id}"><span class="tower-shape" aria-hidden="true"></span><b>${t.name.toUpperCase()} <em></em></b><span class="cost">${t.cost}</span></button>`;
   };
   root.innerHTML = `<main class="pf"><header><div class="brand">PRESSURE <i>FRONT</i><small>FLUID DEFENSE COMMAND</small></div><div class="hud" aria-label="Run telemetry"><div><span>METAL</span><b id="metal">000</b></div><div><span>INTEGRITY</span><b id="base">100%</b></div><div><span>LEVEL</span><b id="level">01</b></div><div class="kill-counts" aria-label="Kill counts"><b><strong id="kills">0000</strong> TOTAL KILLS</b></div><div class="kill-counts casualty-counts" aria-label="Friendly casualties"><b><strong id="casualties">0000</strong> CASUALTIES</b><small title="Allied deaths caused by your weapons"><strong id="friendly-fire">0000</strong> FRIENDLY FIRE</small></div><div><span>WAVE</span><b id="wave">00 / 10</b></div><div><span>MAX PRESSURE</span><b id="pressure">0 kPa</b></div><div><span>LIVE</span><b id="live">--</b></div></div><div class="status"><span class="led"></span><b id="phase">PREPARATION</b></div><div class="metrics"><b id="fps">-- FPS</b><b id="ms">-- MS</b></div><section class="soundtrack" aria-label="Red Alert music player"></section><div class="view-actions"><button class="view-menu-toggle" aria-label="More options" aria-expanded="false" aria-controls="view-menu" title="More options"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button><div id="view-menu" class="view-menu" hidden><button data-settings-open>SETTINGS</button><button data-action="restart-wave">RESTART WAVE</button><button data-action="reset">RESTART LEVEL</button><button data-action="new-game">NEW GAME</button><button data-view="hide">HIDE UI</button><button data-view="full">FULLSCREEN</button></div></div><button class="start-wave-top" data-action="start-wave">START WAVE</button></header><section class="body"><div class="arena"><canvas aria-label="Pressure Front battle arena"></canvas></div><aside><section class="card battlefield-picker"><label for="battlefield-select">BATTLEFIELD</label><select id="battlefield-select" aria-label="Battlefield" title="Separate saves. Switching during a wave resumes from the last preparation save.">${battlefieldOptions}</select><small id="battlefield-help">Each battlefield keeps its own defense.</small></section><section class="card wave-status" id="wave-status" aria-label="Wave progress"><b id="wave-status-title"></b><p id="wave-status-count"></p><small id="wave-status-detail"></small></section><section class="card crusher-controls" id="crusher-controls" hidden><b>HYDRAULIC CRUSHERS</b><p id="crusher-status"></p><button data-action="slam-gates">SLAM GATES [G]</button><small>Let the lane pack, then slam. Dense crowds take extra crush damage.</small></section><section class="card dam-controls" id="dam-controls" hidden><b>THUNDERHEAD DAM</b><small>NORTH + SOUTH: floodable spillways. CENTER: always-open spillway.</small><div class="reservoir"><span id="reservoir-fill"></span></div><p id="reservoir-status"></p><div class="gate-buttons"><button data-action="dam-north">NORTH GATE</button><button data-action="dam-south">SOUTH GATE</button></div><button class="flood-release" data-action="dam-flood">RELEASE FLOOD [F]</button><small>Floods sweep all three water channels toward the inlet. Closed gates stop water too. Refills in 30 combat seconds.</small></section><div class="tabs"><button id="build-tab" class="active">TOWERS</button><button id="buildings-tab">BUILDINGS</button><button id="research-tab">RESEARCH</button></div><section class="card extraction" id="extraction" hidden><label>EXTRACTION WINDOW</label><p>Secure the level now, or retain every defense and push into endless escalation.</p><div><button data-action="finish-run" id="finish-run">FINISH LEVEL</button><button data-action="continue-run">CONTINUE</button></div></section><section class="card tower"><label>DEFENSE BUILD ARRAY <span>1–9 SHORTCUTS</span></label><div class="defense-tools"><button data-action="wall-tool"><b>METAL WALL <em>[Q]</em></b><small>${formatPressure(BASE_WALL_PRESSURE_RESISTANCE)} STRUCTURAL YIELD</small><span class="cost">${METAL_WALL_COST}</span></button><button data-action="fence-tool"><b>CHAIN-LINK FENCE <em>[F]</em></b><small>${formatPressure(BASE_FENCE_PRESSURE_RESISTANCE)} YIELD · SOLID</small><span class="cost">${CHAINLINK_FENCE_COST}</span></button><button data-action="wire-tool"><b>BARBED WIRE <em>[E]</em></b><small>7.0 kPa BREACH RATING</small><span class="cost">45</span></button><button data-action="upgrade-tool"><b>UPGRADE <em>[U]</em></b><small>HOVER TOWERS</small></button><button class="danger" data-action="demolish-tool"><b>DEMOLISH <em>[R]</em></b><small>WALLS + FENCES + WIRE</small></button></div><div class="build-divider"><span>EMPLACEMENTS</span></div><div class="tower-grid">${(Object.keys(TOWERS) as (keyof typeof TOWERS)[]).map(tower).join("")}</div></section><section class="card bonuses" id="bonuses" hidden><label>COMMAND BOON — CHOOSE ONE</label><div id="bonus-choices"></div></section><section class="card selected"><label id="selected-name">TOWER INSPECTOR</label><div id="tower-stats" class="tower-stats">Select a deployed tower to view its combat record and upgrades.</div><div class="upgrade-buttons"><button data-upgrade="0">BRANCH A</button><button data-upgrade="1">BRANCH B</button></div><button class="danger wide" data-action="sell">SELL / RECOVER</button></section><section class="card command"><label>RUN UPGRADES <span id="research-metal">0 METAL</span></label><p class="research-help">Spend Metal between waves. Every upgrade lasts for this run.</p><div id="stat-upgrades"></div><label>COMMAND SYSTEMS <span id="research-count">0 INSTALLED</span></label><p class="research-help">Sequential systems advance one rank at a time.</p><div id="commands"></div></section></aside></section><footer><div class="run-summary"><span>RUN RECORD</span><b id="crush">CRUSH 000</b><b id="leaks">BREACHES 000</b><b id="earned">SALVAGE +000</b></div><div class="spacer"></div><button data-action="save">SAVE</button><button data-action="load">LOAD</button></footer></main>`;
-  root.querySelector<HTMLElement>('[data-action="fence-tool"] small')!.textContent='POST + AUTO-PANELS · SOLID';
-  root.querySelector<HTMLElement>('[data-action="wire-tool"] small')!.textContent='POST + AUTO-PANELS · SLOW';
+  root.querySelector<HTMLElement>('[data-action="fence-tool"] small')!.textContent='DRAG A LINE · SOLID';
+  root.querySelector<HTMLElement>('[data-action="wire-tool"] small')!.textContent='DRAG A PATH · SLOW';
   const researchCard=root.querySelector<HTMLElement>('.command')!,researchLabels=researchCard.querySelectorAll<HTMLLabelElement>(':scope > label'),researchHelp=researchCard.querySelectorAll<HTMLParagraphElement>('.research-help');
   researchLabels[0].innerHTML='TECHNOLOGY TREE <span id="research-metal">0 METAL</span>';
   researchLabels[1].remove(); researchHelp[0].textContent='Research persists for this run. Unlock foundations before their specialist technologies.'; researchHelp[1].remove();
@@ -62,8 +62,17 @@ export function createUI(
     selectedCard = root.querySelector<HTMLElement>(".selected")!,
     $ = <T extends HTMLElement = HTMLElement>(s: string) =>
       root.querySelector<T>(s)!;
-  // Required between-wave choices must precede the scrollable build inventory.
-  root.querySelector("aside")!.insertBefore($("#bonuses"), $(".tower"));
+  // Required choices must stay visible even when the build window is hidden or collapsed.
+  const boonGate = document.createElement('div');
+  boonGate.className = 'boon-gate';
+  boonGate.hidden = true;
+  boonGate.setAttribute('role', 'dialog');
+  boonGate.setAttribute('aria-modal', 'true');
+  boonGate.setAttribute('aria-labelledby', 'boon-title');
+  const boonCard = $("#bonuses");
+  boonCard.querySelector('label')!.id = 'boon-title';
+  boonGate.append(boonCard);
+  shell.append(boonGate);
   arena.append(selectedCard);
   const targetHint=document.createElement('div');targetHint.className='turret-target-hint';targetHint.hidden=true;targetHint.textContent='FOCUS GROUND — CLICK WITHIN RANGE · ESC CANCELS';arena.append(targetHint);
   selectedCard.classList.add("selected-popup");
@@ -413,7 +422,7 @@ export function createUI(
         ? {label: "LAB MODE", reason: "Lab mode runs continuously and has no waves."}
         : s.phase === "preparation"
           ? s.bonusChoices.length
-            ? {label: "CHOOSE BOON", reason: "Choose a command boon at the top of the sidebar to unlock the next wave."}
+            ? {label: "CHOOSE BOON", reason: "Choose a command boon in the popup to unlock the next wave."}
             : {label: "START WAVE", reason: "", action: "start-wave" as const}
           : s.phase === "checkpoint"
             ? {label: "EXTRACTION READY", reason: "Choose Continue in the sidebar to prepare the next wave, or Finish Run to extract."}
@@ -498,13 +507,15 @@ export function createUI(
       waveButton.textContent = waveControl.label;
       waveButton.title = waveControl.reason || (skipReady ? "95% cleared. Start the next wave while surviving enemies remain in play." : waveActive ? "Pause or resume the current wave." : "Start the next wave.");
       const bonusCard = $("#bonuses");
-      bonusCard.hidden = !s.bonusChoices.length;
+      const openingBoon = boonGate.hidden && s.bonusChoices.length > 0;
+      boonGate.hidden = bonusCard.hidden = !s.bonusChoices.length;
       renderMarkup($("#bonus-choices"), s.bonusChoices
         .map(
           (choice) =>
             `<button data-bonus="${choice.id}"><b>${choice.name.toUpperCase()}</b><small>${choice.description}</small></button>`,
         )
         .join(""));
+      if (openingBoon) bonusCard.querySelector<HTMLButtonElement>("button")?.focus({preventScroll:true});
       const extraction=$("#extraction");
       extraction.hidden=s.phase!=="checkpoint";
       $("#finish-run").textContent="FINISH RUN";
