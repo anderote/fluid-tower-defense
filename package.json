@@ -16,7 +16,8 @@
     "play": "node scripts/play.mjs",
     "play:lan": "node scripts/play.mjs --lan",
     "test:local-server": "node --test scripts/play.test.mjs",
-    "test:hotspot": "node --test scripts/mac-hotspot.test.mjs"
+    "test:hotspot": "node --test scripts/mac-hotspot.test.mjs",
+    "build:site": "npm run build && node scripts/build-site.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.6.2",

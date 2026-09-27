@@ -5,11 +5,11 @@ import {INFANTRY,infantryStats,infantryCapacity,type InfantryKind,freshInfantry,
 import './style.css';
 import {makeGameWindow} from '../ui/windows.ts';
 
-export function createInfantryController(root:HTMLElement,run:RunController,getMap:()=>WorldMap,changed:()=>void,message:(text:string)=>void,cancelTools:()=>void){
+export function createInfantryController(root:HTMLElement,run:RunController,getMap:()=>WorldMap,changed:()=>void,message:(text:string)=>void,cancelTools:()=>void,remote?:{send:(action:string,kind?:string)=>void;snapshot:()=>{state:ReturnType<typeof freshInfantry>;selected:number|null;tool:'build'|'rally'|null;buildKind:InfantryKind}|undefined}){
   let buildKind:InfantryKind='rifle';
   let selected:number|null=null,tool:'build'|'rally'|null=null,fieldKey='',commandTarget:Vec2|null=null;
   const fields=new Map<number,NavigationField>(),orderFields=new Map<number,NavigationField>(),selectedSoldiers=new Set<number>(),selectedBuildings=new Set<number>();
-  const state=()=>run.model.infantry??(run.model.infantry=freshInfantry());
+  const state=()=>remote?.snapshot()?.state??run.model.infantry??(run.model.infantry=freshInfantry());
   const map=()=>infantryMap(mapWithTurretObstacles(getMap(),run.model.towers),state());
   const panel=document.createElement('section');panel.className='card infantry-panel buildings';panel.hidden=true;panel.innerHTML=`<label>INFANTRY COMMAND</label><div class="infantry-details"></div>${(Object.keys(INFANTRY) as InfantryKind[]).map(kind=>`<button data-infantry="build" data-kind="${kind}"><span class="selection-icon unit-icon unit-icon-${kind}" aria-hidden="true"></span><span><b>${INFANTRY[kind].building.toUpperCase()} · ${INFANTRY[kind].cost}</b><small>${INFANTRY[kind].name} · ${INFANTRY[kind].interval.toFixed(1)}s / recruit</small><small>${INFANTRY[kind].role}</small></span></button>`).join("")}<p class="infantry-summary"></p>`;
   root.querySelector('aside')!.append(panel);
@@ -22,6 +22,7 @@ export function createInfantryController(root:HTMLElement,run:RunController,getM
   let lastHTML='';
   const ended=()=>['won','lost'].includes(run.model.phase);
   const update=()=>{
+    const synced=remote?.snapshot();if(synced){selected=synced.selected;tool=synced.tool;buildKind=synced.buildKind;}
     const b=state().buildings.find(b=>b.id===selected);if(!b)selected=null;
     inspector.hidden=!b;if(b&&inspectedId!==b.id){inspectedId=b.id;windowControls.expand();}
     rallyHint.hidden=tool!=='rally';root.querySelector('canvas')!.classList.toggle('setting-infantry-rally',tool==='rally');
@@ -35,6 +36,7 @@ export function createInfantryController(root:HTMLElement,run:RunController,getM
   };
   const handleClick=(event:MouseEvent)=>{
     const action=(event.target as HTMLElement).closest<HTMLButtonElement>('button[data-infantry]')?.dataset.infantry;if(!action)return;
+    if(remote){remote.send(action,(event.target as HTMLElement).closest<HTMLElement>('[data-kind]')?.dataset.kind);return;}
     if(ended()){message('The run is over.');return;}
     const b=state().buildings.find(b=>b.id===selected);
     if(action==='build'){const kind=(event.target as HTMLElement).closest<HTMLElement>('[data-kind]')!.dataset.kind as InfantryKind;cancelTools();tool=tool==='build'&&buildKind===kind?null:'build';buildKind=kind;}
@@ -80,7 +82,7 @@ export function createInfantryController(root:HTMLElement,run:RunController,getM
     fieldKey='';commandTarget={...rally};changed();message(`${valid.length} rally points updated.`);update();return true;
   };
   function ensureFields(){const active=map(),orders=state().soldiers.filter(s=>s.health>0&&s.moveTarget),rallying=state().soldiers.filter(s=>s.health>0&&!s.moveTarget&&s.rallyTarget),key=JSON.stringify([active.obstacles,state().buildings.map(b=>[b.id,b.rally]),orders.map(s=>[s.id,s.moveTarget]),rallying.map(s=>[s.id,s.rallyTarget])]);if(key!==fieldKey){fields.clear();orderFields.clear();for(const b of state().buildings)fields.set(b.id,infantryField(active,b.rally));const cached=new Map<string,NavigationField>();for(const s of [...orders,...rallying]){const target=s.moveTarget??s.rallyTarget!;const targetKey=`${target.x},${target.y}`;let field=cached.get(targetKey);if(!field){field=infantryField(active,target);cached.set(targetKey,field);}orderFields.set(s.id,field);}fieldKey=key;}const living=new Set(state().soldiers.filter(s=>s.health>0).map(s=>s.id));for(const id of selectedSoldiers)if(!living.has(id))selectedSoldiers.delete(id);return active;}
-  return {state,fields,orderFields,ensureFields,update,inspector,selectAt,selectBox,command:(target:Vec2)=>command(target)||commandBuildings(target),get selected(){return selected;},get selectedBuildings(){return selectedBuildings as ReadonlySet<number>;},get selectedSoldiers(){return selectedSoldiers as ReadonlySet<number>;},get commandTarget(){return commandTarget;},get tool(){return tool;},cancel(){tool=null;selected=null;selectedBuildings.clear();clearSoldierSelection();},reset(){tool=null;selected=null;selectedBuildings.clear();clearSoldierSelection();fieldKey='';fields.clear();orderFields.clear();},
+  return {snapshot:()=>({state:state(),selected,tool,buildKind}),state,fields,orderFields,ensureFields,update,inspector,selectAt,selectBox,command:(target:Vec2)=>command(target)||commandBuildings(target),get selected(){return selected;},get selectedBuildings(){return selectedBuildings as ReadonlySet<number>;},get selectedSoldiers(){return selectedSoldiers as ReadonlySet<number>;},get commandTarget(){return commandTarget;},get tool(){return tool;},cancel(){tool=null;selected=null;selectedBuildings.clear();clearSoldierSelection();},reset(){tool=null;selected=null;selectedBuildings.clear();clearSoldierSelection();fieldKey='';fields.clear();orderFields.clear();},
     preview(p:Vec2){const at={x:Math.floor(p.x)+.5,y:Math.floor(p.y)+.5};return {...at,valid:!ended()&&run.model.metal>=INFANTRY[buildKind].cost&&clearForSoldier(map(),at,2.5)&&Math.hypot(at.x-getMap().goal.x,at.y-getMap().goal.y)>=getMap().goalRadius+3};},
     click(p:Vec2,select=true,additive=false):boolean {
       if(ended())return !!tool;
