@@ -173,7 +173,7 @@ try {
  handleAction=action=>{
    if(failed)return;
    if(editor.active){state.message='Apply or cancel your level before using game controls.';return;}
-   if(['select-tower','wall-tool','fence-tool','wire-tool','demolish-tool','upgrade-tool','move','set-ground-target','mode','new-game','reset','load','restart-wave'].includes(action.type))infantry.cancel();
+   if(['select-tower','wall-tool','fence-tool','wire-tool','demolish-tool','upgrade-tool','move','set-ground-target','mode','new-game','reset','load','restart-wave'].includes(action.type)){infantry.cancel();renderer.clearEnemySelection?.();}
    if(['start-wave','restart-wave','continue-run','load'].includes(action.type))infantryGPU.reset();
    switch(action.type){
      case 'select-map':saveSession();location.assign(`/?map=${encodeURIComponent(action.map)}`);break;
@@ -392,7 +392,7 @@ try {
  ui.canvas.addEventListener('contextmenu',event=>{if(editor.active||state.buildTool||infantry.selectedSoldiers.size)event.preventDefault();});
  ui.canvas.addEventListener('pointerleave',()=>{pointer=undefined;if(state.upgradeMode)scheduleUpgradeTargetClear();});
  ui.canvas.addEventListener('pointerdown',event=>{
-   audio.arm();if(failed)return;const point=renderer.screenToWorld(event.clientX,event.clientY);
+   audio.arm();if(failed)return;if(event.button===0)renderer.clearEnemySelection?.();const point=renderer.screenToWorld(event.clientX,event.clientY);
    wallInspector.select(undefined);
    if(editor.active){editor.paint(point,event.button===2?true:undefined);return;}
    if(state.mode==='game'){
@@ -425,6 +425,11 @@ try {
      }
      state.message=state.tool==='blast'?'Concussive blast deployed.':'Pressure pulse deployed toward the base.';
    }else state.message=`World position ${point.x.toFixed(1)}, ${point.y.toFixed(1)} · peak packing ${latest.maxPacking.toFixed(2)}`;
+ });
+ ui.canvas.addEventListener('dblclick',event=>{
+   if(event.button!==0||failed||editor.active||state.mode!=='game'||state.buildTool||state.selectedKind||state.upgradeMode||state.moveMode||state.targetMode||infantry.tool||run.model.selected!==null||infantry.selectedSoldiers.size||infantry.selectedBuildings.size)return;
+   event.preventDefault();infantryDrag=undefined;
+   renderer.selectEnemies?.(renderer.screenToWorld(event.clientX,event.clientY));
  });
  ui.canvas.addEventListener('pointerup',event=>{if(barrierDrag&&event.pointerId===barrierDrag.pointerId&&event.button===0){const drag=barrierDrag;barrierDrag=undefined;placeBarrier(drag.kind,drag.points);return;}if(!infantryDrag||event.button!==0)return;const drag=infantryDrag;infantryDrag=undefined;if(Math.hypot(event.clientX-drag.clientX,event.clientY-drag.clientY)>5){infantry.selectBox(drag.start,drag.current,drag.additive);run.model.selected=null;}});
  const coop=mountCoop(ui.canvas,{
@@ -477,6 +482,7 @@ try {
      event.preventDefault();handleAction(state.mode==='game'&&run.model.phase==='preparation'?{type:'start-wave'}:{type:'pause'});
    }
    if(event.key==='Escape'){
+     renderer.clearEnemySelection?.();
      infantry.cancel();
      event.preventDefault();state.selectedKind=null;state.buildTool=null;state.upgradeMode=false;state.moveMode=false;state.targetMode=false;movingTowerId=null;targetingTowerId=null;run.model.selected=null;state.message='Placement cancelled.';
    }
