@@ -486,7 +486,20 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
           if(slash.cut>.68){const hit=s.angle+1.12,hx=x+Math.cos(hit)*1.48,hy=y-.58+Math.sin(hit)*1.02;for(const turn of [0,Math.PI/2])streak(a,hx,hy,Math.cos(hit+turn),Math.sin(hit+turn),.48,.055,[1,.88,.45,.8*fade]);}
         }
       }else if(s.flash>0&&kind!=='dog'){
-        if(kind==='flame'){for(let j=0;j<12;j++){const spread=s.angle+Math.sin(j*13)*.42,reach=1+j*.42;disc(a,x+Math.cos(spread)*reach,y-.65+Math.sin(spread)*reach,.2+j*.04,[1,.2+j*.035,.04,(1-j/15)*s.flash*4],5);}}
+        if(kind==='flame'){
+          const reach=Math.max(1,infantryStats(kind,s.quality,s.defense,s.veterancy).range-.75),flow=Math.min(1,s.flash/.12);
+          // Overlapping elongated tongues form one moving jet, with a yellow
+          // core and wider orange edges; animation never restarts on each hit.
+          for(let j=0;j<24;j++){
+            const age=(j/24+scene.time*2.8+s.id*.137)%1,along=age*reach;
+            const sway=Math.sin(j*1.71+scene.time*19-age*8)*(.035+age*age*.32);
+            const fx=mx+dx*along-dy*sway,fy=my+dy*along+dx*sway-age*.13;
+            const width=.065+age*.3,alpha=flow*Math.min(1,(1-age)*6);
+            streak(a,fx,fy,dx,dy,.2+age*.48,width,[1,.18,.015,alpha*.85]);
+            streak(a,fx,fy,dx,dy,.16+age*.34,width*.55,[1,.59,.045,alpha]);
+            streak(a,fx,fy,dx,dy,.12+age*.2,width*.23,[1,.94,.48,alpha]);
+          }
+        }
         else if(kind==='rocket'){streak(a,mx+dx*4,my+dy*4,dx,dy,4,.14,[.88,.84,.65,s.flash*5]);disc(a,mx,my,.4,[1,.6,.15,.8],6);}
         else {disc(a,mx,my,.24,[1,.86,.29,.95],5);streak(a,mx+dx*2,my+dy*2,dx,dy,2,.025,[1,.89,.43,s.flash*6]);}
       }
