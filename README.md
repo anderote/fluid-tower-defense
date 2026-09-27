@@ -32,6 +32,8 @@ The host runs WebGPU on localhost; the partner page does not require WebGPU or H
 
 ### On a plane
 
+See [the complete hotspot setup, undo, and partner guide](docs/PLANE-COOP.md). It includes a macOS-only offline Wi-Fi hotspot workaround and explicit recovery steps. The partner needs only a browser.
+
 - A shared Wi-Fi network can work without internet, provided it allows devices to reach each other. Airline networks may isolate passengers; this game cannot bypass that.
 - A direct Thunderbolt connection can provide the local network without Wi-Fi. Use an actual Thunderbolt cable and configure **Thunderbolt Bridge** in macOS Network settings; see [Apple's IP over Thunderbolt guide](https://support.apple.com/guide/mac-help/mchld53dd2f5/mac).
 - Do not rely on an iPhone hotspot in airplane mode: [Apple documents Personal Hotspot as sharing cellular data](https://support.apple.com/guide/iphone/iph45447ca6/ios).

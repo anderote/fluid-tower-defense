@@ -6,3 +6,9 @@
 - For every new feature request, create a dedicated git worktree and feature branch from local `dev` (never from `main`). Do all implementation, validation, and iteration in that worktree.
 - Once requested feature work is complete and validation passes, automatically commit it and integrate its branch into local `dev`. Keep `main` unchanged unless the user explicitly asks to promote or release it.
 - Promote local `dev` into local `main` only when the user explicitly asks to promote or release it. Validate before promotion so `main` remains a stable server target.
+
+## Local hotspot and offline co-op
+
+- Read `docs/PLANE-COOP.md` before changing network settings or assisting a partner with joining.
+- Prepare hotspot settings without activating them; the user performs the final switch because it disconnects normal Wi-Fi and may interrupt this task. Never switch it on automatically.
+- Use the scoped `scripts/mac-hotspot.sh` helper for setup/undo, preserve localhost, and do not modify unrelated services or firewall rules. The partner needs no setup script or dependency installation.

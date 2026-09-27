@@ -12,7 +12,8 @@
     "test:e2e": "vite --host 127.0.0.1 --port 5180 --strictPort --open /tests/e2e/",
     "play": "node scripts/play.mjs",
     "play:lan": "node scripts/play.mjs --lan",
-    "test:local-server": "node --test scripts/play.test.mjs"
+    "test:local-server": "node --test scripts/play.test.mjs",
+    "test:hotspot": "node --test scripts/mac-hotspot.test.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.6.2",
