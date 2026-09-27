@@ -1,10 +1,13 @@
-const key=location.hash.slice(1),view=document.querySelector('#view'),connection=document.querySelector('#connection'),error=document.querySelector('#error'),controls=[...document.querySelectorAll('button,select')];
+const key=location.hash.slice(1).replace(/[\s-]/g,'').toLowerCase(),view=document.querySelector('#view'),connection=document.querySelector('#connection'),error=document.querySelector('#error'),controls=[...document.querySelectorAll('#controls button,#controls select')];
 let frame=null,lastSeen=0,loading=false;
 function online(value){for(const control of controls)control.disabled=!value;connection.textContent=value?'Connected · shared defense':'Host unavailable — ask your partner to keep the game visible and sharing.';}
 online(false);
-if(!/^[a-f0-9]{48}$/.test(key)){connection.textContent='Open the full join link from the host game, including the room code.';}else{
+const join=document.querySelector('#join'),code=document.querySelector('#code');
+code.value=key;
+join.onsubmit=event=>{event.preventDefault();const value=code.value.replace(/[\s-]/g,'').toLowerCase();if(!/^[a-f0-9]{10}$/.test(value)){connection.textContent='Enter the 10-character code shown by the host.';return;}location.hash=value;location.reload();};
+if(!/^[a-f0-9]{10}$/.test(key)){connection.textContent='Enter the room code shown by your partner.';}else{
  const events=new EventSource('/coop/events?key='+key);
- events.addEventListener('frame',event=>{if(loading)return;const next=JSON.parse(event.data);loading=true;const image=new Image();image.onload=()=>{view.src=next.image;frame=next;lastSeen=Date.now();document.querySelector('#status').textContent=next.status;loading=false;online(true);};image.onerror=()=>{loading=false;};image.src=next.image;});
+ events.addEventListener('frame',event=>{if(loading)return;const next=JSON.parse(event.data);loading=true;const image=new Image();image.onload=()=>{view.src=next.image;frame=next;lastSeen=Date.now();document.querySelector('#status').textContent=next.status;loading=false;online(true);join.hidden=true;};image.onerror=()=>{loading=false;};image.src=next.image;});
  events.addEventListener('offline',()=>online(false));events.onerror=()=>online(false);
  setInterval(()=>{if(Date.now()-lastSeen>3000)online(false);},1000);
  async function command(value){if(Date.now()-lastSeen>3000)return;try{const response=await fetch('/coop/command?key='+key,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(value)});error.textContent=response.ok?'Command sent — see host status above.':await response.text();}catch{error.textContent='Connection lost. Waiting to reconnect…';online(false);}}

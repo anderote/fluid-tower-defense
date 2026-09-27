@@ -18,6 +18,7 @@ test('offline server serves only the game and gates co-op behind live host and r
   assert.equal(await new Promise(resolve=>http.get(url+'/coop/session',{headers:{Host:'evil.test'}},res=>{res.resume();resolve(res.statusCode);})),403);
   const session=await(await fetch(url+'/coop/session')).json();assert.ok(session.lan);assert.ok(Array.isArray(session.links));
   const guestKey=session.joinPath.split('#')[1];
+  assert.match(guestKey,/^[a-f0-9]{10}$/);assert.equal(session.roomCode.replace('-','').toLowerCase(),guestKey);assert.match(session.hostKey,/^[a-f0-9]{48}$/);
   assert.equal((await fetch(url+'/coop/host?key=wrong')).status,403);
   assert.equal((await fetch(url+'/coop/events?key=wrong')).status,403);
   const post=(path,data,extra={})=>fetch(url+path,{method:'POST',headers:{'Content-Type':'application/json',...extra},body:JSON.stringify(data)});
