@@ -51,12 +51,14 @@ try{
  physics.destroy();
  combat.reset();heat=await read(shared.heatState!,64);assert(heat.every(v=>v===0),'Reset retained burn state');
  const renderer=await createRenderer(device,gpu.context,gpu.format,shared,canvas);
- const scene:RenderScene={count:8,time:1,map,towers:[tower],effects:[],heatmap:false,selection:null};
+ const scene:RenderScene={count:8,time:1,map,towers:[tower],effects:[],heatmap:false,selection:null,infantry:{nextId:3,buildings:[],soldiers:[0,1].map(i=>({id:i+1,home:0,kind:'flame',x:6,y:15+i*4,quality:0,health:80,cooldown:.3,angle:i?-.3:0,flash:.12,walk:0,dead:0}))}};
  const demo=new Float32Array(8*16),burns=new Float32Array(8*4);
  const start=performance.now();let raf=0;
  const draw=()=>{
   const selected=(document.querySelector('#playback') as HTMLSelectElement).value;
-  const age=selected==='loop'?((performance.now()-start)/1000)%1.65:Number(selected);
+  const age=selected==='loop'?((performance.now()-start)/1000)%3:Number(selected);
+  const flowing=age<2.2;
+  for(const soldier of scene.infantry!.soldiers){soldier.flash=flowing?.12:0; soldier.cooldown=flowing?.45-age%.45:0;}
   scene.time=1+age;
   for(let i=0;i<8;i++){
    const x=14+(i%4)*4+Math.sin(age*4+i)*.65,y=9+Math.floor(i/4)*8+Math.cos(age*5+i)*.45;
@@ -64,7 +66,7 @@ try{
    burns.set([Math.max(0,1.5-age),8,1,61],i*4);
   }
   device.queue.writeBuffer(shared.particles,0,demo);device.queue.writeBuffer(shared.heatState!,0,burns);
-  device.queue.writeBuffer(combat.shotState,0,new Float32Array([Math.max(0,.55-age),.55,20,9,1,0,1,0,1,1,0,0]));
+  device.queue.writeBuffer(combat.shotState,0,new Float32Array([flowing?.75-age%.75:0,.75,18,9,1,0,1,0,1,1,0,0]));
   const e=device.createCommandEncoder();renderer.encode(e,scene);device.queue.submit([e.finish()]);raf=requestAnimationFrame(draw);
  };
  draw();await device.queue.onSubmittedWorkDone();const error=await device.popErrorScope();if(error)throw Error(error.message);
