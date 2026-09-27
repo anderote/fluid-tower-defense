@@ -58,7 +58,7 @@ test('structures reject overlaps and tower footprints before spending Metal',()=
 });
 
 test('cached previews follow pointer cells, terrain edits, tower placement and reset',()=>{
- const preview=createStructurePreview(),map=structuredClone(DEFAULT_MAP),rect={x:20,y:20,width:4,height:4};
+ const preview=createStructurePreview(),map={...structuredClone(DEFAULT_MAP),obstacles:[] as typeof DEFAULT_MAP.obstacles},rect={x:20,y:20,width:4,height:4};
  const run=createRun();
  assert.equal(preview(map,[],rect),undefined);assert.equal(preview(map,[],{...rect}),undefined);
  map.obstacles.push({...rect});assert.match(preview(map,[],rect)!,/already contains/);

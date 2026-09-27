@@ -126,7 +126,7 @@ test('ground focus orders validate range, persist, clear, and reset on redeploym
   assert.equal(placed.tower.groundTarget,undefined);
 });
 test('linked player-built walls support three turrets per pair and preserve them in saves',()=>{
-  const walls=[{x:32,y:20,width:4,height:4},{x:32,y:24,width:4,height:4}],mounts=wallMountCells(walls),map={...DEFAULT_MAP,id:'wall-mount-test',obstacles:[...DEFAULT_MAP.obstacles,...walls]};
+  const walls=[{x:32,y:20,width:4,height:4},{x:32,y:24,width:4,height:4}],mounts=wallMountCells(walls),map={...DEFAULT_MAP,id:'wall-mount-test',obstacles:walls};
   const run=createRun(map);run.setBuildMounts(mounts);
   const placed=run.place('repulsor',{x:34,y:21.5});
   assert.ok(placed.ok&&placed.tower);assert.deepEqual({x:placed.tower.x,y:placed.tower.y},{x:34,y:21.35});
@@ -136,10 +136,10 @@ test('linked player-built walls support three turrets per pair and preserve them
   assert.equal(restored.load(run.save()).ok,true);assert.deepEqual({x:restored.model.towers[0].x,y:restored.model.towers[0].y},{x:34,y:21.35});
 });
 test('starting indestructible walls support mounted towers and preserve them in saves',()=>{
-  const mounts=wallMountCells(DEFAULT_MAP.obstacles),run=createRun();run.setBuildMounts(mounts);
+  const map={...DEFAULT_MAP,obstacles:[{x:48,y:0,width:8,height:40}]},mounts=wallMountCells(map.obstacles),run=createRun(map);run.setBuildMounts(mounts);
   const target=mounts[0],position={x:target.x+target.width/2,y:target.y+target.height/2},placed=run.place('repulsor',position);
   assert.ok(placed.ok&&placed.tower);assert.deepEqual({x:placed.tower.x,y:placed.tower.y},position);
-  const restored=createRun();restored.setBuildMounts(mounts);
+  const restored=createRun(map);restored.setBuildMounts(mounts);
   assert.equal(restored.load(run.save()).ok,true);assert.deepEqual({x:restored.model.towers[0].x,y:restored.model.towers[0].y},position);
 });
 test('difficulty multiplier scales continuous zombie production and clamps to 1–40',()=>{
