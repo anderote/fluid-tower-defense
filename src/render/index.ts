@@ -370,12 +370,21 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
   }
   function geometry(scene:RenderScene): Float32Array { const a:V[]=[];
     for(const region of scene.map.scenery?.regions??[])if(region.sprite==='water'){
-      rect(a,region.x,region.y,region.width,region.height,[.025,.29,.43,.78]);
-      for(let y=region.y+3;y<region.y+region.height-1;y+=7)for(let x=region.x+3;x<region.x+region.width-1;x+=9){
-        const lane=scene.map.currents?.find(current=>x>=current.x&&x<=current.x+current.width&&y>=current.y&&y<=current.y+current.height),direction=lane?.direction??{x:1,y:0},length=Math.max(.001,Math.hypot(direction.x,direction.y)),dx=direction.x/length,dy=direction.y/length,px=-dy,py=dx;
-        tri(a,{x:x+dx*1.15,y:y+dy*1.15},{x:x-dx*.8+px*.62,y:y-dy*.8+py*.62},{x:x-dx*.8-px*.62,y:y-dy*.8-py*.62},[.42,.8,.88,.62]);
+      const frozen=scene.map.scenery?.biome==='winter';
+      rect(a,region.x,region.y,region.width,region.height,frozen?[.18,.38,.48,.9]:[.045,.2,.23,.92]);
+      rectOutline(a,region.x+.3,region.y+.3,region.width-.6,region.height-.6,frozen?[.7,.84,.85,.8]:[.3,.34,.21,.85],.6);
+      rectOutline(a,region.x+1,region.y+1,region.width-2,region.height-2,[.24,.48,.49,.35],.5);
+      for(let y=region.y+2;y<region.y+region.height-2;y+=3)for(let x=region.x+2;x<region.x+region.width-4;x+=6){
+        const lane=scene.map.currents?.find(current=>x>=current.x&&x<=current.x+current.width&&y>=current.y&&y<=current.y+current.height);
+        const phase=(scene.time*(lane?.strength??1)*.06+x*.17+y*.31)%1;
+        rect(a,x+phase*1.4,y+Math.sin(x+y)*.4,1.1+(x+y)%3,.12,[.55,.77,.78,.16+Math.sin(phase*Math.PI)*.18]);
+        if(scene.heatmap&&lane){
+          const direction=lane.direction,length=Math.max(.001,Math.hypot(direction.x,direction.y)),dx=direction.x/length,dy=direction.y/length,px=-dy,py=dx;
+          tri(a,{x:x+dx*1.15,y:y+dy*1.15},{x:x-dx*.8+px*.62,y:y-dy*.8+py*.62},{x:x-dx*.8-px*.62,y:y-dy*.8-py*.62},[.42,.8,.88,.4]);
+        }
       }
     }
+
     const activeWires=(scene.wires??[]).filter(wire=>!wire.breached);
     const activeFences=scene.fences??[];
     const focused=scene.selection===null?undefined:scene.towers.find(tower=>tower.id===scene.selection);
