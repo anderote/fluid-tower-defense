@@ -1,3 +1,4 @@
+import {waveEnemyStrength} from '../../game/enemy-strength.ts';
 import {ENEMIES,enemySpeedForScale} from '../../content/index.ts';
 import {HORDE_APPROACH, P, PARTICLE_FLOATS, type SpawnBatch, type WorldMap} from '../../contracts/index.ts';
 
@@ -5,7 +6,7 @@ import {HORDE_APPROACH, P, PARTICLE_FLOATS, type SpawnBatch, type WorldMap} from
 export function hordeHealthScale(seed:number,ordinal:number,waveScale=1):number{
   let hash=Math.imul((seed+ordinal)>>>0,1597334677)>>>0;
   hash=Math.imul(hash^(hash>>>16),2246822519)>>>0;
-  return waveScale*(.9+(hash%10000)/10000*.5);
+  return waveScale*(.8+(hash%10000)/10000*.8);
 }
 
 /** A moving cross-section of a much larger horde, generated in O(new arrivals). */
@@ -60,7 +61,8 @@ export function encodeHorde(batches:readonly SpawnBatch[],positions:readonly {x:
     let selected=-1,score=-Infinity;
     for(let i=0;i<batches.length;i++)if(remaining[i]>0){const deficit=(index+1)*batches[i].count/count-assigned[i];if(deficit>score){selected=i;score=deficit;}}
     const batch=batches[selected],enemy=ENEMIES[batch.kind],offset=index*PARTICLE_FLOATS;
-    const healthScale=hordeHealthScale(batch.seed,assigned[selected],batch.healthScale??1);
+    const progress=batch.initialCount?((batch.spawnOffset??0)+assigned[selected])/batch.initialCount:0;
+    const healthScale=hordeHealthScale(batch.seed,assigned[selected],(batch.healthScale??1)*waveEnemyStrength(progress));
     remaining[selected]--;assigned[selected]++;
     output[offset+P.x]=positions[index].x;output[offset+P.y]=positions[index].y;
     const speed=enemySpeedForScale(batch.kind,healthScale),dx=goal?goal.x-positions[index].x:1,dy=goal?goal.y-positions[index].y:0,length=Math.max(.0001,Math.hypot(dx,dy));
