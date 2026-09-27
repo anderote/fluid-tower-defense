@@ -4,10 +4,12 @@
 .window-bar > .window-handle { flex:1; text-align:left; font-size:11px; letter-spacing:.08em; cursor:grab; touch-action:none; border:0; }
 .window-bar > .window-toggle { flex:0 0 30px; text-align:center; }
 .window-dragging .window-handle { cursor:grabbing; }
-.game-window.window-collapsed > :not(.window-bar) { display:none !important; }
+.game-window.window-collapsed > :not(.window-bar):not(.wave-control) { display:none !important; }
 .game-window.window-collapsed { width:220px !important; height:auto !important; min-height:0 !important; padding:5px !important; overflow:hidden; }
 .game-window.window-collapsed > .window-bar { margin:0; }
 .minimized-modal { background:transparent !important; pointer-events:none; }
 .minimized-modal > .game-window { pointer-events:auto; }
 .infantry-inspector { position:absolute; top:80px; left:24px; z-index:12; width:min(310px,calc(100% - 24px)); max-height:calc(100% - 24px); padding:10px; border:1px solid #aab675; background:#10150ff5; box-shadow:8px 8px 0 #0006; }
 .infantry-inspector[hidden] { display:none; }
+
+.wave-command.window-collapsed > .wave-control { margin:6px 0 0; }
