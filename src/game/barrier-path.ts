@@ -63,3 +63,15 @@ export function pointToBarrierDistance(point:Vec2,segment:Pick<BarrierSegment,'f
   const t=length<.0001?0:Math.max(0,Math.min(1,((point.x-segment.from.x)*dx+(point.y-segment.from.y)*dy)/length));
   return Math.hypot(point.x-(segment.from.x+dx*t),point.y-(segment.from.y+dy*t));
 }
+
+/** Pull either end of a new path onto the nearest existing endpoint in range. */
+export function snapBarrierEndpoints(points:readonly Vec2[],targets:readonly Vec2[],radius=1.5):Vec2[]{
+  if(points.length<2||targets.length===0)return points.map(copy);
+  const result=points.map(copy);
+  for(const index of [0,result.length-1]){
+    const point=result[index];let best:Vec2|undefined,bestDistance=radius;
+    for(const target of targets){const gap=distance(point,target);if(gap<bestDistance){best=target;bestDistance=gap;}}
+    if(best)result[index]=copy(best);
+  }
+  return result;
+}

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {barrierCost,barrierLength,barrierSegments,sampleBarrier,simplifyBarrier} from './barrier-path.ts';
+import {barrierCost,barrierLength,barrierSegments,sampleBarrier,simplifyBarrier,snapBarrierEndpoints} from './barrier-path.ts';
 
 test('straight barriers retain an arbitrary-angle centerline while their collision samples remain compact',()=>{
  const points=[{x:2,y:3},{x:11,y:9}],segments=barrierSegments('fence',7,points);
@@ -27,4 +27,10 @@ test('freeform barriers charge one panel price per five world units',()=>{
 test('freehand wire is distance-sampled and removes redundant straight samples',()=>{
  const sampled=sampleBarrier([{x:0,y:0}],{x:3,y:0},.5),simplified=simplifyBarrier(sampled);
  assert.ok(sampled.length>4);assert.deepEqual(simplified,[{x:0,y:0},{x:3,y:0}]);assert.equal(barrierLength(simplified),3);
+});
+
+test('barrier endpoints snap to nearby fence connection points',()=>{
+ const snapped=snapBarrierEndpoints([{x:0,y:0},{x:9,y:0}],[{x:1,y:.2},{x:8,y:.4}],1.5);
+ assert.deepEqual(snapped,[{x:1,y:.2},{x:8,y:.4}]);
+ assert.deepEqual(snapBarrierEndpoints([{x:0,y:0},{x:9,y:0}],[{x:3,y:0}],1),[{x:0,y:0},{x:9,y:0}]);
 });
