@@ -103,3 +103,9 @@ export function barrierLinesConflict(a:Pick<BarrierSegment,'from'|'to'>,b:Pick<B
   const candidates=[pointToBarrierDistance(a.from,b),pointToBarrierDistance(a.to,b),pointToBarrierDistance(b.from,a),pointToBarrierDistance(b.to,a)];
   return Math.min(...candidates)<clearance;
 }
+
+/** Chain-link runs can share space, including snapped joins and intersections. */
+export function barrierPlacementConflict(a:Pick<BarrierSegment,'from'|'to'|'kind'>,b:Pick<BarrierSegment,'from'|'to'|'kind'>):boolean{
+  if(a.kind==='fence'&&b.kind==='fence')return false;
+  return barrierLinesConflict(a,b);
+}
