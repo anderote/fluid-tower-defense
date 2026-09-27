@@ -62,8 +62,17 @@ export function createUI(
     selectedCard = root.querySelector<HTMLElement>(".selected")!,
     $ = <T extends HTMLElement = HTMLElement>(s: string) =>
       root.querySelector<T>(s)!;
-  // Required between-wave choices must precede the scrollable build inventory.
-  root.querySelector("aside")!.insertBefore($("#bonuses"), $(".tower"));
+  // Required choices must stay visible even when the build window is hidden or collapsed.
+  const boonGate = document.createElement('div');
+  boonGate.className = 'boon-gate';
+  boonGate.hidden = true;
+  boonGate.setAttribute('role', 'dialog');
+  boonGate.setAttribute('aria-modal', 'true');
+  boonGate.setAttribute('aria-labelledby', 'boon-title');
+  const boonCard = $("#bonuses");
+  boonCard.querySelector('label')!.id = 'boon-title';
+  boonGate.append(boonCard);
+  shell.append(boonGate);
   arena.append(selectedCard);
   const targetHint=document.createElement('div');targetHint.className='turret-target-hint';targetHint.hidden=true;targetHint.textContent='FOCUS GROUND — CLICK WITHIN RANGE · ESC CANCELS';arena.append(targetHint);
   selectedCard.classList.add("selected-popup");
@@ -413,7 +422,7 @@ export function createUI(
         ? {label: "LAB MODE", reason: "Lab mode runs continuously and has no waves."}
         : s.phase === "preparation"
           ? s.bonusChoices.length
-            ? {label: "CHOOSE BOON", reason: "Choose a command boon at the top of the sidebar to unlock the next wave."}
+            ? {label: "CHOOSE BOON", reason: "Choose a command boon in the popup to unlock the next wave."}
             : {label: "START WAVE", reason: "", action: "start-wave" as const}
           : s.phase === "checkpoint"
             ? {label: "EXTRACTION READY", reason: "Choose Continue in the sidebar to prepare the next wave, or Finish Run to extract."}
@@ -498,13 +507,15 @@ export function createUI(
       waveButton.textContent = waveControl.label;
       waveButton.title = waveControl.reason || (skipReady ? "95% cleared. Start the next wave while surviving enemies remain in play." : waveActive ? "Pause or resume the current wave." : "Start the next wave.");
       const bonusCard = $("#bonuses");
-      bonusCard.hidden = !s.bonusChoices.length;
+      const openingBoon = boonGate.hidden && s.bonusChoices.length > 0;
+      boonGate.hidden = bonusCard.hidden = !s.bonusChoices.length;
       renderMarkup($("#bonus-choices"), s.bonusChoices
         .map(
           (choice) =>
             `<button data-bonus="${choice.id}"><b>${choice.name.toUpperCase()}</b><small>${choice.description}</small></button>`,
         )
         .join(""));
+      if (openingBoon) bonusCard.querySelector<HTMLButtonElement>("button")?.focus({preventScroll:true});
       const extraction=$("#extraction");
       extraction.hidden=s.phase!=="checkpoint";
       $("#finish-run").textContent="FINISH RUN";
