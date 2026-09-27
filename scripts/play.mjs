@@ -11,7 +11,7 @@ export function validCommand(c){
  return ['start-wave','pause','slam-gates','dam-north','dam-south','dam-flood'].includes(c.type);
 }
 export function createLocalServer(root,{lan=false}={}){
- const guestKey=randomBytes(24).toString('hex'),hostKey=randomBytes(24).toString('hex');
+ const guestKey=randomBytes(5).toString('hex'),hostKey=randomBytes(24).toString('hex');
  const addresses=Object.values(networkInterfaces()).flat().filter(a=>a&&a.family==='IPv4'&&!a.internal).map(a=>a.address);
  const allowedHosts=new Set(['localhost','127.0.0.1',...addresses]);
  let host=null,latest=null,enabled=false,lastFrame=0;const guests=new Set();
@@ -30,7 +30,7 @@ export function createLocalServer(root,{lan=false}={}){
    const json=data=>{res.writeHead(200,{'Content-Type':'application/json'});res.end(JSON.stringify(data));};
    if(url.pathname==='/coop/session'&&req.method==='GET'){
     if(!local)return fail(403,'Open the host game on localhost');
-    return json({lan,hostKey,joinPath:`/coop/#${guestKey}`,links:addresses.map(a=>`http://${a}:${server.address().port}/coop/#${guestKey}`)});
+    return json({lan,hostKey,roomCode:guestKey.toUpperCase().replace(/(.{5})(.{5})/,'$1-$2'),joinPath:`/coop/#${guestKey}`,links:addresses.map(a=>`http://${a}:${server.address().port}/coop/#${guestKey}`)});
    }
    if(url.pathname==='/coop/host'&&req.method==='GET'){
     if(!local||key!==hostKey||!lan)return fail(403,'Host unavailable');
