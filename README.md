@@ -54,7 +54,7 @@ The host's browser runs the authoritative WebGPU simulation. The partner renders
 
 Local co-op remains available with `PORT=5175 npm run play:lan`; it uses the same interface with a local event stream. LAN traffic is plain HTTP; use a trusted local network.
 
-Public deployment uses Sites with an R2 relay declared in `.openai/hosting.json`. `npm run build:site` produces the Worker and client assets. The room's random host credential is kept in the host page; only its hash reaches stored room metadata. Guest requests cannot publish frames, read the host command queue, or close someone else's room. Room codes grant control, so send them only to your partner.
+Public deployment uses Sites with an R2 relay declared in `.openai/hosting.json`. `npm run build:site` produces the Worker and client assets. It requires FFmpeg and encodes all 22 soundtrack tracks at 32 kbps mono for smaller public downloads; original local/offline audio stays unchanged. The room's random host credential is kept in the host page; only its hash reaches stored room metadata. Guest requests cannot publish frames, read the host command queue, or close someone else's room. Room codes grant control, so send them only to your partner.
 
 Validation: `node --test server/worker.test.mjs scripts/play.test.mjs` checks relay isolation and input bounds. `PORT=5205 node scripts/preview-cloud.mjs` serves a test-only in-memory version of the exact Worker, after `npm run build`. Copy `tests/public-coop/index.html` to `dist/tests/public-coop/index.html` and open `/tests/public-coop/` there for the real two-browser-interface test. Never use the preview adapter as a public server.
 
