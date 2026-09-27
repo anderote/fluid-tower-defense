@@ -15,9 +15,10 @@ function customId(map:WorldMap):string {
   return `custom-${(hash>>>0).toString(36)}`;
 }
 
-export function validateEditorMap(map:WorldMap):string|undefined {
+/** Pass only proposed structures during play; authored scenery is already installed. */
+export function validateEditorMap(map:WorldMap,structures:readonly Rect[]=map.obstacles):string|undefined {
   if(!Number.isFinite(map.width)||!Number.isFinite(map.height)||map.width<GRID||map.height<GRID) return `Maps must be at least ${GRID} × ${GRID}.`;
-  for(const wall of map.obstacles) {
+  for(const wall of structures) {
     if (!Number.isFinite(wall.x)||!Number.isFinite(wall.y)||!Number.isFinite(wall.width)||!Number.isFinite(wall.height)||wall.width<=0||wall.height<=0||wall.x<0||wall.y<0||wall.x+wall.width>map.width||wall.y+wall.height>map.height) return 'Walls must stay inside the map.';
     if(Math.hypot(wall.x+wall.width/2-map.goal.x,wall.y+wall.height/2-map.goal.y)<map.goalRadius+Math.hypot(wall.width,wall.height)/2) return 'Walls cannot cover the goal.';
   }
