@@ -37,7 +37,7 @@ When ready to lose the host's internet connection:
    Port 5173 belongs to the stable published game; leave that service alone. Run this separate co-op session on 5175. If an older co-op server on 5175 is running in your terminal, stop only that instance with Control-C first. This port has separate browser saves. Do not kill every Node process.
 7. Host opens **http://127.0.0.1:5175/** in Chrome (or a working WebGPU browser), clicks **HOST CO-OP**, and gives the complete displayed link to the partner. Use the actual port if changed. Keep this game visible and the host Mac awake.
 
-The hotspot password controls joining Wi-Fi. The long code at the end of the game link controls joining the shared defense. Both are needed. The game is local HTTP, so use a trusted local network.
+The hotspot password controls joining Wi-Fi. The short room code at the end of the game link controls joining the shared defense. Both are needed. The game is local HTTP, so use a trusted local network.
 
 ## Partner: no installation and no administrator setup
 
@@ -45,10 +45,14 @@ You do **not** need Node, Git, this repository, a hotspot script, or WebGPU to j
 
 1. Enable Wi-Fi on your Mac and join **A Wing** (or the host's chosen name).
 2. Enter the host's Wi-Fi password. A “No Internet” indicator is normal. Stay on this network rather than switching back to airport Wi-Fi.
-3. Open the **complete game join link from the host**, including its `#` room code, in your browser. Do not open `127.0.0.1` on the partner Mac: that means your own computer.
+3. Type the address shown by the host (for example `http://192.168.2.1:5175/coop/`) into your browser, then enter the **10-character room code**, shown as `ABCDE-12345`. Uppercase/lowercase and the dash do not matter. You can read these aloud with no internet or messaging app. Alternatively, the host can use **Copy link** to share a complete link that joins automatically. Do not open `127.0.0.1` on the partner Mac: that means your own computer.
 4. Wait for **Connected · shared defense** and a visible battlefield. Select a tower, then click the battlefield to place it. You share Metal and the base. You can start/pause waves, operate dam gates/floods, and slam crushers. The host handles upgrades, research, saves, and camera movement. The partner image updates about five times per second; it is not a full-rate second renderer.
 
 If the page will not open, verify that both Macs are on the host's network, the server was restarted after switching networks, and you used the newly displayed join link. The host may need to allow Node's incoming connections when macOS asks. Do not disable the firewall. If the page opens but reports the host unavailable, the host must click HOST CO-OP and keep the game visible. A server restart changes the room code.
+
+## Why Host is unavailable with `npm run dev`
+
+`npm run dev` starts the Vite development server on port 5174. It has no co-op backend. This is unrelated to which folder you launched it from. For co-op, run `npm run build` followed by `PORT=5175 npm run play:lan`, then open `http://127.0.0.1:5175/`. Rebuild after code changes; the LAN launcher serves the built game.
 
 ## Undo: return to ordinary Wi-Fi
 

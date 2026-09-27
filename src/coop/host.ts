@@ -8,16 +8,17 @@ export function mountCoop(canvas:HTMLCanvasElement,callbacks:{screenToWorld:(x:n
  const button=document.createElement('button');button.textContent='HOST CO-OP';button.style.cssText='padding:8px;margin-right:10px';
  const detail=document.createElement('span');panel.append(button,detail);document.querySelector('.pf')?.prepend(panel);
  const capture=document.createElement('canvas'),context=capture.getContext('2d')!;
- let links:string[]=[];
+ let links:string[]=[],roomCode='';
+ const unavailable=()=>{panel.hidden=false;button.disabled=true;detail.textContent='Co-op needs the LAN launcher. In Terminal run: npm run build && PORT=5175 npm run play:lan — then open http://127.0.0.1:5175/';};
  const stop=()=>{sharing=false;stream?.close();stream=null;frames.clear();button.textContent='HOST CO-OP';detail.textContent='Sharing stopped. Your partner cannot control the game.';};
  void fetch('/coop/session').then(async response=>{
-  if(!response.ok)return;const session=await response.json();if(!session.lan)return;
-  key=session.hostKey;links=session.links;panel.hidden=false;detail.textContent='Share this defense with someone on the same local network.';
- }).catch(()=>{});
+  if(!response.ok){unavailable();return;}const session=await response.json();if(!session.lan){unavailable();return;}
+  key=session.hostKey;links=session.links;roomCode=session.roomCode;panel.hidden=false;detail.textContent='Share this defense with someone on the same local network.';
+ }).catch(unavailable);
  button.onclick=()=>{
   if(stream){stop();return;}
   stream=new EventSource('/coop/host?key='+key);
-  stream.onopen=()=>{sharing=true;button.textContent='STOP CO-OP';detail.replaceChildren(document.createTextNode('Partner join link: '));for(const url of links){const link=document.createElement('a');link.href=url;link.textContent=url;link.style.cssText='color:#8ee8ee;display:block;overflow-wrap:anywhere';link.target='_blank';link.rel='noreferrer';detail.append(link);}if(!links.length)detail.textContent='No local network address found. Connect both Macs to a local network and restart the launcher.';};
+  stream.onopen=()=>{sharing=true;button.textContent='STOP CO-OP';detail.replaceChildren(document.createTextNode('Room code: '+roomCode+' · Partner opens the address below and enters this code, or uses Copy link. '));for(const url of links){const link=document.createElement('a');link.href=url;link.textContent=url.split('#')[0];link.style.cssText='color:#8ee8ee;display:block;overflow-wrap:anywhere';link.target='_blank';link.rel='noreferrer';detail.append(link);const copy=document.createElement('button');copy.textContent='Copy link';copy.onclick=async()=>{try{await navigator.clipboard.writeText(url);copy.textContent='Copied!';}catch{const input=document.createElement('input');input.value=url;input.readOnly=true;input.setAttribute('aria-label','Join link to copy');detail.append(input);input.focus();input.select();copy.textContent='Press ⌘C to copy';}};detail.append(copy);}if(!links.length)detail.textContent='No local network address found. Connect both Macs to a local network and restart the launcher.';};
   stream.onerror=()=>{stop();detail.textContent='Could not share. Another host tab may already be sharing. Try again.';};
   stream.addEventListener('command',event=>{
    const command=JSON.parse(event.data) as Command;

@@ -10,7 +10,14 @@ document.querySelector('#run').onclick=async()=>{
   await wait(()=>[...host.contentDocument.querySelectorAll('button')].some(b=>b.textContent==='HOST CO-OP'&&b.getClientRects().length>0),'host control');
   [...host.contentDocument.querySelectorAll('button')].find(b=>b.textContent==='HOST CO-OP').click();
   await wait(()=>host.contentDocument.querySelector('a[href*="/coop/#"]'),'join link');
-  const link=host.contentDocument.querySelector('a[href*="/coop/#"]').href;guest.src='/coop/#'+link.split('#')[1];
+  const link=host.contentDocument.querySelector('a[href*="/coop/#"]').href;
+  const copy=[...host.contentDocument.querySelectorAll('button')].find(b=>b.textContent==='Copy link');copy.click();
+  await wait(()=>copy.textContent==='Copied!'||host.contentDocument.querySelector('input[aria-label="Join link to copy"]'),'copy or manual fallback');
+  assert(true,'join link can be copied or selected for manual copy');
+  guest.src='/coop/';
+  await wait(()=>guest.contentDocument?.querySelector('#code'),'join form');
+  guest.contentDocument.querySelector('#code').value=link.split('#')[1].toUpperCase().replace(/(.{5})(.{5})/,'$1-$2');
+  guest.contentDocument.querySelector('#join').requestSubmit();
   await wait(()=>guest.contentDocument?.querySelector('#connection')?.textContent.startsWith('Connected'),'guest live');
   const gd=guest.contentDocument;const img=gd.querySelector('#view');
   assert(img.naturalWidth>0,'partner receives a live battlefield image');
@@ -25,7 +32,7 @@ document.querySelector('#run').onclick=async()=>{
   gd.querySelector('[data-command="dam-flood"]').click();await wait(()=>host.contentDocument.querySelector('#reservoir-status').textContent.includes('0%'),'flood');assert(true,'partner releases a real flood');
   await new Promise(r=>setTimeout(r,250));gd.querySelector('[data-command="pause"]').click();await wait(()=>gd.querySelector('#status').textContent.includes('PAUSED'),'pause');assert(true,'partner pauses shared simulation');
   [...host.contentDocument.querySelectorAll('button')].find(b=>b.textContent==='STOP CO-OP').click();await wait(()=>gd.querySelector('[data-command="pause"]').disabled,'disconnect');assert(true,'stopping sharing disables partner controls');
-  result.textContent+='ALL 7 CHECKS PASSED';
+  result.textContent+='ALL 8 CHECKS PASSED';
  }catch(error){result.textContent+='FAIL '+error.stack;}finally{
   host.src='about:blank';guest.src='about:blank';await new Promise(r=>setTimeout(r,300));for(const k of Object.keys(localStorage))if(k.startsWith('pressure-front.'))localStorage.removeItem(k);for(const[k,v]of saved)localStorage.setItem(k,v);document.querySelector('#run').disabled=false;
  }
