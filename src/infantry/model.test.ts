@@ -163,3 +163,17 @@ test('infantry saves round-trip; invalid squads reject atomically; relocation re
   const legacy=JSON.parse(saved);delete legacy.model.infantry;assert.ok(restored.load(JSON.stringify(legacy)).ok);assert.equal(restored.model.infantry!.buildings.length,0);
   run.model.wave=10;run.model.phase='checkpoint';const metal=run.model.metal;assert.ok(run.continueRun({...map,id:'next'}).ok);assert.equal(run.model.metal,metal+INFANTRY.rifle.cost);assert.equal(run.model.infantry!.soldiers.length,0);
 });
+
+test('fresh no-target GPU sensing lets every recruit reach its assigned rally point',()=>{
+  for(const kind of Object.keys(INFANTRY) as InfantryKind[]){
+   const f=setup(kind);f.state.buildings[0].rally={x:8.5,y:23.5};
+   f.fields.set(1,infantryField(f.active,f.state.buildings[0].rally));
+   f.step(recruitInterval(0,kind)+.1);const soldier=f.state.soldiers[0];f.state.soldiers=[soldier];
+   const destination=infantryFanPoint(f.active,soldier.rallyTarget!,soldier.rallySlot!);
+   for(let i=0;i<600;i++){
+    f.threats.set(soldier.id,{target:-1,generation:0,x:0,y:0,contact:0,pushX:0,pushY:0,pressure:0,age:0});
+    advanceInfantry(f.state,f.active,f.fields,f.threats,1/60,true);
+   }
+   assert.ok(Math.hypot(soldier.x-destination.x,soldier.y-destination.y)<=.7,`${kind} should arrive at its rally slot`);
+  }
+});

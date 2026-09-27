@@ -14,7 +14,7 @@ const TARGET_CELLS=256*256;
 /** The largest per-shot reload variance, reserved for Tesla coils. */
 export const RELOAD_JITTER=0.15;
 export const RELOAD_VARIANCE:Record<TowerKind,number>={
-  repulsor:.08,mortar:.10,autocannon:.04,cryo:.06,tesla:.15,rocket:.12,railgun:.12,incinerator:.07,
+  repulsor:.08,mortar:.10,autocannon:.04,cryo:.06,tesla:.15,rocket:.12,railgun:.12,incinerator:.07,crusher:0,
 };
 
 /** A stable per-shot firing cadence that prevents identical guns from firing in lockstep. */
@@ -136,8 +136,10 @@ fn roundFall(round:Round,point:vec2f,bodyRadius:f32)->vec3f {
 
 @compute @workgroup_size(${parallelTowers?1:64}) fn acquire(@builtin(global_invocation_id) gid:vec3u){
  let t=gid.x;if(t>=u32(params.clock.w)){return;}let def=towers[t];var s=firing.towers[t];
- if(s.flags.x!=def.flags.x){s=TowerState(vec4f(0),vec4f(0),vec4f(def.flags.x,0,0,0));}
+ if(s.flags.x!=def.flags.x){s=TowerState(vec4f(0),vec4f(0),vec4f(def.flags.x,0,0,0));electricity.charges[t]=vec4f(0);}
  if(s.timing.y>0.0 && s.timing.y!=def.weapon.x){s.timing.x=s.timing.x/s.timing.y*def.weapon.x;}
+ if(u32(def.position.w)==15u){s.shot.x=0.;firing.towers[t]=s;return;}
+ if(u32(def.position.w)==13u){electricity.charges[t].z=def.flags.w;}
  s.timing.y=def.weapon.x;s.timing.x=max(0.0,s.timing.x-params.clock.x);s.shot.x=0;
  if(s.timing.x>0.0){firing.towers[t]=s;return;}
  let order=def.order;let focused=order.z>.5&&distance(order.xy,def.position.xy)<=def.position.z;
@@ -164,13 +166,15 @@ fn roundFall(round:Round,point:vec2f,bodyRadius:f32)->vec3f {
  }else if(found){let p=particles[selected];var aim=p.pos.xy;if(focused&&u32(def.position.w)!=13u){aim=order.xy;}s.timing=vec4f(reload,def.weapon.x,aim);s.shot=vec4f(1,f32(selected),p.status.w,atan2(aim.y-def.position.y,aim.x-def.position.x));s.flags.y+=1.;}
  if(u32(def.position.w)==13u&&s.shot.x>.5){
   s.flags.z=params.clock.y+1.;
+  let overloaded=def.flags.w>.5&&u32(s.flags.y)%6u==0u;
+  electricity.charges[t]=vec4f(f32(u32(s.flags.y)%6u)/6.,select(0.,1.,overloaded),def.flags.w,0.);
   let base=t*${TESLA_LINKS}u;
   for(var hop=0u;hop<${TESLA_LINKS}u;hop++){electricity.links[base+hop]=vec4f(0,0,-2,0);}
   electricity.links[base]=vec4f(s.timing.zw,s.shot.y,s.shot.z);
   var origin=s.timing.zw;
-  let limit=select(4u,${TESLA_LINKS}u,def.flags.y==1.);
+  let limit=select(select(4u,6u,def.flags.y==1.),${TESLA_LINKS}u,overloaded);
   for(var hop=1u;hop<limit;hop++){
-   var nearest=def.weapon.w*1.35;var candidate=-1;var generation=0.;var position=vec2f(0);
+   var nearest=def.weapon.w*select(1.35,1.8,overloaded);var candidate=-1;var generation=0.;var position=vec2f(0);
    let chainBounds=targetBounds(origin,nearest);
    for(var cy=chainBounds.y;cy<=chainBounds.w;cy++){for(var cx=chainBounds.x;cx<=chainBounds.z;cx++){var link=targetHead(cx,cy);loop{
     if(link==0u){break;}let i=link-1u;link=targetNext(i);
@@ -203,7 +207,8 @@ fn roundFall(round:Round,point:vec2f,bodyRadius:f32)->vec3f {
    for(var hop=0u;hop<${TESLA_LINKS}u;hop++){
     let link=electricity.links[t*${TESLA_LINKS}u+hop];
     if(link.z==f32(i)&&link.w==p.status.w&&p.body.z>0.){
-     let power=select(.52*pow(.82,f32(hop)-1.),1.,hop==0u);
+     let normalPower=select(.52*pow(.82,f32(hop)-1.),1.,hop==0u);
+     let power=select(normalPower,3.*pow(.9,f32(hop)),electricity.charges[t].y>.5);
      p.body.z-=def.weapon.y*power;atomicStore(&owners[i],t+1u);
      p.status.y=max(p.status.y,.8);p.status.x=max(p.status.x,.32);
      electricity.victims[i].shock=vec4f(params.clock.y+1.,p.status.w,select(0.,1.,p.body.z<=0.),power);
@@ -236,7 +241,22 @@ fn roundFall(round:Round,point:vec2f,bodyRadius:f32)->vec3f {
   }
  }
  for(var e=0u;e<u32(params.damage.z);e++){
-  let f=effectGrid.items[e];let delta=p.pos.xy-f.position.xy;let dist=length(delta);if(dist>f.position.z){continue;}
+  let f=effectGrid.items[e];let delta=p.pos.xy-f.position.xy;
+  if(f.extra.x==5.){
+   if(p.body.z>0.&&abs(delta.x)<=f.position.z&&abs(delta.y)<=f.direction.z){
+    p.body.z-=f.position.w;p.pos.z+=f.direction.x*f.extra.y/max(.1,p.body.y);p.status.x=max(p.status.x,.5);atomicStore(&owners[i],0u);
+   }
+   continue;
+  }
+  if(f.extra.x==6.){
+   if(p.body.z>0.&&abs(delta.x)<=4.&&abs(delta.y)<=5.){
+    p.body.z-=f.position.w*clamp(p.state.x,1.,2.)/enemyCrushResistance(u32(p.state.z));
+    p.pos.w-=sign(delta.y)*f.extra.y/max(.1,p.body.y);p.status.x=max(p.status.x,.6);
+    atomicStore(&owners[i],select(u32(f.extra.z),${MAX_TOWERS + MAX_INFANTRY_KILL_SLOTS}u+u32(f.extra.z),p.body.z<=0.));
+   }
+   continue;
+  }
+  let dist=length(delta);if(dist>f.position.z){continue;}
   if(f.extra.x==1.0&&f.direction.z>0&&dot(safeDir(delta),f.direction.xy)<cos(f.direction.z*.5)){continue;}
   let effectFalloff=select(max(0.0,1.0-dist/max(.001,f.position.z)),blastFalloff(dist,f.position.z),f.extra.x==0.0);
   p.body.z-=f.position.w*effectFalloff;
@@ -266,7 +286,7 @@ fn roundFall(round:Round,point:vec2f,bodyRadius:f32)->vec3f {
   if(kind==1u||kind==12u){continue;}
   let order=def.order;if(order.z>.5&&distance(b.motion.xy,order.xy)>focusRadius(def)+b.body.x){continue;}
   if(kind==2u){if(s.shot.y<0&&s.shot.z==b.flags.x){b.body.z-=def.weapon.y*vulnerable;}continue;}
-  if(kind==13u){if(s.shot.y<0&&s.shot.z==b.flags.x){b.body.z-=def.weapon.y*vulnerable;}continue;}
+  if(kind==13u){if(s.shot.y<0&&s.shot.z==b.flags.x){b.body.z-=def.weapon.y*select(1.,3.,electricity.charges[t].y>.5)*vulnerable;}continue;}
   let targetedBlast=kind==1u;let origin=select(def.position.xy,s.timing.zw,targetedBlast);let rad=select(def.position.z,def.weapon.w,targetedBlast);let delta=b.motion.xy-origin;let dist=max(0.0,length(delta)-b.body.x);if(dist>rad){continue;}
   let forward=vec2f(cos(s.shot.w),sin(s.shot.w));if(kind!=1u&&dot(safeDir(delta),forward)<cos(clamp(def.weapon.w*.18,.25,1.35))){continue;}
   let falloff=select(max(.25,1.0-dist/max(rad,.001)),blastFalloff(dist,rad),targetedBlast);
@@ -282,6 +302,9 @@ fn roundFall(round:Round,point:vec2f,bodyRadius:f32)->vec3f {
    b.body.z-=round.definition.weapon.y*blast.z*vulnerable;
   }
  }
+ for(var e=0u;e<u32(params.damage.z);e++){
+  let f=effectGrid.items[e];if(f.extra.x==5.&&abs(b.motion.x-f.position.x)<=f.position.z+b.body.x&&abs(b.motion.y-f.position.y)<=f.direction.z+b.body.x){b.body.z-=f.position.w*vulnerable;}if(f.extra.x==6.&&abs(b.motion.x-f.position.x)<=4.+b.body.x&&abs(b.motion.y-f.position.y)<=5.+b.body.x){b.body.z-=f.position.w*vulnerable;}
+ }
  boss[0]=b;
 }
 @compute @workgroup_size(128) fn settle(@builtin(global_invocation_id) gid:vec3u){
@@ -292,7 +315,7 @@ fn roundFall(round:Round,point:vec2f,bodyRadius:f32)->vec3f {
  let brittle=select(1.0,1.7,p.status.y>0.0);
  let crush=max(0.0,p.status.z)*brittle/tolerance;
  let wasAlive=p.body.z>0.0;p.body.z-=crush;p.status.z=0;
- if(p.body.z<=0.0){p.body.z=0;p.body.w=-params.clock.y;p.state.w=-1;atomicAdd(&counters[0],1u);if(wasAlive&&crush>0){atomicAdd(&counters[1],1u);}else{let owner=atomicLoad(&owners[i]);if(owner>0u&&owner<=${MAX_TOWERS + MAX_INFANTRY_KILL_SLOTS}u){atomicAdd(&counters[16u+owner-1u],1u);}}let bounty=enemyBountyPoints(kind);let prior=atomicAdd(&counters[15],bounty);let payout=(prior+bounty)/${ENEMY_BOUNTY_DIVISOR}u-prior/${ENEMY_BOUNTY_DIVISOR}u;if(payout>0u){atomicAdd(&counters[3],payout);}}
+ if(p.body.z<=0.0){p.body.z=0;p.body.w=-params.clock.y;p.state.w=-1;atomicAdd(&counters[0],1u);let owner=atomicLoad(&owners[i]);let gateKill=owner>${MAX_TOWERS + MAX_INFANTRY_KILL_SLOTS}u&&owner<=${MAX_TOWERS * 2 + MAX_INFANTRY_KILL_SLOTS}u;if((wasAlive&&crush>0)||gateKill){atomicAdd(&counters[1],1u);}if(gateKill){atomicAdd(&counters[16u+owner-${MAX_TOWERS + MAX_INFANTRY_KILL_SLOTS + 1}u],1u);}else if(!(wasAlive&&crush>0)&&owner>0u&&owner<=${MAX_TOWERS + MAX_INFANTRY_KILL_SLOTS}u){atomicAdd(&counters[16u+owner-1u],1u);}let bounty=enemyBountyPoints(kind);let prior=atomicAdd(&counters[15],bounty);let payout=(prior+bounty)/${ENEMY_BOUNTY_DIVISOR}u-prior/${ENEMY_BOUNTY_DIVISOR}u;if(payout>0u){atomicAdd(&counters[3],payout);}}
  else if(params.goal.w<.5&&distance(p.pos.xy,params.goal.xy)<params.goal.z){p.state.w=0;atomicAdd(&counters[2],enemyLeak(kind));}
  else{atomicAdd(&counters[4],1u);atomicMax(&counters[6],u32(clamp(p.state.x,0.0,1000.0)*1000.0));}
  if(p.state.w<.5){if(abs(p.state.w)<.5){heat[i]=Heat(vec4f(0));}atomicStore(&owners[i],0u);}
@@ -325,9 +348,9 @@ fn roundFall(round:Round,point:vec2f,bodyRadius:f32)->vec3f {
       const cellSize=Math.max(8,Math.ceil((frame.map.width+HORDE_APPROACH)/256),Math.ceil(frame.map.height/256)),columns=Math.ceil((frame.map.width+HORDE_APPROACH)/cellSize),rows=Math.ceil(frame.map.height/cellSize);
       const u=new Float32Array([frame.dt,frame.tick,frame.count,frame.towers.length,frame.map.goal.x,frame.map.goal.y,frame.map.goalRadius,frame.lab?1:0,frame.tuning.crushDamage,0,frame.effects.length,0,frame.map.obstacles.length,spatialTargets?cellSize:0,columns,rows]);device.queue.writeBuffer(uniforms,0,u);
       const data=new Float32Array(Math.max(1,frame.towers.length)*16);
-      frame.towers.forEach(({tower:t,definition:d},i)=>{data.set([t.x,t.y,d.range,towerBehavior(t.kind),d.cooldown,d.damage,d.force,d.radius,t.id,t.branch,t.kind==='tesla'?1:0,t.kind==='railgun'?1:0,t.groundTarget?.x??0,t.groundTarget?.y??0,t.groundTarget?1:0,0],i*16);});device.queue.writeBuffer(towers,0,data);
+      frame.towers.forEach(({tower:t,definition:d},i)=>{data.set([t.x,t.y,d.range,towerBehavior(t.kind),d.cooldown,d.damage,d.force,d.radius,t.id,t.branch,t.kind==='tesla'?1:0,t.kind==='railgun'||d.overload?1:0,t.groundTarget?.x??0,t.groundTarget?.y??0,t.groundTarget?1:0,0],i*16);});device.queue.writeBuffer(towers,0,data);
       if(!sameObstacles(obstacleSnapshot,frame.map.obstacles)){obstacleSnapshot=new Float32Array(frame.map.obstacles.length*4);const sightData=new Float32Array(frame.map.obstacles.length*16);frame.map.obstacles.forEach((o,i)=>{const rect=[o.x,o.y,o.width,o.height];sightData.set(rect,i*16);obstacleSnapshot.set(rect,i*4);});if(sightData.length)device.queue.writeBuffer(towers,MAX_TOWERS*64,sightData);}
-      if(frame.effects.length){const values=new Float32Array(frame.effects.length*12);frame.effects.forEach((e,i)=>values.set([e.x,e.y,e.radius,e.damage,e.direction.x,e.direction.y,e.cone,e.duration,['blast','push','slow','shot','corpse-blast'].indexOf(e.kind),e.strength,e.source,0],i*12));device.queue.writeBuffer(effects,0,values);}
+      if(frame.effects.length){const values=new Float32Array(frame.effects.length*12);frame.effects.forEach((e,i)=>values.set([e.x,e.y,e.radius,e.damage,e.direction.x,e.direction.y,e.cone,e.duration,['blast','push','slow','shot','corpse-blast','flood','crush'].indexOf(e.kind),e.strength,e.source,0],i*12));device.queue.writeBuffer(effects,0,values);}
       aftermath.before(encoder,frame.count);
       if(spatialTargets&&frame.towers.length&&frame.count){encoder.clearBuffer(effects,MAX_EFFECTS*48,columns*rows*4);const pass=encoder.beginComputePass({label:'Index combat targets'});pass.setPipeline(binPipeline);pass.setBindGroup(0,bind);pass.dispatchWorkgroups(Math.ceil(frame.count/128));pass.end();}
       encoder.clearBuffer(shared.counters,14*4,4);dispatch(encoder,0,Math.ceil(frame.towers.length/(parallelTowers?1:64)));dispatch(encoder,1,Math.ceil(frame.count/128));dispatch(encoder,2,Math.ceil(frame.count/128));dispatch(encoder,4,1);

@@ -1,6 +1,7 @@
+import {DAM_GATES} from '../content/dam.ts';
 import type {Rect,RenderScene,TowerKind} from '../contracts/index.ts';
 import {createSoldatAtlas,soldatFacing,soldatSpriteKey,SOLDAT_WORLD_SIZE} from './soldat-art.ts';
-import {wireTiles,wireDamage,type WireArtStyle} from './wire-art.ts';
+import {fencePanels,wireTiles,wireDamage,type WireArtStyle} from './wire-art.ts';
 export type TurretArtStyle='soldat'|'red-alert';
 export type FloorArtStyle='panels'|'grating';
 export const floorSprites=(sprites:Record<string,number[]>,style:FloorArtStyle='panels')=>style==='grating'&&sprites.grating?.length?sprites.grating:sprites.floor;
@@ -58,14 +59,15 @@ export async function createRedAlertArt(device:GPUDevice,format:GPUTextureFormat
   if(style==='soldat'){
     const custom=createSoldatAtlas();customCanvas=custom.canvas;customFrames=custom.frames;
   }
-  // Bake 64 padded, nearest-neighbour facings from the verified RA panels.
-  // Padding keeps diagonal corners intact; the game draws these frames upright.
-  const facingSize=48,rows=(hasWireSprites?1:0)+(hasFenceSprites?1:0),extra=document.createElement('canvas');
-  extra.width=Math.max(customCanvas?.width??0,facingSize*64);extra.height=(customCanvas?.height??0)+rows*facingSize;
+  // Project the verified RA fence panels along the ground while preserving
+  // vertical posts and palette lighting. Eight spans avoid stretching short ends.
+  // A narrow edge-on width keeps north/south runs visible. Wire still rotates.
+  const facingSize=64,rows=(hasWireSprites?1:0)+(hasFenceSprites?1:0),extra=document.createElement('canvas');
+  extra.width=Math.max(customCanvas?.width??0,facingSize*64);extra.height=(customCanvas?.height??0)+(rows+(hasFenceSprites?7:0))*facingSize;
   const extraContext=extra.getContext('2d')!;extraContext.imageSmoothingEnabled=false;if(customCanvas)extraContext.drawImage(customCanvas,0,0);
   let row=customCanvas?.height??0;
-  const bake=(source:number[],target:'wire'|'fence')=>{const ids:number[]=[];const frame=atlas.frames[source[10]];for(let facing=0;facing<64;facing++){const x=facing*facingSize+facingSize/2,y=row+facingSize/2;extraContext.save();extraContext.translate(x,y);extraContext.rotate(facing*Math.PI/32);extraContext.drawImage(bitmap,frame.x,frame.y,frame.width,frame.height,-frame.width/2,-frame.height/2,frame.width,frame.height);extraContext.restore();ids.push(atlas.frames.length);atlas.frames.push({x:customOffset+facing*facingSize,y:row,width:facingSize,height:facingSize});}row+=facingSize;return ids;};
-  barrierFacings={wire:hasWireSprites?bake(wireFrames,'wire'):[],fence:hasFenceSprites?bake(fenceFrames,'fence'):[]};
+  const bake=(source:number[],target:'wire'|'fence',span=4)=>{const ids:number[]=[];const frame=atlas.frames[source[10]];for(let facing=0;facing<64;facing++){const x=facing*facingSize+facingSize/2,y=row+facingSize/2;extraContext.save();extraContext.translate(x,y);if(target==='fence'){const angle=facing*Math.PI/32;extraContext.transform((Math.abs(Math.cos(angle))<.08?.08:Math.cos(angle))*span/4,Math.sin(angle)*span/4,0,1,0,0);}else extraContext.rotate(facing*Math.PI/32);extraContext.drawImage(bitmap,frame.x,frame.y,frame.width,frame.height,-frame.width/2,target==='fence'?-20:-frame.height/2,frame.width,frame.height);extraContext.restore();ids.push(atlas.frames.length);atlas.frames.push({x:customOffset+facing*facingSize,y:row,width:facingSize,height:facingSize});}row+=facingSize;return ids;};
+  barrierFacings={wire:hasWireSprites?bake(wireFrames,'wire'):[],fence:hasFenceSprites?Array.from({length:8},(_,i)=>bake(fenceFrames,'fence',(i+1)/2)).flat():[]};
   if(customCanvas){const offset=atlas.frames.length;customSprites=Object.fromEntries(Object.entries(createSoldatAtlas().sprites).map(([kind,ids])=>[kind,ids.map(id=>id+offset)]));atlas.frames.push(...customFrames.map(frame=>({...frame,x:frame.x+customOffset})));}
   textureWidth=customOffset+extra.width;textureHeight=Math.max(textureHeight,extra.height);
   const texture=device.createTexture({label:'Original Red Alert sprite atlas',size:[textureWidth,textureHeight],format:'rgba8unorm',usage:GPUTextureUsage.TEXTURE_BINDING|GPUTextureUsage.COPY_DST|GPUTextureUsage.RENDER_ATTACHMENT});
@@ -125,7 +127,7 @@ struct Out{@builtin(position) pos:vec4<f32>,@location(0) uv:vec2<f32>,@location(
     const scenery=scene.map.scenery,biome=scenery?.biome;
     if(previousScenery!==scenery){previousScenery=scenery;sceneryVersion++;}
     const landscapeAvailable=biome&&biome!=='interior'&&atlas.sprites[`${biome}:clear1`]?.length;
-    const obstacles=scene.map.obstacles.filter(o=>!(scene.wires??[]).some(w=>!w.breached&&same(o,w))&&!(scene.fences??[]).some(f=>same(o,f))&&!((landscapeAvailable||biome==='interior')&&scenery?.solids.some(r=>same(r,o))));
+    const obstacles=scene.map.obstacles.filter(o=>!(scene.map.dam&&[...scenery?.mounts??[],...DAM_GATES].some(r=>same(r,o)))&&!(scene.wires??[]).some(w=>!w.breached&&same(o,w))&&!(scene.fences??[]).some(f=>same(o,f))&&!((landscapeAvailable||biome==='interior')&&scenery?.solids.some(r=>same(r,o))));
     const key=JSON.stringify([scene.map.width,scene.map.height,sceneryVersion,obstacles]);
     if(key!==terrainKey){
       const data:number[]=[],floor=landscapeAvailable?atlas.sprites[`${biome}:clear1`]:floorSprites(atlas.sprites,floorStyle);
@@ -191,15 +193,22 @@ struct Out{@builtin(position) pos:vec4<f32>,@location(0) uv:vec2<f32>,@location(
       // Freeform paths retain the original RA horizontal panels.  Each stamp is
       // deliberately quantized to 64 facings so a direction never blurs into an
       // arbitrary GPU rotation, while still allowing a path to turn naturally.
+      for(const panel of fencePanels(freeform)){
+        const facing=((Math.round(panel.angle*32/Math.PI)%64)+64)%64;
+        const size=Math.max(0,Math.min(7,Math.round(panel.length*2)-1));
+        const id=barrierFacings!.fence[size*64+facing];
+        if(id!==undefined)sprite(data,id,panel.x-facingSize/12,panel.y-facingSize/12,facingSize/6,facingSize/6,wireDamage(panel)==='intact'?[1,1,1,1]:[.82,.72,.58,1]);
+      }
       for(let index=0;index<freeform.length;){
+        if(freeform[index].kind==='fence'){index++;continue;}
         const first=freeform[index],run=first.run??index,kind=first.kind;let last=first,next=index+1;
         while(next<freeform.length&&next-index<6&&(freeform[next].run??next)===run&&freeform[next].kind===kind){last=freeform[next++];}
         const dx=last.to.x-first.from.x,dy=last.to.y-first.from.y,length=Math.hypot(dx,dy);
         if(length>.001){
-          const facing=Math.round(Math.atan2(dy,dx)*32/Math.PI),angle=facing*Math.PI/32;
+          const facing=Math.round(Math.atan2(dy,dx)*32/Math.PI);
           const damaged=wireDamage({health:first.health,maxHealth:first.maxHealth,breached:first.breached??false}),frameId=(kind==='fence'?barrierFacings!.fence:barrierFacings!.wire)[(facing%64+64)%64];
           const tint=kind==='fence'?(damaged==='intact'?[1,1,1,1]:[.82,.72,.58,1]):damaged==='breached'?[.72,.65,.54,1]:damaged==='intact'?[1,1,1,1]:damaged==='worn'?[.88,.79,.65,1]:[.74,.61,.46,1];
-          sprite(data,frameId,first.from.x-4,first.from.y-4,8,8,tint);
+          sprite(data,frameId,first.from.x-facingSize/12,first.from.y-facingSize/12,facingSize/6,facingSize/6,tint);
         }
         index=Math.max(index+1,next);
       }
@@ -219,6 +228,7 @@ struct Out{@builtin(position) pos:vec4<f32>,@location(0) uv:vec2<f32>,@location(
     upload(wireGhost,preview);
     const data:number[]=[],elevated:number[]=[];
     const draw=(target:number[],t:{kind:TowerKind;x:number;y:number;angle?:number;level?:number},tint?:number[])=>{
+      if(t.kind==='crusher')return;
       if(customSprites&&!usesClassicDefenseSprite(t.kind)){
         sprite(target,customSprites[soldatSpriteKey(t.kind,t.level)][soldatFacing(t.angle??0)],t.x-SOLDAT_WORLD_SIZE/2,t.y-SOLDAT_WORLD_SIZE/2,SOLDAT_WORLD_SIZE,SOLDAT_WORLD_SIZE,tint);return;
       }

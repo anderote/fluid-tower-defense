@@ -84,3 +84,43 @@ Validation: a new CPU test reproduced invalid-record acceptance before the fix. 
 Weapon unlocks and repeatable stat research now spend Metal and are owned by the run. Saves retain purchases; reset clears them. Legacy saves retain deployed weapon types and Metal without applying account-wide XP bonuses. Retained the concurrently integrated 100× enemy-bounty reduction, including fractional reward accumulation. Repulsors have range 10, force 16, 1.35-second pulses, a narrower cone, weaker branch bonuses, and reduced per-level range growth.
 
 Validation: unit tests and production build passed; the focused `/tests/economy/` browser suite passed 4/4 scenarios covering unlock/place/reload/reset, stat affordability and combat purchases, exactly-once GPU bounties, and actual Repulsor range/impulse.
+
+## Playable opening waves and visible progress
+
+Decoupled stream width from wave quotas: wave one now has 1,200 enemies instead of six million at default frontage. Later waves add 600 enemies up to a 12,000 cap. Added an always-visible sidebar forecast/remaining count, split into live and queued enemies, and included progress in diagnostics.
+
+Full-wave playtesting also exposed stranded survivors: navigation treated zombies as points while collision reserved body radius. Routes now reserve body clearance and guide displaced bodies out of wall margins instead of directing them through terrain.
+
+Validation: 133 CPU tests and production build passed. The final browser regression cleared Pine Valley wave one in 70.9 simulated seconds with 1,200 kills, 100% integrity, and a 2,990-Metal defense; the counter reached zero and wave two became available. It also checked widths 1, 60, and 100 produce the same quota. Earlier runs reproduced stranded survivors before the navigation fix. Later campaign difficulty and arbitrary player defenses have not been fully balanced.
+
+## First-five-wave pacing and earned progression
+
+Reduced the first heavy-wave quotas to 1,700 / 1,800 and their brute shares to 12% each. Earlier physical inlet checks showed 95 / 108 seconds just to spawn the old waves 4–5; early browser runs also exposed a sharp armored-survivor difficulty spike. These introductions now trade population for toughness without changing later cycles' authored composition. Preparation shows enemy counts, clear rewards, and a counter hint.
+
+Expanded `/tests/wave-pacing/` to five actual WebGPU waves with a 2,990-Metal starting defense. It buys damage/fire-rate ranks from earnings, builds two rear autocannons through the UI before wave three, buys a forge before wave four, and checks the visible wave-three boon gate. It records engagement, arrival, total-wave and stall timing, kills, integrity, and Metal. A replay button restores the actual earned wave-three checkpoint for targeted heavy-wave iteration; it never substitutes synthetic kills or free currency. Original game saves are restored afterward.
+
+Validation: 135 CPU tests and production build passed. The final unchanged waves 1–3 cleared consecutively in 73.3 / 81.6 / 90.2 simulated seconds, with full integrity. After the final quota adjustment, waves 4–5 passed from that earned checkpoint in 125.1 / 128.5 seconds, also at full integrity. Their arrivals finished at 54.2 / 55.3 seconds and their longest progress lulls were 1.5 / 2.0 seconds. No invalid-particle or GPU readback errors occurred. Earlier attempts without added rear coverage sometimes lost wave three or four; one heavier candidate cleared but exceeded the timing budget. These checks cover one viable Pine Valley build and upgrade path, not every layout or later campaign balance.
+
+## Crusher Gate and Tesla Overload
+
+Added a 450-Metal manual Crusher Gate with an open horizontal passage, animated hydraulic jaws, sparks, impact audio, recharge gauge, and Heavy Pistons / Rapid Hydraulics branches. Shortcut 9 selects it; G or the sidebar button slams every ready gate. Damage scales with crowd packing and enemy crush resistance. Navigation uses the two fixed jaw bases, placement reserves the passage, and kills pay salvage and tower veterancy. Cooldowns follow simulation time and pause correctly.
+
+Added 450-Metal Tesla Overload research: every sixth actual discharge hits up to twelve targets with triple initial damage and gentler falloff, thicker violet lightning, charge lights, and a burst of sparks. Normal and Storm Cell chains retain their original limits. Prior-version saves migrate to include the new equipment without losing run progress.
+
+Validation: 138 CPU tests, production build, 25 focused real-WebGPU checks, and the focused actual-game E2E scenario passed. GPU checks cover overload cadence and damage, rectangle boundaries, dense-crowd bonus, kill attribution (including an already-killed Tesla victim), and rendering. UI checks cover purchase, keyboard placement, save/reload, button and G activation, pause, and recharge. These are focused mechanic tests; later-wave balance and a full campaign with the new equipment remain unmeasured.
+
+## Thunderhead Dam battlefield
+
+Added a standalone dam selected through the visible Battlefield control above the sidebar wave panel. It has three spillways, concrete tower mounts, animated water and turbines, two switchable floodgates, and a reservoir release with foam, spray, rumble, upstream knockback, damage, and slow. Closed gates stop their water; the center bypass stays structurally open. Closures validate the current tower/terrain route, and construction reserves gate machinery. Reservoir and gate timers follow combat simulation and pause.
+
+Dam autosaves and checkpoints use separate keys from the campaign, including its legacy run save. Preparation saves preserve gates and reservoir state. Switching during combat resumes the selected battlefield's last preparation. This release does not add the later proposed power tradeoff or dam-specific boss.
+
+Validation: 146 CPU tests, production build, and seven real-GPU flood assertions passed. Two actual first-wave playthroughs cleared all 1,200 enemies in 64.8 / 64.9 simulated seconds with 100% integrity using a 2,710-Metal defense and two floods. The final pass entered via the UI selector and checked gate diversion, save/reload, pause, recharge, independent campaign saves, and zero invalid-particle/readback errors. First engagement was 19.5 seconds in the final run. Later-wave balance and arbitrary defenses remain unmeasured.
+
+## Dry dam bypass and opening balance
+
+Restricted reservoir surges to the north and south spillways. The permanently open center now renders as a dry concrete bypass with traffic markings; its role is explained in the dam controls. Flood fronts, damage, knockback, slow, and launch spray stay in the two water channels. Closing side gates still trades flood coverage for funneling enemies toward tower defenses.
+
+Raised only the dam's first wave from 1,200 to 1,320 enemies. Forecast, spawning, progress, and restart share that map-specific quota. Campaign and subsequent wave quotas are unchanged. A 1,440-enemy candidate with the old flood-dependent layout lost; the final test uses the same 2,710-Metal budget with its incinerator and rear autocannons repositioned to cover the dry bypass.
+
+Validation: 148 CPU tests, nine real-GPU flood checks, and production build passed. The final full-wave UI playtest cleared all 1,320 enemies in 79.0 simulated seconds at 100% integrity; first kill at 18.9 seconds, two side-channel flood releases, and no stranded enemies or invalid-particle/readback errors. The suite also checked map selection, gate diversion, save/reload, pause, recharge, and save isolation. This establishes a viable opening defense, not universal layout balance.

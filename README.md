@@ -33,7 +33,45 @@ npm run dev
 
 Vite uses port 5174. Pass `--port 5190` (or another free port) for additional worktrees. Reserve port 5173 for the stable game. Use a browser with WebGPU enabled. No API keys or server-side GPU are needed.
 
+## Offline play and local co-op
+
+Build once while dependencies are installed, then start the bundled server:
+
+```sh
+npm run build
+npm run play       # offline solo, localhost only
+# or
+npm run play:lan   # shared defense over a local network
+```
+
+Open `http://127.0.0.1:5173/` on the host Mac. Assets, soundtrack, saves, and simulation stay local; starting `play` needs Node but no npm install, internet, account, or cloud service. Keep the terminal running. If port 5173 is busy, stop the old server or use `PORT=5174 npm run play:lan`. Saves are tied to the browser and host/port; keep using 127.0.0.1:5173 to retain your existing run.
+
+For co-op, click **HOST CO-OP** at the top of the host game and give your partner the complete join link. Both devices need a working local network connection. Your partner only needs a browser: the host sends a lightweight battlefield view (about 5 frames/second), while the partner can build towers, start/pause waves, slam crushers, and operate the dam. Both spend the same Metal and defend the same base. Upgrades, research, saves, and camera control remain on the host. Keep the host game visible and the Mac awake. **STOP CO-OP** revokes control until you host again; restarting the server changes the join code. This is basic cooperative control, not separate armies or competitive multiplayer.
+
+The host runs WebGPU on localhost; the partner page does not require WebGPU or HTTPS. The LAN server serves only `dist/`, never the repository or home directory. Treat the join link as a room key and share it only with your partner. Local co-op uses plain HTTP and is intended for a trusted local network.
+
+### On a plane
+
+- A shared Wi-Fi network can work without internet, provided it allows devices to reach each other. Airline networks may isolate passengers; this game cannot bypass that.
+- A direct Thunderbolt connection can provide the local network without Wi-Fi. Use an actual Thunderbolt cable and configure **Thunderbolt Bridge** in macOS Network settings; see [Apple's IP over Thunderbolt guide](https://support.apple.com/guide/mac-help/mchld53dd2f5/mac).
+- Do not rely on an iPhone hotspot in airplane mode: [Apple documents Personal Hotspot as sharing cellular data](https://support.apple.com/guide/iphone/iph45447ca6/ios).
+- Connect the network before launching `play:lan`. If it changes, restart the server to refresh join addresses. If the join page cannot load, check that both Macs are on the same network and that macOS permits incoming connections for Node. No internet subscription is needed by the game itself.
+
+Run `npm run test:local-server` for server/security checks. For the real two-player GPU test, build, copy `tests/coop/index.html` to `dist/tests/coop/index.html`, start `PORT=5201 npm run play:lan`, and open `/tests/coop/` on that dedicated port. It checks rendered stream pixels, shared placement/economy, wave start, flood, pause, and disconnect; it temporarily backs up that origin's saves. Do not run it alongside another game tab on the same test origin.
+
 ## Play
+
+Use the **Battlefield** selector at the top of the sidebar to switch between **Campaign** and **Thunderhead Dam**. Each has separate autosave and checkpoint slots. Switching during combat resumes that battlefield from its last preparation save.
+
+### Thunderhead Dam
+
+Three floodable spillways include a permanently open central bypass between concrete turbine islands. Build towers on the concrete, close the north/south gates to divert enemies, and leave the central bypass covered. Gate operation has a three-second combat cooldown; a closure that would seal the last route is rejected. Buildings cannot occupy gate machinery.
+
+Press **F** or **Release Flood** during combat to spend a full reservoir on a 3.2-second surge. It travels along all three water channels from the turbine end toward the inlet, damaging, slowing, and pushing enemies backward. The center always receives the surge, even when both side gates are closed. Closed side gates stop their water as well as enemies. The reservoir refills over 30 combat seconds, and pause freezes both the flood and recharge. The map starts with a full reservoir and the normal 3,000 Metal budget. Its first wave contains 1,320 enemies (10% more than the campaign opening); subsequent quotas and campaign waves are unchanged.
+
+
+- **Crusher Gate [9] — 450 Metal:** build an open horizontal passage with hydraulic jaws. Press **G** or **Slam Gates** to fire all ready gates. The 8 × 10 jaw zone deals 60 damage, up to double in packed crowds before enemy crush resistance. Gates recharge in 8 simulation seconds, pause with the game, and start each new wave ready. Heavy Pistons favor damage; Rapid Hydraulics favor recharge. Gate kills earn salvage and veterancy.
+- **Tesla Overload — 450 Metal research:** every sixth actual Tesla discharge strikes up to 12 targets with triple base damage and gentler chain falloff. Six charge lights show progress; the overload produces thicker violet lightning and sparks. Normal discharges retain their four-target limit (six with Storm Cell).
 
 - **Level Editor:** paint or drag walls, use Erase (or right-drag), save/load a local level, then **Apply & Play** to start a fresh defense. Walls may enter the spawn area and former central lane as long as a route to the goal remains. Cancel preserves the current run.
 - **View:** Fullscreen fills the display; Hide UI expands the arena. Show UI brings controls back.
@@ -41,12 +79,12 @@ Vite uses port 5174. Pass `--port 5190` (or another free port) for additional wo
 - **Game:** select a tower and click any clear ground, including the shaded spawn zone. Walls still cannot hold towers. Select the same build button again or press Escape to leave placement mode. Click a deployed tower to inspect, upgrade, or sell it. Start the wave when ready.
 - Weapon unlocks and all stat research cost **Metal** and belong to the current run. Unlocking a weapon enables its normal placement purchase; resetting the run clears its unlocks and research. Autosave retains them between sessions. Old saves retain deployed weapons and Metal; account-wide Command XP no longer grants purchases or bonuses.
 - Kill bounties use the 100× reduction: 100 accumulated bounty points pay 1 Metal (for example, 34 shamblers pay the first Metal). Repulsors have range 10, force 16, a 1.35-second pulse interval, and slower range growth from upgrades.
-- Eight towers and six enemy roles: shambler, runner, brute, rager, softbody, and husk. Hordes walk in through a physical approach west of the map. Wave number and **Horde Intensity** increase packing, with shifting dense patches and gaps; **Stream Width** controls frontage and the existing quota. Entry pauses when the approach backs up. Boss pressure arrives every ten waves.
+- Eight towers and six enemy roles: shambler, runner, brute, rager, softbody, and husk. Hordes walk in through a physical approach west of the map. Wave number and **Horde Intensity** increase packing, with shifting dense patches and gaps; **Stream Width** controls frontage only, independently of wave size. Entry pauses when the approach backs up. Boss pressure arrives every ten waves.
 - Wave 10 unlocks extraction. Finish the level, or retain the entire defense and its Metal research and continue through endlessly escalating waves. Every cleared wave after 10 offers that choice again.
 - Space pauses/resumes; H toggles the pressure overlay. Restart clears the current attackers and begins the same wave again while keeping defenses in place. Save/load operates between waves in this browser. Switching modes or resetting starts a fresh run; it does not overwrite a saved defense.
 - **Red Alert soundtrack:** the top-bar player includes the bundled 22-track Red Alert score in album order. It remembers the current track, timestamp, volume, and play state. Browser autoplay rules require one click or key press to start or resume music.
 
-This is an early playable prototype with simple geometric art and initial balancing. Endless difficulty grows through composition, tempo, and enemy health while raw live population remains bounded. Towers are nonblocking emplacements; terrain is static during combat. Mortar damage resolves on a firing tick, with visual impact cues. Full rigid-body corpses, arbitrary tower scripting, destructible terrain, and native packaging are not implemented.
+This is an early playable prototype with simple geometric art and initial balancing. Endless difficulty grows through composition, tempo, and enemy health while raw live population remains bounded. Towers and terrain constrain crowd movement; dam floodgates can change routes during combat. Mortar damage resolves on a firing tick, with visual impact cues. Full rigid-body corpses, arbitrary tower scripting, destructible terrain, and native packaging are not implemented.
 
 ## Validate
 
@@ -88,3 +126,11 @@ Tesla electrocution uses the original Red Alert `electro.tem` artwork with the t
 `/tests/infantry/sprites.html` on a feature Vite server compares rifle, rocket, flame, and samurai troops directly with shamblers using the real renderer. Select running, standing, firing, or collapse; pause and step to inspect poses. The sheet below shows eight facings and checks all 992 baked frames for missing or clipped artwork. It does not touch saved games.
 
 Rifle, rocket, and flame troops use original Red Alert infantry sequences from OpenRA’s game-content package, with an olive-gold remap and a shared foot pivot. Samurai artwork is original and uses the same directional pixel presentation. Infantry now share world depth with zombies and scenery; running follows actual movement, firing continues through the weapon pose, and death holds a collapse frame before fading. This is presentation only: combat stats, recruitment, collision, and save formats are unchanged. See `public/assets/red-alert/infantry/NOTICE.md` for asset provenance and the repeatable import command.
+
+The first five waves have 1,200 / 1,800 / 2,400 / 1,700 / 1,800 enemies. The first heavy waves trade numbers for tougher brutes, to avoid abrupt increases in combat workload and arrival duration. Subsequent waves use the capped escalation curve (12,000 enemies maximum). The opening targets roughly 60–90 seconds with a working defense at default frontage; narrow entrances, blocked approaches, and weak defenses can take longer. Preparation shows enemy composition and the clear reward; combat shows both enemies on the field and those still queued.
+
+Run `/tests/wave-pacing/` on a dedicated development port and click **Run first five waves** for a continuous real-WebGPU playthrough. It starts with a 2,990-Metal Pine Valley defense, buys damage/fire-rate upgrades using actual earnings between waves, adds two rear autocannons before wave three and an ammunition forge before wave four, and selects the first command boon after wave three. It checks stream-width independence, forecasts, live/queued counts, preparation transitions, visible boon selection, and simulation errors. Each wave must engage within 25 simulated seconds, finish arrivals within 75 seconds, clear within 135 seconds, and avoid a 20-second stall after combat begins. After reaching wave four, **Replay waves 4–5 from earned checkpoint** can repeat the heavy waves from the actual saved wave-three result; replay results are labeled separately from a full run. The report includes timing, kills, integrity, and Metal; saves on the test origin are backed up and restored. This is a pacing regression for one viable defense, not a guarantee that every layout wins.
+
+The spectacle lab at `/tests/spectacle/` checks actual GPU overload cadence, chain limits, damage, crusher bounds, packed-crowd damage, and kill attribution. **Freeze strike** holds the production renderer on the impact frame. `/tests/e2e/?spectacle` runs the focused real-game placement, research, autosave/reload, keyboard/button activation, pause, and recharge checks on a dedicated development origin.
+
+The dedicated `/tests/dam/` playtest enters through the visible Battlefield selector, spends 2,710 Metal on a valid defense, operates both gates, reloads saved gate state, pauses a live flood, recharges and releases it again, and clears the actual first wave. It checks simulation health and that both campaign save formats remain untouched. `/tests/dam/gpu.html` checks exact flood bounds, upstream impulse, slow, kills, salvage, and that actual reservoir releases affect all three channels on the production GPU combat pipeline. Run on a dedicated port; the UI suite backs up and restores saves. Later campaign balance and a dam-specific boss are not part of this first map release.

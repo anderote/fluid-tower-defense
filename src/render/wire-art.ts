@@ -27,3 +27,24 @@ export function wireTiles(wires:readonly WireState[],connections:readonly WireSt
   }
   return result;
 }
+
+/** Join only contiguous, collinear sections; posts stay upright when projected.
+ * Panel centers lie on the physical path, independent of drawing direction.
+ */
+export function fencePanels(segments:readonly {kind:string;run?:number;from:{x:number;y:number};to:{x:number;y:number};health:number;maxHealth:number}[]){
+  const panels:{x:number;y:number;angle:number;length:number;health:number;maxHealth:number;breached:boolean}[]=[];
+  for(let i=0;i<segments.length;){
+    const first=segments[i++];if(first.kind!=='fence')continue;
+    let end=first.to;
+    const dx=end.x-first.from.x,dy=end.y-first.from.y,base=Math.hypot(dx,dy);
+    if(base<.001)continue;
+    while(i<segments.length){
+      const next=segments[i],nx=next.to.x-next.from.x,ny=next.to.y-next.from.y;
+      if(next.kind!=='fence'||next.run!==first.run||wireDamage({...next,breached:false})!==wireDamage({...first,breached:false})||Math.hypot(next.from.x-end.x,next.from.y-end.y)>.001||Math.abs(dx*ny-dy*nx)>base*Math.hypot(nx,ny)*.001||dx*nx+dy*ny<=0)break;
+      end=next.to;i++;
+    }
+    const length=Math.hypot(end.x-first.from.x,end.y-first.from.y),count=Math.ceil(length/4);
+    for(let j=0;j<count;j++){const t=(j+.5)/count;panels.push({x:first.from.x+(end.x-first.from.x)*t,y:first.from.y+(end.y-first.from.y)*t,angle:Math.atan2(dy,dx),length:length/count,health:first.health,maxHealth:first.maxHealth,breached:false});}
+  }
+  return panels;
+}
