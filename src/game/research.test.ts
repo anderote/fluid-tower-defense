@@ -32,10 +32,9 @@ test('technology ranks stack, become more expensive, and cap at twenty', () => {
   assert.equal(run.buyCommandUpgrade('ballistics').ok, false);
   run.model.metal = 180;
   run.startWave();
-  assert.deepEqual(run.buyCommandUpgrade('ballistics'), commandUpgradeAvailability(run.model, 'ballistics'));
-  assert.equal(run.model.metal, 180);
-  run.model.phase = 'preparation';
+  assert.equal(commandUpgradeAvailability(run.model, 'ballistics').ok, true);
   assert.equal(run.buyCommandUpgrade('ballistics').ok, true);
+  assert.equal(run.model.metal, 0);
   run.model.metal=100_000;
   assert.equal(run.buyCommandUpgrade('ballistics').ok,true);
   assert.equal(researchRank(run.model.commandUpgrades,'ballistics'),2);
@@ -57,3 +56,30 @@ test('technology ranks survive save/load and three foundation ranks unlock speci
   assert.equal(researchRank(restored.model.commandUpgrades,'ballistics'),3);
   assert.equal(researchRank(restored.model.commandUpgrades,'rifle-tech'),1);
 });
+
+for (const phase of ['preparation','combat','settling','checkpoint'] as const) {
+  test(`research purchases are available during ${phase} and apply immediately`,()=>{
+    const run=createRun();
+    run.model.phase=phase;
+    run.model.metal=1000;
+    assert.deepEqual(commandUpgradeAvailability(run.model,'ballistics'),{ok:true});
+    assert.equal(run.buyCommandUpgrade('ballistics').ok,true);
+    assert.equal(run.model.metal,820);
+    assert.equal(researchRank(run.researchModifiers(),'ballistics'),1);
+    assert.equal(run.model.phase,phase);
+    const metal=run.model.metal;
+    assert.equal(run.buyCommandUpgrade('rifle-tech').ok,false);
+    assert.equal(run.model.metal,metal);
+    run.model.metal=0;
+    assert.equal(run.buyCommandUpgrade('ballistics').ok,false);
+    assert.equal(researchRank(run.researchModifiers(),'ballistics'),1);
+  });
+}
+for (const phase of ['won','lost'] as const) {
+  test(`research cannot spend Metal after the run is ${phase}`,()=>{
+    const run=createRun();run.model.phase=phase;run.model.metal=1000;
+    assert.deepEqual(run.buyCommandUpgrade('ballistics'),{ok:false,reason:'The run is over.'});
+    assert.equal(run.model.metal,1000);
+    assert.deepEqual(run.model.commandUpgrades,[]);
+  });
+}
