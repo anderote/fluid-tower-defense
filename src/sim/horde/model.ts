@@ -17,6 +17,19 @@ export class HordeFront {
     const rows=Math.floor(height/spacing), positions:{x:number;y:number}[]=[];
     const density=Math.min(.94,.38+Math.log2(Math.max(1,wave))*.09+Math.log2(Math.max(1,difficulty))*.1);
     while(this.nextRow<=this.elapsed){
+      const entry=map.entries?.length?map.entries[this.row%map.entries.length]:undefined;
+      if(entry){
+        const span=Math.max(0,entry.to-entry.from),lanes=Math.max(1,Math.floor(span/spacing));
+        for(let lane=0;lane<lanes;lane++){
+          const hash=(Math.imul(this.row+1,73856093)^Math.imul(lane+1,19349663))>>>0,noise=((Math.imul(hash^(hash>>>16),1597334677)>>>0)%10000)/10000;
+          if(noise>density)continue;
+          const along=entry.from+(lane+.5)*span/lanes+(noise-.5)*.08;
+          const x=entry.side==='west'?-HORDE_APPROACH+2:entry.side==='east'?map.width-1.5:along;
+          const y=entry.side==='north'?1.5:entry.side==='south'?map.height-1.5:along;
+          positions.push({x,y});
+        }
+        this.row++;this.nextRow+=interval;continue;
+      }
       for(let lane=0;lane<rows;lane++){
         const patch=.17*Math.sin(this.nextRow*.63+lane*.29)+.12*Math.sin(this.nextRow*.27-lane*.51);
         const hash=(Math.imul(this.row+1,73856093)^Math.imul(lane+1,19349663))>>>0;
@@ -30,7 +43,7 @@ export class HordeFront {
   }
 }
 
-export function encodeHorde(batches:readonly SpawnBatch[],positions:readonly {x:number;y:number}[]):Float32Array{
+export function encodeHorde(batches:readonly SpawnBatch[],positions:readonly {x:number;y:number}[],goal?:{x:number;y:number}):Float32Array{
   const count=batches.reduce((sum,batch)=>sum+batch.count,0);
   if(count>positions.length)throw new RangeError('Horde arrivals exceed available frontage.');
   const output=new Float32Array(count*PARTICLE_FLOATS);
@@ -42,7 +55,8 @@ export function encodeHorde(batches:readonly SpawnBatch[],positions:readonly {x:
     const batch=batches[selected],enemy=ENEMIES[batch.kind],offset=index*PARTICLE_FLOATS;
     remaining[selected]--;assigned[selected]++;
     output[offset+P.x]=positions[index].x;output[offset+P.y]=positions[index].y;
-    output[offset+P.vx]=enemySpeedForScale(batch.kind,batch.healthScale??1);output[offset+P.radius]=enemy.radius;output[offset+P.mass]=enemy.mass;
+    const speed=enemySpeedForScale(batch.kind,batch.healthScale??1),dx=goal?goal.x-positions[index].x:1,dy=goal?goal.y-positions[index].y:0,length=Math.max(.0001,Math.hypot(dx,dy));
+    output[offset+P.vx]=speed*dx/length;output[offset+P.vy]=speed*dy/length;output[offset+P.radius]=enemy.radius;output[offset+P.mass]=enemy.mass;
     output[offset+P.hp]=output[offset+P.maxHp]=enemy.health*(batch.healthScale??1);
     output[offset+P.kind]=enemy.index;output[offset+P.alive]=1;
   }
