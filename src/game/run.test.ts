@@ -47,19 +47,20 @@ test('all weapons start unlocked while technology research persists for the run'
   assert.deepEqual(restored.researchModifiers(),[]);
   assert.equal(restored.model.metal,STARTING_METAL);
 });
-test('technology research is restricted to preparation and blocked after defeat',()=>{
+test('combat research persists through wave restart and is blocked after defeat',()=>{
   const run=createRun();
   run.model.metal=100_000;
   run.startWave();
   assert.equal(run.isTowerUnlocked('cryo'),true);
-  assert.equal(run.buyCommandUpgrade('ballistics').ok,false);
+  assert.equal(run.buyCommandUpgrade('ballistics').ok,true);
   const metal=run.model.metal;
   assert.equal(run.buyCommandUpgrade('rifle-tech').ok,false);
   assert.equal(run.buyStatUpgrade('unknown').ok,false);
   assert.equal(run.model.metal,metal);
   assert.equal(run.restartWave().ok,true);
   assert.equal(run.isTowerUnlocked('cryo'),true);
-  assert.deepEqual(run.researchModifiers(),[]);
+  assert.deepEqual(run.researchModifiers(),['ballistics']);
+  assert.equal(run.model.metal,metal);
   run.model.phase='lost';
   assert.equal(run.unlockTower('mortar').ok,false);
   assert.equal(run.buyCommandUpgrade('ballistics').ok,false);
