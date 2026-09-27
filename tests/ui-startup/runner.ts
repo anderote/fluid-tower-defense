@@ -1,3 +1,4 @@
+import {COMMAND_UPGRADES} from '../../src/content/index.ts';
 import {createUI} from '../../src/ui/index.ts';
 import type {GameAction, UIState} from '../../src/contracts/index.ts';
 
@@ -15,7 +16,7 @@ try {
   if(actions.map(action=>action.type).join(',')!=='move,set-ground-target,clear-ground-target,sell') {
     throw new Error('Tower controls did not dispatch their actions');
   }
-  if(!root.querySelector('canvas')||!root.querySelector('aside > [data-action="start-wave"]')) {
+  if(!root.querySelector('canvas')||!root.querySelector('.wave-command > [data-action="start-wave"]')) {
     throw new Error('Game canvas or wave control was not initialized');
   }
   const speeds=root.querySelectorAll<HTMLButtonElement>('header [data-simulation-speed]');
@@ -39,7 +40,33 @@ try {
   if(actions.length!==1||actions[0].type!=='bonus'||actions[0].id!=='test-boon')throw Error('Boon choice must dispatch selection');
   ui.update({...state,bonusChoices:[]});
   if(!gate.hidden||root.querySelector<HTMLButtonElement>('.wave-control')!.disabled)throw Error('Choosing a boon must dismiss the popup and unlock the next wave');
-  result.textContent='PASS: UI initializes with working tower controls and top bar speed/pause controls';
+  dock.hidden=false;toggle.click();
+  const selected={id:1,kind:'repulsor' as const,x:30,y:30,level:0,branch:-1,angle:0,cooldown:0,spent:100};
+  const inspector=root.querySelector<HTMLElement>('.selected-popup')!;
+  for(const tab of ['#build-tab','#buildings-tab','#research-tab']){
+    root.querySelector<HTMLButtonElement>(tab)!.click();
+    ui.update({...state,bonusChoices:[],selected});
+    if(inspector.hidden||getComputedStyle(inspector).display==='none')throw Error(`Inspector hidden on ${tab}`);
+    ui.update({...state,bonusChoices:[],selected:null});
+    if(!inspector.hidden)throw Error(`Deselected inspector visible on ${tab}`);
+  }
+  ui.update({...state,bonusChoices:[],selected});
+  toggle.click();
+  if(inspector.closest('aside')||inspector.hidden)throw Error('Collapsed build menu must not hide inspector');
+  toggle.click();
+  for(const mode of ['upgradeMode','targetMode']){
+    ui.update({...state,bonusChoices:[],selected,[mode]:true});
+    if(!inspector.hidden)throw Error(`Inspector must yield during ${mode}`);
+  }
+  ui.update({...state,bonusChoices:[],selected:null});
+  const nodes=root.querySelectorAll<HTMLButtonElement>('#commands .tech-node');
+  if(nodes.length!==COMMAND_UPGRADES.length||root.querySelectorAll('.research-group').length!==5)throw Error('Research grouping omitted technologies');
+  if([...nodes].some(node=>!node.querySelector('svg.research-icon path')))throw Error('Every technology needs an icon');
+  actions.length=0;
+  root.querySelector<HTMLButtonElement>('[data-command="ballistics"]')!.click();
+  const purchase=actions.at(-1);
+  if(purchase?.type!=='buy-command'||purchase.id!=='ballistics')throw Error('Research purchase action broken');
+  result.textContent='PASS: tower inspector works across tabs and collapsed menus; grouped research icons and purchases work';
 } catch(error) {
   result.textContent=`FAIL: ${String(error)}`;
   throw error;

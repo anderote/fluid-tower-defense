@@ -1,3 +1,4 @@
+import {createEnemySelection} from './enemy-selection.ts';
 import {createInfantrySprites} from './infantry-sprites.ts';
 import {infantryCasing,infantryMuzzle,samuraiSlashPhase,SAMURAI_ATTACK_DURATION} from './infantry-animation.ts';
 import {createBloodRenderer} from './blood.ts';
@@ -70,6 +71,7 @@ export async function createRenderer(device: GPUDevice, context: GPUCanvasContex
   let sightKey='',sightPoints:Vec2[]=[];
   const towerVisuals = device.createBuffer({ label:'Tower visual state', size:MAX_TOWERS * 16, usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST });
   const emptyShots = device.createBuffer({ label:'Empty firing state', size:MAX_TOWERS * 48, usage:GPUBufferUsage.STORAGE });
+  const enemySelection=await createEnemySelection(device,format,uniform,shared);
   const fire=await createFireEffects(device,format,uniform,{...shared,heatState},towerVisuals,emptyShots);
   const tesla=await createTeslaEffects(device,format,uniform,towerVisuals,shared,turretArt);
   const particleModule = device.createShaderModule({code:`
@@ -562,6 +564,7 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
   }
   return { encode(encoder,scene){
       if(world.width!==scene.map.width||world.height!==scene.map.height){world={width:scene.map.width,height:scene.map.height};clampCamera();}
+      enemySelection.encode(encoder,scene.count);
       resize();const v=view(),shake=(scene.cameraShake??0)*explosionShakeScale(camera.zoom),shakeX=Math.sin(scene.time*83.7)*shake,shakeY=Math.cos(scene.time*71.3)*shake*.7;
       device.queue.writeBuffer(uniform,0,new Float32Array([pixelW,pixelH,0,0,camera.x+shakeX,camera.y+shakeY,v.width,v.height,scene.time,scene.heatmap?1:0,0,0,0,0,0,0]));
       const visual=new Float32Array(Math.max(1,Math.min(MAX_TOWERS,scene.towers.length))*4);
@@ -603,15 +606,20 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
       pass=encoder.beginRenderPass({colorAttachments:[{view:target,loadOp:'load',storeOp:'store'}]});
       if(scene.aftermathVisible!==false)blood?.spray(pass);
       pass.setPipeline(overlay);pass.setBindGroup(0,cameraOverlay);pass.setVertexBuffer(0,foreground);pass.draw(fx.length/6);
-      if(shared.shotState){pass.setPipeline(cues);pass.setBindGroup(0,cameraCues);pass.draw(72,Math.min(MAX_TOWERS,scene.towers.length));}tesla?.draw(pass,scene.count,scene.towers.length);fire.draw(pass,scene.count,scene.towers.length);pass.end();
+      if(shared.shotState){pass.setPipeline(cues);pass.setBindGroup(0,cameraCues);pass.draw(72,Math.min(MAX_TOWERS,scene.towers.length));}tesla?.draw(pass,scene.count,scene.towers.length);fire.draw(pass,scene.count,scene.towers.length);enemySelection.draw(pass,scene.count);pass.end();
     },
+    selectEnemies(point){
+      const bounds=canvas.getBoundingClientRect(),a=screenToWorld(bounds.left,bounds.top),b=screenToWorld(bounds.right,bounds.bottom);
+      enemySelection.request(point,{x:a.x,y:a.y,width:b.x-a.x,height:b.y-a.y},(b.x-a.x)/Math.max(1,bounds.width)*8);
+    },
+    clearEnemySelection(){enemySelection.clear();},
     screenToWorld,
     setResolutionScale(value:number){if(Number.isFinite(value))resolutionScale=Math.max(.5,Math.min(1,value));},
     worldToScreen,
     pan(dx,dy){camera.x+=dx;camera.y+=dy;clampCamera();},
     zoomAt(factor,clientX,clientY){const before=screenToWorld(clientX,clientY);camera.zoom=Math.max(1,Math.min(12,camera.zoom*factor));const after=screenToWorld(clientX,clientY);camera.x+=before.x-after.x;camera.y+=before.y-after.y;clampCamera();},
     combatAudioScale(){return explosionShakeScale(camera.zoom);},
-    clearAftermath(preserveBlood=false){shamblers.reset();aftermath?.reset();if(!preserveBlood)blood?.reset();},
-    destroy(){damSurface.destroy();corpseField?.destroy();blood?.destroy();fire.destroy();emptyHeat?.destroy();aftermath?.destroy();tesla?.destroy();emptyTesla?.destroy();shamblers.destroy();infantrySprites.destroy();redAlert?.destroy();sceneDepth?.destroy();uniform.destroy();overlays.destroy();foreground.destroy();towerVisuals.destroy();emptyShots.destroy();}
+    clearAftermath(preserveBlood=false){enemySelection.clear();shamblers.reset();aftermath?.reset();if(!preserveBlood)blood?.reset();},
+    destroy(){enemySelection.destroy();damSurface.destroy();corpseField?.destroy();blood?.destroy();fire.destroy();emptyHeat?.destroy();aftermath?.destroy();tesla?.destroy();emptyTesla?.destroy();shamblers.destroy();infantrySprites.destroy();redAlert?.destroy();sceneDepth?.destroy();uniform.destroy();overlays.destroy();foreground.destroy();towerVisuals.destroy();emptyShots.destroy();}
   };
 }

@@ -14,7 +14,7 @@ export function commandUpgradeAvailability(
   if (!upgrade) return {ok:false, reason:'Unknown command upgrade.'};
   const rank=researchRank(state.commandUpgrades,id),maxRank=upgrade.maxRank??1;
   if (rank>=maxRank) return {ok:false, reason:'Maximum rank reached.'};
-  if (state.phase !== 'preparation') return {ok:false, reason:'Research is available between waves.'};
+  if (state.phase === 'won' || state.phase === 'lost') return {ok:false, reason:'The run is over.'};
   const missing=upgrade.requires?.filter(prerequisite=>{const prerequisiteDef=COMMAND_UPGRADES.find(candidate=>candidate.id===prerequisite)!;return researchRank(state.commandUpgrades,prerequisite)<(prerequisiteDef.unlockRank??1);})??[];
   if (missing.length) {
     const names=missing.map(id=>COMMAND_UPGRADES.find(candidate => candidate.id === id)!.name);
