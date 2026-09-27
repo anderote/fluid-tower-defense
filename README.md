@@ -46,9 +46,17 @@ PORT=5175 npm run play:lan   # separate shared-defense session over a local netw
 
 For this separate session, open `http://127.0.0.1:5175/` on the host Mac. Leave the stable published game on port 5173 running. Assets, soundtrack, saves, and simulation stay local; starting `play` needs Node but no npm install, internet, account, or cloud service. Keep the terminal running. Saves are tied to the browser and host/port: port 5175 has its own run, separate from your stable 5173 save.
 
-For co-op, click **HOST CO-OP** at the top of the host game and give your partner the complete join link. Both devices need a working local network connection. Your partner only needs a browser: the host sends a lightweight battlefield view (about 5 frames/second), while the partner can build towers, start/pause waves, slam crushers, and operate the dam. Both spend the same Metal and defend the same base. Upgrades, research, saves, and camera control remain on the host. Keep the host game visible and the Mac awake. **STOP CO-OP** revokes control until you host again; restarting the server changes the join code. This is basic cooperative control, not separate armies or competitive multiplayer.
+## Public co-op
 
-The host runs WebGPU on localhost; the partner page does not require WebGPU or HTTPS. The LAN server serves only `dist/`, never the repository or home directory. Treat the join link as a room key and share it only with your partner. Local co-op uses plain HTTP and is intended for a trusted local network.
+Open the deployed HTTPS game, click **HOST CO-OP**, and send the room link to your partner. Both players use the production game interface, including tower placement/inspection/upgrades, research, infantry buildings, walls, dam controls, and wave controls. Your partner needs only a browser, with no repository or local server. Each browser has its own movable panels and soundtrack; the battlefield camera, active tools, selected units, Metal, and simulation are shared.
+
+The host's browser runs the authoritative WebGPU simulation. The partner renders the full interface locally and receives battlefield images up to 1600 pixels wide. The hosted relay uses bounded HTTP requests so it can work on networks that block direct peer connections. It is a streamed battlefield, not a second 60 FPS simulation: frame delivery and command response depend on both internet connections. Keep the host tab visible and awake. The host chooses the map before creating the room. Room codes expire after four hours; **STOP CO-OP** closes the room immediately. Reloading the host requires a new room/link. Saves stay on the host browser and origin.
+
+Local co-op remains available with `PORT=5175 npm run play:lan`; it uses the same interface with a local event stream. LAN traffic is plain HTTP; use a trusted local network.
+
+Public deployment uses Sites with an R2 relay declared in `.openai/hosting.json`. `npm run build:site` produces the Worker and client assets. It requires FFmpeg and encodes all 22 soundtrack tracks at 32 kbps mono for smaller public downloads; original local/offline audio stays unchanged. The room's random host credential is kept in the host page; only its hash reaches stored room metadata. Guest requests cannot publish frames, read the host command queue, or close someone else's room. Room codes grant control, so send them only to your partner.
+
+Validation: `node --test server/worker.test.mjs scripts/play.test.mjs` checks relay isolation and input bounds. `PORT=5205 node scripts/preview-cloud.mjs` serves a test-only in-memory version of the exact Worker, after `npm run build`. Copy `tests/public-coop/index.html` to `dist/tests/public-coop/index.html` and open `/tests/public-coop/` there for the real two-browser-interface test. Never use the preview adapter as a public server.
 
 ### On a plane
 
