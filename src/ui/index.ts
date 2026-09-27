@@ -1,3 +1,4 @@
+import {canFinishWaveEarly} from '../game/wave-progress.ts';
 import {commandUpgradeAvailability,researchCost,researchRank} from "../game/research.ts";
 import {TOWER_MOVE_COST} from "../game/index.ts";
 import {makeGameWindow} from './windows.ts';
@@ -299,6 +300,7 @@ export function createUI(
           | "restart-wave"
           | "new-game"
           | "start-wave"
+          | "skip-wave"
           | "continue-run"
           | "finish-run"
           | "sell"
@@ -388,9 +390,12 @@ export function createUI(
       $("#wave-status-count").textContent=preview?`${preview.total.toLocaleString()} enemies${preview.boss?' + boss':''}`:active&&progress?`${(progress.queued+progress.live).toLocaleString()} remaining`:s.phase==='lost'?'BASE LOST':'WAVE CLEARED';
       $("#wave-status-detail").textContent=preview?`${preview.enemies.map(enemy=>`${enemy.count.toLocaleString()} ${enemy.name}`).join(' · ')} · Clear reward: ${preview.payment} Metal. ${preview.enemies.at(-1)?.role??''}`:active&&progress?`${progress.live.toLocaleString()} on the field · ${progress.queued.toLocaleString()} still arriving${s.boss?.active?' · boss active':''}`:s.phase==='lost'?'Restart the wave to try again.':'Ready for your next decision.';
 
+      const skipReady=canFinishWaveEarly(s.waveProgress,s.phase,s.wave%10===0&&s.boss?.active!==false);
       const waveActive = s.mode === "game" && ["combat", "settling"].includes(s.phase),
         waveControl = waveActive
-          ? {label: s.paused ? "RESUME WAVE" : "PAUSE WAVE", reason: "", action: "pause" as const}
+          ? skipReady
+            ? {label: s.wave%3===0||s.wave>=10 ? "FINISH WAVE" : "NEXT WAVE", reason: "", action: "skip-wave" as const}
+            : {label: s.paused ? "RESUME WAVE" : "PAUSE WAVE", reason: "", action: "pause" as const}
           : s.mode === "lab"
         ? {label: "LAB MODE", reason: "Lab mode runs continuously and has no waves."}
         : s.phase === "preparation"
@@ -478,7 +483,7 @@ export function createUI(
       waveButton.classList.toggle("is-active", waveActive);
       waveButton.disabled = !!waveControl.reason;
       waveButton.textContent = waveControl.label;
-      waveButton.title = waveControl.reason || (waveActive ? "Pause or resume the current wave." : "Start the next wave.");
+      waveButton.title = waveControl.reason || (skipReady ? "95% cleared. Remove the remaining enemies and advance; no salvage is awarded for skipped enemies." : waveActive ? "Pause or resume the current wave." : "Start the next wave.");
       const bonusCard = $("#bonuses");
       bonusCard.hidden = !s.bonusChoices.length;
       renderMarkup($("#bonus-choices"), s.bonusChoices

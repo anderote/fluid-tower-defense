@@ -1,3 +1,4 @@
+import {canFinishWaveEarly} from './wave-progress.ts';
 import {DAM_ID} from '../content/dam.ts';
 import {COMMAND_UPGRADES, compileTower, DEFAULT_MAP, MAX_TOWER_LEVEL, MAX_VETERANCY, TOWERS, towerUpgradeCost, veterancyLevel} from '../content/index.ts';
 import {crusherPassageIssue,hasSpawnRoute,canPlace, mapWithTurretObstacles, resolvePlacement} from '../navigation/index.ts';
@@ -313,6 +314,11 @@ export class RunController {
     }
     this.applied.towerKills=Array.from({length:MAX_TOWERS},(_,index)=>Math.max(this.applied.towerKills[index]??0,Math.floor(reported[index]??0)));
     if (this.model.baseHealth===0) this.model.phase='lost';
+  }
+  finishWaveEarly(bossActive=this.isBossWave):ActionResult {
+    if(!canFinishWaveEarly(this.waveProgress,this.model.phase,bossActive))return {ok:false,reason:bossActive?'Defeat the boss before advancing.':'Clear at least 95% of the wave before advancing.'};
+    this.model.pending=[];this.live=0;
+    return this.finishSettling();
   }
   finishSettling():ActionResult {
     if (this.model.phase!=='combat' && this.model.phase!=='settling') return {ok:false,reason:'There is no wave to settle.'};
