@@ -69,7 +69,7 @@ export function waveFor(level:number,wave:number,mapId?:string):Wave {
   let assigned=0,index=0;
   for(const [kind,weight] of weights){
     const last=index===weights.size-1,count=last?total-assigned:Math.round(total*weight/weightTotal);assigned+=count;
-    spawns.push({kind,count,seed:seed+index*17,start:0,rate:Math.max(1,count/duration),burst:burstFor(kind),band:'inlet',healthScale});
+    spawns.push({kind,count,initialCount:count,seed:seed+index*17,start:0,rate:Math.max(1,count/duration),burst:burstFor(kind),band:'inlet',healthScale});
     index++;
   }
   return {spawns,payment:Math.round(210+threat*86+Math.pow(threat,1.25)*14),boss:globalWave%WAVES_PER_LEVEL===0,total,healthScale,peakRate:total/duration*WAVE_PEAK_PRESSURE,rampSeconds:duration};
@@ -286,7 +286,7 @@ export class RunController {
       cumulative+=earned[index];
       const target=Math.floor(cumulative*budget/Math.max(1,total)+phase);
       const count=Math.min(earned[index],target-allocated);allocated+=count;if(count<=0)continue;
-      accepted.push({...batch,count,credit:undefined});this.live+=count;batch.count-=count;batch.credit=Math.max(0,(batch.credit??0)-count);batch.seed=(batch.seed+count)>>>0;
+      accepted.push({...batch,count,spawnOffset:Math.max(0,(batch.initialCount??batch.count)-batch.count),credit:undefined});this.live+=count;batch.count-=count;batch.credit=Math.max(0,(batch.credit??0)-count);batch.seed=(batch.seed+count)>>>0;
     }
     this.model.pending=this.model.pending.filter(batch=>batch.count>0);
     return accepted;
