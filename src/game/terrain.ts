@@ -97,3 +97,8 @@ export function createStructurePreview(){
     return previousIssue;
   };
 }
+
+/** Fences remain movement obstacles but do not provide cover against weapons. */
+export function firingObstacles(obstacles:readonly Rect[],fences:readonly Rect[]):Rect[]{
+  return obstacles.filter(obstacle=>!fences.some(fence=>sameRect(obstacle,fence)));
+}

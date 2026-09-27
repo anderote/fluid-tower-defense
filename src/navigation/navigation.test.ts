@@ -56,3 +56,12 @@ test('routes reserve body clearance and steer displaced enemies out of wall marg
  assert.ok(field.vectors[at(56,20)*2]>0,'Displaced body should move away from the wall');
  assert.ok(field.vectors[at(47,20)*2]<0,'Western wall margin should escape west');
 });
+
+test('navigation reserves collision standoff around fractional tree and fence edges',()=>{
+ const map={id:'fractional-obstacle',width:20,height:12,obstacles:[{x:8.25,y:2.25,width:.5,height:5.5}],spawn:{x:0,y:2,width:1,height:8},goal:{x:18,y:6},goalRadius:1};
+ const field=buildNavigation(map),at=5*field.width+9;
+ assert.equal(field.distances[at],Infinity,'x=9.5 is inside the collision standoff of the fence');
+ assert.ok(field.vectors[at*2]>0,'body displaced into the margin should steer toward open ground');
+ assert.ok(Number.isFinite(field.distances[5*field.width+10]));
+ assert.equal(hasSpawnRoute(map),true);
+});

@@ -1,5 +1,5 @@
 import {inGateFootprint} from '../content/dam.ts';
-import {MAX_BODY_RADIUS} from '../sim/physics/model.ts';
+import {MAX_BODY_RADIUS,OBSTACLE_STANDOFF} from '../sim/physics/model.ts';
 import {type NavigationField, type Tower, type Vec2, type WorldMap} from '../contracts/index.ts';
 
 const CELL_SIZE = 1;
@@ -47,7 +47,7 @@ export function snapToMount(position:Vec2,mounts:readonly {x:number;y:number;wid
 }
 
 /** A reverse breadth-first field. Distances are in cells and vectors point to the goal. */
-export function buildNavigation(map: WorldMap, clearance=MAX_BODY_RADIUS): NavigationField {
+export function buildNavigation(map: WorldMap, clearance=MAX_BODY_RADIUS+OBSTACLE_STANDOFF+.05): NavigationField {
   const width=Math.ceil(map.width/CELL_SIZE), height=Math.ceil(map.height/CELL_SIZE), size=width*height;
   const distances=new Float32Array(size); distances.fill(Infinity);
   const vectors=new Float32Array(size*2);

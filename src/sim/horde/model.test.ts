@@ -3,7 +3,7 @@ import {test} from 'node:test';
 import {DEFAULT_MAP,ENEMIES,enemyCrushResistanceForScale,enemyPressureLimitForScale,enemySpeedForScale,enemyTierForHealthScale} from '../../content/index.ts';
 import {P,PARTICLE_FLOATS} from '../../contracts/index.ts';
 import {createRun,waveFor} from '../../game/index.ts';
-import {HordeCapacity,HordeFront,encodeHorde} from './model.ts';
+import {HordeCapacity,HordeFront,encodeHorde,hordeHealthScale} from './model.ts';
 
 function sample(wave:number,difficulty:number,width=60){
  const front=new HordeFront(),map={...DEFAULT_MAP,spawn:{...DEFAULT_MAP.spawn,height:width}},batches=waveFor(1,wave).spawns;
@@ -23,17 +23,17 @@ test('offscreen front varies packing and scales with intensity, wave and frontag
  assert.deepEqual(sample(1,1),low,'formation is deterministic');
 });
 test('late-wave enemy tiers strengthen only newly spawned units',()=>{
- const early=waveFor(1,10).spawns[0],late=waveFor(1,20).spawns[0];
- assert.equal(enemyTierForHealthScale(early.healthScale!),0);
+ const early=waveFor(1,1).spawns[0],late=waveFor(1,30).spawns[0];
+ assert.equal(enemyTierForHealthScale(waveFor(1,1).healthScale),0);
  assert.ok(enemyTierForHealthScale(late.healthScale!)>0);
  const earlyData=encodeHorde([{...early,count:1}], [{x:-1,y:10}]);
  const lateData=encodeHorde([{...late,count:1}], [{x:-1,y:10}]);
- assert.equal(earlyData[P.maxHp],ENEMIES[early.kind].health*early.healthScale!);
- assert.equal(lateData[P.maxHp],ENEMIES[late.kind].health*late.healthScale!);
+ assert.equal(earlyData[P.maxHp],Math.fround(ENEMIES[early.kind].health*hordeHealthScale(early.seed,0,early.healthScale!)));
+ assert.equal(lateData[P.maxHp],Math.fround(ENEMIES[late.kind].health*hordeHealthScale(late.seed,0,late.healthScale!)));
  assert.ok(lateData[P.vx]>earlyData[P.vx]);
  assert.ok(enemyPressureLimitForScale(late.kind,late.healthScale!)>ENEMIES[late.kind].pressureLimit);
  assert.ok(enemyCrushResistanceForScale(late.kind,late.healthScale!)>ENEMIES[late.kind].crushResistance);
- assert.ok(Math.abs(earlyData[P.vx]-enemySpeedForScale(early.kind,early.healthScale))<1e-5);
+ assert.ok(Math.abs(earlyData[P.vx]-enemySpeedForScale(early.kind,hordeHealthScale(early.seed,0,early.healthScale)))<1e-5);
 });
 test('full pool resumes conservatively with delayed readback',()=>{
  const pool=new HordeCapacity();pool.add(1,10);assert.equal(pool.available(10),0);
@@ -49,7 +49,7 @@ test('narrow front retains mixed species and never spends unavailable arrivals',
  assert.equal(kinds.size,6);assert.equal(total,120);
  const front=new HordeFront();const positions=front.advance(1/60,DEFAULT_MAP,1,1,waveFor(1,1).spawns);
  const data=encodeHorde([{kind:'runner',count:positions.length,seed:0}],positions);
- assert.ok(Math.abs(data[P.vx]-ENEMIES.runner.speed)<1e-6);
+ assert.ok(Math.abs(data[P.vx]-enemySpeedForScale('runner',hordeHealthScale(0,0)))<1e-6);
 });
 
  test('single-file arrivals do not starve minority enemy types',()=>{
@@ -57,3 +57,20 @@ test('narrow front retains mixed species and never spends unavailable arrivals',
   for(let tick=0;tick<1000;tick++)for(const batch of run.takeSpawns(1,1/60))kinds.add(batch.kind);
   assert.equal(kinds.size,6);
  });
+
+test('interleaved bodies vary health and speed deterministically within their species',()=>{
+ const positions=Array.from({length:100},(_,i)=>({x:-1,y:i}));
+ const batches=[{kind:'shambler' as const,count:70,seed:123},{kind:'runner' as const,count:30,seed:456}];
+ const data=encodeHorde(batches,positions);
+ assert.deepEqual(data,encodeHorde(batches,positions));
+ const health=new Set<number>(),speed=new Set<number>();let changes=0;
+ for(let i=0;i<100;i++){
+  const offset=i*PARTICLE_FLOATS,kind=data[offset+P.kind]===0?'shambler':'runner';
+  const scale=data[offset+P.maxHp]/ENEMIES[kind].health;
+  assert.ok(scale>=.8999&&scale<=1.4001);
+  assert.ok(Math.abs(data[offset+P.vx]-enemySpeedForScale(kind,scale))<1e-5);
+  if(kind==='shambler'){health.add(data[offset+P.maxHp]);speed.add(data[offset+P.vx]);}
+  if(i&&data[offset+P.kind]!==data[offset-PARTICLE_FLOATS+P.kind])changes++;
+ }
+ assert.ok(health.size>50);assert.ok(speed.size>1);assert.ok(changes>40,'species should be woven through the front');
+});

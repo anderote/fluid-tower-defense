@@ -50,9 +50,9 @@ test('all three spillways flood for the whole surge',()=>{
 });
 test('dam opening quota agrees across forecast, start, progress and restart; campaign stays unchanged',()=>{
  const map=damMap(),run=createRun(map);
- assert.equal(waveFor(1,1).total,1200);assert.equal(waveFor(1,1,DAM_ID).total,1320);
+ assert.equal(waveFor(1,1).total,5000);assert.equal(waveFor(1,1,DAM_ID).total,5000);
  assert.equal(waveFor(1,2,DAM_ID).total,waveFor(1,2).total);
- assert.equal(previewNextWave({mode:'game',phase:'preparation',level:1,wave:0,difficulty:1,dam:map.dam})!.total,1320);
- run.startWave();assert.equal(run.waveProgress.total,1320);assert.equal(run.waveProgress.queued,1320);
- run.takeSpawns(100,1);run.restartWave();assert.equal(run.waveProgress.queued,1320);
+ assert.equal(previewNextWave({mode:'game',phase:'preparation',level:1,wave:0,difficulty:1,dam:map.dam})!.total,5000);
+ run.startWave();assert.equal(run.waveProgress.total,5000);assert.equal(run.waveProgress.queued,5000);
+ run.takeSpawns(100,1);run.restartWave();assert.equal(run.waveProgress.queued,5000);
 });
