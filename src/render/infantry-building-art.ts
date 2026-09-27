@@ -77,6 +77,15 @@ export function infantryBuildingPixels(kind:InfantryKind):readonly BuildingPixel
     box(35,59,18,3,'steelDark');box(36,59,16,1,'steel');box(35,53,2,7,'steel');
     box(11,41,5,5,'brass');polygon([[12,45],[13,41],[15,45]],'black');
     for(let x=16;x<34;x+=4)box(x,64,2,2,'brass');crate(9,62);
+  }else if(kind==='phalanx'){
+    // Field armory: low olive roof, bronze shields and an outdoor spear rack.
+    box(10,34,41,30,'outline');box(11,35,39,28,'wall');
+    polygon([[8,35],[17,22],[44,22],[54,35]],'roofDark');
+    polygon([[9,34],[17,22],[42,22],[49,34]],'roof');box(9,34,43,2,'light');
+    door(26,47,12,16);window(14,41,7);
+    for(const x of [17,43]){ellipse(x,54,5,6,'outline');ellipse(x,53,4,5,'brass');ellipse(x,53,2,3,'olive');box(x,52,1,2,'lamp');}
+    for(const x of [44,48,52]){box(x,16,1,27,'woodLight');polygon([[x-2,18],[x,11],[x+2,18]],'steelLight');}
+    box(42,30,13,2,'wood');box(42,41,13,2,'wood');crate(10,63);
   }else if(kind==='dog'){
     // Emergency fallback only; the game normally draws original kenn.shp.
     box(17,42,31,23,'wood');box(18,42,29,2,'woodLight');

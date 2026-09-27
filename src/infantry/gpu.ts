@@ -50,8 +50,11 @@ fn visible(a:vec2f,b:vec2f)->bool {
  loop {if(link==0u){break;}let i=link-1u;link=links[i];
   let p=particles[i];if(p.state.w<.5||p.body.z<=0.){continue;}
   let d=distance(p.pos.xy,unit.position.xy);
-  if(d<p.body.x+1.0&&visible(unit.position.xy,p.pos.xy)){result.contact.x+=10.+min(40.,p.state.y*.15);result.contact+=vec4f(0.,(unit.position.xy-p.pos.xy)/max(d,.01)*(p.body.x+1.-d)*.8,0.);result.contact.w=max(result.contact.w,p.state.y);}
-  if(d<best&&visible(unit.position.xy,p.pos.xy)){best=d;result.aim=vec4f(f32(i),p.status.w,p.pos.xy);}
+  if(d<p.body.x+1.0&&visible(unit.position.xy,p.pos.xy)){let frontal=dot((p.pos.xy-unit.position.xy)/max(d,.01),vec2f(cos(unit.impact.z),sin(unit.impact.z)))>.55;
+   let shield=select(1.,1.-.75*unit.impact.w,unit.position.w==5.&&frontal);
+   result.contact.x+=(10.+min(40.,p.state.y*.15))*shield;result.contact+=vec4f(0.,(unit.position.xy-p.pos.xy)/max(d,.01)*(p.body.x+1.-d)*.8,0.);result.contact.w=max(result.contact.w,p.state.y);}
+  let inFront=unit.position.w!=5.||dot((p.pos.xy-unit.position.xy)/max(d,.01),vec2f(cos(unit.impact.z),sin(unit.impact.z)))>.55;
+  if(inFront&&d<best&&visible(unit.position.xy,p.pos.xy)){best=d;result.aim=vec4f(f32(i),p.status.w,p.pos.xy);}
  }
  }}results[u]=result;
 }
@@ -63,7 +66,9 @@ fn visible(a:vec2f,b:vec2f)->bool {
  loop {if(link==0u){break;}let u=link-1u;link=links[${shared.capacity}u+u];
   let unit=units[u];
   let delta=p.pos.xy-unit.position.xy;let d=length(delta);let kind=unit.position.w;
-  if(d<p.body.x+.45&&visible(unit.position.xy,p.pos.xy)){p.pos+=vec4f(0.,0.,delta/max(d,.01)*(p.body.x+.45-d)*params.grid.z*18./max(1.,p.body.y));}
+  let front=dot(delta/max(d,.01),vec2f(cos(unit.impact.z),sin(unit.impact.z)))>.55;
+  let brace=select(0.,unit.impact.w,kind==5.&&front);let radius=p.body.x+.45+brace*.45;
+  if(d<radius&&visible(unit.position.xy,p.pos.xy)){p.pos+=vec4f(0.,0.,delta/max(d,.01)*(radius-d)*params.grid.z*(18.+brace*90.)/max(1.,p.body.y));}
   if(unit.shot.z<=0.){continue;}
   var hit=unit.shot.x==f32(i)&&unit.shot.y==p.status.w&&d<=unit.position.z;
   if(kind==1.){hit=distance(p.pos.xy,unit.impact.xy)<=3.5&&visible(unit.impact.xy,p.pos.xy);}
@@ -92,7 +97,7 @@ fn visible(a:vec2f,b:vec2f)->bool {
     if(lineOfSightMap.obstacles.length)device.queue.writeBuffer(walls,0,new Float32Array(lineOfSightMap.obstacles.flatMap(o=>[o.x,o.y,o.width,o.height])));
     device.queue.writeBuffer(params,0,new Uint32Array([count,live.length,lineOfSightMap.obstacles.length,cells]));
     liveIds=[];const shotMap=new Map(shots.map(s=>[s.soldier,s]));let maxRange=4;const data=new Float32Array(live.length*12);
-    live.forEach((s,i)=>{const shot=shotMap.get(s.id),stats=infantryStats(s.kind,s.quality,s.defense,s.veterancy,research),slot=s.id-1,owner=slot<MAX_INFANTRY_KILL_SLOTS?MAX_TOWERS+slot+1:0;if(owner)liveIds[slot]=s.id;maxRange=Math.max(maxRange,stats.range+3.5);data.set([s.x,s.y,stats.range,['rifle','rocket','flame','samurai','dog'].indexOf(s.kind??'rifle'),shot?.target??-1,shot?.generation??0,shot?.damage??0,owner,shot?.x??0,shot?.y??0,s.angle,0],i*12);});device.queue.writeBuffer(units,0,data);
+    live.forEach((s,i)=>{const shot=shotMap.get(s.id),stats=infantryStats(s.kind,s.quality,s.defense,s.veterancy,research),slot=s.id-1,owner=slot<MAX_INFANTRY_KILL_SLOTS?MAX_TOWERS+slot+1:0;if(owner)liveIds[slot]=s.id;maxRange=Math.max(maxRange,stats.range+3.5);data.set([s.x,s.y,stats.range,['rifle','rocket','flame','samurai','dog','phalanx'].indexOf(s.kind??'rifle'),shot?.target??-1,shot?.generation??0,shot?.damage??0,owner,shot?.x??0,shot?.y??0,s.angle,s.brace??0],i*12);});device.queue.writeBuffer(units,0,data);
     device.queue.writeBuffer(params,16,new Float32Array([width,height,dt,maxRange]));encoder.clearBuffer(heads);
     const group=device.createBindGroup({layout,entries:[params,shared.particles,units,results,walls,shared.damageOwners!,heads,links].map((buffer,binding)=>({binding,resource:{buffer}}))});
     {const pass=encoder.beginComputePass();pass.setPipeline(bucket);pass.setBindGroup(0,group);pass.dispatchWorkgroups(Math.ceil(Math.max(count,live.length)/128));pass.end();}

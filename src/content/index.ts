@@ -99,22 +99,20 @@ fn enemyLeak(kind:u32)->u32 { switch kind { ${enemyCases('leak',value=>`${value}
 fn enemyColor(kind:u32)->vec3f { switch kind { ${enemyCases('color',value=>`vec3f(${hexRgb(String(value)).map(wgslNumber).join(',')})`)} default: { return vec3f(${hexRgb(ENEMIES.shambler.color).map(wgslNumber).join(',')}); } } }
 `;
 
-// The horde enters from beyond the west edge. The first gate is deliberately
-// continuous from the top and bottom edges, leaving one defendable middle gap.
+// Bastion is now an open settlement approach: only building foundations and
+// tree trunks block movement. There are no free wall-mounted firing positions.
+const bastionProps=[
+ ...[['v01',30,22],['v03',44,20],['v04',34,40],['v06',48,38],['v01',90,72],['v03',104,70],['v04',94,90],['v06',108,88],['v08',128,24]].map(([sprite,x,y])=>({sprite:`forest:${sprite}`,x:Number(x),y:Number(y)})),
+ ...[[18,10],[24,14],[54,10],[60,14],[76,88],[82,92],[120,10],[132,12],[140,84],[146,90]].map(([x,y],i)=>({sprite:`forest:${['t01','t03','t10','t16'][i%4]}`,x,y})),
+];
+const bastionSolids=bastionProps.map(prop=>{const tree=prop.sprite.includes(':t'),width=tree?2:6,height=tree?2:5;return {x:prop.x-width/2,y:prop.y-height,width,height};});
 export const DEFAULT_MAP: WorldMap = {
-  id:'pressure-front-bastion', width:160, height:100,
-  obstacles:[
-    {x:48,y:0,width:8,height:40},
-    {x:48,y:60,width:8,height:40},
-    {x:84,y:0,width:8,height:40},
-    {x:68,y:36,width:24,height:4},
-    {x:84,y:60,width:8,height:40},
-    {x:84,y:60,width:24,height:4},
-    {x:120,y:0,width:8,height:36},
-    {x:120,y:64,width:8,height:36},
-  ],
-  spawn:{x:0,y:20,width:8,height:60}, goal:{x:156,y:50}, goalRadius:4,
-  scenery:{biome:'interior',title:'Bastion',briefing:'A brutal west-to-east approach through a compact defense line. The first wall has one broad gap; two offset inner barriers create the final kill zone.',solids:[],mounts:[],tiles:[],props:[],regions:[]},
+ id:'pressure-front-bastion',width:160,height:100,obstacles:bastionSolids,
+ spawn:{x:0,y:20,width:8,height:60},goal:{x:156,y:50},goalRadius:4,
+ scenery:{biome:'forest',title:'Bastion',briefing:'An open road through scattered hamlets. There are no defensive walls: build your own line across the broad central approach. Cottages and orchards offer only small pockets of cover.',solids:bastionSolids,mounts:[],props:bastionProps,regions:[],tiles:[
+  ...Array.from({length:40},(_,i)=>({sprite:'forest:d45',x:i*4,y:48,columns:1,rows:1})),
+  ...[28,80].flatMap(y=>Array.from({length:8},(_,i)=>({sprite:'forest:d45',x:(y===28?20:80)+i*4,y,columns:1,rows:1}))),
+ ]},
 };
 
 export function validateContent(): void {

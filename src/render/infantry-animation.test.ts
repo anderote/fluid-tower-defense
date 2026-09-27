@@ -37,7 +37,7 @@ test('samurai sword animation uses all attack slots with anticipation, cut, and 
   s.cooldown=.1;assert.equal(animate.prepare([s],.8)[0].frame,0);
 });
 test('all troop roles collapse to a held final frame and fade without looping',()=>{
-  for(const kind of ['rifle','rocket','flame','samurai','dog'] as const){
+  for(const kind of ['rifle','rocket','flame','samurai','dog','phalanx'] as const){
     const animate=createInfantryAnimator(),s={...soldier(),kind,health:0};
     assert.equal(animate.prepare([s],0)[0].frame,INFANTRY_DEATH);
     s.dead=.8;const fallen=animate.prepare([s],.8)[0];assert.equal(fallen.frame,INFANTRY_DEATH+7);assert.equal(fallen.alpha,1);

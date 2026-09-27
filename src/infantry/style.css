@@ -37,3 +37,7 @@
 .infantry-rally-hint { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); z-index: 15; width: min(470px,70%); padding: 12px 16px; border: 1px solid #d4c76c; background: #172117ed; color: #efe5a4; font: 12px/1.5 monospace; text-align: center; pointer-events: none; }
 .infantry-rally-hint[hidden] { display: none; }
 canvas.setting-infantry-rally { cursor: crosshair; }
+
+.unit-icon-phalanx { background: #596844; }
+.unit-icon-phalanx::before { width: 14px; height: 14px; left: 5px; top: 9px; border-radius: 50%; background: #737b50; border: 3px solid #ab9455; }
+.unit-icon-phalanx::after { width: 2px; height: 25px; left: 23px; top: 2px; background: #d3d5bd; transform: rotate(20deg); }

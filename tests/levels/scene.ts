@@ -1,20 +1,28 @@
 import {campaignMap} from '../../src/content/levels.ts';
+import {allBattlefields,battlefield} from '../../src/content/battlefields.ts';
 import {createRenderer} from '../../src/render/index.ts';
 import {buildNavigation} from '../../src/navigation/index.ts';
 import type {Effect,RenderScene,SharedGPU} from '../../src/contracts/index.ts';
-const level=Math.max(1,Math.min(3,Number(new URLSearchParams(location.search).get('level'))||1)),map=campaignMap(level),canvas=document.querySelector('canvas')!,status=document.querySelector('#status')!;
-document.querySelector('h1')!.textContent=`0${level} / ${map.scenery!.title}`;document.querySelector('#briefing')!.textContent=map.scenery!.briefing;document.querySelector<HTMLAnchorElement>('#play')!.href=`/?map=${level}`;
+const level=Math.max(1,Math.min(3,Number(new URLSearchParams(location.search).get('level'))||1)),map=new URLSearchParams(location.search).has('battlefield')?battlefield(new URLSearchParams(location.search).get('battlefield')!):campaignMap(level),canvas=document.querySelector('canvas')!,status=document.querySelector('#status')!;
+document.querySelector('h1')!.textContent=map.scenery!.title;document.querySelector('#briefing')!.textContent=map.scenery!.briefing;document.querySelector<HTMLAnchorElement>('#play')!.href=`/?map=${map.id}`;
+const picker=document.createElement('select');picker.setAttribute('aria-label','Preview battlefield');
+for(const candidate of allBattlefields()){const option=document.createElement('option');option.value=candidate.id;option.textContent=candidate.scenery?.title??candidate.id;option.selected=candidate.id===map.id;picker.append(option);}
+picker.addEventListener('change',()=>{location.search=`?battlefield=${picker.value}`;});document.querySelector('nav')!.append(picker);
 try{
   const adapter=await navigator.gpu.requestAdapter();if(!adapter)throw Error('WebGPU unavailable');const device=await adapter.requestDevice(),format=navigator.gpu.getPreferredCanvasFormat();
   let failed=false;device.addEventListener('uncapturederror',event=>{failed=true;status.textContent=event.error.message;});
   const shared:SharedGPU={particles:device.createBuffer({size:256,usage:GPUBufferUsage.STORAGE}),counters:device.createBuffer({size:512,usage:GPUBufferUsage.STORAGE}),capacity:1};
   const renderer=await createRenderer(device,canvas.getContext('webgpu')!,format,shared,canvas),field=buildNavigation(map);
   const routes:Effect[]=[];
-  for(const startY of [26,50,74]){let x=1,y=startY;for(let i=0;i<550;i++){
+  for(const entry of map.entries??[{side:'west',from:map.spawn.y,to:map.spawn.y+map.spawn.height}])for(const fraction of [.25,.5,.75]){
+   const along=Math.floor(entry.from+(entry.to-entry.from)*fraction);
+   let x=entry.side==='west'?1:entry.side==='east'?field.width-2:along,y=entry.side==='north'?1:entry.side==='south'?field.height-2:along;
+   for(let i=0;i<700;i++){
     const at=y*field.width+x;if(!Number.isFinite(field.distances[at])||field.distances[at]<3)break;
     if(i%5===0)routes.push({x:x+.5,y:y+.5,kind:'slow',radius:.26,strength:0,damage:0,direction:{x:0,y:0},cone:0,duration:1,source:0});
     x+=field.vectors[at*2];y+=field.vectors[at*2+1];
-  }}
+   }
+  }
   const scene:RenderScene={count:0,time:0,map,towers:[],effects:[],heatmap:false,selection:null};
   document.querySelector('#paths')!.addEventListener('click',()=>{scene.effects=scene.effects.length?[]:routes;});
   let active=true;function draw(time=0){if(!active)return;scene.time=time/1000;const encoder=device.createCommandEncoder();renderer.encode(encoder,scene);device.queue.submit([encoder.finish()]);requestAnimationFrame(draw);}draw();await device.queue.onSubmittedWorkDone();if(!failed)status.textContent=`Rendering · ${map.obstacles.length} authored blocking footprints · route preview available`;

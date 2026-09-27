@@ -23,7 +23,7 @@ test('starting rifleman recruitment takes five seconds',()=>{
   const f=setup('rifle');f.step(4.9);assert.equal(f.state.soldiers.length,0);f.step(.2);assert.equal(f.state.soldiers.length,1);
 });
 test('barracks population caps are type-specific and rise with production',()=>{
-  assert.deepEqual(Object.fromEntries((Object.keys(INFANTRY) as InfantryKind[]).map(kind=>[kind,infantryCapacity(kind)])),{rifle:40,rocket:20,flame:20,samurai:20,dog:40});
+  assert.deepEqual(Object.fromEntries((Object.keys(INFANTRY) as InfantryKind[]).map(kind=>[kind,infantryCapacity(kind)])),{rifle:40,rocket:20,flame:20,samurai:20,dog:40,phalanx:24});
   for(const kind of Object.keys(INFANTRY) as InfantryKind[]){assert.ok(infantryCapacity(kind,5)>infantryCapacity(kind));}
 });
 test('rocket and flame infantry trade area damage for restrained sustained power',()=>{
@@ -188,4 +188,27 @@ test('flame troops sustain their stream between damage pulses and stop after los
  }
  assert.equal(hits,3,'continuous visuals must preserve the existing damage cadence');
  f.threats.clear();f.step(.2);assert.equal(soldier.flash,0);
+});
+
+test('hoplites settle three ranks deep, brace together, and close casualty gaps',()=>{
+ const f=setup('phalanx');f.step(105);const troops=f.state.soldiers;assert.equal(troops.length,24);
+ assert.ok(troops.filter(s=>(s.brace??0)>.5).length>=20,'most of the wall should lock shields');
+ const positions=troops.map(s=>({x:s.x,y:s.y}));
+ for(const s of troops)f.threats.set(s.id,{target:0,generation:1,x:s.x-12,y:s.y,contact:0,age:0});
+ advanceInfantry(f.state,f.active,f.fields,f.threats,.1,true);
+ assert.ok(troops.every((s,i)=>Math.hypot(s.x-positions[i].x,s.y-positions[i].y)<.06),'wall must not chase distant enemies');
+ const oldFront={...troops[0]};troops[0].health=0;f.threats.clear();f.state.buildings[0].progress=-100;f.step(8);
+ assert.ok(Math.hypot(troops[1].x-oldFront.x,troops[1].y-oldFront.y)<.4,'next rank fills the casualty gap');
+});
+
+test('all three spear ranks attack in front but hold their facing against a rear threat',()=>{
+ const f=setup('phalanx');f.step(16);f.state.buildings[0].progress=-100;
+ f.step(10);const troops=f.state.soldiers.slice(0,3),front=troops[0],angle=front.angle;
+ const target={x:front.x+Math.cos(angle)*2,y:front.y+Math.sin(angle)*2};
+ for(const s of troops){s.cooldown=0;f.threats.set(s.id,{...target,target:0,generation:1,contact:0,age:0});}
+ const shots=advanceInfantry(f.state,f.active,f.fields,f.threats,.01,true);
+ assert.equal(shots.filter(shot=>troops.some(s=>s.id===shot.soldier)).length,3);
+ for(const s of troops){s.cooldown=0;f.threats.set(s.id,{x:s.x-Math.cos(angle),y:s.y-Math.sin(angle),target:0,generation:1,contact:0,age:0});}
+ assert.equal(advanceInfantry(f.state,f.active,f.fields,f.threats,.01,true).length,0);
+ assert.equal(front.angle,angle);
 });
