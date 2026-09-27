@@ -369,6 +369,13 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
     return new Float32Array(a.flatMap(v=>[v.x,v.y,v.r,v.g,v.b,v.a]));
   }
   function geometry(scene:RenderScene): Float32Array { const a:V[]=[];
+    for(const region of scene.map.scenery?.regions??[])if(region.sprite==='water'){
+      rect(a,region.x,region.y,region.width,region.height,[.025,.29,.43,.78]);
+      for(let y=region.y+3;y<region.y+region.height-1;y+=7)for(let x=region.x+3;x<region.x+region.width-1;x+=9){
+        const lane=scene.map.currents?.find(current=>x>=current.x&&x<=current.x+current.width&&y>=current.y&&y<=current.y+current.height),direction=lane?.direction??{x:1,y:0},length=Math.max(.001,Math.hypot(direction.x,direction.y)),dx=direction.x/length,dy=direction.y/length,px=-dy,py=dx;
+        tri(a,{x:x+dx*1.15,y:y+dy*1.15},{x:x-dx*.8+px*.62,y:y-dy*.8+py*.62},{x:x-dx*.8-px*.62,y:y-dy*.8-py*.62},[.42,.8,.88,.62]);
+      }
+    }
     const activeWires=(scene.wires??[]).filter(wire=>!wire.breached);
     const activeFences=scene.fences??[];
     const focused=scene.selection===null?undefined:scene.towers.find(tower=>tower.id===scene.selection);
@@ -428,7 +435,8 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
         streak(a,wire.x+wire.width*.8,wire.y+wire.height*.72,1,-.32,1.3,.12,[.1,.045,.02,.88]);
       }
     }
-    rect(a,scene.map.spawn.x,scene.map.spawn.y,scene.map.spawn.width,scene.map.spawn.height,[.95,.48,.12,.11]); ring(a,scene.map.goal.x,scene.map.goal.y,scene.map.goalRadius,[.71,.98,.31,.85]);
+    if(scene.map.entries?.length){for(const entry of scene.map.entries){if(entry.side==='west')rect(a,0,entry.from,.8,entry.to-entry.from,[.95,.48,.12,.35]);else if(entry.side==='east')rect(a,scene.map.width-.8,entry.from,.8,entry.to-entry.from,[.95,.48,.12,.35]);else if(entry.side==='north')rect(a,entry.from,0,entry.to-entry.from,.8,[.95,.48,.12,.35]);else rect(a,entry.from,scene.map.height-.8,entry.to-entry.from,.8,[.95,.48,.12,.35]);}}else rect(a,scene.map.spawn.x,scene.map.spawn.y,scene.map.spawn.width,scene.map.spawn.height,[.95,.48,.12,.11]);
+    ring(a,scene.map.goal.x,scene.map.goal.y,scene.map.goalRadius,[.71,.98,.31,.85]);
     if(focused?.groundTarget&&!scene.groundTargetGhost){const target=focused.groundTarget,distance=Math.hypot(target.x-focused.x,target.y-focused.y);for(let d=4;d<distance-1;d+=1.25){const t=d/distance;disc(a,focused.x+(target.x-focused.x)*t,focused.y+(target.y-focused.y)*t,.09,[1,.79,.18,.58],6);}const pulse=.78+.22*Math.sin(scene.time*6);ring(a,target.x,target.y,1.55,[1,.78,.12,.92*pulse],.18);ring(a,target.x,target.y,.5,[1,.9,.35,.82*pulse],.11);rect(a,target.x-2.05,target.y-.07,1.25,.14,[1,.78,.12,.85]);rect(a,target.x+.8,target.y-.07,1.25,.14,[1,.78,.12,.85]);rect(a,target.x-.07,target.y-2.05,.14,1.25,[1,.78,.12,.85]);rect(a,target.x-.07,target.y+.8,.14,1.25,[1,.78,.12,.85]);}
     if(scene.groundTargetGhost){const g=scene.groundTargetGhost,c:[number,number,number,number]=g.valid?[.65,1,.25,.84]:[1,.18,.12,.88],distance=Math.hypot(g.x-g.originX,g.y-g.originY);ring(a,g.originX,g.originY,g.range,[c[0],c[1],c[2],.38],.16);for(let d=3;d<distance-1;d+=1.25){const t=d/distance;disc(a,g.originX+(g.x-g.originX)*t,g.originY+(g.y-g.originY)*t,.09,[c[0],c[1],c[2],.55],6);}ring(a,g.x,g.y,1.45,c,.2);ring(a,g.x,g.y,.42,c,.1);}
     for(const t of scene.towers){const c: [number,number,number,number]=t.kind==='repulsor'?[.73,1,.22,.95]:t.kind==='mortar'?[1,.62,.16,.95]:t.kind==='autocannon'?[.28,.85,1,.95]:t.kind==='cryo'?[.4,.85,.95,.95]:t.kind==='tesla'?[.62,.45,1,.95]:t.kind==='rocket'?[1,.25,.15,.95]:t.kind==='incinerator'?[1,.31,.12,.95]:[.35,1,.78,.95];towerShape(a,t,c);if(scene.selection===t.id)ring(a,t.x,t.y,4.2,[1,.88,.4,.9],.35);}
@@ -451,7 +459,7 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
     }
     if(scene.wallGhost)rect(a,scene.wallGhost.x,scene.wallGhost.y,scene.wallGhost.width,scene.wallGhost.height,scene.wallGhost.valid?[.25,.85,.95,.5]:[1,.15,.08,.5]);
     if(scene.demolitionHover){const alpha=.78+.18*Math.sin(scene.time*8);rectOutline(a,scene.demolitionHover.x,scene.demolitionHover.y,scene.demolitionHover.width,scene.demolitionHover.height,[1,.06,.035,alpha],.42);}
-    for(const e of scene.effects){if(e.kind==='crush'||e.kind==='flood')continue;const progress=Math.max(0,Math.min(1,1-e.duration/.55)),ease=1-(1-progress)*(1-progress),alpha=(1-progress)*(1-progress);const c:[number,number,number,number]=e.kind==='blast'?[1,.34,.055,.88*alpha]:e.kind==='slow'?[.25,.8,1,.56*alpha]:[.45,.95,1,.62*alpha];const radius=Math.max(.35,e.radius*(.05+.95*ease));disc(a,e.x,e.y,Math.max(.2,e.radius*.22*(1-progress)),[c[0],c[1],c[2],.16*alpha],12);ring(a,e.x,e.y,radius,c,Math.max(.18,e.radius*.085*(1-progress)));if(progress>.16)ring(a,e.x,e.y,radius*.72,[c[0],c[1],c[2],c[3]*.38],Math.max(.12,e.radius*.035));if(e.kind==='push'){const q={x:e.x+e.direction.x*radius,y:e.y+e.direction.y*radius};tri(a,{x:e.x-.7,y:e.y-.7},{x:e.x+.7,y:e.y+.7},q,[c[0],c[1],c[2],c[3]*.32])}}
+    for(const e of scene.effects){if(e.environmental||e.kind==='crush'||e.kind==='flood')continue;const progress=Math.max(0,Math.min(1,1-e.duration/.55)),ease=1-(1-progress)*(1-progress),alpha=(1-progress)*(1-progress);const c:[number,number,number,number]=e.kind==='blast'?[1,.34,.055,.88*alpha]:e.kind==='slow'?[.25,.8,1,.56*alpha]:[.45,.95,1,.62*alpha];const radius=Math.max(.35,e.radius*(.05+.95*ease));disc(a,e.x,e.y,Math.max(.2,e.radius*.22*(1-progress)),[c[0],c[1],c[2],.16*alpha],12);ring(a,e.x,e.y,radius,c,Math.max(.18,e.radius*.085*(1-progress)));if(progress>.16)ring(a,e.x,e.y,radius*.72,[c[0],c[1],c[2],c[3]*.38],Math.max(.12,e.radius*.035));if(e.kind==='push'){const q={x:e.x+e.direction.x*radius,y:e.y+e.direction.y*radius};tri(a,{x:e.x-.7,y:e.y-.7},{x:e.x+.7,y:e.y+.7},q,[c[0],c[1],c[2],c[3]*.32])}}
     if(scene.boss){const c: [number,number,number,number]=scene.boss.phase===2?[1,.15,.04,.95]:scene.boss.phase===1?[.9,.72,.2,.95]:[.55,.78,1,.95];ring(a,scene.boss.x,scene.boss.y,2.5,c,.55);rect(a,scene.boss.x-3,scene.boss.y-4,6*Math.max(0,scene.boss.health/scene.boss.maxHealth),.45,c);}
     const data=new Float32Array(a.length*6);a.forEach((v,i)=>data.set([v.x,v.y,v.r,v.g,v.b,v.a],i*6));return data;
   }

@@ -113,6 +113,7 @@ export const DEFAULT_MAP: WorldMap = {
     {x:120,y:64,width:8,height:36},
   ],
   spawn:{x:0,y:20,width:8,height:60}, goal:{x:156,y:50}, goalRadius:4,
+  scenery:{biome:'interior',title:'Bastion',briefing:'A brutal west-to-east approach through a compact defense line. The first wall has one broad gap; two offset inner barriers create the final kill zone.',solids:[],mounts:[],tiles:[],props:[],regions:[]},
 };
 
 export function validateContent(): void {
