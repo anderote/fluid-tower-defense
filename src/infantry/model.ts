@@ -5,7 +5,7 @@ import {buildNavigation} from '../navigation/index.ts';
 export const BARRACKS_COST=120;
 export type InfantryKind='rifle'|'rocket'|'flame'|'samurai'|'dog';
 export const INFANTRY={
- rifle:{building:'Rifle Barracks',name:'Riflemen',cost:120,interval:5,capacity:100,health:40,damage:12,range:14,cooldown:1.05,armor:0,speed:4,role:'Mass rifle infantry · free continuous recruitment'},
+ rifle:{building:'Rifle Barracks',name:'Riflemen',cost:120,interval:5,capacity:40,health:40,damage:12,range:14,cooldown:1.05,armor:0,speed:4,role:'Mass rifle infantry · free continuous recruitment'},
  rocket:{building:'Rocket Academy',name:'Rocket troops',cost:200,interval:4,capacity:20,health:55,damage:22,range:16,cooldown:3.1,armor:.1,speed:3.5,role:'Deliberate splash volleys against dense hordes'},
  flame:{building:'Flame Depot',name:'Flamethrowers',cost:160,interval:3,capacity:20,health:80,damage:6,range:6,cooldown:.45,armor:.2,speed:4,role:'Short-range cones that punish crowded approaches'},
  samurai:{building:'Samurai Dojo',name:'Samurai',cost:240,interval:6,capacity:20,health:95,damage:18,range:2.6,cooldown:.9,armor:.2,speed:4.8,role:'Close-range shock troops with a focused sword sweep'},
