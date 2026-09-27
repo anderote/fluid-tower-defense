@@ -219,6 +219,18 @@ try {
      case 'move':if(run.model.selected===null)break;movingTowerId=state.moveMode?null:run.model.selected;targetingTowerId=null;state.moveMode=movingTowerId!==null;state.targetMode=false;state.buildTool=null;state.selectedKind=null;state.upgradeMode=false;state.message=state.moveMode?`Move mode: click a clear location for this tower (${TOWER_MOVE_COST} Metal). Its ground target will be cleared.`:'Move mode cancelled.';break;
      case 'set-ground-target':if(run.model.selected===null)break;targetingTowerId=state.targetMode?null:run.model.selected;movingTowerId=null;state.targetMode=targetingTowerId!==null;state.moveMode=false;state.buildTool=null;state.selectedKind=null;state.upgradeMode=false;state.message=state.targetMode?'Focus ground: click a point inside the highlighted range. This turret will ignore enemies elsewhere.':'Ground targeting cancelled.';break;
      case 'clear-ground-target':if(run.model.selected!==null){const result=run.setGroundTarget(run.model.selected,null);targetingTowerId=null;state.targetMode=false;actionResult(result,'Ground target cleared. Automatic targeting restored.');}break;
+     case 'skip-wave':{
+       const result=run.finishWaveEarly(run.isBossWave&&latest.boss?.active!==false);
+       if(!result.ok){state.message=result.reason;break;}
+       // Ignore outstanding telemetry from the discarded tail of this wave.
+       waveStartTick=clock.tick+1;count=0;spawnSlot=0;state.population=0;
+       commands=[];visuals=[];heavyProjectiles=[];heavyExplosions=[];infantryRocketProjectiles=[];infantryRocketExplosions=[];
+       latest={...latest,live:0,inletBlocked:false,boss:undefined};
+       physics.reset();combat.reset();resetHorde();shotReader.reset();boss.reset(false);state.paused=false;
+       if(run.model.phase==='preparation'&&!run.model.bonusChoices.length)handleAction({type:'start-wave'});
+       else state.message=run.model.bonusChoices.length?'Wave finished. Choose a command boon before the next wave.':'Wave finished. Extract or continue your run.';
+       break;
+     }
      case 'start-wave':{
        const result=run.startWave();actionResult(result,'Wave incoming. Hold the choke.');if(!result.ok)break;
        latest={...latest,inletBlocked:false};count=0;spawnSlot=0;heavyProjectiles=[];heavyExplosions=[];infantryRocketProjectiles=[];infantryRocketExplosions=[];cameraShake=0;state.population=0;physics.reset();combat.reset();resetHorde();shotReader.reset();boss.reset(run.isBossWave);waveStartTick=clock.tick+1;state.paused=false;state.selectedKind=null;break;
