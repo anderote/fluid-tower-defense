@@ -1,3 +1,4 @@
+import {researchGroups,researchIcon} from './research-icons.ts';
 import {canFinishWaveEarly} from '../game/wave-progress.ts';
 import {commandUpgradeAvailability,researchCost,researchRank} from "../game/research.ts";
 import {TOWER_MOVE_COST} from "../game/index.ts";
@@ -263,11 +264,11 @@ export function createUI(
   };
   const renderCommandSystems = (s: UIState) => {
     const availability = (id: string) => commandUpgradeAvailability({phase:s.phase,metal:s.metal,commandUpgrades:s.commandUpgrades}, id);
-    return COMMAND_UPGRADES.map(upgrade => {
+    return researchGroups.map(group => `<section class="research-group"><h3>${group.name}</h3><div class="research-items">${COMMAND_UPGRADES.filter(upgrade=>group.ids.includes(upgrade.id)).map(upgrade => {
       const rank=researchRank(s.commandUpgrades,upgrade.id),maxRank=upgrade.maxRank??1,ready=availability(upgrade.id),prerequisites=(upgrade.requires??[]).map(id=>COMMAND_UPGRADES.find(node=>node.id===id)!.name),maxed=rank>=maxRank;
       const state=maxed?'installed':ready.ok?'available':'locked',cost=researchCost(upgrade,rank),progress=Array.from({length:maxRank},(_,index)=>`<i class="${index<rank?'installed':''}"></i>`).join('');
-      return `<button class="command-system tech-node ${state}" ${maxed||!ready.ok?'disabled':`data-command="${upgrade.id}"`}><b><em>${upgrade.category??'COMMAND'} · ${rank}/${maxRank}</em>${upgrade.name.toUpperCase()}</b><span class="cost">${maxed?'MAX':`${cost} METAL`}</span><small>${upgrade.description}</small><span class="tech-progress" aria-label="${rank} of ${maxRank} ranks researched">${progress}</span>${prerequisites.length?`<span class="tech-requires">↳ ${prerequisites.join(' + ')} rank 3</span>`:''}</button>`;
-    }).join("");
+      return `<button class="command-system tech-node ${state}" ${maxed||!ready.ok?'disabled':`data-command="${upgrade.id}"`}>${researchIcon(upgrade.id)}<b><em>${rank}/${maxRank} RANKS</em>${upgrade.name.toUpperCase()}</b><span class="cost">${maxed?'MAX':`${cost} METAL`}</span><small>${upgrade.description}</small><span class="tech-progress" aria-label="${rank} of ${maxRank} ranks researched">${progress}</span>${prerequisites.length?`<span class="tech-requires">↳ ${prerequisites.join(' + ')} rank 3</span>`:''}</button>`;
+    }).join("")}</div></section>`).join("");
   };
   const setPanel = (next: boolean) => {
     research = next;
@@ -277,7 +278,7 @@ export function createUI(
     researchTab.classList.toggle("active", next);
     $(".tower").toggleAttribute("hidden", next||buildings);
     selectedCard.hidden =
-      next || buildings || latestState?.upgradeMode === true || latestState?.targetMode === true || !latestState?.selected;
+      latestState?.upgradeMode === true || latestState?.targetMode === true || !latestState?.selected;
     root
       .querySelector<HTMLElement>(".command")
       ?.toggleAttribute("hidden", !next);

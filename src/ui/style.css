@@ -236,16 +236,20 @@ button small { margin-top: 4px; color: var(--term-faint); font-size: var(--text-
 .audio-setting input { grid-column: 1 / -1; width: 100%; margin: 0; accent-color: var(--term-accent); }
 .settings-gate section > button { width: 100%; border-color: var(--term-accent); color: var(--term-accent); }
 
-#commands { display: grid; gap: 6px; }
-#commands button { position: relative; min-height: 59px; padding-right: 80px; text-align: left; }
-#commands .cost { position: absolute; top: 8px; right: 8px; margin: 0; }
+#commands { display: grid; gap: 16px; }
+.research-group h3 { margin: 0 0 7px; padding-bottom: 6px; border-bottom: 1px solid var(--term-border); color: var(--term-muted); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
+.research-items { display: grid; gap: 6px; }
+#commands .command-system { display: grid; grid-template-columns: 30px minmax(0,1fr) auto; gap: 5px 8px; width: 100%; padding: 9px; text-align: left; }
+.research-icon { width: 28px; height: 28px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linejoin: round; stroke-linecap: round; color: var(--term-accent); grid-row: 1 / 3; }
+#commands .command-system b { font-size: 11px; line-height: 1.4; }
+#commands .cost { position: static; align-self: center; margin: 0; font-size: 10px; white-space: nowrap; }
 #commands .cost::after { content: ""; }
-#commands { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-#commands .command-system { min-height: 112px; padding: 8px; text-align: left; }
+#commands .command-system small { grid-column: 2 / -1; line-height: 1.4; }
+#commands .tech-progress, #commands .tech-requires { grid-column: 2 / -1; margin-top: 2px; }
 #commands .tech-node { position: relative; border-left: 3px solid var(--term-border-strong); background: rgba(255,255,255,.025); }
 #commands .tech-node.available { border-color: var(--term-accent); background: color-mix(in srgb, var(--term-accent) 8%, transparent); }
 #commands .tech-node.installed { border-color: var(--term-ok); background: color-mix(in srgb, var(--term-ok) 10%, transparent); opacity: 1; }
-#commands .tech-node.locked { border-color: var(--term-border); }
+#commands .tech-node.locked { border-color: var(--term-border); opacity: .75; }
 #commands .tech-node b em { display: block; margin-bottom: 3px; color: var(--term-accent); font-size: 9px; font-style: normal; font-weight: 600; letter-spacing: .09em; }
 #commands .tech-node.installed b em, #commands .tech-node.installed .cost { color: var(--term-ok); }
 .tech-requires { display: block; margin-top: 7px; color: var(--term-faint); font-size: 9px; line-height: 1.25; }
