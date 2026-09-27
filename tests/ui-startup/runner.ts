@@ -18,13 +18,18 @@ try {
   if(!root.querySelector('canvas')||!root.querySelector('aside > [data-action="start-wave"]')) {
     throw new Error('Game canvas or wave control was not initialized');
   }
+  const speeds=root.querySelectorAll<HTMLButtonElement>('header [data-simulation-speed]');
+  if(Array.from(speeds).map(button=>button.textContent).join(',')!=='1×,2×,3×,5×')throw Error('Top bar speed presets missing');
+  actions.length=0;speeds.forEach(button=>button.click());
+  const pause=root.querySelector<HTMLButtonElement>('header .time-pause')!;pause.click();
+  if(actions.map(action=>action.type==='simulation-speed'?action.value:action.type).join(',')!=='1,2,3,5,pause')throw Error('Time controls did not dispatch speed and pause actions');
   const dock=root.querySelector<HTMLElement>('aside')!,toggle=dock.querySelector<HTMLButtonElement>('.window-toggle')!,handle=dock.querySelector<HTMLButtonElement>('.window-handle')!;
   toggle.click();if(!dock.classList.contains('window-collapsed'))throw Error('Build menu must minimize');
   toggle.click();if(dock.classList.contains('window-collapsed'))throw Error('Build menu must expand');
   handle.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowLeft',bubbles:true}));
   if(dock.dataset.windowMoved!=='true'||dock.style.position!=='fixed')throw Error('Window must retain its moved position');
   const rect=dock.getBoundingClientRect();if(rect.left<0||rect.top<0)throw Error('Moved window must remain onscreen');
-  result.textContent='PASS: UI initializes with working move, targeting, and sell controls';
+  result.textContent='PASS: UI initializes with working tower controls and top bar speed/pause controls';
 } catch(error) {
   result.textContent=`FAIL: ${String(error)}`;
   throw error;

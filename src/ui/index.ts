@@ -114,7 +114,10 @@ export function createUI(
   telemetry.append($(".hud"));
   $("#view-menu").append(difficulty, streamWidth);
   headerStack.append(telemetry);
-  headerActions.append($(".status"), $(".metrics"), $(".soundtrack"), $(".view-actions"));
+  const timeControls=document.createElement('div');
+  timeControls.className='time-controls';timeControls.setAttribute('role','group');timeControls.setAttribute('aria-label','Simulation speed');
+  timeControls.innerHTML=`<button data-action="pause" class="time-pause" aria-label="Pause simulation" aria-pressed="false" title="Pause or resume [Space]">PAUSE</button>${[1,2,3,5].map(speed=>`<button data-simulation-speed="${speed}" aria-label="${speed}× simulation speed" aria-pressed="${speed===1}" title="Run at ${speed}× speed">${speed}×</button>`).join('')}`;
+  headerActions.append($(".status"), $(".metrics"), timeControls, $(".soundtrack"), $(".view-actions"));
   // Move the wave control before replacing the header so it stays in the DOM.
   const waveButton = $<HTMLButtonElement>(".start-wave-top"),
     buildDock = root.querySelector<HTMLElement>("aside")!;
@@ -288,6 +291,7 @@ export function createUI(
       onAction({type:"upgrade-tower",id:+button.dataset.quickUpgrade,branch:+button.dataset.quickBranch!});
       return;
     }
+    if(button.dataset.simulationSpeed){onAction({type:'simulation-speed',value:Number(button.dataset.simulationSpeed) as 1|2|3|5});return;}
     const action = button.dataset.action;
     if (action === "reset") { $("#reset-gate").hidden = false; return; }
     const resetChoice=button.dataset.resetChoice;
@@ -392,6 +396,13 @@ export function createUI(
       $("#wave-status-count").textContent=preview?`${preview.total.toLocaleString()} enemies${preview.boss?' + boss':''}`:active&&progress?`${(progress.queued+progress.live).toLocaleString()} remaining`:s.phase==='lost'?'BASE LOST':'WAVE CLEARED';
       $("#wave-status-detail").textContent=preview?`${preview.enemies.map(enemy=>`${enemy.count.toLocaleString()} ${enemy.name}`).join(' · ')} · Clear reward: ${preview.payment} Metal. ${preview.enemies.at(-1)?.role??''}`:active&&progress?`${progress.live.toLocaleString()} on the field · ${progress.queued.toLocaleString()} still arriving${s.boss?.active?' · boss active':''}`:s.phase==='lost'?'Restart the wave to try again.':'Ready for your next decision.';
 
+      timeControls.querySelectorAll<HTMLButtonElement>('[data-simulation-speed]').forEach(button=>{
+        const selected=Number(button.dataset.simulationSpeed)===(s.simulationSpeed??1);
+        button.classList.toggle('active',selected);button.setAttribute('aria-pressed',String(selected));
+      });
+      const pauseButton=timeControls.querySelector<HTMLButtonElement>('.time-pause')!;
+      pauseButton.textContent=s.paused?'RESUME':'PAUSE';pauseButton.classList.toggle('active',s.paused);
+      pauseButton.setAttribute('aria-pressed',String(s.paused));pauseButton.setAttribute('aria-label',s.paused?'Resume simulation':'Pause simulation');
       const skipReady=canFinishWaveEarly(s.waveProgress,s.phase,s.wave%10===0&&s.boss?.active!==false);
       const waveActive = s.mode === "game" && ["combat", "settling"].includes(s.phase),
         waveControl = waveActive
