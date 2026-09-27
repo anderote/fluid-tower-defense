@@ -1,19 +1,26 @@
+import {createInfantrySprites} from './infantry-sprites.ts';
+import {infantryCasing,infantryMuzzle,samuraiSlashPhase,SAMURAI_ATTACK_DURATION} from './infantry-animation.ts';
+import {createBloodRenderer} from './blood.ts';
 import {DAM_CHANNELS,DAM_GATES} from '../content/dam.ts';
 import {createFireEffects} from './fire.ts';
+import {infantryBuildingPixels,BUILDING_PIXEL,BUILDING_ANCHOR} from './infantry-building-art.ts';
+import {infantryStats} from '../infantry/model.ts';
 import {FIRE_STATE_BYTES} from '../effects/fire.ts';
 import {AUTOCANNON_MUZZLE_LIFT,SOLDAT_FACINGS} from './soldat-art.ts';
 import {createTeslaEffects} from './tesla.ts';
 import {createAftermathRenderer} from './aftermath.ts';
 import {TESLA_STATE_WGSL,TESLA_HEADER_BYTES,TESLA_PARTICLE_BYTES} from '../effects/tesla.ts';
-import { ENEMY_WGSL, towerBehavior } from '../content/index.ts';
+import { ENEMY_WGSL, MAX_VETERANCY, towerBehavior, towerRequiresLineOfSight, veterancyXpForLevel } from '../content/index.ts';
 import { PARTICLE_WGSL, type RenderScene, type Renderer, type SharedGPU, type TowerKind, type Vec2 } from '../contracts/index.ts';
-import {screenToWorld as unproject, worldToScreen as project} from './camera.ts';
+import {cameraPanBounds,screenToWorld as unproject, worldToScreen as project} from './camera.ts';
 import {TURRET_GRID, turretHardpoints, turretPixelRects, type TurretInk} from './turret-art.ts';
 import {createRedAlertArt,hasRedAlertSprite,type TurretArtStyle,type FloorArtStyle} from './red-alert.ts';
 import type {WireArtStyle} from './wire-art.ts';
 import {SHOT_GEOMETRY_WGSL} from './shot-geometry.ts';
 import {createShamblers} from './shamblers.ts';
 import {ZOMBIE_ROSTER_WGSL} from './zombie-roster.ts';
+import {lineOfSightPolygon} from './line-of-sight.ts';
+import {createCorpseFieldRenderer} from './corpse-field.ts';
 
 const MAX_TOWERS = 64;
 const WEAPON_KINDS:readonly TowerKind[]=['repulsor','mortar','autocannon','cryo','tesla','rocket','railgun','incinerator','crusher'];
@@ -28,8 +35,20 @@ const MUZZLE_OFFSETS_WGSL=`fn muzzleOffset(weapon:f32,barrel:f32)->vec2<f32>{${W
 type V = { x:number; y:number; r:number; g:number; b:number; a:number };
 const sameRect=(left:{x:number;y:number;width:number;height:number},right:{x:number;y:number;width:number;height:number})=>left.x===right.x&&left.y===right.y&&left.width===right.width&&left.height===right.height;
 
+/** Wide tactical views need a stable camera; close views retain full impact.
+ * Falloff is exponential in visible camera height, so shake becomes prominent
+ * only when the player is genuinely zoomed in on the impact. */
+export function explosionShakeScale(zoom:number){
+  const minimumZoom=1.15,maximumZoom=12;
+  if(zoom<=minimumZoom)return 0;
+  const height=100/Math.max(minimumZoom,Math.min(maximumZoom,zoom)),minimumHeight=100/minimumZoom,maximumHeight=100/maximumZoom,decay=18;
+  const floor=Math.exp(-minimumHeight/decay),ceiling=Math.exp(-maximumHeight/decay);
+  return Math.max(0,Math.min(1,(Math.exp(-height/decay)-floor)/(ceiling-floor)));
+}
+
 /** GPU-only visualizer. Particle bodies remain in the shared simulation buffer. */
-export async function createRenderer(device: GPUDevice, context: GPUCanvasContext, format: GPUTextureFormat, shared: SharedGPU, canvas: HTMLCanvasElement,options:{turretArt?:TurretArtStyle;wireArt?:WireArtStyle;floorArt?:FloorArtStyle}={}): Promise<Renderer> {
+export async function createRenderer(device: GPUDevice, context: GPUCanvasContext, format: GPUTextureFormat, shared: SharedGPU, canvas: HTMLCanvasElement,options:{turretArt?:TurretArtStyle;wireArt?:WireArtStyle;floorArt?:FloorArtStyle;resolutionScale?:number;compactBlood?:boolean}={}): Promise<Renderer> {
+  let resolutionScale=Math.max(.5,Math.min(1,options.resolutionScale||1));
   const uniform = device.createBuffer({ label:'Render camera', size:64, usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST });
   const turretArt=options.turretArt??'soldat';
   const redAlert=await createRedAlertArt(device,format,uniform,turretArt,options.wireArt,options.floorArt).catch(error=>{console.warn('Facility artwork unavailable; using fallback graphics.',error);return null;});
@@ -38,12 +57,16 @@ export async function createRenderer(device: GPUDevice, context: GPUCanvasContex
   const emptyHeat=shared.heatState?null:device.createBuffer({label:'Empty burn status',size:shared.capacity*FIRE_STATE_BYTES,usage:GPUBufferUsage.STORAGE});
   const heatState=shared.heatState??emptyHeat!;
   const shamblers=await createShamblers(device,format,uniform,{...shared,teslaState,heatState});
+  const infantrySprites=await createInfantrySprites(device,format,uniform);
   const aftermath=shared.aftermath?await createAftermathRenderer(device,format,uniform,shared.aftermath,shamblers.texture):null;
+  const blood=shared.bloodWalls&&shared.aftermath?await createBloodRenderer(device,format,uniform,shared,options.compactBlood):null;
+  const corpseField=shared.corpseField?await createCorpseFieldRenderer(device,format,uniform,shared.corpseField):null;
   let damCapacity=1;let damSurface=device.createBuffer({label:'Animated spillway',size:24,usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST});
   let overlayCapacity=1;
   let overlays = device.createBuffer({ label:'Tactical overlays', size:24, usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST });
   let foregroundCapacity=1;
   let foreground = device.createBuffer({ label:'Foreground effects', size:24, usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST });
+  let sightKey='',sightPoints:Vec2[]=[];
   const towerVisuals = device.createBuffer({ label:'Tower visual state', size:MAX_TOWERS * 16, usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST });
   const emptyShots = device.createBuffer({ label:'Empty firing state', size:MAX_TOWERS * 48, usage:GPUBufferUsage.STORAGE });
   const fire=await createFireEffects(device,format,uniform,{...shared,heatState},towerVisuals,emptyShots);
@@ -165,12 +188,12 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
   const cameraParticles=device.createBindGroup({layout:particles.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:uniform}},{binding:1,resource:{buffer:shared.particles}},{binding:2,resource:{buffer:teslaState}}]});
   const cameraOverlay=device.createBindGroup({layout:overlay.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:uniform}}]});
   const cameraCues=device.createBindGroup({layout:cues.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:uniform}},{binding:1,resource:{buffer:shared.shotState ?? emptyShots}},{binding:2,resource:{buffer:towerVisuals}}]});
-  let pixelW=0,pixelH=0;
+  let pixelW=0,pixelH=0,sceneDepth:GPUTexture|undefined;
   let camera={x:0,y:0,zoom:1};
   let world={width:160,height:100};
   const view=()=>({width:world.width/camera.zoom,height:world.height/camera.zoom});
-  const clampCamera=()=>{const v=view();camera.x=Math.max(0,Math.min(world.width-v.width,camera.x));camera.y=Math.max(0,Math.min(world.height-v.height,camera.y));};
-  const resize=()=>{const d=Math.min(devicePixelRatio||1,2),max=device.limits.maxTextureDimension2D; const w=Math.max(1,Math.min(max,Math.round(canvas.clientWidth*d))),h=Math.max(1,Math.min(max,Math.round(canvas.clientHeight*d))); if(w!==pixelW||h!==pixelH){pixelW=w;pixelH=h;canvas.width=w;canvas.height=h;context.configure({device,format,alphaMode:'opaque'});} };
+  const clampCamera=()=>{const bounds=cameraPanBounds(camera,world);camera.x=Math.max(bounds.minX,Math.min(bounds.maxX,camera.x));camera.y=Math.max(bounds.minY,Math.min(bounds.maxY,camera.y));};
+  const resize=()=>{const d=Math.min(devicePixelRatio||1,2)*resolutionScale,max=device.limits.maxTextureDimension2D; const w=Math.max(1,Math.min(max,Math.round(canvas.clientWidth*d))),h=Math.max(1,Math.min(max,Math.round(canvas.clientHeight*d))); if(w!==pixelW||h!==pixelH){pixelW=w;pixelH=h;canvas.width=w;canvas.height=h;sceneDepth?.destroy();sceneDepth=device.createTexture({label:'World object depth order',size:[w,h],format:'depth32float',usage:GPUTextureUsage.RENDER_ATTACHMENT});context.configure({device,format,alphaMode:'opaque'});} };
   const screenToWorld=(clientX:number,clientY:number):Vec2=>unproject({x:clientX,y:clientY},canvas.getBoundingClientRect(),camera,world);
   const worldToScreen=(x:number,y:number):Vec2=>project({x,y},canvas.getBoundingClientRect(),camera,world);
   const push=(a:V[],x:number,y:number,c:[number,number,number,number])=>a.push({x,y,r:c[0],g:c[1],b:c[2],a:c[3]});
@@ -180,8 +203,30 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
   const ring=(a:V[],x:number,y:number,rad:number,c:[number,number,number,number],width=0.65)=>{const n=28;for(let i=0;i<n;i++){const u=i/n*Math.PI*2,v=(i+1)/n*Math.PI*2;const p=(rr:number,t:number)=>({x:x+Math.cos(t)*rr,y:y+Math.sin(t)*rr});tri(a,p(rad-width,u),p(rad-width,v),p(rad,v),c);tri(a,p(rad-width,u),p(rad,v),p(rad,u),c)}};
   const disc=(a:V[],x:number,y:number,rad:number,c:[number,number,number,number],n=10)=>{for(let i=0;i<n;i++){const u=i/n*Math.PI*2,v=(i+1)/n*Math.PI*2;tri(a,{x,y},{x:x+Math.cos(u)*rad,y:y+Math.sin(u)*rad},{x:x+Math.cos(v)*rad,y:y+Math.sin(v)*rad},c)}};
   const streak=(a:V[],x:number,y:number,vx:number,vy:number,length:number,width:number,c:[number,number,number,number])=>{const m=Math.max(.001,Math.hypot(vx,vy)),dx=vx/m*length,dy=vy/m*length,sx=-dy/m*width,sy=dx/m*width;tri(a,{x:x-dx+sx,y:y-dy+sy},{x:x-dx-sx,y:y-dy-sy},{x:x+sx,y:y+sy},c);tri(a,{x:x-dx-sx,y:y-dy-sy},{x:x-sx,y:y-sy},{x:x+sx,y:y+sy},c)};
+  const segment=(a:V[],from:Vec2,to:Vec2,width:number,c:[number,number,number,number])=>streak(a,to.x,to.y,to.x-from.x,to.y-from.y,Math.hypot(to.x-from.x,to.y-from.y),width,c);
   const shard=(a:V[],x:number,y:number,size:number,angle:number,c:[number,number,number,number])=>{const f={x:Math.cos(angle)*size,y:Math.sin(angle)*size},s={x:-Math.sin(angle)*size*.55,y:Math.cos(angle)*size*.55};tri(a,{x:x+f.x,y:y+f.y},{x:x+s.x,y:y+s.y},{x:x-f.x-s.x*.25,y:y-f.y-s.y*.25},c);tri(a,{x:x+f.x,y:y+f.y},{x:x-f.x-s.x*.25,y:y-f.y-s.y*.25},{x:x-s.x,y:y-s.y},c)};
   const casing=(a:V[],x:number,y:number,size:number,angle:number,c:[number,number,number,number])=>{const f={x:Math.cos(angle)*size,y:Math.sin(angle)*size},s={x:-Math.sin(angle)*size*.28,y:Math.cos(angle)*size*.28};tri(a,{x:x+f.x,y:y+f.y},{x:x+s.x,y:y+s.y},{x:x-f.x+s.x,y:y-f.y+s.y},c);tri(a,{x:x+f.x,y:y+f.y},{x:x-f.x+s.x,y:y-f.y+s.y},{x:x-f.x-s.x,y:y-f.y-s.y},c);tri(a,{x:x+f.x,y:y+f.y},{x:x-f.x-s.x,y:y-f.y-s.y},{x:x-s.x,y:y-s.y},[Math.min(1,c[0]*1.3),Math.min(1,c[1]*1.35),Math.min(1,c[2]*1.2),c[3]*.85]);};
+  const infantryRankMarks=(a:V[],x:number,y:number,rank:number)=>{
+    const color:[number,number,number,number]=[.98,.84,.25,1],stars=Math.min(5,Math.floor(rank/20)),chevrons=Math.min(3,Math.floor((rank%20)/5)),stripes=rank%5;
+    for(let i=0;i<stars;i++)disc(a,x+(i-(stars-1)/2)*.28,y-.98,.11,color,5);
+    for(let i=0;i<chevrons;i++){const cx=x+(i-(chevrons-1)/2)*.28;streak(a,cx-.11,y-.99,-1,1,.22,.055,color);streak(a,cx+.11,y-.99,1,1,.22,.055,color);}
+    for(let i=0;i<stripes;i++)rect(a,x+(i-(stripes-1)/2)*.18-.045,y-1.04,.09,.08,color);
+  };
+  const infantryVeterancyXp=(a:V[],x:number,y:number,rank:number,xp:number)=>{
+    const previous=rank>0?veterancyXpForLevel(rank):0,next=rank>=MAX_VETERANCY?previous:veterancyXpForLevel(rank+1),progress=rank>=MAX_VETERANCY?1:Math.max(0,Math.min(1,(xp-previous)/Math.max(1,next-previous))),width=1.72,top=y-1.34;
+    rect(a,x-width/2-.045,top-.045,width+.09,.16,[.015,.018,.014,.9]);
+    rect(a,x-width/2,top,width*progress,.07,rank>=MAX_VETERANCY?[1,.82,.18,1]:[.35,.92,.45,1]);
+  };
+  const infantrySelectionBrackets=(a:V[],x:number,y:number)=>{
+    const shadow:[number,number,number,number]=[.02,.02,.018,.9],color:[number,number,number,number]=[.98,.98,.9,.98];
+    const top=y-1.48,bottom=y+.72,left=x-1.16,right=x+1.16,arm=.38,width=.1;
+    // A dark under-stroke keeps the white Red Alert-style brackets readable over sprites.
+    for(const [side,edge] of [['left',left],['right',right]] as const){
+      const start=side==='left'?edge:edge-arm;
+      rect(a,start-.045,top-.045,arm+.09,width+.09,shadow);rect(a,start-.045,bottom-.005,arm+.09,width+.09,shadow);rect(a,edge-.045,top-.045,width+.09,bottom-top+width+.09,shadow);
+      rect(a,start,top,arm,width,color);rect(a,start,bottom,arm,width,color);rect(a,edge,top,width,bottom-top+width,color);
+    }
+  };
   const orientedRect=(a:V[],x:number,y:number,halfLength:number,halfWidth:number,angle:number,c:[number,number,number,number])=>{const f={x:Math.cos(angle)*halfLength,y:Math.sin(angle)*halfLength},s={x:-Math.sin(angle)*halfWidth,y:Math.cos(angle)*halfWidth};tri(a,{x:x+f.x+s.x,y:y+f.y+s.y},{x:x-f.x+s.x,y:y-f.y+s.y},{x:x-f.x-s.x,y:y-f.y-s.y},c);tri(a,{x:x+f.x+s.x,y:y+f.y+s.y},{x:x-f.x-s.x,y:y-f.y-s.y},{x:x+f.x-s.x,y:y+f.y-s.y},c);};
   const towerShape=(a:V[],t:Vec2 & {kind:TowerKind;angle?:number;cooldown?:number;crusherAnimation?:number;crusherRecharge?:number},c:[number,number,number,number])=>{
     if(t.kind==='crusher'){
@@ -253,6 +298,22 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
       streak(a,x,y,.55,flip,.34,.055,c);streak(a,x,y,-.55,flip,.34,.055,c);
     }
   };
+  const fenceShape=(a:V[],fence:{x:number;y:number;width:number;height:number},integrity:number,c:[number,number,number,number]=[.62,.69,.67,.96])=>{
+    const damage=1-Math.max(0,Math.min(1,integrity)),left=fence.x+.3,right=fence.x+fence.width-.3,top=fence.y+.38,bottom=fence.y+fence.height-.3;
+    const sag=damage*.72,dark:[number,number,number,number]=[.12,.15,.15,c[3]],mesh:[number,number,number,number]=[c[0],c[1],c[2],c[3]*(1-damage*.42)],meshTop=top+.18,meshBottom=bottom-.22;
+    rect(a,fence.x+.08,bottom-.04,fence.width-.16,.28,[.01,.013,.013,.28]);
+    rect(a,left,meshTop,right-left,meshBottom-meshTop,[.08,.11,.1,.16*c[3]]);
+    for(const x of [left,right]){segment(a,{x,y:top},{x:x+damage*(x===left?.2:-.2),y:bottom},.14,dark);disc(a,x,top,.13,[.82,.86,.8,c[3]],6);}
+    segment(a,{x:left,y:top},{x:right,y:top+sag},.095,mesh);segment(a,{x:left,y:bottom-.08},{x:right,y:bottom-.08-sag*.15},.09,dark);
+    const columns=Math.max(2,Math.round((right-left)/.48));
+    for(let index=0;index<columns;index++){
+      if(damage>.58&&index%4===2)continue;
+      const x0=left+(right-left)*index/columns,x1=left+(right-left)*(index+1)/columns;
+      segment(a,{x:x0,y:meshTop},{x:x1,y:meshBottom},.035,mesh);
+      segment(a,{x:x1,y:meshTop},{x:x0,y:meshBottom},.035,[mesh[0],mesh[1],mesh[2],mesh[3]*.78]);
+    }
+    if(damage>.25)streak(a,fence.x+fence.width*.5,fence.y+fence.height*.52,.35,1,1+damage*1.3,.075,[.28,.16,.07,.52+damage*.35]);
+  };
   function damGeometry(scene:RenderScene):Float32Array {
     const a:V[]=[],d=scene.map.dam;if(!d)return new Float32Array();
     const time=scene.time;
@@ -308,7 +369,18 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
   }
   function geometry(scene:RenderScene): Float32Array { const a:V[]=[];
     const activeWires=(scene.wires??[]).filter(wire=>!wire.breached);
-    if(!redAlert)for(const o of scene.map.obstacles){if(activeWires.some(wire=>sameRect(wire,o)))continue;rect(a,o.x-.22,o.y-.22,o.width+.44,o.height+.44,[.018,.021,.027,.78]);rect(a,o.x,o.y,o.width,o.height,[.13,.15,.19,.98]);rect(a,o.x+.38,o.y+.38,Math.max(0,o.width-.76),Math.max(0,o.height-.76),[.22,.25,.3,.92]);rect(a,o.x+.38,o.y+.38,Math.max(0,o.width-.76),.34,[.5,.57,.66,.42]);rect(a,o.x+o.width-.58,o.y+.45,.18,Math.max(0,o.height-.9),[.045,.052,.07,.74]);for(let y=o.y+2;y<o.y+o.height-1;y+=5)rect(a,o.x+.08,y,Math.min(.48,o.width*.16),1.5,[.95,.61,.12,.38]);}
+    const activeFences=scene.fences??[];
+    const focused=scene.selection===null?undefined:scene.towers.find(tower=>tower.id===scene.selection);
+    if(focused&&scene.selectionRange){
+      const color:[number,number,number,number]=focused.kind==='incinerator'?[1,.25,.055,.105]:focused.kind==='rocket'?[1,.32,.15,.09]:focused.kind==='railgun'?[.25,1,.74,.09]:focused.kind==='autocannon'?[1,.82,.25,.09]:[.55,.9,1,.075];
+      const nextSightKey=[focused.id,focused.x,focused.y,focused.kind,scene.selectionRange,...scene.map.obstacles.flatMap(obstacle=>[obstacle.x,obstacle.y,obstacle.width,obstacle.height])].join('|');
+      if(nextSightKey!==sightKey){sightKey=nextSightKey;sightPoints=towerRequiresLineOfSight(focused.kind)?lineOfSightPolygon(focused,scene.selectionRange,scene.map.obstacles,128):Array.from({length:128},(_,index)=>{const angle=index/128*Math.PI*2;return {x:focused.x+Math.cos(angle)*scene.selectionRange!,y:focused.y+Math.sin(angle)*scene.selectionRange!};});}
+      const points=sightPoints;
+      for(let index=0;index<points.length;index++)tri(a,focused,points[index],points[(index+1)%points.length],color);
+      const edge:[number,number,number,number]=[color[0],color[1],color[2],.34];
+      for(let index=0;index<points.length;index++){const start=points[index],end=points[(index+1)%points.length];streak(a,end.x,end.y,end.x-start.x,end.y-start.y,Math.hypot(end.x-start.x,end.y-start.y),.055,edge);}
+    }
+    if(!redAlert)for(const o of scene.map.obstacles){if(activeWires.some(wire=>sameRect(wire,o))||activeFences.some(fence=>sameRect(fence,o)))continue;rect(a,o.x-.22,o.y-.22,o.width+.44,o.height+.44,[.018,.021,.027,.78]);rect(a,o.x,o.y,o.width,o.height,[.13,.15,.19,.98]);rect(a,o.x+.38,o.y+.38,Math.max(0,o.width-.76),Math.max(0,o.height-.76),[.22,.25,.3,.92]);rect(a,o.x+.38,o.y+.38,Math.max(0,o.width-.76),.34,[.5,.57,.66,.42]);rect(a,o.x+o.width-.58,o.y+.45,.18,Math.max(0,o.height-.9),[.045,.052,.07,.74]);for(let y=o.y+2;y<o.y+o.height-1;y+=5)rect(a,o.x+.08,y,Math.min(.48,o.width*.16),1.5,[.95,.61,.12,.38]);}
     for(const wall of scene.walls??[]){
       const integrity=Math.max(0,Math.min(1,wall.health/wall.maxHealth)),damage=1-integrity;
       // The structural base is drawn from map obstacles above. These overlays make its condition legible at a glance.
@@ -332,7 +404,14 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
         }
       }
     }
-    for(const wire of scene.wires??[]){
+    if(scene.barrierSegments?.length){for(const barrier of scene.barrierSegments){
+      const integrity=Math.max(.03,Math.min(1,barrier.health/barrier.maxHealth)),damage=1-integrity,dx=barrier.to.x-barrier.from.x,dy=barrier.to.y-barrier.from.y,length=Math.hypot(dx,dy),side={x:-dy/Math.max(.001,length),y:dx/Math.max(.001,length)};
+      if(barrier.kind==='fence'){const c:[number,number,number,number]=[.42-damage*.22,.55-damage*.32,.5-damage*.3,.96];segment(a,barrier.from,barrier.to,.15,c);segment(a,{x:barrier.from.x+side.x*.25,y:barrier.from.y+side.y*.25},{x:barrier.to.x+side.x*.25,y:barrier.to.y+side.y*.25},.035,[.76,.82,.75,.8]);for(const point of [barrier.from,barrier.to])disc(a,point.x,point.y,.16,[.18,.23,.22,.96],6);}
+      else {const c:[number,number,number,number]=barrier.breached?[.26,.09,.035,.7]:[.65-damage*.4,.7-damage*.5,.67-damage*.5,.95];segment(a,barrier.from,barrier.to,.07,c);for(let t=.18;t<.94;t+=.3){const x=barrier.from.x+dx*t,y=barrier.from.y+dy*t;segment(a,{x:x-side.x*.18,y:y-side.y*.18},{x:x+side.x*.18,y:y+side.y*.18},.035,c);}}
+    }}
+    // Use the old rectangular mesh only for legacy grid barriers.
+    if(!scene.barrierSegments?.length&&!redAlert?.hasFenceSprites)for(const fence of activeFences)fenceShape(a,fence,fence.health/fence.maxHealth);
+    for(const wire of scene.barrierSegments?.length?[]:scene.wires??[]){
       if(redAlert?.hasWireSprites)continue;
       const integrity=Math.max(.03,Math.min(1,wire.health/wire.maxHealth)),damage=1-integrity;
       const color:[number,number,number,number]=wire.breached?[.17,.06,.022,.86]:[.68-damage*.43,.74-damage*.58,.72-damage*.62,.96];
@@ -348,21 +427,25 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
       }
     }
     rect(a,scene.map.spawn.x,scene.map.spawn.y,scene.map.spawn.width,scene.map.spawn.height,[.95,.48,.12,.11]); ring(a,scene.map.goal.x,scene.map.goal.y,scene.map.goalRadius,[.71,.98,.31,.85]);
+    if(focused?.groundTarget&&!scene.groundTargetGhost){const target=focused.groundTarget,distance=Math.hypot(target.x-focused.x,target.y-focused.y);for(let d=4;d<distance-1;d+=1.25){const t=d/distance;disc(a,focused.x+(target.x-focused.x)*t,focused.y+(target.y-focused.y)*t,.09,[1,.79,.18,.58],6);}const pulse=.78+.22*Math.sin(scene.time*6);ring(a,target.x,target.y,1.55,[1,.78,.12,.92*pulse],.18);ring(a,target.x,target.y,.5,[1,.9,.35,.82*pulse],.11);rect(a,target.x-2.05,target.y-.07,1.25,.14,[1,.78,.12,.85]);rect(a,target.x+.8,target.y-.07,1.25,.14,[1,.78,.12,.85]);rect(a,target.x-.07,target.y-2.05,.14,1.25,[1,.78,.12,.85]);rect(a,target.x-.07,target.y+.8,.14,1.25,[1,.78,.12,.85]);}
+    if(scene.groundTargetGhost){const g=scene.groundTargetGhost,c:[number,number,number,number]=g.valid?[.65,1,.25,.84]:[1,.18,.12,.88],distance=Math.hypot(g.x-g.originX,g.y-g.originY);ring(a,g.originX,g.originY,g.range,[c[0],c[1],c[2],.38],.16);for(let d=3;d<distance-1;d+=1.25){const t=d/distance;disc(a,g.originX+(g.x-g.originX)*t,g.originY+(g.y-g.originY)*t,.09,[c[0],c[1],c[2],.55],6);}ring(a,g.x,g.y,1.45,c,.2);ring(a,g.x,g.y,.42,c,.1);}
     for(const t of scene.towers){const c: [number,number,number,number]=t.kind==='repulsor'?[.73,1,.22,.95]:t.kind==='mortar'?[1,.62,.16,.95]:t.kind==='autocannon'?[.28,.85,1,.95]:t.kind==='cryo'?[.4,.85,.95,.95]:t.kind==='tesla'?[.62,.45,1,.95]:t.kind==='rocket'?[1,.25,.15,.95]:t.kind==='incinerator'?[1,.31,.12,.95]:[.35,1,.78,.95];towerShape(a,t,c);if(scene.selection===t.id)ring(a,t.x,t.y,4.2,[1,.88,.4,.9],.35);}
     if(scene.ghost){const c: [number,number,number,number]=scene.ghost.valid?[.65,1,.25,.8]:[1,.18,.12,.8];ring(a,scene.ghost.x,scene.ghost.y,scene.ghost.range,c,.22);towerShape(a,scene.ghost,c);}
-    if(scene.placementGhost){
-      const pulse=.8+.2*Math.sin(scene.time*7),c:[number,number,number,number]=scene.placementGhost.valid?[.26,1,.78,.72*pulse]:[1,.13,.07,.78];
-      rect(a,scene.placementGhost.x-.14,scene.placementGhost.y-.14,scene.placementGhost.width+.28,scene.placementGhost.height+.28,[c[0],c[1],c[2],.12*pulse]);
-      rectOutline(a,scene.placementGhost.x-.08,scene.placementGhost.y-.08,scene.placementGhost.width+.16,scene.placementGhost.height+.16,[c[0],c[1],c[2],.62*pulse],.11);
-      if(scene.placementGhost.kind==='wire'){
-        if(!redAlert?.hasWireSprites)wireShape(a,scene.placementGhost,c,1);
-        for(const x of [scene.placementGhost.x+.22,scene.placementGhost.x+scene.placementGhost.width-.22])for(const y of [scene.placementGhost.y+.22,scene.placementGhost.y+scene.placementGhost.height-.22])disc(a,x,y,.09,c,5);
+    for(const placementGhost of [...(scene.placementGhost?[scene.placementGhost]:[]),...(scene.placementGhosts??[])]){
+      const pulse=.8+.2*Math.sin(scene.time*7),c:[number,number,number,number]=placementGhost.valid?[.26,1,.78,.72*pulse]:[1,.13,.07,.78];
+      rect(a,placementGhost.x-.14,placementGhost.y-.14,placementGhost.width+.28,placementGhost.height+.28,[c[0],c[1],c[2],.12*pulse]);
+      rectOutline(a,placementGhost.x-.08,placementGhost.y-.08,placementGhost.width+.16,placementGhost.height+.16,[c[0],c[1],c[2],.62*pulse],.11);
+      if(placementGhost.kind==='wire'){
+        if(!redAlert?.hasWireSprites)wireShape(a,placementGhost,c,1);
+        for(const x of [placementGhost.x+.22,placementGhost.x+placementGhost.width-.22])for(const y of [placementGhost.y+.22,placementGhost.y+placementGhost.height-.22])disc(a,x,y,.09,c,5);
+      }else if(placementGhost.kind==='fence'){
+        if(!redAlert?.hasFenceSprites)fenceShape(a,placementGhost,1,c);
       }else{
-        rect(a,scene.placementGhost.x,scene.placementGhost.y,scene.placementGhost.width,scene.placementGhost.height,[c[0],c[1],c[2],.42]);
-        rect(a,scene.placementGhost.x+.35,scene.placementGhost.y+.35,scene.placementGhost.width-.7,.25,c);
-        rect(a,scene.placementGhost.x+.48,scene.placementGhost.y+scene.placementGhost.height*.48,scene.placementGhost.width-.96,.14,c);
+        rect(a,placementGhost.x,placementGhost.y,placementGhost.width,placementGhost.height,[c[0],c[1],c[2],.42]);
+        rect(a,placementGhost.x+.35,placementGhost.y+.35,placementGhost.width-.7,.25,c);
+        rect(a,placementGhost.x+.48,placementGhost.y+placementGhost.height*.48,placementGhost.width-.96,.14,c);
       }
-      if(!scene.placementGhost.valid){streak(a,scene.placementGhost.x+3.25,scene.placementGhost.y+3.25,1,1,3.45,.15,c);streak(a,scene.placementGhost.x+3.25,scene.placementGhost.y+.75,1,-1,3.45,.15,c);}
+      if(!placementGhost.valid){const size=Math.min(placementGhost.width,placementGhost.height);streak(a,placementGhost.x+size*.8,placementGhost.y+size*.8,1,1,size*.72,.15,c);streak(a,placementGhost.x+size*.8,placementGhost.y+size*.2,1,-1,size*.72,.15,c);}
     }
     if(scene.wallGhost)rect(a,scene.wallGhost.x,scene.wallGhost.y,scene.wallGhost.width,scene.wallGhost.height,scene.wallGhost.valid?[.25,.85,.95,.5]:[1,.15,.08,.5]);
     if(scene.demolitionHover){const alpha=.78+.18*Math.sin(scene.time*8);rectOutline(a,scene.demolitionHover.x,scene.demolitionHover.y,scene.demolitionHover.width,scene.demolitionHover.height,[1,.06,.035,alpha],.42);}
@@ -371,6 +454,50 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
     const data=new Float32Array(a.length*6);a.forEach((v,i)=>data.set([v.x,v.y,v.r,v.g,v.b,v.a],i*6));return data;
   }
   function foregroundGeometry(scene:RenderScene):Float32Array {const a:V[]=[];
+    if(scene.barracksGhost){const p=scene.barracksGhost,c:[number,number,number,number]=p.valid?[.6,.9,.3,.8]:[1,.2,.1,.8];rect(a,p.x-2,p.y-2,4,4,[...c.slice(0,3),.2] as [number,number,number,number]);rectOutline(a,p.x-2,p.y-2,4,4,c,.15);}
+    if(scene.infantrySelectionBox){const box=scene.infantrySelectionBox;rect(a,box.x,box.y,box.width,box.height,[.33,.94,.38,.09]);rectOutline(a,box.x,box.y,box.width,box.height,[.45,1,.48,.9],.08);}
+    if(scene.infantryCommandTarget){const p=scene.infantryCommandTarget;ring(a,p.x,p.y,1.1,[.4,1,.38,.8],.12);rect(a,p.x-.08,p.y-.7,.16,1.4,[.48,1,.42,.75]);rect(a,p.x-.7,p.y-.08,1.4,.16,[.48,1,.42,.75]);}
+    for(const b of scene.infantry?.buildings??[]){
+      if(!redAlert?.hasInfantrySprites||(b.kind!=='dog'&&(b.kind??'rifle')!=='rifle'))for(const p of infantryBuildingPixels(b.kind??'rifle'))rect(a,b.x+(p.x-BUILDING_ANCHOR.x)*BUILDING_PIXEL,b.y+(p.y-BUILDING_ANCHOR.y)*BUILDING_PIXEL,p.width*BUILDING_PIXEL,p.height*BUILDING_PIXEL,p.color);
+      if(scene.selectedBarracksSet?.has(b.id)||b.id===scene.selectedBarracks){const distance=Math.hypot(b.rally.x-b.x,b.rally.y-b.y);for(let d=3;d<distance-1;d+=1.2){const t=d/distance;rect(a,b.x+(b.rally.x-b.x)*t-.08,b.y+(b.rally.y-b.y)*t-.08,.16,.16,[.85,.77,.3,.6]);}rectOutline(a,b.x-2.35,b.y-2.35,4.7,4.7,[.72,.93,.35,.95],.1);ring(a,b.rally.x,b.rally.y,2.5,[.65,.93,.35,.8],.12);rect(a,b.rally.x,b.rally.y-2,.1,2,[.8,.9,.5,1]);rect(a,b.rally.x+.1,b.rally.y-2,1,.6,[.85,.77,.19,1]);}
+    }
+    for(const s of scene.infantry?.soldiers??[]){
+      const kind=s.kind??'rifle';
+      const x=s.x,y=s.y,dead=s.health<=0;
+      if(dead)continue;
+      if(scene.selectedInfantry?.has(s.id))infantrySelectionBrackets(a,x,y);
+      const muzzle=infantryMuzzle(s),{dx,dy}=muzzle,mx=muzzle.x,my=muzzle.y;
+      const shell=infantryCasing(s);if(shell)casing(a,shell.x,shell.y,.13,shell.angle,[.82,.61,.2,shell.alpha]);
+      if(kind==='samurai'&&s.attackAge!==undefined&&s.attackAge<SAMURAI_ATTACK_DURATION){
+        const slash=samuraiSlashPhase(s.attackAge);
+        if(slash.cut>0&&slash.cut<1){
+          const reveal=Math.min(1,slash.cut*2.8),fade=Math.min(1,(1-slash.cut)*2.4),segments=Math.max(2,Math.floor(12*reveal));
+          for(let j=0;j<segments;j++){const t=j/11,angle=s.angle-1.2+t*2.35,r=1.15+Math.sin(t*Math.PI)*.48;const sx=x+Math.cos(angle)*r,sy=y-.58+Math.sin(angle)*r*.68;streak(a,sx,sy,-Math.sin(angle),Math.cos(angle),.32,.13,[.62,.82,1,.52*fade]);streak(a,sx,sy,-Math.sin(angle),Math.cos(angle),.23,.055,[1,.97,.78,.92*fade]);}
+          if(slash.cut>.68){const hit=s.angle+1.12,hx=x+Math.cos(hit)*1.48,hy=y-.58+Math.sin(hit)*1.02;for(const turn of [0,Math.PI/2])streak(a,hx,hy,Math.cos(hit+turn),Math.sin(hit+turn),.48,.055,[1,.88,.45,.8*fade]);}
+        }
+      }else if(s.flash>0&&kind!=='dog'){
+        if(kind==='flame'){for(let j=0;j<12;j++){const spread=s.angle+Math.sin(j*13)*.42,reach=1+j*.42;disc(a,x+Math.cos(spread)*reach,y-.65+Math.sin(spread)*reach,.2+j*.04,[1,.2+j*.035,.04,(1-j/15)*s.flash*4],5);}}
+        else if(kind==='rocket'){streak(a,mx+dx*4,my+dy*4,dx,dy,4,.14,[.88,.84,.65,s.flash*5]);disc(a,mx,my,.4,[1,.6,.15,.8],6);}
+        else {disc(a,mx,my,.24,[1,.86,.29,.95],5);streak(a,mx+dx*2,my+dy*2,dx,dy,2,.025,[1,.89,.43,s.flash*6]);}
+      }
+      if(scene.selectedBarracksSet?.has(s.home)||scene.selectedBarracks===s.home||scene.selectedInfantry?.has(s.id)){const maxHealth=infantryStats(s.kind,s.quality,s.defense,s.veterancy).health;rect(a,x-.65,y-2.1,1.3,.13,[.12,.13,.1,1]);rect(a,x-.65,y-2.1,1.3*s.health/maxHealth,.13,[.5,.85,.22,1]);}
+      const veterancy=s.veterancy??0;
+      infantryRankMarks(a,x,y,veterancy);
+      infantryVeterancyXp(a,x,y,veterancy,s.veterancyXp??0);
+    }
+    for(const projectile of scene.infantryRocketProjectiles??[]){
+      const t=Math.max(0,Math.min(1,projectile.age/projectile.life)),dx=projectile.target.x-projectile.x,dy=projectile.target.y-projectile.y,length=Math.max(.001,Math.hypot(dx,dy)),forward={x:dx/length,y:dy/length},side={x:-forward.y,y:forward.x},x=projectile.x+dx*t,y=projectile.y+dy*t,angle=Math.atan2(forward.y,forward.x);
+      for(let j=1;j<=5;j++){const u=Math.max(0,t-j*.07/projectile.life),sx=projectile.x+dx*u+side.x*Math.sin(projectile.serial+j)*.08,sy=projectile.y+dy*u+side.y*Math.sin(projectile.serial+j)*.08;disc(a,sx,sy,.12+j*.045,[.23,.23,.2,(1-j/6)*.42],8);}
+      streak(a,x-forward.x*.55,y-forward.y*.55,forward.x,forward.y,1.15,.13,[1,.78,.2,.95]);
+      orientedRect(a,x,y,.72,.25,angle,[.28,.29,.25,1]);
+      tri(a,{x:x+forward.x*.9,y:y+forward.y*.9},{x:x+forward.x*.5+side.x*.22,y:y+forward.y*.5+side.y*.22},{x:x+forward.x*.5-side.x*.22,y:y+forward.y*.5-side.y*.22},[.92,.84,.58,1]);
+    }
+    for(const explosion of scene.infantryRocketExplosions??[]){
+      const t=Math.max(0,Math.min(1,explosion.age/explosion.life)),flash=Math.max(0,1-explosion.age/.09),fire=Math.max(0,1-explosion.age/.3),smoke=Math.sin(Math.PI*t),s=.72;
+      if(flash){disc(a,explosion.x,explosion.y,(.35+explosion.age*8)*s,[1,1,.8,.9*flash],12);disc(a,explosion.x,explosion.y,(.18+explosion.age*5)*s,[1,1,1,flash],10);}
+      if(fire){disc(a,explosion.x,explosion.y,(.52+explosion.age*3.5)*s,[1,.2,.02,.55*fire],10);ring(a,explosion.x,explosion.y,(.7+explosion.age*5)*s,[1,.55,.08,.8*fire],.18);}
+      for(let j=0;j<5;j++){const angle=j/5*Math.PI*2+explosion.serial*.37,radius=(.2+t*1.25)*s;disc(a,explosion.x+Math.cos(angle)*radius,explosion.y+Math.sin(angle)*radius,.35*smoke,[.2,.2,.18,.24*smoke*(1-t)],8);}
+    }
     if(scene.map.dam?.surge){
       const d=scene.map.dam,x=132-(1-d.surge/3.2)*104;
       for(const [i,ch] of DAM_CHANNELS.entries()){
@@ -406,13 +533,14 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
   }
   return { encode(encoder,scene){
       if(world.width!==scene.map.width||world.height!==scene.map.height){world={width:scene.map.width,height:scene.map.height};clampCamera();}
-      resize();const v=view(),shake=scene.cameraShake??0,shakeX=Math.sin(scene.time*83.7)*shake,shakeY=Math.cos(scene.time*71.3)*shake*.7;
+      resize();const v=view(),shake=(scene.cameraShake??0)*explosionShakeScale(camera.zoom),shakeX=Math.sin(scene.time*83.7)*shake,shakeY=Math.cos(scene.time*71.3)*shake*.7;
       device.queue.writeBuffer(uniform,0,new Float32Array([pixelW,pixelH,0,0,camera.x+shakeX,camera.y+shakeY,v.width,v.height,scene.time,scene.heatmap?1:0,0,0,0,0,0,0]));
       const visual=new Float32Array(Math.max(1,Math.min(MAX_TOWERS,scene.towers.length))*4);
       scene.towers.slice(0,MAX_TOWERS).forEach((t,i)=>visual.set([t.x,t.y,t.id,towerBehavior(t.kind)+WEAPON_KINDS.indexOf(t.kind)/100],i*4));device.queue.writeBuffer(towerVisuals,0,visual);
-      redAlert?.prepare(scene);
+      redAlert?.prepare(scene);infantrySprites.prepare(scene);
+      corpseField?.prepare(scene);
       shamblers.prepare(encoder,scene);fire.prepare(encoder,scene.count);
-      if(scene.aftermathVisible!==false)aftermath?.prepare(scene);
+      if(scene.aftermathVisible!==false){aftermath?.prepare(scene);blood?.prepare(encoder,scene);}
       const data=geometry(scene),fx=foregroundGeometry(scene),dam=damGeometry(scene);
       if(dam.length/6>damCapacity){damSurface.destroy();damCapacity=2**Math.ceil(Math.log2(dam.length/6));damSurface=device.createBuffer({label:'Animated spillway',size:damCapacity*24,usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST});}
       if(dam.byteLength)device.queue.writeBuffer(damSurface,0,dam);
@@ -423,24 +551,38 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
       let pass=encoder.beginRenderPass({colorAttachments:[{view:target,clearValue:{r:.075,g:.075,b:.078,a:1},loadOp:'clear',storeOp:'store'}]});
       pass.setPipeline(bg);pass.setBindGroup(0,cameraBG);pass.draw(3);
       redAlert?.drawFloor(pass);
+      corpseField?.draw(pass);
       if(dam.length){pass.setPipeline(overlay);pass.setBindGroup(0,cameraOverlay);pass.setVertexBuffer(0,damSurface);pass.draw(dam.length/6);}
       // Gore never covers defenses: altitude changes fragment motion, not its layer.
-      if(scene.aftermathVisible!==false){aftermath?.ground(pass);aftermath?.fragments(pass);}
-      redAlert?.drawStructures(pass);
+      if(scene.aftermathVisible!==false){blood?.ground(pass);aftermath?.ground(pass);aftermath?.fragments(pass);}
+      redAlert?.drawWires(pass);
       pass.setPipeline(overlay);pass.setBindGroup(0,cameraOverlay);pass.setVertexBuffer(0,overlays);pass.draw(data.length/6);
-      redAlert?.drawTowers(pass);
       pass.setPipeline(particles);pass.setBindGroup(0,cameraParticles);pass.draw(48,Math.min(scene.count,shared.capacity));
-      pass.end();shamblers.draw(encoder,target,pixelW,pixelH,scene.count);
+      pass.end();
+      // Only ground-sorted sprite pipelines use this attachment. The stored
+      // result becomes the occlusion field for the animated unit pass.
+      pass=encoder.beginRenderPass({colorAttachments:[{view:target,loadOp:'load',storeOp:'store'}],depthStencilAttachment:{view:sceneDepth!.createView(),depthClearValue:1,depthLoadOp:'clear',depthStoreOp:'store'}});
+      redAlert?.drawOccluders(pass);
+      if(scene.aftermathVisible!==false&&blood){
+        pass.end();pass=encoder.beginRenderPass({colorAttachments:[{view:target,loadOp:'load',storeOp:'store'}]});blood.walls(pass);pass.end();
+        pass=encoder.beginRenderPass({colorAttachments:[{view:target,loadOp:'load',storeOp:'store'}],depthStencilAttachment:{view:sceneDepth!.createView(),depthLoadOp:'load',depthStoreOp:'store'}});
+      }
+      redAlert?.drawTowers(pass);redAlert?.drawInfantry(pass);
+      pass.end();shamblers.draw(encoder,target,pixelW,pixelH,scene.count,sceneDepth);
+      pass=encoder.beginRenderPass({label:'Infantry in world depth',colorAttachments:[{view:target,loadOp:'load',storeOp:'store'}],depthStencilAttachment:{view:sceneDepth!.createView(),depthLoadOp:'load',depthStoreOp:'discard'}});
+      infantrySprites.draw(pass);pass.end();
       pass=encoder.beginRenderPass({colorAttachments:[{view:target,loadOp:'load',storeOp:'store'}]});
-      if(scene.aftermathVisible!==false)aftermath?.spray(pass);
+      if(scene.aftermathVisible!==false)blood?.spray(pass);
       pass.setPipeline(overlay);pass.setBindGroup(0,cameraOverlay);pass.setVertexBuffer(0,foreground);pass.draw(fx.length/6);
       if(shared.shotState){pass.setPipeline(cues);pass.setBindGroup(0,cameraCues);pass.draw(72,Math.min(MAX_TOWERS,scene.towers.length));}tesla?.draw(pass,scene.count,scene.towers.length);fire.draw(pass,scene.count,scene.towers.length);pass.end();
     },
     screenToWorld,
+    setResolutionScale(value:number){if(Number.isFinite(value))resolutionScale=Math.max(.5,Math.min(1,value));},
     worldToScreen,
     pan(dx,dy){camera.x+=dx;camera.y+=dy;clampCamera();},
-    zoomAt(factor,clientX,clientY){const before=screenToWorld(clientX,clientY);camera.zoom=Math.max(1,Math.min(5,camera.zoom*factor));const after=screenToWorld(clientX,clientY);camera.x+=before.x-after.x;camera.y+=before.y-after.y;clampCamera();},
-    clearAftermath(){aftermath?.reset();},
-    destroy(){damSurface.destroy();fire.destroy();emptyHeat?.destroy();aftermath?.destroy();tesla?.destroy();emptyTesla?.destroy();shamblers.destroy();redAlert?.destroy();uniform.destroy();overlays.destroy();foreground.destroy();towerVisuals.destroy();emptyShots.destroy();}
+    zoomAt(factor,clientX,clientY){const before=screenToWorld(clientX,clientY);camera.zoom=Math.max(1,Math.min(12,camera.zoom*factor));const after=screenToWorld(clientX,clientY);camera.x+=before.x-after.x;camera.y+=before.y-after.y;clampCamera();},
+    combatAudioScale(){return explosionShakeScale(camera.zoom);},
+    clearAftermath(preserveBlood=false){shamblers.reset();aftermath?.reset();if(!preserveBlood)blood?.reset();},
+    destroy(){damSurface.destroy();corpseField?.destroy();blood?.destroy();fire.destroy();emptyHeat?.destroy();aftermath?.destroy();tesla?.destroy();emptyTesla?.destroy();shamblers.destroy();infantrySprites.destroy();redAlert?.destroy();sceneDepth?.destroy();uniform.destroy();overlays.destroy();foreground.destroy();towerVisuals.destroy();emptyShots.destroy();}
   };
 }

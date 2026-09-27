@@ -5,38 +5,46 @@ import {createRun} from './index.ts';
 import {createStructurePreview,clearPlayerTerrain,restoreSessionTerrain,snapToMount,structurePlacementIssue,wallMountCells} from './terrain.ts';
 
 test('reset clears player collisions while preserving authored terrain',()=>{
- const wall={x:20,y:20,width:4,height:4},wire={x:28,y:20,width:4,height:4};
+ const wall={x:20,y:20,width:4,height:4},wire={x:28,y:20,width:4,height:4},fence={x:36,y:20,width:4,height:4};
  // Map snapshots and build records are serialized independently, so they need
  // not share object identity when a run is reset.
- const map={...DEFAULT_MAP,obstacles:[...DEFAULT_MAP.obstacles,{...wall},{...wire}]};
- const cleared=clearPlayerTerrain(map,[wall],[wire]);
+ const map={...DEFAULT_MAP,obstacles:[...DEFAULT_MAP.obstacles,{...wall},{...wire},{...fence}]};
+ const cleared=clearPlayerTerrain(map,[wall],[wire],[fence]);
  assert.deepEqual(cleared.obstacles,DEFAULT_MAP.obstacles);
- assert.equal(map.obstacles.length,DEFAULT_MAP.obstacles.length+2);
+ assert.equal(map.obstacles.length,DEFAULT_MAP.obstacles.length+3);
 });
-test('saved default sessions adopt current authored terrain and retain player structures',()=>{
- const wall={x:20,y:20,width:4,height:4},wire={x:28,y:20,width:4,height:4,breached:false},breached={x:36,y:20,width:4,height:4,breached:true};
+test('saved default sessions adopt current authored terrain and retain solid player structures',()=>{
+ const wall={x:20,y:20,width:4,height:4},wire={x:28,y:20,width:4,height:4,breached:false},breached={x:36,y:20,width:4,height:4,breached:true},fence={x:40,y:20,width:4,height:4};
  const stale={...DEFAULT_MAP,obstacles:[{x:12,y:0,width:4,height:24}]};
- const restored=restoreSessionTerrain(stale,DEFAULT_MAP,[wall],[wire,breached]);
- assert.deepEqual(restored.obstacles,[...DEFAULT_MAP.obstacles,wall,wire]);
+ const restored=restoreSessionTerrain(stale,DEFAULT_MAP,[wall],[wire,breached],[fence]);
+ assert.deepEqual(restored.obstacles,[...DEFAULT_MAP.obstacles,wall,fence]);
  assert.equal(restored.spawn,DEFAULT_MAP.spawn);
 });
 test('saved custom sessions retain their authored terrain',()=>{
  const custom={...DEFAULT_MAP,id:'custom-map',obstacles:[{x:12,y:0,width:4,height:24}]};
  assert.deepEqual(restoreSessionTerrain(custom,DEFAULT_MAP,[],[]),custom);
 });
-test('mount snapping centers nearby clicks without moving clear-ground placements',()=>{
- const wall={x:20,y:20,width:4,height:4};
- assert.deepEqual(snapToMount({x:21.7,y:22.3},[wall]),{x:22,y:22});
- assert.deepEqual(snapToMount({x:24,y:22},[wall]),{x:24,y:22});
+test('mount snapping selects the nearest top-cap hardpoint without moving clear-ground placements',()=>{
+ const mounts=wallMountCells([{x:20,y:20,width:4,height:4}]);
+ assert.deepEqual(snapToMount({x:21.8,y:21.5},mounts),{x:22,y:21.35});
+ assert.deepEqual(snapToMount({x:24,y:22},mounts),{x:24,y:22});
 });
-test('authored wall rectangles become unique 4 x 4 turret mounts',()=>{
+test('connected wall cells gain shared seam mounts without duplicating overlaps',()=>{
  const mounts=wallMountCells([
   {x:48,y:0,width:8,height:8},
   {x:48,y:4,width:8,height:4},
  ]);
  assert.deepEqual(mounts,[
-  {x:48,y:0,width:4,height:4},{x:52,y:0,width:4,height:4},
-  {x:48,y:4,width:4,height:4},{x:52,y:4,width:4,height:4},
+  {x:49.99,y:1.34,width:.02,height:.02},{x:53.99,y:1.34,width:.02,height:.02},
+  {x:49.99,y:5.34,width:.02,height:.02},{x:53.99,y:5.34,width:.02,height:.02},
+  {x:51.99,y:1.34,width:.02,height:.02},{x:51.99,y:5.34,width:.02,height:.02},
+ ]);
+});
+test('long wall runs expose a hardpoint at every seam without skipped slots',()=>{
+ const mounts=wallMountCells([{x:32,y:20,width:4,height:16}]);
+ assert.deepEqual(mounts.map(mount=>({x:mount.x+mount.width/2,y:mount.y+mount.height/2})),[
+  {x:34,y:21.35},{x:34,y:25.35},{x:34,y:29.35},{x:34,y:33.35},
+  {x:34,y:23.35},{x:34,y:27.35},{x:34,y:31.35},
  ]);
 });
 test('structures reject overlaps and tower footprints before spending Metal',()=>{

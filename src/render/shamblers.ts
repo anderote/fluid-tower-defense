@@ -55,19 +55,25 @@ fn clip(p:vec2<f32>)->vec2<f32>{let aspect=camera.viewport.x/max(1.,camera.viewp
 }`});
   const pipeline=await device.createRenderPipelineAsync({layout:'auto',vertex:{module:shader,entryPoint:'vs'},fragment:{module:shader,entryPoint:'fs',targets:[{format,blend:{color:{srcFactor:'src-alpha',dstFactor:'one-minus-src-alpha',operation:'add'},alpha:{srcFactor:'one',dstFactor:'one-minus-src-alpha',operation:'add'}}}]},primitive:{topology:'triangle-list'},depthStencil:{format:'depth32float',depthWriteEnabled:true,depthCompare:'less-equal'}});
   const bindings=device.createBindGroup({layout:pipeline.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:camera}},{binding:1,resource:{buffer:shared.particles}},{binding:2,resource:{buffer:state}},{binding:3,resource:texture.createView()},{binding:4,resource:{buffer:shared.teslaState!}},{binding:5,resource:{buffer:shared.heatState!}}]});
-  let depth:GPUTexture|undefined,width=0,height=0,lastTime=-1;
+  let depth:GPUTexture|undefined,width=0,height=0,lastTime=-1,lastCount=-1;
   return {
     texture,
+    reset(){lastTime=-1;lastCount=-1;},
     prepare(encoder:GPUCommandEncoder,scene:RenderScene){
+      if(scene.time===lastTime&&scene.count===lastCount)return;
+      lastCount=scene.count;
       const reset=lastTime<0||scene.time<lastTime;const dt=reset?0:Math.min(.1,scene.time-lastTime);lastTime=scene.time;
       device.queue.writeBuffer(clock,0,new Float32Array([scene.time,dt,Math.min(scene.count,shared.capacity),reset?1:0]));
       if(!scene.count){lastTime=-1;return;}
       const pass=encoder.beginComputePass({label:'Animate shamblers'});pass.setPipeline(update);pass.setBindGroup(0,updateBindings);pass.dispatchWorkgroups(Math.ceil(Math.min(scene.count,shared.capacity)/128));pass.end();
     },
-    draw(encoder:GPUCommandEncoder,target:GPUTextureView,w:number,h:number,count:number){
+    draw(encoder:GPUCommandEncoder,target:GPUTextureView,w:number,h:number,count:number,sceneDepth?:GPUTexture){
       if(!count)return;
-      if(w!==width||h!==height){depth?.destroy();width=w;height=h;depth=device.createTexture({label:'Shambler overlap depth',size:[w,h],format:'depth32float',usage:GPUTextureUsage.RENDER_ATTACHMENT});}
-      const pass=encoder.beginRenderPass({label:'Shambler sprites',colorAttachments:[{view:target,loadOp:'load',storeOp:'store'}],depthStencilAttachment:{view:depth!.createView(),depthClearValue:1,depthLoadOp:'clear',depthStoreOp:'discard'}});
+      if(!sceneDepth&& (w!==width||h!==height)){depth?.destroy();width=w;height=h;depth=device.createTexture({label:'Shambler overlap depth',size:[w,h],format:'depth32float',usage:GPUTextureUsage.RENDER_ATTACHMENT});}
+      // Reuse terrain depth when available: trees, walls, and defenses then
+      // occlude units according to their shared ground-contact depth.
+      const depthTexture=sceneDepth??depth!;
+      const pass=encoder.beginRenderPass({label:'Shambler sprites',colorAttachments:[{view:target,loadOp:'load',storeOp:'store'}],depthStencilAttachment:{view:depthTexture.createView(),depthClearValue:1,depthLoadOp:sceneDepth?'load':'clear',depthStoreOp:sceneDepth?'store':'discard'}});
       pass.setPipeline(pipeline);pass.setBindGroup(0,bindings);pass.draw(6,Math.min(count,shared.capacity));pass.end();
     },
     destroy(){texture.destroy();state.destroy();clock.destroy();depth?.destroy();}

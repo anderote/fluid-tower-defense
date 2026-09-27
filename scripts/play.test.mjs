@@ -26,10 +26,10 @@ test('offline server serves only the game and gates co-op behind live host and r
   host=await fetch(url+'/coop/host?key='+session.hostKey);const hostReader=host.body.getReader();await hostReader.read();
   guest=await fetch(url+'/coop/events?key='+guestKey);const guestReader=guest.body.getReader();await guestReader.read();
   assert.equal((await post('/coop/frame?key='+session.hostKey,{id:1,image:'data:image/jpeg;base64,YQ==',status:'Metal 3000'})).status,200);
-  assert.match(new TextDecoder().decode((await guestReader.read()).value),/Metal 3000/);
+  let guestData='';while(!/Metal 3000/.test(guestData)){const next=await Promise.race([guestReader.read(),new Promise((_,reject)=>setTimeout(()=>reject(Error('Guest did not receive a live frame')),1000))]);if(next.done)break;guestData+=new TextDecoder().decode(next.value);}assert.match(guestData,/Metal 3000/);
   assert.equal((await post('/coop/command?key='+guestKey,{type:'reset'})).status,400);
   assert.equal((await post('/coop/command?key='+guestKey,{type:'pause'})).status,200);
-  assert.match(new TextDecoder().decode((await hostReader.read()).value),/pause/);
+  let hostData='';while(!/pause/.test(hostData)){const next=await Promise.race([hostReader.read(),new Promise((_,reject)=>setTimeout(()=>reject(Error('Host did not receive guest command')),1000))]);if(next.done)break;hostData+=new TextDecoder().decode(next.value);}assert.match(hostData,/pause/);
   await hostReader.cancel();await guestReader.cancel();
  }finally{server.closeAllConnections();await new Promise(resolve=>server.close(resolve));await rm(root,{recursive:true,force:true});}
 });

@@ -28,21 +28,26 @@ export function hasSpawnRoute(map:WorldMap):boolean {
   return false;
 }
 
-/** Snaps to a player-built wall center or keeps the footprint flush inside the map edge. */
+const MOUNT_PICKUP_RADIUS=1.4;
+const WALL_MOUNT_SPACING=1.5;
+const mountCenter=(rect:{x:number;y:number;width:number;height:number}):Vec2=>({x:rect.x+rect.width/2,y:rect.y+rect.height/2});
+const mountedAt=(position:Vec2,mounts:readonly {x:number;y:number;width:number;height:number}[])=>mounts.find(rect=>Math.abs(position.x-mountCenter(rect).x)<.001&&Math.abs(position.y-mountCenter(rect).y)<.001);
+
+/** Snaps to the nearest wall-cap hardpoint or keeps the footprint flush inside the map edge. */
 export function resolvePlacement(map:WorldMap,position:Vec2,footprint:number,mounts:readonly {x:number;y:number;width:number;height:number}[]=[]):Vec2 {
   if(!Number.isFinite(position.x)||!Number.isFinite(position.y)||!Number.isFinite(footprint)||footprint<=0)return position;
-  const mount=mounts.filter(rect=>footprint<=Math.min(rect.width,rect.height)/2&&position.x>=rect.x&&position.x<=rect.x+rect.width&&position.y>=rect.y&&position.y<=rect.y+rect.height).sort((left,right)=>Math.hypot(position.x-left.x-left.width/2,position.y-left.y-left.height/2)-Math.hypot(position.x-right.x-right.width/2,position.y-right.y-right.height/2))[0];
-  if(mount)return {x:mount.x+mount.width/2,y:mount.y+mount.height/2};
+  const mount=mounts.map(rect=>({rect,distance:Math.hypot(position.x-mountCenter(rect).x,position.y-mountCenter(rect).y)})).filter(candidate=>candidate.distance<=MOUNT_PICKUP_RADIUS).sort((left,right)=>left.distance-right.distance)[0]?.rect;
+  if(mount)return mountCenter(mount);
   return {x:Math.max(footprint,Math.min(map.width-footprint,position.x)),y:Math.max(footprint,Math.min(map.height-footprint,position.y))};
 }
 
 export function snapToMount(position:Vec2,mounts:readonly {x:number;y:number;width:number;height:number}[]):Vec2 {
-  const mount=mounts.find(rect=>position.x>=rect.x&&position.x<rect.x+rect.width&&position.y>=rect.y&&position.y<rect.y+rect.height);
-  return mount?{x:mount.x+mount.width/2,y:mount.y+mount.height/2}:position;
+  const mount=mounts.map(rect=>({rect,distance:Math.hypot(position.x-mountCenter(rect).x,position.y-mountCenter(rect).y)})).filter(candidate=>candidate.distance<=MOUNT_PICKUP_RADIUS).sort((left,right)=>left.distance-right.distance)[0]?.rect;
+  return mount?mountCenter(mount):position;
 }
 
 /** A reverse breadth-first field. Distances are in cells and vectors point to the goal. */
-export function buildNavigation(map: WorldMap): NavigationField {
+export function buildNavigation(map: WorldMap, clearance=MAX_BODY_RADIUS): NavigationField {
   const width=Math.ceil(map.width/CELL_SIZE), height=Math.ceil(map.height/CELL_SIZE), size=width*height;
   const distances=new Float32Array(size); distances.fill(Infinity);
   const vectors=new Float32Array(size*2);
@@ -52,7 +57,7 @@ export function buildNavigation(map: WorldMap): NavigationField {
   const solid=new Uint8Array(size);
   for(let y=0;y<height;y++)for(let x=0;x<width;x++){
     const px=(x+.5)*CELL_SIZE,py=(y+.5)*CELL_SIZE;
-    solid[index(x,y)]=Number(map.obstacles.some(r=>px>r.x-MAX_BODY_RADIUS&&px<r.x+r.width+MAX_BODY_RADIUS&&py>r.y-MAX_BODY_RADIUS&&py<r.y+r.height+MAX_BODY_RADIUS));
+    solid[index(x,y)]=Number(clearance===0?blocked(map,x*CELL_SIZE,y*CELL_SIZE):map.obstacles.some(r=>px>r.x-clearance&&px<r.x+r.width+clearance&&py>r.y-clearance&&py<r.y+r.height+clearance));
   }
   const goalX=Math.min(width-1,Math.max(0,Math.floor(map.goal.x/CELL_SIZE))), goalY=Math.min(height-1,Math.max(0,Math.floor(map.goal.y/CELL_SIZE)));
   const queueX=new Int32Array(size), queueY=new Int32Array(size); let head=0,tail=0;
@@ -84,7 +89,7 @@ export function buildNavigation(map: WorldMap): NavigationField {
   return {width,height,cellSize:CELL_SIZE,vectors,alternateVectors,distances,version:++version};
 }
 
-/** Checks a circular emplacement footprint, allowing a centered wall cell to act as its mount. */
+/** Checks a circular emplacement footprint, allowing compact wall-cap hardpoints. */
 export function canPlace(map: WorldMap, towers: readonly Tower[], position: Vec2 & {kind?:Tower['kind']}, footprint: number, mounts:readonly {x:number;y:number;width:number;height:number}[]=[]): boolean {
   if (!Number.isFinite(position.x) || !Number.isFinite(position.y) || !Number.isFinite(footprint) || footprint <= 0) return false;
   if (position.x-footprint<0 || position.y-footprint<0 || position.x+footprint>map.width || position.y+footprint>map.height) return false;
@@ -94,11 +99,18 @@ export function canPlace(map: WorldMap, towers: readonly Tower[], position: Vec2
   if(inGateFootprint(map,area)||reserved.some(rect=>overlaps(rect,area)))return false;
   if(position.kind==='crusher')return area.x>=0&&area.y>=0&&area.x+area.width<=map.width&&area.y+area.height<=map.height&&!map.obstacles.some(rect=>overlaps(rect,area))&&!turretObstacles(towers).some(rect=>overlaps(rect,area))&&Math.hypot(position.x-map.goal.x,position.y-map.goal.y)>8+map.goalRadius;
   const circleRect=(rect:{x:number;y:number;width:number;height:number})=>{ const x=Math.max(rect.x,Math.min(position.x,rect.x+rect.width)),y=Math.max(rect.y,Math.min(position.y,rect.y+rect.height)); return Math.hypot(position.x-x,position.y-y) < footprint; };
-  const mount=mounts.find(rect=>footprint<=Math.min(rect.width,rect.height)/2&&Math.abs(position.x-(rect.x+rect.width/2))<.001&&Math.abs(position.y-(rect.y+rect.height/2))<.001);
+  const mount=mountedAt(position,mounts);
   const containsRect=(outer:{x:number;y:number;width:number;height:number},inner:{x:number;y:number;width:number;height:number})=>inner.x>=outer.x&&inner.y>=outer.y&&inner.x+inner.width<=outer.x+outer.width&&inner.y+inner.height<=outer.y+outer.height;
-  if (map.obstacles.some(rect=>(!mount||!containsRect(rect,mount))&&circleRect(rect))) return false;
+  // A shared hardpoint can straddle the seam between connected wall cells.
+  // Any obstacle carrying a hardpoint is part of the supporting wall cap.
+  const supportsMount=(rect:{x:number;y:number;width:number;height:number})=>mount&&mounts.some(candidate=>containsRect(rect,candidate));
+  if (map.obstacles.some(rect=>!supportsMount(rect)&&circleRect(rect))) return false;
   if (Math.hypot(position.x-map.goal.x,position.y-map.goal.y) < footprint+map.goalRadius) return false;
-  return towers.every(tower=>Math.hypot(position.x-tower.x,position.y-tower.y) >= footprint+1.25);
+  return towers.every(tower=>{
+    const otherMount=mountedAt(tower,mounts);
+    const minimum=mount&&otherMount?WALL_MOUNT_SPACING:footprint+1.25;
+    return Math.hypot(position.x-tower.x,position.y-tower.y)>=minimum;
+  });
 }
 
 /** New-placement guidance only: old saves may contain gates facing a dead end. */

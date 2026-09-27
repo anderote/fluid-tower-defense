@@ -1,0 +1,190 @@
+{
+  "regressions": {
+    "blood": "Running…\nPASS visual event budget caps a simultaneous burst\nPASS all 700 wall crush assists count despite the 512-event visual cap\nPASS GPU droplets deposit persistent pools\nPASS indirect draws include only occupied ground cells and omit expired droplets\nPASS compaction preserves stable alpha-blend order\nPASS wall impacts accumulate additional GPU blood splashes even with zero-direction pressure deaths\nPASS repeated render frames do not duplicate landed droplets\nPASS blood pools survive event-ring clearing between waves\nPASS demolished walls stop colliding with droplets\nPASS demolition preserves wall blood history\nPASS battlefield reset clears wall history\nPASS no WebGPU validation errors\nALL CHECKS PASSED",
+    "tesla": "PASS: 14 GPU combat checks; original skeleton sequence and renderer validated.",
+    "heavyWeapons": "PASS: 94 GPU checks — launch, each impact tick, blast overlap, boss damage and reset.",
+    "fire": "PASS: ignition cone, burn damage, panic motion, recycled generations, pause, wall collision, reset, and GPU rendering.",
+    "horde": "5/5 passed · apple · GPU errors 0",
+    "aftermath": "PASS: 12 GPU checks · slot reuse, hit direction, Tesla exclusion, overflow and reset.",
+    "occlusion": "PASS: 12 pixel checks · wall and turret unchanged during flight, landing, and corpse collapse; debris still visible on the floor.",
+    "shamblers": "PASS: 96 GPU animation checks · 1152 sprite frames checked for clipping · physics data unchanged.",
+    "rewards": "PASS: 4,096 simultaneous kills → 245 base Metal + 61 salvage bonus; 4,096 turret XP. No duplicate rewards over 60 simulation ticks or repeated readbacks."
+  },
+  "diagnostics": {
+    "adapter": "apple",
+    "abi": "passed",
+    "epoch": 2,
+    "tick": 822,
+    "simulationSeconds": 13.70000000000026,
+    "simulationSecondsPerWallSecond": 0.9838252459563142,
+    "slots": 727,
+    "live": 727,
+    "requested": 10000,
+    "invalid": 0,
+    "peakPacking": 0.651,
+    "crushKills": 0,
+    "kills": 0,
+    "medianMs": 8.30000000000291,
+    "p95Ms": 9.19999999999709,
+    "frameSamples": 600,
+    "canvas": [
+      3426,
+      1924
+    ],
+    "graphics": {
+      "mode": "auto",
+      "scale": 1
+    },
+    "solver": "exact",
+    "readbackErrors": [],
+    "boss": {
+      "x": 0,
+      "y": 0,
+      "health": 800,
+      "maxHealth": 800,
+      "phase": 0,
+      "active": false
+    },
+    "cpuProfile": {
+      "Simulation and frame setup": {
+        "samples": 600,
+        "medianMs": 0.10000002384185791,
+        "p95Ms": 0.40000003576278687,
+        "maxMs": 1.100000023841858
+      },
+      "Effects update": {
+        "samples": 600,
+        "medianMs": 0,
+        "p95Ms": 0.09999996423721313,
+        "maxMs": 0.20000004768371582
+      },
+      "Render encoding": {
+        "samples": 600,
+        "medianMs": 0.30000001192092896,
+        "p95Ms": 0.6000000238418579,
+        "maxMs": 5.900000035762787
+      },
+      "UI and autosave": {
+        "samples": 600,
+        "medianMs": 0,
+        "p95Ms": 5.900000035762787,
+        "maxMs": 8.900000035762787
+      },
+      "Frame CPU total": {
+        "samples": 600,
+        "medianMs": 0.5,
+        "p95Ms": 6.400000035762787,
+        "maxMs": 9.600000023841858
+      }
+    },
+    "gpuProfile": {
+      "supported": true,
+      "skipped": 21,
+      "errors": [],
+      "passes": {
+        "Deposit persistent blood": {
+          "samples": 600,
+          "medianMs": 0,
+          "p95Ms": 0.065536,
+          "maxMs": 0.196608
+        },
+        "Render": {
+          "samples": 600,
+          "medianMs": 1.376256,
+          "p95Ms": 2.818048,
+          "maxMs": 4.58752
+        },
+        "Infantry in world depth": {
+          "samples": 600,
+          "medianMs": 0.262144,
+          "p95Ms": 0.524288,
+          "maxMs": 1.048576
+        },
+        "Boss damage": {
+          "samples": 600,
+          "medianMs": 0,
+          "p95Ms": 0.065536,
+          "maxMs": 0.196608
+        },
+        "Advance boss state": {
+          "samples": 600,
+          "medianMs": 0,
+          "p95Ms": 0.065536,
+          "maxMs": 0.196608
+        },
+        "Resolve boss settlement": {
+          "samples": 600,
+          "medianMs": 0,
+          "p95Ms": 0.065536,
+          "maxMs": 0.196608
+        },
+        "Horde arrivals": {
+          "samples": 39,
+          "medianMs": 0,
+          "p95Ms": 0.065536,
+          "maxMs": 0.065536
+        },
+        "Observe combat aftermath": {
+          "samples": 600,
+          "medianMs": 0,
+          "p95Ms": 0.131072,
+          "maxMs": 0.262144
+        },
+        "Burn damage": {
+          "samples": 600,
+          "medianMs": 0,
+          "p95Ms": 0.065536,
+          "maxMs": 0.196608
+        },
+        "Weapon effects": {
+          "samples": 600,
+          "medianMs": 0,
+          "p95Ms": 0.065536,
+          "maxMs": 0.196608
+        },
+        "Boss particle contacts": {
+          "samples": 600,
+          "medianMs": 0,
+          "p95Ms": 0.065536,
+          "maxMs": 0.131072
+        },
+        "Crowd physics substep 1/2": {
+          "samples": 600,
+          "medianMs": 0.065536,
+          "p95Ms": 0.196608,
+          "maxMs": 0.393216
+        },
+        "Crowd physics substep 2/2": {
+          "samples": 600,
+          "medianMs": 0.065536,
+          "p95Ms": 0.196608,
+          "maxMs": 0.32768
+        },
+        "Settlement": {
+          "samples": 600,
+          "medianMs": 0,
+          "p95Ms": 0.065536,
+          "maxMs": 0.196608
+        },
+        "Animate shamblers": {
+          "samples": 600,
+          "medianMs": 0,
+          "p95Ms": 0.065536,
+          "maxMs": 0.196608
+        },
+        "Find burning enemies": {
+          "samples": 600,
+          "medianMs": 0,
+          "p95Ms": 0.065536,
+          "maxMs": 0.131072
+        },
+        "Shambler sprites": {
+          "samples": 600,
+          "medianMs": 0.262144,
+          "p95Ms": 0.524288,
+          "maxMs": 0.917504
+        }
+      }
+    }
+  }
+}

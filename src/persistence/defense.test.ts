@@ -2,17 +2,19 @@ import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {DEFAULT_MAP, TOWERS} from '../content/index.ts';
 import {createRun, STARTING_METAL} from '../game/index.ts';
+import {wallMountCells} from '../game/terrain.ts';
 import {AUTOSAVE_KEY, CHECKPOINT_KEY, decodeDefense, loadDefense, saveDefense, type Defense} from './defense.ts';
 
 function fixture() {
   const wall={x:20,y:20,width:4,height:4};
+  const fence={x:24,y:28,width:4,height:4,health:180,maxHealth:360};
   const wire={x:28,y:20,width:4,height:4,health:70,maxHealth:140,breached:false};
   const breached={x:36,y:20,width:4,height:4,health:30,maxHealth:140,breached:true};
   const map={...structuredClone(DEFAULT_MAP),id:'checkpoint-map'};
-  map.obstacles.push(wall,wire);
-  const defense:Defense={map,spawnBaseline:{...map.spawn},builtWalls:[wall],builtWires:[wire,breached],difficulty:7};
-  const run=createRun(map);run.setBuildMounts([wall]);
-  assert.equal(run.place('repulsor',{x:22,y:22}).ok,true);
+  map.obstacles.push(wall,fence);
+  const defense:Defense={map,spawnBaseline:{...map.spawn},builtWalls:[wall],builtFences:[fence],builtWires:[wire,breached],fencePosts:[{x:24,y:28}],wirePosts:[{x:28,y:20},{x:36,y:20}],difficulty:7};
+  const run=createRun(map);run.setBuildMounts(wallMountCells([wall]));
+  assert.equal(run.place('repulsor',{x:21.2,y:21.5}).ok,true);
   run.model.wave=3;
   const data=new Map<string,string>();
   const storage={getItem:(key:string)=>data.get(key)??null,setItem:(key:string,value:string)=>{data.set(key,value);}};
@@ -30,9 +32,12 @@ test('full checkpoint restores mounted towers, custom map, wire condition, econo
   assert.equal(saved.map.id,'checkpoint-map');
   assert.equal(saved.difficulty,7);
   assert.ok(saved.map.obstacles.includes(saved.builtWalls[0]),'demolition needs shared object identity');
-  assert.ok(saved.map.obstacles.includes(saved.builtWires[0]));
+  assert.ok(saved.map.obstacles.includes(saved.builtFences![0]),'chain-link fence collision must restore by identity');
+  assert.ok(!saved.map.obstacles.includes(saved.builtWires[0]),'intact wire must not block the route');
   assert.ok(!saved.map.obstacles.includes(saved.builtWires[1]),'breached wire must not block the route');
   assert.deepEqual(saved.builtWires,defense.builtWires);
+  assert.deepEqual(saved.wirePosts,defense.wirePosts);
+  assert.deepEqual(saved.fencePosts,defense.fencePosts);
   assert.deepEqual(saved.spawnBaseline,defense.spawnBaseline);
   const baseline=createRun();baseline.model.wave=3;
   target.startWave();baseline.startWave();
@@ -62,8 +67,8 @@ test('corrupt saves reject atomically without changing the current run, map, or 
   const cases=[
     {...good,version:2}, {...good,difficulty:41}, {...good,spawnBaseline:{x:-1,y:2,width:5,height:5}},
     {...good,map:{...good.map,goal:null}}, {...good,builtWalls:[{x:20,y:20,width:-4,height:4}]},
-    {...good,builtWires:[{...good.builtWires[0],health:-1}]}, {...good,runState:'{}'},
-    {...good,map:{...good.map,obstacles:[{x:60,y:0,width:4,height:100}]}},
+    {...good,builtWires:[{...good.builtWires[0],health:-1}]}, {...good,builtFences:[{...good.builtFences[0],health:-1}]},
+    {...good,wirePosts:[{x:good.map.width,y:0}]}, {...good,runState:'{}'},
   ];
   for(const saved of cases){
     data.set(CHECKPOINT_KEY,JSON.stringify(saved));
@@ -88,11 +93,22 @@ test('storage failures are surfaced and serialization cannot save an active wave
   assert.throws(()=>run.serialize(),/between waves/);
 });
 
-test('existing unversioned full autosaves remain readable and reconnect breached wire safely',()=>{
+test('existing unversioned full autosaves remove all legacy wire collisions',()=>{
   const {run,defense}=fixture();
-  const legacy={...defense,runState:run.serialize()};
+  const {wirePosts:_,fencePosts:__,...oldDefense}=defense,legacy={...oldDefense,runState:run.serialize()};
   legacy.map.obstacles.push(defense.builtWires[1]);
   const saved=decodeDefense(JSON.stringify(legacy));
   assert.equal(saved.difficulty,7);
+  assert.ok(!saved.map.obstacles.includes(saved.builtWires[0]));
   assert.ok(!saved.map.obstacles.includes(saved.builtWires[1]));
+  assert.equal(saved.builtFences?.length,1);
+  assert.deepEqual(saved.wirePosts,[{x:28,y:20},{x:36,y:20}]);
+  assert.deepEqual(saved.fencePosts,[{x:24,y:28}]);
+});
+
+test('legacy saves without chain-link fencing restore with an empty fence list',()=>{
+  const {run,defense}=fixture();
+  const {builtFences:_,...legacy}=defense;
+  const saved=decodeDefense(JSON.stringify({...legacy,runState:run.serialize()}));
+  assert.deepEqual(saved.builtFences,[]);
 });

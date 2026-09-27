@@ -18,6 +18,7 @@ test('floodgate machinery rejects towers and walls even when open',()=>{
  const map=damMap(),mounts=terrainMounts(map);
  for(const gate of DAM_GATES){assert.equal(canPlace(map,[],{x:gate.x+2,y:gate.y+2},1.25,mounts),false);assert.ok(structurePlacementIssue(map,[],gate));}
  assert.ok(canPlace(map,[],{x:54,y:38},1.25,mounts));
+ assert.equal(canPlace(map,[],{x:20,y:38},1.25,mounts),true);
 });
 test('reservoir costs a full charge, pauses, recharges, and gates stop their flood lane',()=>{
  const map=damMap();assert.equal(toggleDamGate(map,0,[]),undefined);assert.equal(toggleDamGate(map,1,[]),'Gate machinery is cycling.');

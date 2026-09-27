@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {DEFAULT_MAP,ENEMIES} from '../../content/index.ts';
+import {DEFAULT_MAP,ENEMIES,enemyCrushResistanceForScale,enemyPressureLimitForScale,enemySpeedForScale,enemyTierForHealthScale} from '../../content/index.ts';
 import {P,PARTICLE_FLOATS} from '../../contracts/index.ts';
 import {createRun,waveFor} from '../../game/index.ts';
 import {HordeCapacity,HordeFront,encodeHorde} from './model.ts';
@@ -21,6 +21,19 @@ test('offscreen front varies packing and scales with intensity, wave and frontag
  assert.ok(high.count>low.count*1.5);assert.ok(later.count>0);assert.ok(new Set(low.sizes).size>8);
  assert.ok(sample(1,1,100).count>low.count);assert.ok(sample(10,1,1).count>0,'brutes fit even at minimum width');
  assert.deepEqual(sample(1,1),low,'formation is deterministic');
+});
+test('late-wave enemy tiers strengthen only newly spawned units',()=>{
+ const early=waveFor(1,10).spawns[0],late=waveFor(1,20).spawns[0];
+ assert.equal(enemyTierForHealthScale(early.healthScale!),0);
+ assert.ok(enemyTierForHealthScale(late.healthScale!)>0);
+ const earlyData=encodeHorde([{...early,count:1}], [{x:-1,y:10}]);
+ const lateData=encodeHorde([{...late,count:1}], [{x:-1,y:10}]);
+ assert.equal(earlyData[P.maxHp],ENEMIES[early.kind].health*early.healthScale!);
+ assert.equal(lateData[P.maxHp],ENEMIES[late.kind].health*late.healthScale!);
+ assert.ok(lateData[P.vx]>earlyData[P.vx]);
+ assert.ok(enemyPressureLimitForScale(late.kind,late.healthScale!)>ENEMIES[late.kind].pressureLimit);
+ assert.ok(enemyCrushResistanceForScale(late.kind,late.healthScale!)>ENEMIES[late.kind].crushResistance);
+ assert.ok(Math.abs(earlyData[P.vx]-enemySpeedForScale(early.kind,early.healthScale))<1e-5);
 });
 test('full pool resumes conservatively with delayed readback',()=>{
  const pool=new HordeCapacity();pool.add(1,10);assert.equal(pool.available(10),0);

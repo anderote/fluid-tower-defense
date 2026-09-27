@@ -1,8 +1,8 @@
 import { COUNTER_WORDS, MAX_PARTICLES, PARTICLE_BYTES, type SharedGPU } from '../contracts/index.ts';
 
-const REQUIRED_STORAGE_BUFFERS_PER_SHADER_STAGE = 9;
+const REQUIRED_STORAGE_BUFFERS_PER_SHADER_STAGE = 10;
 
-export async function connectGPU(canvas: HTMLCanvasElement) {
+export async function connectGPU(canvas: HTMLCanvasElement, options:{profile?:boolean}={}) {
   if (!navigator.gpu) throw new Error('WebGPU is unavailable. Open this game in a current Chrome or Safari with WebGPU enabled.');
   const adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
   if (!adapter) throw new Error('No WebGPU adapter is available. Check browser hardware acceleration.');
@@ -13,6 +13,7 @@ export async function connectGPU(canvas: HTMLCanvasElement) {
     );
   }
   const device = await adapter.requestDevice({
+    requiredFeatures: options.profile && adapter.features.has('timestamp-query') ? ['timestamp-query'] : [],
     requiredLimits: {
       maxStorageBuffersPerShaderStage: REQUIRED_STORAGE_BUFFERS_PER_SHADER_STAGE,
     },

@@ -1,0 +1,39 @@
+.infantry-panel { margin-top: 12px; padding: 10px 0 0; border-top: 1px solid #485343; }
+.infantry-panel button { width: 100%; text-align: left; margin: 4px 0; padding: 8px; white-space: normal; }
+.infantry-panel > button[data-kind] { display: grid; grid-template-columns: 34px 1fr; gap: 8px; align-items: center; }
+.selection-icon { position: relative; display: inline-block; flex: none; width: 28px; height: 28px; border: 2px solid #161b13; background: #656d49; box-shadow: inset 2px 2px 0 #a4a36b, inset -2px -2px 0 #252a1d, 2px 2px 0 #0008; }
+.unit-icon::before, .building-icon::before { content: ""; position: absolute; background: #273125; }
+.unit-icon::after, .building-icon::after { content: ""; position: absolute; background: #c4bd7b; }
+.unit-icon::before { width: 8px; height: 11px; left: 8px; top: 7px; box-shadow: -4px 6px 0 -1px #4f603d, 4px 6px 0 -1px #4f603d; }
+.unit-icon::after { width: 14px; height: 2px; left: 11px; top: 8px; transform: rotate(-28deg); transform-origin: left center; box-shadow: 0 3px 0 #303a27; }
+.unit-icon-rocket { background: #76544b; }
+.unit-icon-rocket::before { width: 7px; height: 14px; left: 10px; top: 5px; background: #b6b778; box-shadow: -6px 9px 0 -2px #b6b778, 6px 9px 0 -2px #b6b778; }
+.unit-icon-rocket::after { width: 4px; height: 17px; left: 12px; top: 1px; background: #d3c77e; transform: none; }
+.unit-icon-flame { background: #864433; }
+.unit-icon-flame::before { width: 12px; height: 15px; left: 7px; top: 7px; background: #303226; box-shadow: 0 -5px 0 -2px #c36a39; }
+.unit-icon-flame::after { width: 5px; height: 15px; left: 12px; top: 2px; background: #d0b96f; transform: rotate(10deg); }
+.unit-icon-dog { background: #725e43; }
+.unit-icon-dog::before { width: 16px; height: 9px; left: 5px; top: 11px; background: #9e8a59; box-shadow: -4px -4px 0 -1px #9e8a59, 11px 4px 0 -2px #25261b; }
+.unit-icon-dog::after { width: 3px; height: 7px; left: 8px; top: 5px; background: #b7a56b; box-shadow: 7px 2px 0 #b7a56b; transform: rotate(-18deg); }
+.unit-icon-samurai { background: #596844; }
+.unit-icon-samurai::before { width: 8px; height: 13px; left: 9px; top: 7px; background: #313b2a; box-shadow: -4px 7px 0 -1px #596844, 4px 7px 0 -1px #596844; }
+.unit-icon-samurai::after { width: 15px; height: 2px; left: 11px; top: 5px; background: #d2d4bb; transform: rotate(-28deg); }
+.building-identity { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; padding: 6px; border: 1px solid #485343; background: #1b2418; }
+.building-identity b { font-size: 11px; line-height: 1.35; }
+.building-icon { width: 32px; height: 27px; background: #62674d; }
+.building-icon::before { width: 20px; height: 12px; left: 4px; top: 9px; background: #3f4734; box-shadow: 4px -5px 0 #7f835b; }
+.building-icon::after { width: 3px; height: 13px; left: 24px; top: 3px; background: #b83e2f; box-shadow: 3px 0 0 #d17a3e; }
+.building-icon-rocket { background: #675b4b; }
+.building-icon-rocket::before { width: 7px; height: 18px; left: 8px; top: 4px; background: #b6b778; box-shadow: 10px 2px 0 #b6b778; }
+.building-icon-flame { background: #713d32; }
+.building-icon-flame::before { width: 17px; height: 12px; left: 4px; top: 10px; background: #3d2e27; box-shadow: 4px -7px 0 #8e9b72; }
+.building-icon-dog::before { background: #765b3f; }
+.infantry-panel button.active { outline: 1px solid #a8ca66; }
+.infantry-panel p { font-size: 11px; line-height: 1.5; color: #a8b5a4; margin: 6px 0; }
+.infantry-panel small { display: block; color: #d7ce92; margin-top: 4px; }
+.infantry-panel b { font-size: 11px; }
+.infantry-details:not(:empty) { padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid #485343; }
+.infantry-panel .rally-action { border: 1px solid #a9b35e; background: #293522; color: #edf3c3; font-weight: bold; }
+.infantry-rally-hint { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); z-index: 15; width: min(470px,70%); padding: 12px 16px; border: 1px solid #d4c76c; background: #172117ed; color: #efe5a4; font: 12px/1.5 monospace; text-align: center; pointer-events: none; }
+.infantry-rally-hint[hidden] { display: none; }
+canvas.setting-infantry-rally { cursor: crosshair; }

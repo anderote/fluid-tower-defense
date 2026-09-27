@@ -1,11 +1,17 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {ENEMIES, DEFAULT_MAP, MAX_VETERANCY, TOWERS, barbedWireStats, compileTower, createParticles, metalWallStats, towerBehavior, validateContent, veterancyLevel, veterancyMultiplier, veterancyXpForLevel} from './index.ts';
+import {ENEMIES, DEFAULT_MAP, MAX_VETERANCY, TOWERS, barbedWireStats, compileTower, createParticles, metalWallStats, towerBehavior, towerRequiresLineOfSight, validateContent, veterancyLevel, veterancyMultiplier, veterancyXpForLevel} from './index.ts';
 import {P, PARTICLE_FLOATS, type Tower} from '../contracts/index.ts';
 
 test('content registry is valid and has six readable enemy roles',()=>{ validateContent(); assert.equal(Object.keys(TOWERS).length,9);assert.equal(Object.keys(ENEMIES).length,6);assert.ok(ENEMIES.rager.drive>ENEMIES.shambler.drive);assert.ok(ENEMIES.husk.pressureLimit<ENEMIES.brute.pressureLimit); });
 test('turret placement costs follow the intended power curve',()=>{
  assert.deepEqual(Object.fromEntries(Object.entries(TOWERS).map(([kind,tower])=>[kind,tower.cost])),{repulsor:120,mortar:350,autocannon:80,cryo:200,tesla:600,rocket:1_600,railgun:2_500,incinerator:800,crusher:450});
+});
+test('Incinerator remains a short, narrow, temporary-burning defense',()=>{
+ const base=TOWERS.incinerator,plain:Tower={id:1,kind:'incinerator',x:50,y:50,level:0,branch:-1,angle:0,cooldown:0,spent:base.cost};
+ assert.deepEqual({damage:base.damage,range:base.range,cooldown:base.cooldown,radius:base.radius},{damage:8,range:13,cooldown:.75,radius:3.7});
+ const wildfire=compileTower({...plain,branch:1});
+ assert.ok(wildfire.range<15&&wildfire.radius<5&&wildfire.cooldown>.6,'Wildfire must remain a constrained cone rather than broad crowd deletion');
 });
 test('enemy bodies use the tuned physical footprint',()=>{
  assert.deepEqual(Object.values(ENEMIES).map(enemy=>enemy.radius),[.4125,.31875,.6375,.43125,.5625,.35625]);
@@ -38,42 +44,61 @@ test('each tower branch changes a useful supported combat stat',()=>{
   }
 });
 
+test('every tower level keeps advancing core stats along both upgrade paths',()=>{
+  for (const kind of Object.keys(TOWERS) as (keyof typeof TOWERS)[]) for(const branch of [0,1]) {
+    const tower:Tower={id:1,kind,x:84,y:50,level:1,branch,angle:0,cooldown:0,spent:TOWERS[kind].cost};
+    const current=compileTower(tower),next=compileTower({...tower,level:2});
+    assert.ok(next.damage>current.damage,`${kind} branch ${branch} damage`);
+    assert.ok(next.peakPressureKpa>current.peakPressureKpa,`${kind} branch ${branch} pressure`);
+    if(kind==='crusher')assert.equal(next.range,current.range);
+    else assert.ok(next.range>current.range,`${kind} branch ${branch} range`);
+    assert.ok(1/next.cooldown>1/current.cooldown,`${kind} branch ${branch} rate`);
+    if(current.force>0)assert.ok(next.force>current.force,`${kind} branch ${branch} impulse`);
+    if(kind==='crusher')assert.equal(next.radius,current.radius);
+    else assert.ok(next.radius>current.radius,`${kind} branch ${branch} radius`);
+  }
+});
+
 test('tower identities use dedicated combat behaviours where required',()=>{
  assert.equal(towerBehavior('rocket'),12);
  assert.equal(towerBehavior('incinerator'),14);
  assert.notEqual(towerBehavior('rocket'),towerBehavior('mortar'));
+ assert.ok(['autocannon','rocket','railgun','incinerator'].every(kind=>towerRequiresLineOfSight(kind as keyof typeof TOWERS)));
+ assert.equal(towerRequiresLineOfSight('mortar'),false);
  assert.match(TOWERS.autocannon.description,/knocks them back/i);
 });
 test('veterancy compounds small rank bonuses into meaningful late-service performance',()=>{
  const recruit=veterancyMultiplier(0), firstRank=veterancyMultiplier(1), experienced=veterancyMultiplier(50), legend=veterancyMultiplier(MAX_VETERANCY);
  assert.equal(recruit,1);
  assert.ok(firstRank>1&&firstRank<1.1,'one rank should be a slight improvement');
- assert.ok(experienced>=1.5&&experienced<1.6,'mid-career units should gain a meaningful damage bonus');
- assert.equal(legend,2.5,'rank cap should reach two and a half times base damage');
+ assert.ok(experienced>=2.2&&experienced<2.3,'mid-career units should gain a meaningful damage bonus');
+ assert.equal(legend,5,'rank cap should reach five times base damage');
  assert.equal(veterancyLevel(veterancyXpForLevel(10)),10);
  assert.equal(veterancyXpForLevel(MAX_VETERANCY),648_000,'rank cap should require 648,000 credited kills');
  const base:Tower={id:1,kind:'autocannon',x:50,y:50,level:0,branch:-1,angle:0,cooldown:0,spent:0,veterancy:0};
  const veteran=compileTower({...base,veterancy:MAX_VETERANCY});
- assert.equal(veteran.damage,compileTower(base).damage*2.5);
- assert.ok(1/veteran.cooldown>=1.4*(1/compileTower(base).cooldown),'veterans should fire substantially faster');
- assert.ok(veteran.range>=1.8*compileTower(base).range,'veterans should gain substantial targeting reach');
+ assert.equal(veteran.damage,compileTower(base).damage*5);
+ assert.ok(1/veteran.cooldown>=2.8*(1/compileTower(base).cooldown),'veterans should fire substantially faster');
+ assert.ok(veteran.range>=2.6*compileTower(base).range,'veterans should gain substantial targeting reach');
+ assert.ok(veteran.force>compileTower(base).force*2,'veterans should gain substantial impulse');
+ assert.ok(veteran.radius>compileTower(base).radius*1.8,'veterans should gain substantial area');
 });
 test('Repulsor upgrades retain a short-range control role',()=>{
  const tower:Tower={id:1,kind:'repulsor',x:50,y:50,level:50,branch:0,angle:0,cooldown:0,spent:0,veterancy:MAX_VETERANCY};
  const boosted=compileTower(tower,['hydraulic-advantage'],['targeting-grid','repulsor-impact-5'],[...Array(10).fill('range'),...Array(10).fill('force')]);
  assert.ok(boosted.range<100,'maximum research must keep even legendary Repulsor coverage below arena-wide range');
- assert.ok(boosted.force<50,'stacked impulse upgrades must remain bounded');
+ assert.ok(boosted.force<100,'stacked impulse upgrades must remain bounded even with stronger veterancy');
  const wave=compileTower({...tower,level:0,branch:1,veterancy:0});
  assert.ok(wave.cooldown>=1,'Wave specialization must not restore rapid pulse spam');
  assert.ok(wave.radius<4,'Wave specialization must keep a limited cone');
 });
 test('fortifications withstand sustained swarm pressure at base research',()=>{
  const wall=metalWallStats([]),wire=barbedWireStats([]);
- assert.deepEqual(wall,{durability:2_880,resistance:90});
- assert.equal(wire.durability,560);
+ assert.deepEqual(wall,{durability:1_800,resistance:14});
+ assert.equal(wire.durability,350);
  assert.equal(wire.resistance,7);
  assert.ok(wire.wear<wire.damage,'wire wear must be independent from its outgoing damage');
- const researched=barbedWireStats(Array.from({length:20},(_,index)=>`barbed-wire-${index+1}`));
+ const researched=barbedWireStats(['structure-armor']);
  assert.ok(researched.durability>wire.durability&&researched.resistance>wire.resistance);
  assert.equal(researched.wear,wire.wear);
 });

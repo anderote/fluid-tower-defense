@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {DEFAULT_MAP, MAX_TOWER_LEVEL, TOWERS, towerUpgradeCost} from '../content/index.ts';
-import {createRun, STARTING_METAL, WAVES_PER_LEVEL, waveFor} from './index.ts';
+import {createRun, STARTING_METAL, TOWER_MOVE_COST, WAVES_PER_LEVEL, waveFor} from './index.ts';
 import {wallMountCells} from './terrain.ts';
 
 test('fresh runs start with 3,000 Metal',()=>{
@@ -27,43 +27,42 @@ test('tower records use reported GPU kill attribution rather than estimated dama
   run.applySettlement({epoch:1,tick:2,kills:10,crushKills:0,leaks:0,earned:30,live:1,invalid:0,maxPacking:0,towerKills:[3,7]});
   assert.equal(run.model.towers[0].kills,3); assert.equal(run.model.towers[1].kills,7);
 });
-test('all weapons start unlocked while stat research spends run Metal and resets with the run',()=>{
+test('all weapons start unlocked while technology research persists for the run',()=>{
   const run=createRun();
   const towerKinds=Object.keys(TOWERS) as (keyof typeof TOWERS)[];
   assert.deepEqual(run.towerUnlocks().filter(unlock=>unlock.unlocked).map(unlock=>unlock.kind),towerKinds);
   assert.ok(towerKinds.every(kind=>run.isTowerUnlocked(kind)));
   assert.equal(run.unlockTower('mortar').ok,false);
-  run.model.metal=75;
-  assert.equal(run.buyStatUpgrade('damage').ok,true);
+  run.model.metal=180;
+  assert.equal(run.buyCommandUpgrade('ballistics').ok,true);
   assert.equal(run.model.metal,0);
-  assert.deepEqual(run.statModifiers(),['damage']);
-  assert.equal(run.buyStatUpgrade('damage').ok,false);
+  assert.deepEqual(run.researchModifiers(),['ballistics']);
   const restored=createRun();
   assert.equal(restored.load(run.serialize()).ok,true);
   assert.equal(restored.isTowerUnlocked('mortar'),true);
-  assert.deepEqual(restored.statModifiers(),['damage']);
+  assert.deepEqual(restored.researchModifiers(),['ballistics']);
   assert.equal(restored.model.metal,0);
   restored.reset();
   assert.ok(towerKinds.every(kind=>restored.isTowerUnlocked(kind)));
-  assert.deepEqual(restored.statModifiers(),[]);
+  assert.deepEqual(restored.researchModifiers(),[]);
   assert.equal(restored.model.metal,STARTING_METAL);
 });
-test('Metal research is allowed during combat, capped, and blocked after defeat',()=>{
+test('technology research is restricted to preparation and blocked after defeat',()=>{
   const run=createRun();
   run.model.metal=100_000;
   run.startWave();
   assert.equal(run.isTowerUnlocked('cryo'),true);
-  for(let rank=0;rank<10;rank++)assert.equal(run.buyStatUpgrade('force').ok,true);
+  assert.equal(run.buyCommandUpgrade('ballistics').ok,false);
   const metal=run.model.metal;
-  assert.equal(run.buyStatUpgrade('force').ok,false);
+  assert.equal(run.buyCommandUpgrade('rifle-tech').ok,false);
   assert.equal(run.buyStatUpgrade('unknown').ok,false);
   assert.equal(run.model.metal,metal);
   assert.equal(run.restartWave().ok,true);
   assert.equal(run.isTowerUnlocked('cryo'),true);
-  assert.equal(run.statUpgrades().find(upgrade=>upgrade.id==='force')?.rank,10);
+  assert.deepEqual(run.researchModifiers(),[]);
   run.model.phase='lost';
   assert.equal(run.unlockTower('mortar').ok,false);
-  assert.equal(run.buyStatUpgrade('damage').ok,false);
+  assert.equal(run.buyCommandUpgrade('ballistics').ok,false);
   assert.equal(run.model.metal,metal);
 });
 test('branches lock and preparation saves restore',()=>{
@@ -96,21 +95,52 @@ test('placing a tower leaves the inspector closed',()=>{
   assert.equal(run.place('repulsor',{x:84,y:50}).ok,true);
   assert.equal(run.model.selected,null);
 });
-test('player-built walls support one centered tower and preserve it in saves',()=>{
-  const mount={x:32,y:20,width:4,height:4},map={...DEFAULT_MAP,id:'wall-mount-test',obstacles:[...DEFAULT_MAP.obstacles,mount]};
-  const run=createRun(map);run.setBuildMounts([mount]);
-  const placed=run.place('repulsor',{x:34,y:22});
-  assert.ok(placed.ok&&placed.tower);assert.deepEqual({x:placed.tower.x,y:placed.tower.y},{x:34,y:22});
-  assert.equal(run.place('autocannon',{x:34,y:22}).ok,false);
-  const restored=createRun(map);restored.setBuildMounts([mount]);
-  assert.equal(restored.load(run.save()).ok,true);assert.deepEqual({x:restored.model.towers[0].x,y:restored.model.towers[0].y},{x:34,y:22});
+test('moving a tower charges a small flat fee and keeps its upgrades',()=>{
+  const run=createRun(),placed=run.place('repulsor',{x:84,y:50});
+  assert.ok(placed.ok&&placed.tower);
+  assert.equal(run.upgrade(placed.tower.id,0).ok,true);
+  const before=run.model.metal,spent=placed.tower.spent;
+  assert.equal(run.move(placed.tower.id,{x:80,y:42}).ok,true);
+  assert.equal(run.model.metal,before-TOWER_MOVE_COST);
+  assert.deepEqual({x:placed.tower.x,y:placed.tower.y,level:placed.tower.level,branch:placed.tower.branch,spent:placed.tower.spent},{x:80,y:42,level:1,branch:0,spent});
+});
+test('moving a tower does not charge for invalid locations',()=>{
+  const run=createRun(),first=run.place('repulsor',{x:84,y:50}),second=run.place('autocannon',{x:80,y:42});
+  assert.ok(first.ok&&first.tower&&second.ok);
+  const before=run.model.metal;
+  assert.equal(run.move(first.tower.id,{x:80,y:42}).ok,false);
+  assert.equal(run.model.metal,before);
+});
+test('ground focus orders validate range, persist, clear, and reset on redeployment',()=>{
+  const run=createRun(),placed=run.place('repulsor',{x:84,y:50});
+  assert.ok(placed.ok&&placed.tower);
+  assert.equal(run.setGroundTarget(placed.tower.id,{x:90,y:50}).ok,true);
+  assert.deepEqual(placed.tower.groundTarget,{x:90,y:50});
+  assert.equal(run.setGroundTarget(placed.tower.id,{x:100,y:50}).ok,false);
+  assert.deepEqual(placed.tower.groundTarget,{x:90,y:50});
+  const restored=createRun();assert.equal(restored.load(run.save()).ok,true);
+  assert.deepEqual(restored.model.towers[0].groundTarget,{x:90,y:50});
+  assert.equal(restored.setGroundTarget(placed.tower.id,null).ok,true);
+  assert.equal(restored.model.towers[0].groundTarget,undefined);
+  assert.equal(run.move(placed.tower.id,{x:80,y:42}).ok,true);
+  assert.equal(placed.tower.groundTarget,undefined);
+});
+test('linked player-built walls support three turrets per pair and preserve them in saves',()=>{
+  const walls=[{x:32,y:20,width:4,height:4},{x:32,y:24,width:4,height:4}],mounts=wallMountCells(walls),map={...DEFAULT_MAP,id:'wall-mount-test',obstacles:[...DEFAULT_MAP.obstacles,...walls]};
+  const run=createRun(map);run.setBuildMounts(mounts);
+  const placed=run.place('repulsor',{x:34,y:21.5});
+  assert.ok(placed.ok&&placed.tower);assert.deepEqual({x:placed.tower.x,y:placed.tower.y},{x:34,y:21.35});
+  assert.equal(run.place('autocannon',{x:34,y:23.4}).ok,true);
+  assert.equal(run.place('mortar',{x:34,y:25.4}).ok,true);
+  const restored=createRun(map);restored.setBuildMounts(mounts);
+  assert.equal(restored.load(run.save()).ok,true);assert.deepEqual({x:restored.model.towers[0].x,y:restored.model.towers[0].y},{x:34,y:21.35});
 });
 test('starting indestructible walls support mounted towers and preserve them in saves',()=>{
   const mounts=wallMountCells(DEFAULT_MAP.obstacles),run=createRun();run.setBuildMounts(mounts);
-  const placed=run.place('repulsor',{x:50.7,y:21.4});
-  assert.ok(placed.ok&&placed.tower);assert.deepEqual({x:placed.tower.x,y:placed.tower.y},{x:50,y:22});
+  const target=mounts[0],position={x:target.x+target.width/2,y:target.y+target.height/2},placed=run.place('repulsor',position);
+  assert.ok(placed.ok&&placed.tower);assert.deepEqual({x:placed.tower.x,y:placed.tower.y},position);
   const restored=createRun();restored.setBuildMounts(mounts);
-  assert.equal(restored.load(run.save()).ok,true);assert.deepEqual({x:restored.model.towers[0].x,y:restored.model.towers[0].y},{x:50,y:22});
+  assert.equal(restored.load(run.save()).ok,true);assert.deepEqual({x:restored.model.towers[0].x,y:restored.model.towers[0].y},position);
 });
 test('difficulty multiplier scales continuous zombie production and clamps to 1–40',()=>{
   const baseline=createRun(), intense=createRun();
@@ -194,12 +224,30 @@ test('opening waves are a short continuous stream, never an initial packet dump'
   const wave=waveFor(1,1),run=createRun();
   assert.equal(wave.total,1200);
   assert.ok(wave.spawns.every(batch=>(batch.burst??0)===1));
+  const rateAt=(second:number)=>wave.spawns.reduce((sum,batch)=>{
+    const start=batch.start??0,duration=batch.duration??Infinity;
+    if(second<start||second>=start+duration)return sum;
+    const progress=(second-start)/duration;
+    return sum+(batch.rate??0)+((batch.endRate??batch.rate??0)-(batch.rate??0))*progress;
+  },0);
+  assert.deepEqual([1,2.5,3.5,4.5,5.75,7,8,9.25,10.5].map(second=>Math.round(rateAt(second))),Array(9).fill(90));
   assert.equal(run.startWave().ok,true);
   const firstTick=run.takeSpawns(65_536,1/60).reduce((sum,batch)=>sum+batch.count,0);
   const firstSecond=firstTick+Array.from({length:59},()=>run.takeSpawns(65_536,1/60).reduce((sum,batch)=>sum+batch.count,0)).reduce((sum,count)=>sum+count,0);
   assert.ok(firstTick<wave.total*.02);
   assert.ok(firstSecond<wave.total*.1);
   assert.ok(firstSecond>0);
+  let emitted=firstSecond;
+  for(let tick=60;tick<7_200;tick++)emitted+=run.takeSpawns(65_536,1/60).reduce((sum,batch)=>sum+batch.count,0);
+  assert.equal(emitted,wave.total);
+  assert.equal(run.model.pending.length,0);
+});
+
+test('staged wave backlog remains bounded after the inlet is blocked',()=>{
+  const run=createRun();assert.equal(run.startWave().ok,true);
+  assert.equal(run.takeSpawns(0,110).length,0);
+  const resumed=run.takeSpawns(65_536,1/60).reduce((sum,batch)=>sum+batch.count,0);
+  assert.ok(resumed>0&&resumed<=1_350);
 });
 
 test('extracting after the checkpoint ends the run',()=>{
@@ -255,7 +303,7 @@ test('credited kills add turret XP once and survive saving',()=>{
 });
 
 test('Salvage Magnets pays identical rewards for burst and trickle readbacks',()=>{
-  const reward=(batches:number[])=>{const run=createRun();run.model.commandUpgrades.push('salvage-magnets');
+  const reward=(batches:number[])=>{const run=createRun();run.model.commandUpgrades.push(...Array(20).fill('salvage-magnets'));
     batches.forEach((earned,index)=>run.applySettlement({epoch:run.epoch,tick:index+1,kills:earned*4,crushKills:0,leaks:0,earned,live:0,invalid:0,maxPacking:0}));
     return run.model;
   };
@@ -265,13 +313,13 @@ test('Salvage Magnets pays identical rewards for burst and trickle readbacks',()
 });
 
 test('fractional salvage survives save/load and resets with a new run',()=>{
- const run=createRun();run.model.commandUpgrades.push('salvage-magnets');
+ const run=createRun();run.model.commandUpgrades.push(...Array(20).fill('salvage-magnets'));
  const report={epoch:run.epoch,tick:1,kills:10,crushKills:0,leaks:0,earned:3,live:0,invalid:0,maxPacking:0};
- run.applySettlement(report);assert.equal(run.model.salvageCredit,3);
+ run.applySettlement(report);assert.ok(Math.abs((run.model.salvageCredit??0)-.9)<1e-9);
  const restored=createRun();assert.equal(restored.load(run.save()).ok,true);
  restored.applySettlement({...report,epoch:restored.epoch,earned:1});
- assert.equal(restored.model.metal,STARTING_METAL+5);assert.equal(restored.model.salvageCredit,0);
- const saved=JSON.parse(run.save());saved.model.salvageCredit=4;assert.equal(restored.load(JSON.stringify(saved)).ok,false);
+ assert.equal(restored.model.metal,STARTING_METAL+5);assert.ok(Math.abs((restored.model.salvageCredit??0)-.2)<1e-9);
+ const saved=JSON.parse(run.save());saved.model.salvageCredit=1;assert.equal(restored.load(JSON.stringify(saved)).ok,false);
  delete saved.model.salvageCredit;assert.equal(restored.load(JSON.stringify(saved)).ok,true);assert.equal(restored.model.salvageCredit,0);
  restored.reset();assert.equal(restored.model.salvageCredit,0);
 });

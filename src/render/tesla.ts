@@ -1,15 +1,17 @@
 import {PARTICLE_WGSL,type SharedGPU} from '../contracts/index.ts';
 import {ELECTROCUTION_DURATION,ELECTROCUTION_FRAMES,TESLA_LINKS,TESLA_STATE_WGSL} from '../effects/tesla.ts';
-import type {TurretArtStyle} from './red-alert.ts';
+import {usesClassicDefenseSprite,type TurretArtStyle} from './red-alert.ts';
+
+const assetBase=(import.meta as ImportMeta&{env?:{BASE_URL?:string}}).env?.BASE_URL??'/';
 
 /** The same GPU hit records drive the bolt, its impact and the victim animation. */
 export async function createTeslaEffects(device:GPUDevice,format:GPUTextureFormat,camera:GPUBuffer,towers:GPUBuffer,shared:SharedGPU,style:TurretArtStyle){
   if(!shared.teslaState||!shared.shotState)return null;
-  const response=await fetch('/assets/red-alert/atlas.json');
+  const response=await fetch(`${assetBase}assets/red-alert/atlas.json`);
   if(!response.ok)throw Error('Tesla electrocution atlas is missing');
   const atlas=await response.json() as {frames:{x:number;y:number;width:number;height:number}[];sprites:Record<string,number[]>};
   if(atlas.sprites.electro?.length!==14)throw Error('Reimport Red Alert assets for the electrocution frames');
-  const image=await fetch('/assets/red-alert/atlas.png');if(!image.ok)throw Error('Tesla electrocution texture is missing');
+  const image=await fetch(`${assetBase}assets/red-alert/atlas.png`);if(!image.ok)throw Error('Tesla electrocution texture is missing');
   const bitmap=await createImageBitmap(await image.blob(),{premultiplyAlpha:'none',colorSpaceConversion:'none'});
   const texture=device.createTexture({label:'Red Alert electrocution sprites',size:[bitmap.width,bitmap.height],format:'rgba8unorm',usage:GPUTextureUsage.TEXTURE_BINDING|GPUTextureUsage.COPY_DST|GPUTextureUsage.RENDER_ATTACHMENT});
   device.queue.copyExternalImageToTexture({source:bitmap},{texture},[bitmap.width,bitmap.height]);bitmap.close();
@@ -25,6 +27,10 @@ fn clip(p:vec2f)->vec4f {let aspect=camera.viewport.x/max(1.,camera.viewport.y);
 fn quad(i:u32)->vec2f {let q=array<vec2f,6>(vec2f(-1,-1),vec2f(1,-1),vec2f(-1,1),vec2f(-1,1),vec2f(1,-1),vec2f(1,1));return q[i%6u];}
 fn hash(v:f32)->f32 {return fract(sin(v*127.1+311.7)*43758.5453);}
 `;
+  // The classic coil cap is substantially higher than the project's former
+  // directional model.  The bolt must leave that cap—not the center of the
+  // foundation—so its charge flash reads as a fixed Red Alert Tesla Coil.
+  const coilEmitterHeight=style==='red-alert'||usesClassicDefenseSprite('tesla')?-4.5:-1.45;
   const boltModule=device.createShaderModule({label:'Tesla continuous forked bolts and microblasts',code:common+`
 @group(0) @binding(3) var<storage,read> shots:array<TowerState>;
 @group(0) @binding(4) var<storage,read> towers:array<vec4f>;
@@ -52,7 +58,7 @@ fn boltPoint(a:vec2f,b:vec2f,u:f32,seed:f32)->vec2f {
   o.color=select(vec4f(.15,.18,.3,1.),vec4f(.65,.8,1.,1.),lit);return o;
  }
  if(s.flags.y<1.||link.z< -1.||age>.34){return o;}
- var a=t.xy+vec2f(0.,${style==='red-alert'?-4.5:-1.45});
+ var a=t.xy+vec2f(0.,${coilEmitterHeight});
  if(hop>0u){a=endpoint(electricity.links[instance-1u]);}
  let b=endpoint(link);let seed=f32(tower)*13.7+s.flags.y*31.+floor(age/.04)*7.;
  let fade=(1.-smoothstep(.04,.18,age))*pow(.86,f32(hop));

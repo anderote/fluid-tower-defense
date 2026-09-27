@@ -1,7 +1,7 @@
 import {DAM_GATES} from '../content/dam.ts';
 import type {Rect,RenderScene,TowerKind} from '../contracts/index.ts';
 import {createSoldatAtlas,soldatFacing,soldatSpriteKey,SOLDAT_WORLD_SIZE} from './soldat-art.ts';
-import {wireTiles,wireDamage,type WireArtStyle} from './wire-art.ts';
+import {fencePanels,wireTiles,wireDamage,type WireArtStyle} from './wire-art.ts';
 export type TurretArtStyle='soldat'|'red-alert';
 export type FloorArtStyle='panels'|'grating';
 export const floorSprites=(sprites:Record<string,number[]>,style:FloorArtStyle='panels')=>style==='grating'&&sprites.grating?.length?sprites.grating:sprites.floor;
@@ -9,9 +9,17 @@ export const floorSprites=(sprites:Record<string,number[]>,style:FloorArtStyle='
 type Frame={x:number;y:number;width:number;height:number};
 type Atlas={size:number;frames:Frame[];sprites:Record<string,number[]>};
 export const RA_TILE_WORLD=4;
+const assetBase=(import.meta as ImportMeta&{env?:{BASE_URL?:string}}).env?.BASE_URL??'/';
 const DEFENSES:Partial<Record<TowerKind,string>>={autocannon:'gun',tesla:'tsla',incinerator:'ftur'};
 export const redAlertFacing=(angle:number)=>((24-Math.round(angle*16/Math.PI))%32+32)%32;
 export const hasRedAlertSprite=(kind:TowerKind,style:TurretArtStyle='soldat')=>style==='soldat'||kind in DEFENSES;
+/**
+ * These are the two fixed defenses whose original Red Alert silhouettes are
+ * part of their identity.  Keep the project's directional artwork for every
+ * other weapon in the default view, but do not replace the Coil or Flame
+ * Tower with a merely similar-looking model.
+ */
+export const usesClassicDefenseSprite=(kind:TowerKind)=>kind==='tesla'||kind==='incinerator';
 const same=(a:Rect,b:Rect)=>a.x===b.x&&a.y===b.y&&a.width===b.width&&a.height===b.height;
 
 /** Split authored rectangles at the tile grid, retaining exact collision bounds. */
@@ -32,57 +40,94 @@ export function wallTiles(obstacles:readonly Rect[]){
 
 /** Original palette sprites, drawn with nearest texel access and fixed pivots. */
 export async function createRedAlertArt(device:GPUDevice,format:GPUTextureFormat,camera:GPUBuffer,style:TurretArtStyle='soldat',wireStyle:WireArtStyle='barb',floorStyle:FloorArtStyle='panels'){
-  const response=await fetch('/assets/red-alert/atlas.json');
+  const response=await fetch(`${assetBase}assets/red-alert/atlas.json`);
   if(!response.ok)throw Error('Red Alert atlas is missing. Run npm run assets:red-alert.');
   const atlas:Atlas=await response.json();
   if(!atlas.frames?.length||!atlas.sprites?.floor?.length)throw Error('Invalid Red Alert atlas');
-  const wireFrames=atlas.sprites[wireStyle],hasWireSprites=wireFrames?.length>=32;
-  const imageResponse=await fetch('/assets/red-alert/atlas.png');
+  const wireFrames=atlas.sprites[wireStyle],fenceFrames=atlas.sprites.cycl,hasWireSprites=wireFrames?.length>=32,hasFenceSprites=fenceFrames?.length>=32;
+  const imageResponse=await fetch(`${assetBase}assets/red-alert/atlas.png`);
   if(!imageResponse.ok)throw Error('Red Alert texture is missing');
   const bitmap=await createImageBitmap(await imageResponse.blob(),{premultiplyAlpha:'none',colorSpaceConversion:'none'});
-  let customSprites:Record<string,number[]>|undefined;
+  let customSprites:Record<string,number[]>|undefined,customFrames:Frame[]=[];
   let customCanvas:HTMLCanvasElement|undefined;
-  const customOffset=bitmap.height;
+  let barrierFacings:{wire:number[];fence:number[]}|undefined;
+  // The original atlas is square, but the authored Soldat sheet is tall.
+  // Keep the combined WebGPU texture under the portable 8192px default by
+  // packing generated art beside the source atlas instead of beneath it.
+  const customOffset=bitmap.width;
   let textureWidth=atlas.size,textureHeight=atlas.size;
   if(style==='soldat'){
-    const custom=createSoldatAtlas(),offset=atlas.frames.length;customCanvas=custom.canvas;
-    customSprites=Object.fromEntries(Object.entries(custom.sprites).map(([kind,ids])=>[kind,ids.map(id=>id+offset)]));
-    atlas.frames.push(...custom.frames.map(frame=>({...frame,y:frame.y+customOffset})));
-    textureWidth=Math.max(textureWidth,custom.canvas.width);textureHeight=customOffset+custom.canvas.height;
+    const custom=createSoldatAtlas();customCanvas=custom.canvas;customFrames=custom.frames;
   }
+  // Project the verified RA fence panels along the ground while preserving
+  // vertical posts and palette lighting. Eight spans avoid stretching short ends.
+  // A narrow edge-on width keeps north/south runs visible. Wire still rotates.
+  const facingSize=64,rows=(hasWireSprites?1:0)+(hasFenceSprites?1:0),extra=document.createElement('canvas');
+  extra.width=Math.max(customCanvas?.width??0,facingSize*64);extra.height=(customCanvas?.height??0)+(rows+(hasFenceSprites?7:0))*facingSize;
+  const extraContext=extra.getContext('2d')!;extraContext.imageSmoothingEnabled=false;if(customCanvas)extraContext.drawImage(customCanvas,0,0);
+  let row=customCanvas?.height??0;
+  const bake=(source:number[],target:'wire'|'fence',span=4)=>{const ids:number[]=[];const frame=atlas.frames[source[10]];for(let facing=0;facing<64;facing++){const x=facing*facingSize+facingSize/2,y=row+facingSize/2;extraContext.save();extraContext.translate(x,y);if(target==='fence'){const angle=facing*Math.PI/32;extraContext.transform((Math.abs(Math.cos(angle))<.08?.08:Math.cos(angle))*span/4,Math.sin(angle)*span/4,0,1,0,0);}else extraContext.rotate(facing*Math.PI/32);extraContext.drawImage(bitmap,frame.x,frame.y,frame.width,frame.height,-frame.width/2,target==='fence'?-20:-frame.height/2,frame.width,frame.height);extraContext.restore();ids.push(atlas.frames.length);atlas.frames.push({x:customOffset+facing*facingSize,y:row,width:facingSize,height:facingSize});}row+=facingSize;return ids;};
+  barrierFacings={wire:hasWireSprites?bake(wireFrames,'wire'):[],fence:hasFenceSprites?Array.from({length:8},(_,i)=>bake(fenceFrames,'fence',(i+1)/2)).flat():[]};
+  if(customCanvas){const offset=atlas.frames.length;customSprites=Object.fromEntries(Object.entries(createSoldatAtlas().sprites).map(([kind,ids])=>[kind,ids.map(id=>id+offset)]));atlas.frames.push(...customFrames.map(frame=>({...frame,x:frame.x+customOffset})));}
+  textureWidth=customOffset+extra.width;textureHeight=Math.max(textureHeight,extra.height);
   const texture=device.createTexture({label:'Original Red Alert sprite atlas',size:[textureWidth,textureHeight],format:'rgba8unorm',usage:GPUTextureUsage.TEXTURE_BINDING|GPUTextureUsage.COPY_DST|GPUTextureUsage.RENDER_ATTACHMENT});
   device.queue.copyExternalImageToTexture({source:bitmap},{texture},[bitmap.width,bitmap.height]);bitmap.close();
-  if(customCanvas)device.queue.copyExternalImageToTexture({source:customCanvas},{texture,origin:[0,customOffset]},[customCanvas.width,customCanvas.height]);
+  if(extra.height)device.queue.copyExternalImageToTexture({source:extra},{texture,origin:[customOffset,0]},[extra.width,extra.height]);
   const shader=device.createShaderModule({label:'Red Alert nearest-pixel sprites',code:`
 struct Camera{viewport:vec4<f32>,world:vec4<f32>,time:vec4<f32>};
 @group(0) @binding(0) var<uniform> camera:Camera;
 @group(0) @binding(1) var atlas:texture_2d<f32>;
 struct Out{@builtin(position) pos:vec4<f32>,@location(0) uv:vec2<f32>,@location(1) tint:vec4<f32>};
-@vertex fn vs(@builtin(vertex_index) id:u32,@location(0) rect:vec4<f32>,@location(1) source:vec4<f32>,@location(2) tint:vec4<f32>)->Out{
- let corners=array<vec2<f32>,6>(vec2(0.,0.),vec2(1.,0.),vec2(0.,1.),vec2(0.,1.),vec2(1.,0.),vec2(1.,1.));let q=corners[id];let p=rect.xy+q*rect.zw;
+@vertex fn vs(@builtin(vertex_index) id:u32,@location(0) rect:vec4<f32>,@location(1) source:vec4<f32>,@location(2) tint:vec4<f32>,@location(3) angle:f32)->Out{
+ let corners=array<vec2<f32>,6>(vec2f(0.,0.),vec2f(1.,0.),vec2f(0.,1.),vec2f(0.,1.),vec2f(1.,0.),vec2f(1.,1.));let q=corners[id];let local=(q-.5)*rect.zw;let c=cos(angle);let s=sin(angle);let p=rect.xy+rect.zw*.5+vec2f(local.x*c-local.y*s,local.x*s+local.y*c);
  let aspect=camera.viewport.x/camera.viewport.y;let worldAspect=camera.world.z/camera.world.w;let scale=vec2(min(1.,worldAspect/aspect),min(1.,aspect/worldAspect));
- var o:Out;o.pos=vec4((vec2(2.,-2.)*(p-camera.world.xy)/camera.world.zw+vec2(-1.,1.))*scale,0.,1.);
+ // A sprite's full footprint shares one depth: its lowest world-space edge.
+ // Smaller depth is closer to the camera, matching the unit renderer.
+ let ground=rect.y+rect.w;
+ let depth=clamp(.95-(ground-camera.world.y)/camera.world.w*.8,.01,.99);
+ var o:Out;o.pos=vec4((vec2(2.,-2.)*(p-camera.world.xy)/camera.world.zw+vec2(-1.,1.))*scale,depth,1.);
  o.uv=source.xy+q*source.zw;o.tint=tint;return o;
 }
 @fragment fn fs(i:Out)->@location(0) vec4<f32>{let pixel=textureLoad(atlas,vec2<i32>(floor(i.uv)),0);if(pixel.a<.01){discard;}return pixel*i.tint;}`});
   const info=await shader.getCompilationInfo();if(info.messages.some(m=>m.type==='error'))throw Error(info.messages.map(m=>m.message).join('\n'));
-  const pipeline=device.createRenderPipeline({label:'Red Alert sprites',layout:'auto',vertex:{module:shader,entryPoint:'vs',buffers:[{arrayStride:48,stepMode:'instance',attributes:[{shaderLocation:0,offset:0,format:'float32x4'},{shaderLocation:1,offset:16,format:'float32x4'},{shaderLocation:2,offset:32,format:'float32x4'}]}]},fragment:{module:shader,entryPoint:'fs',targets:[{format,blend:{color:{srcFactor:'src-alpha',dstFactor:'one-minus-src-alpha',operation:'add'},alpha:{srcFactor:'one',dstFactor:'one-minus-src-alpha',operation:'add'}}}]},primitive:{topology:'triangle-list'}});
-  const bindings=device.createBindGroup({layout:pipeline.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:camera}},{binding:1,resource:texture.createView()}]});
-  const createBatch=(label:string)=>({buffer:device.createBuffer({label,size:48,usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST}),capacity:1,count:0});
-  const terrain=createBatch('Facility floor'),walls=createBatch('Facility walls'),sceneryProps=createBatch('Landscape trees and buildings'),towers=createBatch('Original defense sprites'),wireBatch=createBatch('Connected Red Alert wire'),wireGhost=createBatch('Wire placement preview');
+  const bindLayout=device.createBindGroupLayout({entries:[{binding:0,visibility:GPUShaderStage.VERTEX,buffer:{type:'uniform'}},{binding:1,visibility:GPUShaderStage.FRAGMENT,texture:{}}]});
+  const layout=device.createPipelineLayout({bindGroupLayouts:[bindLayout]});
+  const vertex={arrayStride:52,stepMode:'instance' as const,attributes:[{shaderLocation:0,offset:0,format:'float32x4' as const},{shaderLocation:1,offset:16,format:'float32x4' as const},{shaderLocation:2,offset:32,format:'float32x4' as const},{shaderLocation:3,offset:48,format:'float32' as const}]};
+  const pipeline=device.createRenderPipeline({label:'Red Alert sprites',layout,vertex:{module:shader,entryPoint:'vs',buffers:[vertex]},fragment:{module:shader,entryPoint:'fs',targets:[{format,blend:{color:{srcFactor:'src-alpha',dstFactor:'one-minus-src-alpha',operation:'add'},alpha:{srcFactor:'one',dstFactor:'one-minus-src-alpha',operation:'add'}}}]},primitive:{topology:'triangle-list'}});
+  // Every tall object uses its ground-contact line as depth. This lets a unit
+  // naturally pass in front of or behind a tree, wall, or turret by map Y.
+  const depthPipeline=device.createRenderPipeline({label:'Ground-sorted Red Alert sprites',layout,vertex:{module:shader,entryPoint:'vs',buffers:[vertex]},fragment:{module:shader,entryPoint:'fs',targets:[{format,blend:{color:{srcFactor:'src-alpha',dstFactor:'one-minus-src-alpha',operation:'add'},alpha:{srcFactor:'one',dstFactor:'one-minus-src-alpha',operation:'add'}}}]},primitive:{topology:'triangle-list'},depthStencil:{format:'depth32float',depthWriteEnabled:true,depthCompare:'less-equal'}});
+  // Defenses are elevated above wall faces. Draw them over the wall depth at
+  // their location, then write their own depth so moving units still sort
+  // naturally in front of or behind the turret.
+  const defensePipeline=device.createRenderPipeline({label:'Elevated Red Alert defenses',layout,vertex:{module:shader,entryPoint:'vs',buffers:[vertex]},fragment:{module:shader,entryPoint:'fs',targets:[{format,blend:{color:{srcFactor:'src-alpha',dstFactor:'one-minus-src-alpha',operation:'add'},alpha:{srcFactor:'one',dstFactor:'one-minus-src-alpha',operation:'add'}}}]},primitive:{topology:'triangle-list'},depthStencil:{format:'depth32float',depthWriteEnabled:true,depthCompare:'always'}});
+  const bindings=device.createBindGroup({layout:bindLayout,entries:[{binding:0,resource:{buffer:camera}},{binding:1,resource:texture.createView()}]});
+  const createBatch=(label:string)=>({buffer:device.createBuffer({label,size:52,usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST}),capacity:1,count:0});
+  const infantryBatch=createBatch('Original Red Alert infantry and kennels');
+  const hasInfantrySprites=['e1','e3','e4','dog','dogbullt','kenn','tent'].every(name=>atlas.sprites[name]?.length);
+  const terrain=createBatch('Facility floor'),walls=createBatch('Facility walls'),sceneryProps=createBatch('Landscape trees and buildings'),towers=createBatch('Original defense sprites'),mountedTowers=createBatch('Wall-mounted defense sprites'),wireBatch=createBatch('Connected Red Alert wire'),wireGhost=createBatch('Wire placement preview');
   const upload=(batch:ReturnType<typeof createBatch>,data:number[])=>{
-    batch.count=data.length/12;if(batch.count>batch.capacity){batch.buffer.destroy();batch.capacity=2**Math.ceil(Math.log2(batch.count));batch.buffer=device.createBuffer({size:batch.capacity*48,usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST});}
+    batch.count=data.length/13;if(batch.count>batch.capacity){batch.buffer.destroy();batch.capacity=2**Math.ceil(Math.log2(batch.count));batch.buffer=device.createBuffer({size:batch.capacity*52,usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST});}
     if(data.length)device.queue.writeBuffer(batch.buffer,0,new Float32Array(data));
   };
-  function sprite(data:number[],id:number,x:number,y:number,width:number,height:number,tint=[1,1,1,1],crop?:Frame){
-    const f=crop??atlas.frames[id];data.push(x,y,width,height,f.x,f.y,f.width,f.height,...tint);
+  function sprite(data:number[],id:number,x:number,y:number,width:number,height:number,tint=[1,1,1,1],crop?:Frame,angle=0){
+    const f=crop??atlas.frames[id];data.push(x,y,width,height,f.x,f.y,f.width,f.height,...tint,angle);
   }
-  let terrainKey='',wireKey='',previousScenery:RenderScene['map']['scenery'],sceneryVersion=0;
+  let terrainKey='',barrierKey='',previousScenery:RenderScene['map']['scenery'],sceneryVersion=0;
   function prepare(scene:RenderScene){
+    const friendly:number[]=[];
+    if(hasInfantrySprites){
+      for(const b of scene.infantry?.buildings??[]){
+        if(b.kind!=='dog'&&(b.kind??'rifle')!=='rifle')continue;
+        const id=atlas.sprites[b.kind==='dog'?'kenn':'tent'][0],f=atlas.frames[id];
+        sprite(friendly,id,b.x-f.width/12,b.y+2-f.height/6,f.width/6,f.height/6);
+      }
+    }
+    upload(infantryBatch,friendly);
     const scenery=scene.map.scenery,biome=scenery?.biome;
     if(previousScenery!==scenery){previousScenery=scenery;sceneryVersion++;}
     const landscapeAvailable=biome&&biome!=='interior'&&atlas.sprites[`${biome}:clear1`]?.length;
-    const obstacles=scene.map.obstacles.filter(o=>!(scene.map.dam&&[...scenery?.mounts??[],...DAM_GATES].some(r=>same(r,o)))&&!(scene.wires??[]).some(w=>!w.breached&&same(o,w))&&!((landscapeAvailable||biome==='interior')&&scenery?.solids.some(r=>same(r,o))));
+    const obstacles=scene.map.obstacles.filter(o=>!(scene.map.dam&&[...scenery?.mounts??[],...DAM_GATES].some(r=>same(r,o)))&&!(scene.wires??[]).some(w=>!w.breached&&same(o,w))&&!(scene.fences??[]).some(f=>same(o,f))&&!((landscapeAvailable||biome==='interior')&&scenery?.solids.some(r=>same(r,o))));
     const key=JSON.stringify([scene.map.width,scene.map.height,sceneryVersion,obstacles]);
     if(key!==terrainKey){
       const data:number[]=[],floor=landscapeAvailable?atlas.sprites[`${biome}:clear1`]:floorSprites(atlas.sprites,floorStyle);
@@ -117,11 +162,11 @@ struct Out{@builtin(position) pos:vec4<f32>,@location(0) uv:vec2<f32>,@location(
       }
       upload(sceneryProps,props);
     }
-    const wires=scene.wires??[];
-    const nextWireKey=JSON.stringify(wires.map(w=>[w.x,w.y,w.width,w.height,wireDamage(w)]));
-    if(hasWireSprites&&nextWireKey!==wireKey){
+    const freeform=scene.barrierSegments??[],wires=freeform.length?[]:scene.wires??[],fences=freeform.length?[]:scene.fences??[];
+    const nextBarrierKey=JSON.stringify([wires.map(w=>[w.x,w.y,w.width,w.height,wireDamage(w)]),fences.map(f=>[f.x,f.y,f.width,f.height,wireDamage({...f,breached:false})]),freeform.map(barrier=>[barrier.from.x,barrier.from.y,barrier.to.x,barrier.to.y,barrier.run,barrier.kind,wireDamage({health:barrier.health,maxHealth:barrier.maxHealth,breached:barrier.breached??false})])]);
+    if((hasWireSprites||hasFenceSprites)&&nextBarrierKey!==barrierKey){
       const data:number[]=[];
-      for(const tile of wireTiles(wires)){
+      if(hasWireSprites)for(const tile of wireTiles(wires)){
         const breached=tile.damage==='breached',id=wireFrames[breached?16+tile.debrisMask:tile.mask],frame=atlas.frames[id];
         const tint=breached?[.72,.65,.54,1]:tile.damage==='intact'?[1,1,1,1]:tile.damage==='worn'?[.88,.79,.65,1]:[.74,.61,.46,1];
         const crop={...frame,width:tile.width*6,height:tile.height*6};
@@ -138,31 +183,70 @@ struct Out{@builtin(position) pos:vec4<f32>,@location(0) uv:vec2<f32>,@location(
           }
         }else sprite(data,id,tile.x,tile.y,tile.width,tile.height,tint,crop);
       }
-      upload(wireBatch,data);wireKey=nextWireKey;
+      if(hasFenceSprites){
+        const fenceStates=fences.map(fence=>({...fence,breached:false}));
+        for(const tile of wireTiles(fenceStates)){
+          const id=fenceFrames[(tile.damage==='frayed'?16:0)+tile.mask],frame=atlas.frames[id],tint=tile.damage==='intact'?[1,1,1,1]:tile.damage==='worn'?[.88,.8,.68,1]:[.82,.72,.58,1];
+          sprite(data,id,tile.x,tile.y,tile.width,tile.height,tint,{...frame,width:tile.width*6,height:tile.height*6});
+        }
+      }
+      // Freeform paths retain the original RA horizontal panels.  Each stamp is
+      // deliberately quantized to 64 facings so a direction never blurs into an
+      // arbitrary GPU rotation, while still allowing a path to turn naturally.
+      for(const panel of fencePanels(freeform)){
+        const facing=((Math.round(panel.angle*32/Math.PI)%64)+64)%64;
+        const size=Math.max(0,Math.min(7,Math.round(panel.length*2)-1));
+        const id=barrierFacings!.fence[size*64+facing];
+        if(id!==undefined)sprite(data,id,panel.x-facingSize/12,panel.y-facingSize/12,facingSize/6,facingSize/6,wireDamage(panel)==='intact'?[1,1,1,1]:[.82,.72,.58,1]);
+      }
+      for(let index=0;index<freeform.length;){
+        if(freeform[index].kind==='fence'){index++;continue;}
+        const first=freeform[index],run=first.run??index,kind=first.kind;let last=first,next=index+1;
+        while(next<freeform.length&&next-index<6&&(freeform[next].run??next)===run&&freeform[next].kind===kind){last=freeform[next++];}
+        const dx=last.to.x-first.from.x,dy=last.to.y-first.from.y,length=Math.hypot(dx,dy);
+        if(length>.001){
+          const facing=Math.round(Math.atan2(dy,dx)*32/Math.PI);
+          const damaged=wireDamage({health:first.health,maxHealth:first.maxHealth,breached:first.breached??false}),frameId=(kind==='fence'?barrierFacings!.fence:barrierFacings!.wire)[(facing%64+64)%64];
+          const tint=kind==='fence'?(damaged==='intact'?[1,1,1,1]:[.82,.72,.58,1]):damaged==='breached'?[.72,.65,.54,1]:damaged==='intact'?[1,1,1,1]:damaged==='worn'?[.88,.79,.65,1]:[.74,.61,.46,1];
+          sprite(data,frameId,first.from.x-facingSize/12,first.from.y-facingSize/12,facingSize/6,facingSize/6,tint);
+        }
+        index=Math.max(index+1,next);
+      }
+      upload(wireBatch,data);barrierKey=nextBarrierKey;
     }
-    const preview:number[]=[],ghost=scene.placementGhost;
-    if(hasWireSprites&&ghost?.kind==='wire'){
-      const previewWire={...ghost,health:1,maxHealth:1,breached:false};
-      const ghostTiles=wireTiles([previewWire],[...wires,previewWire]);
-      for(const tile of ghostTiles){const id=wireFrames[tile.mask],frame=atlas.frames[id];sprite(preview,id,tile.x,tile.y,tile.width,tile.height,ghost.valid?[.55,1,.7,.8]:[1,.3,.2,.8],{...frame,width:tile.width*6,height:tile.height*6});}
+    const preview:number[]=[],ghosts=[...(scene.placementGhost?[scene.placementGhost]:[]),...(scene.placementGhosts??[])];
+    const wireGhosts=ghosts.filter(ghost=>ghost.kind==='wire').map(ghost=>({...ghost,health:1,maxHealth:1,breached:false}));
+    if(hasWireSprites&&wireGhosts.length){
+      const ghostTiles=wireTiles(wireGhosts,[...wires,...wireGhosts]);
+      for(const tile of ghostTiles){const id=wireFrames[tile.mask],frame=atlas.frames[id],ghost=wireGhosts.find(candidate=>tile.x>=candidate.x&&tile.x<candidate.x+candidate.width&&tile.y>=candidate.y&&tile.y<candidate.y+candidate.height)!;sprite(preview,id,tile.x,tile.y,tile.width,tile.height,ghost.valid?[.55,1,.7,.8]:[1,.3,.2,.8],{...frame,width:tile.width*6,height:tile.height*6});}
+    }
+    const fenceGhosts=ghosts.filter(ghost=>ghost.kind==='fence').map(ghost=>({...ghost,health:1,maxHealth:1,breached:false}));
+    if(hasFenceSprites&&fenceGhosts.length){
+      const fenceStates=fences.map(fence=>({...fence,breached:false})),ghostTiles=wireTiles(fenceGhosts,[...fenceStates,...fenceGhosts]);
+      for(const tile of ghostTiles){const id=fenceFrames[tile.mask],frame=atlas.frames[id],ghost=fenceGhosts.find(candidate=>tile.x>=candidate.x&&tile.x<candidate.x+candidate.width&&tile.y>=candidate.y&&tile.y<candidate.y+candidate.height)!;sprite(preview,id,tile.x,tile.y,tile.width,tile.height,ghost.valid?[.55,1,.7,.8]:[1,.3,.2,.8],{...frame,width:tile.width*6,height:tile.height*6});}
     }
     upload(wireGhost,preview);
-    const data:number[]=[];
-    const draw=(t:{kind:TowerKind;x:number;y:number;angle?:number;level?:number},tint?:number[])=>{
+    const data:number[]=[],elevated:number[]=[];
+    const draw=(target:number[],t:{kind:TowerKind;x:number;y:number;angle?:number;level?:number},tint?:number[])=>{
       if(t.kind==='crusher')return;
-      if(customSprites){
-        sprite(data,customSprites[soldatSpriteKey(t.kind,t.level)][soldatFacing(t.angle??0)],t.x-SOLDAT_WORLD_SIZE/2,t.y-SOLDAT_WORLD_SIZE/2,SOLDAT_WORLD_SIZE,SOLDAT_WORLD_SIZE,tint);return;
+      if(customSprites&&!usesClassicDefenseSprite(t.kind)){
+        sprite(target,customSprites[soldatSpriteKey(t.kind,t.level)][soldatFacing(t.angle??0)],t.x-SOLDAT_WORLD_SIZE/2,t.y-SOLDAT_WORLD_SIZE/2,SOLDAT_WORLD_SIZE,SOLDAT_WORLD_SIZE,tint);return;
       }
       const name=DEFENSES[t.kind];if(!name)return;
       const frameIndex=name==='gun'?redAlertFacing(t.angle??0):0,id=atlas.sprites[name][frameIndex],f=atlas.frames[id];
       // Six source pixels per world unit matches the 24-pixel/4-world-cell floor.
       // Tesla's original 48px canvas is anchored at its base, not its image center.
-      sprite(data,id,t.x-f.width/12,t.y-f.height/12-(name==='tsla'?13/6:name==='ftur'?2/6:0),f.width/6,f.height/6,tint);
+      sprite(target,id,t.x-f.width/12,t.y-f.height/12-(name==='tsla'?13/6:name==='ftur'?2/6:0),f.width/6,f.height/6,tint);
     };
-    [...scene.towers].sort((a,b)=>a.y-b.y).forEach(t=>draw(t));
-    if(scene.ghost)draw(scene.ghost,scene.ghost.valid?[.7,1,.7,.65]:[1,.3,.3,.65]);
-    upload(towers,data);
+    const isMounted=(t:{x:number;y:number})=>obstacles.some(rect=>t.x>=rect.x&&t.x<rect.x+rect.width&&t.y>=rect.y&&t.y<rect.y+rect.height);
+    [...scene.towers].sort((a,b)=>a.y-b.y).forEach(t=>draw(isMounted(t)?elevated:data,t));
+    if(scene.ghost)draw(isMounted(scene.ghost)?elevated:data,scene.ghost,scene.ghost.valid?[.7,1,.7,.65]:[1,.3,.3,.65]);
+    upload(towers,data);upload(mountedTowers,elevated);
   }
-  function draw(pass:GPURenderPassEncoder,batch:ReturnType<typeof createBatch>){if(!batch.count)return;pass.setPipeline(pipeline);pass.setBindGroup(0,bindings);pass.setVertexBuffer(0,batch.buffer);pass.draw(6,batch.count);}
-  return {prepare,hasWireSprites,drawFloor:(pass:GPURenderPassEncoder)=>draw(pass,terrain),drawStructures:(pass:GPURenderPassEncoder)=>{draw(pass,walls);draw(pass,wireBatch);draw(pass,sceneryProps);},drawTowers:(pass:GPURenderPassEncoder)=>{draw(pass,towers);draw(pass,wireGhost);},destroy(){terrain.buffer.destroy();walls.buffer.destroy();sceneryProps.buffer.destroy();towers.buffer.destroy();wireBatch.buffer.destroy();wireGhost.buffer.destroy();texture.destroy();}};
+  function draw(pass:GPURenderPassEncoder,batch:ReturnType<typeof createBatch>,groundSorted=false){if(!batch.count)return;pass.setPipeline(groundSorted?depthPipeline:pipeline);pass.setBindGroup(0,bindings);pass.setVertexBuffer(0,batch.buffer);pass.draw(6,batch.count);}
+  function drawDefenses(pass:GPURenderPassEncoder){
+    draw(pass,towers,true);
+    if(!mountedTowers.count)return;pass.setPipeline(defensePipeline);pass.setBindGroup(0,bindings);pass.setVertexBuffer(0,mountedTowers.buffer);pass.draw(6,mountedTowers.count);
+  }
+  return {prepare,hasWireSprites,hasFenceSprites,hasInfantrySprites,drawInfantry:(pass:GPURenderPassEncoder)=>draw(pass,infantryBatch,true),drawFloor:(pass:GPURenderPassEncoder)=>draw(pass,terrain),drawWires:(pass:GPURenderPassEncoder)=>{draw(pass,wireBatch);draw(pass,wireGhost);},drawOccluders:(pass:GPURenderPassEncoder)=>{draw(pass,walls,true);draw(pass,sceneryProps,true);},drawTowers:drawDefenses,destroy(){infantryBatch.buffer.destroy();terrain.buffer.destroy();walls.buffer.destroy();sceneryProps.buffer.destroy();towers.buffer.destroy();mountedTowers.buffer.destroy();wireBatch.buffer.destroy();wireGhost.buffer.destroy();texture.destroy();}};
 }

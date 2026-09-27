@@ -1,5 +1,6 @@
 import {P, PARTICLE_FLOATS, type CommandUpgrade, type EnemyDef, type EnemyKind, type SpawnBatch, type Tower, type TowerDef, type TowerKind, type WorldMap} from '../contracts/index.ts';
 import {scaledPeakPressure} from '../sim/pressure/model.ts';
+import {BASE_BARBED_WIRE_DURABILITY,BASE_WALL_DURABILITY,BASE_WALL_PRESSURE_RESISTANCE} from '../sim/walls/model.ts';
 
 export const TOWERS: Record<TowerKind, TowerDef> = {
   repulsor: {id:'repulsor', name:'Repulsor', description:'Pulses enemies toward the choke walls.', cost:120, range:10, cooldown:1.35, damage:2, force:16, radius:2.7, peakPressureKpa:240, color:'#50d5ff', branches:['Ram','Wave']},
@@ -9,48 +10,49 @@ export const TOWERS: Record<TowerKind, TowerDef> = {
   tesla: {id:'tesla', name:'Tesla Coil', description:'Chains lightning through nearby enemies, briefly slowing them and frying lethal hits to ash.', cost:600, range:20, cooldown:.48, damage:7, force:8, radius:5.2, peakPressureKpa:120, color:'#9a7dff', branches:['Capacitor','Storm Cell']},
   rocket: {id:'rocket', name:'Rocket Pod', description:'Saturates dense crowds with a three-warhead scatter salvo.', cost:1_600, range:44, cooldown:2.9, damage:34, force:24, radius:6.6, peakPressureKpa:1250, color:'#ff5f48', branches:['Warhead','Barrage']},
   railgun: {id:'railgun', name:'Railgun', description:'Penetrates and hurls targets along a long firing lane.', cost:2_500, range:48, cooldown:.78, damage:38, force:26, radius:1.1, peakPressureKpa:900, color:'#73f5d2', branches:['Slug','Accelerator']},
-  incinerator: {id:'incinerator', name:'Incinerator', description:'Bathes a short cone in heat that burns enemies over time.', cost:800, range:16, cooldown:.55, damage:13, force:0, radius:4.8, peakPressureKpa:80, color:'#ff7848', branches:['Furnace','Wildfire']},
+  incinerator: {id:'incinerator', name:'Incinerator', description:'Bathes a narrow cone in heat that briefly burns enemies.', cost:800, range:13, cooldown:.75, damage:8, force:0, radius:3.7, peakPressureKpa:55, color:'#ff7848', branches:['Furnace','Wildfire']},
   crusher: {id:'crusher',name:'Crusher Gate',description:'Left-to-right passage; top and bottom jaws are solid. Keep both mouths clear. Press G to slam ready gates; packed crowds take up to double crush damage. Recharges in 8 seconds.',cost:450,range:6,cooldown:8,damage:60,force:18,radius:6,peakPressureKpa:900,color:'#ffc34d',branches:['Heavy Pistons','Rapid Hydraulics']},
 };
 
 export const MAX_TOWER_LEVEL=50;
 export const towerUpgradeCost=(level:number):number=>45+Math.max(0,Math.floor(level))*35;
 
-const infrastructureResearch=(prefix:string,name:string,description:string,cost:number):readonly CommandUpgrade[]=>Array.from({length:20},(_,index)=>({id:`${prefix}-${index+1}`,name:`${name} ${index+1}`,description,cost:Math.round(cost+(index*42)+(Math.sqrt(index)*28))}));
-
+const tech=(id:string,name:string,category:string,description:string,cost:number,requires?:readonly string[]):CommandUpgrade=>({id,name,category,description,cost,requires,maxRank:20,unlockRank:3});
 export const COMMAND_UPGRADES: readonly CommandUpgrade[] = [
-  {id:'tesla-overload',name:'Tesla Overload',description:'Every sixth Tesla discharge deals 3× damage and chains through up to 12 targets. Coils show their stored charge.',cost:450},
-  {id:'targeting-grid',name:'Targeting Grid',description:'+18% range to every tower.',cost:260},
-  {id:'ammunition-forge',name:'Ammunition Forge',description:'+25% damage to every tower.',cost:300},
-  {id:'bulkhead-plating',name:'Bulkhead Plating',description:'+5 base integrity immediately.',cost:220},
-  {id:'salvage-magnets',name:'Salvage Magnets',description:'+25% Metal recovered from kills.',cost:280},
-  {id:'repulsor-impact-1',name:'Impact Coils I',description:'Repulsors deal +3 pulse damage.',cost:90},
-  {id:'repulsor-impact-2',requires:'repulsor-impact-1',name:'Impact Coils II',description:'Repulsors deal +3 pulse damage.',cost:140},
-  {id:'repulsor-impact-3',requires:'repulsor-impact-2',name:'Impact Coils III',description:'Repulsors deal +4 pulse damage.',cost:200},
-  {id:'repulsor-impact-4',requires:'repulsor-impact-3',name:'Impact Coils IV',description:'Repulsors deal +5 pulse damage.',cost:270},
-  {id:'repulsor-impact-5',requires:'repulsor-impact-4',name:'Impact Coils V',description:'Repulsors deal +6 pulse damage and +8% force.',cost:350},
-  ...infrastructureResearch('wall-engineering','WALL ENGINEERING','Raises Metal Wall pressure capacity and lifespan.',90),
-  ...infrastructureResearch('barbed-wire','BARBED WIRE','Raises wire damage, slow duration, resistance, and lifespan.',80),
+  {id:'tesla-overload',name:'Tesla Overload',category:'WEAPONS',description:'Every sixth Tesla discharge deals 3× damage and chains through up to 12 targets.',cost:450,maxRank:1},
+  tech('ballistics','Ballistics','WEAPONS','Conventional weapon damage: +1% per rank.',180),
+  tech('rifle-tech','Rifle Technology','WEAPONS','Rifle squads, Autocannons, and Railguns: +2% damage per rank.',300,['ballistics']),
+  tech('precision-optics','Precision Optics','WEAPONS','Rifle squads, Autocannons, and Railguns: +1.5% range per rank.',280,['ballistics']),
+  tech('thermal-science','Thermal Science','WEAPONS','Incendiary weapon damage: +1% per rank.',190),
+  tech('flame-tech','Flame Technology','WEAPONS','Flame squads and Incinerators: +2.5% damage per rank.',330,['thermal-science']),
+  tech('explosive-ordnance','Explosive Ordnance','WEAPONS','Explosive weapon damage: +1% per rank.',220),
+  tech('high-explosives','High Explosives','WEAPONS','Mortars, Rocket Pods, and Rocket squads: +2% damage per rank.',360,['explosive-ordnance']),
+  tech('energy-systems','Energy Systems','WEAPONS','Energy weapon force: +1% per rank.',220),
+  tech('field-control','Field Control','WEAPONS','Repulsors, Cryo Emitters, and Tesla Coils: +1.5% force per rank.',320,['energy-systems']),
+  tech('targeting-grid','Targeting Grid','COMMAND','Every tower: +1% range per rank.',380,['ballistics','energy-systems']),
+  tech('infantry-armor','Infantry Armor','SURVIVAL','Every squad: +2% health and +1% damage reduction per rank.',300),
+  tech('structure-armor','Structure Armor','SURVIVAL','Walls, fences, and wire: +2% durability and resistance per rank.',280),
+  tech('fortified-core','Fortified Core','SURVIVAL','Base integrity: +1 immediately per rank.',450,['structure-armor','infantry-armor']),
+  tech('salvage-magnets','Salvage Magnets','COMMAND','Metal recovered from kills: +1.5% per rank.',280),
 ];
 
-const researchLevel=(upgrades:readonly string[],prefix:string)=>upgrades.filter(id=>new RegExp(`^${prefix}-\\d+$`).test(id)).length;
-const researchMultiplier=(level:number)=>1+.58*Math.log1p(Math.max(0,Math.min(20,level)));
-export const barbedWireStats=(upgrades:readonly string[])=>{const multiplier=researchMultiplier(researchLevel(upgrades,'barbed-wire'));return {damage:.45*multiplier,slow:.65*multiplier,durability:560*multiplier,resistance:7*multiplier,wear:.18};};
-export const metalWallStats=(upgrades:readonly string[])=>{const multiplier=researchMultiplier(researchLevel(upgrades,'wall-engineering'));return {durability:2_880*multiplier,resistance:90*multiplier};};
+export const techRank=(upgrades:readonly string[],id:string)=>upgrades.filter(upgrade=>upgrade===id).length;
+export const hasTech=(upgrades:readonly string[],id:string)=>techRank(upgrades,id)>0;
+export const barbedWireStats=(upgrades:readonly string[])=>{const multiplier=1+techRank(upgrades,'structure-armor')*.02;return {damage:.45,slow:.65,durability:BASE_BARBED_WIRE_DURABILITY*multiplier,resistance:7*multiplier,wear:.18};};
+export const metalWallStats=(upgrades:readonly string[])=>{const multiplier=1+techRank(upgrades,'structure-armor')*.02;return {durability:BASE_WALL_DURABILITY*multiplier,resistance:BASE_WALL_PRESSURE_RESISTANCE*multiplier};};
 
 /** Packs authored towers into the supported GPU weapon behaviours. */
 export const towerBehavior=(kind:TowerKind):number=>({repulsor:0,mortar:1,autocannon:2,cryo:3,tesla:13,rocket:12,railgun:2,incinerator:14,crusher:15}[kind]);
+/** Direct-fire weapons whose targeting is occluded by solid map geometry. */
+export const towerRequiresLineOfSight=(kind:TowerKind):boolean=>kind==='autocannon'||kind==='rocket'||kind==='railgun'||kind==='incinerator';
 export const MAX_VETERANCY=100;
 /** 64.8 XP per squared rank: rank 10 requires 6,480 credited kills, rank 50 162,000, and rank 100 648,000. */
 export const veterancyXpForLevel=(level:number):number=>64.8*Math.max(0,Math.min(MAX_VETERANCY,Math.ceil(level)))**2;
 export const veterancyLevel=(xp:number):number=>Math.min(MAX_VETERANCY,Math.floor(Math.sqrt(Math.max(0,xp)/64.8)));
-/**
- * Each rank is a modest 0.9% improvement, but a long-serving rank-100 unit
- * reaches 2.5x base damage. The same veteran curve is deliberately tempered
- * for range and rate of fire in `compileTower`, so they top out at 1.83x and
- * 1.42x respectively.
- */
-export const veterancyMultiplier=(level:number):number=>2.5**(Math.min(MAX_VETERANCY,Math.max(0,level))/MAX_VETERANCY);
+/** Veteran service now has a strong identity: rank 100 reaches 5x base damage.
+ * Range and reload also scale meaningfully, while the exponential curve keeps
+ * the first few ranks modest and makes long-serving defenses feel legendary. */
+export const veterancyMultiplier=(level:number):number=>5**(Math.min(MAX_VETERANCY,Math.max(0,level))/MAX_VETERANCY);
 
 export const ENEMIES: Record<EnemyKind, EnemyDef> = {
   shambler: {id:'shambler',index:0,name:'Shambler',radius:.4125,mass:1,health:30,speed:3.1,drive:1,pressureLimit:24,crushResistance:1,bounty:3,leak:1,color:'#76c66e'},
@@ -60,6 +62,18 @@ export const ENEMIES: Record<EnemyKind, EnemyDef> = {
   softbody: {id:'softbody',index:4,name:'Bloater',radius:.5625,mass:1.1,health:60,speed:2.25,drive:.8,pressureLimit:62,crushResistance:2.8,bounty:6,leak:2,color:'#a678d4'},
   husk: {id:'husk',index:5,name:'Husk',radius:.35625,mass:.85,health:34,speed:2.9,drive:1,pressureLimit:10,crushResistance:.5,bounty:4,leak:1,color:'#9edce8'},
 };
+
+/** Every 25% of wave-scaled health unlocks the next enemy tier. */
+export const ENEMY_TIER_HEALTH_STEP = .25;
+export const enemyTierForHealthScale = (healthScale:number):number => Math.max(0,Math.floor(Math.max(0,healthScale-1)/ENEMY_TIER_HEALTH_STEP));
+export const enemySpeedMultiplier = (healthScale:number):number => 1 + enemyTierForHealthScale(healthScale) * .06;
+export const enemyDriveMultiplier = (healthScale:number):number => 1 + enemyTierForHealthScale(healthScale) * .025;
+export const enemyPressureMultiplier = (healthScale:number):number => 1 + enemyTierForHealthScale(healthScale) * .08;
+export const enemyCrushMultiplier = (healthScale:number):number => 1 + enemyTierForHealthScale(healthScale) * .06;
+export const enemySpeedForScale = (kind:EnemyKind,healthScale=1):number => ENEMIES[kind].speed * enemySpeedMultiplier(healthScale);
+export const enemyDriveForScale = (kind:EnemyKind,healthScale=1):number => ENEMIES[kind].drive * enemyDriveMultiplier(healthScale);
+export const enemyPressureLimitForScale = (kind:EnemyKind,healthScale=1):number => ENEMIES[kind].pressureLimit * enemyPressureMultiplier(healthScale);
+export const enemyCrushResistanceForScale = (kind:EnemyKind,healthScale=1):number => ENEMIES[kind].crushResistance * enemyCrushMultiplier(healthScale);
 
 /** Enemy bounties are accumulated as points; 50 points pay one Metal. */
 export const ENEMY_BOUNTY_DIVISOR=50;
@@ -71,8 +85,14 @@ const enemyCases=(field:keyof EnemyDef,format:(value:never)=>string=wgslNumber):
 export const ENEMY_WGSL=/* wgsl */`
 fn enemySpeed(kind:u32)->f32 { switch kind { ${enemyCases('speed')} default: { return ${wgslNumber(ENEMIES.shambler.speed)}; } } }
 fn enemyDrive(kind:u32)->f32 { switch kind { ${enemyCases('drive')} default: { return ${wgslNumber(ENEMIES.shambler.drive)}; } } }
+fn enemyHealth(kind:u32)->f32 { switch kind { ${enemyCases('health')} default: { return ${wgslNumber(ENEMIES.shambler.health)}; } } }
 fn enemyPressureLimit(kind:u32)->f32 { switch kind { ${enemyCases('pressureLimit')} default: { return ${wgslNumber(ENEMIES.shambler.pressureLimit)}; } } }
 fn enemyCrushResistance(kind:u32)->f32 { switch kind { ${enemyCases('crushResistance')} default: { return ${wgslNumber(ENEMIES.shambler.crushResistance)}; } } }
+fn enemyTier(maxHp:f32,kind:u32)->f32 { return floor(max(0.0,maxHp/max(enemyHealth(kind),0.001)-1.0)/0.25); }
+fn enemySpeedFor(kind:u32,maxHp:f32)->f32 { return enemySpeed(kind)*(1.0+enemyTier(maxHp,kind)*0.06); }
+fn enemyDriveFor(kind:u32,maxHp:f32)->f32 { return enemyDrive(kind)*(1.0+enemyTier(maxHp,kind)*0.025); }
+fn enemyPressureLimitFor(kind:u32,maxHp:f32)->f32 { return enemyPressureLimit(kind)*(1.0+enemyTier(maxHp,kind)*0.08); }
+fn enemyCrushResistanceFor(kind:u32,maxHp:f32)->f32 { return enemyCrushResistance(kind)*(1.0+enemyTier(maxHp,kind)*0.06); }
 fn enemyBountyPoints(kind:u32)->u32 { switch kind { ${enemyCases('bounty',value=>`${value}u`)} default: { return ${ENEMIES.shambler.bounty}u; } } }
 fn enemyLeak(kind:u32)->u32 { switch kind { ${enemyCases('leak',value=>`${value}u`)} default: { return ${ENEMIES.shambler.leak}u; } } }
 fn enemyColor(kind:u32)->vec3f { switch kind { ${enemyCases('color',value=>`vec3f(${hexRgb(String(value)).map(wgslNumber).join(',')})`)} default: { return vec3f(${hexRgb(ENEMIES.shambler.color).map(wgslNumber).join(',')}); } } }
@@ -113,10 +133,17 @@ export function compileTower(tower: Tower, bonuses: readonly string[] = [], comm
   const base=TOWERS[tower.kind];
   let range=base.range, cooldown=base.cooldown, damage=base.damage, force=base.force, radius=base.radius;
   const level=Math.min(MAX_TOWER_LEVEL,Math.max(0,tower.level));
+  const powerPath=tower.branch===0,controlPath=tower.branch===1;
+  // Every purchased level advances the full combat profile. Branch A leans
+  // into damage and impulse; Branch B leans into reach, rate and area.
   // Repulsors remain local crowd-control tools even at high tower levels.
-  range += level * (tower.kind==='repulsor' ? .2 : 1.25); damage *= 1 + level * .12;
+  range += level * (tower.kind==='repulsor' ? .2 : 1.25) * (controlPath?1.15:1);
+  damage *= 1 + level * (powerPath?.14:.12);
+  cooldown /= 1 + level * (controlPath?.018:.012);
+  force *= 1 + (powerPath?.05:.035) * (1-Math.exp(-level/12));
+  radius *= 1 + level * (controlPath?.008:.004);
   const veteran=veterancyMultiplier(tower.veterancy ?? veterancyLevel(tower.veterancyXp ?? 0));
-  range*=1+(veteran-1)*.55; damage*=veteran; cooldown/=1+(veteran-1)*.28;
+  range*=1+(veteran-1)*.65; damage*=veteran; cooldown/=1+(veteran-1)*.5; force*=1+(veteran-1)*.5; radius*=1+(veteran-1)*.35;
   if (tower.branch === 0) {
     if (tower.kind==='repulsor') { force *= 1.4; radius *= .8; range += 1; }
     if (tower.kind==='mortar') { damage *= 1.6; radius *= .78; cooldown *= 1.12; }
@@ -126,7 +153,7 @@ export function compileTower(tower: Tower, bonuses: readonly string[] = [], comm
     if (tower.kind==='tesla') { damage *= 1.45; radius *= 1.25; }
     if (tower.kind==='rocket') { damage *= 1.6; radius *= .8; }
     if (tower.kind==='railgun') { damage *= 1.75; cooldown *= 1.15; }
-    if (tower.kind==='incinerator') { damage *= 1.55; radius *= .82; }
+    if (tower.kind==='incinerator') { damage *= 1.35; radius *= .88; }
   }
   if (tower.branch === 1) {
     if (tower.kind==='repulsor') { cooldown *= .8; radius *= 1.3; }
@@ -137,7 +164,7 @@ export function compileTower(tower: Tower, bonuses: readonly string[] = [], comm
     if (tower.kind==='tesla') { range *= 1.3; radius *= 1.5; cooldown *= .78; }
     if (tower.kind==='rocket') { cooldown *= .62; radius *= 1.45; damage *= .8; }
     if (tower.kind==='railgun') { cooldown *= .58; range *= 1.18; }
-    if (tower.kind==='incinerator') { range *= 1.18; radius *= 1.4; cooldown *= .82; damage *= .82; }
+    if (tower.kind==='incinerator') { range *= 1.12; radius *= 1.2; cooldown *= .9; damage *= .9; }
   }
   for (const bonus of bonuses) {
     if (bonus === 'hydraulic-advantage' && tower.kind === 'repulsor') { force *= 1.3; cooldown *= 1.12; }
@@ -145,18 +172,15 @@ export function compileTower(tower: Tower, bonuses: readonly string[] = [], comm
     if (bonus === 'kinetic-feed' && tower.kind === 'autocannon') cooldown *= .85;
     if (bonus === 'blast-casing' && (tower.kind === 'mortar' || tower.kind === 'rocket')) damage *= 1.15;
   }
-  if (commandUpgrades.includes('targeting-grid')) range *= 1.18;
-  if (commandUpgrades.includes('ammunition-forge')) damage *= 1.25;
-  if (tower.kind==='repulsor') {
-    const impactDamage=[3,3,4,5,6];
-    for (let i=0;i<impactDamage.length;i++) if(commandUpgrades.includes(`repulsor-impact-${i+1}`)) damage+=impactDamage[i];
-    if(commandUpgrades.includes('repulsor-impact-5')) force*=1.08;
-  }
-  const ranks=(id:string)=>statUpgrades.filter(upgrade=>upgrade===id).length;
-  damage*=1+ranks('damage')*.04;
-  range*=1+ranks('range')*.03;
-  cooldown/=1+ranks('rate')*.035;
-  force*=1+ranks('force')*.05;
+  damage*=1+techRank(commandUpgrades,'ballistics')*.01*Number(tower.kind==='autocannon'||tower.kind==='railgun');
+  damage*=1+techRank(commandUpgrades,'thermal-science')*.01*(tower.kind==='incinerator'?1:0);
+  damage*=1+techRank(commandUpgrades,'explosive-ordnance')*.01*(tower.kind==='mortar'||tower.kind==='rocket'?1:0);
+  force*=1+techRank(commandUpgrades,'energy-systems')*.01*(tower.kind==='repulsor'||tower.kind==='cryo'||tower.kind==='tesla'?1:0);
+  range *= 1+techRank(commandUpgrades,'targeting-grid')*.01;
+  if (tower.kind==='autocannon'||tower.kind==='railgun') { damage*=1+techRank(commandUpgrades,'rifle-tech')*.02; range*=1+techRank(commandUpgrades,'precision-optics')*.015; }
+  if (tower.kind==='incinerator') damage*=1+techRank(commandUpgrades,'flame-tech')*.025;
+  if (tower.kind==='mortar'||tower.kind==='rocket') damage*=1+techRank(commandUpgrades,'high-explosives')*.02;
+  if (tower.kind==='repulsor'||tower.kind==='cryo'||tower.kind==='tesla') force*=1+techRank(commandUpgrades,'field-control')*.015;
   if(tower.kind==='crusher'){range=base.range;radius=base.radius;}
   return {...base,range,cooldown,damage,force,radius,overload:tower.kind==='tesla'&&commandUpgrades.includes('tesla-overload'),peakPressureKpa:scaledPeakPressure(base,damage,force)};
 }

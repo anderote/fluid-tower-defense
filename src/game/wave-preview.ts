@@ -19,14 +19,16 @@ export function previewNextWave(state: PreviewState) {
   if (state.mode !== 'game' || state.phase !== 'preparation') return null;
   const wave = state.wave + 1;
   const definition = waveFor(state.level, wave,state.dam?DAM_ID:undefined);
+  const counts=new Map<EnemyKind,number>();
+  for(const batch of definition.spawns)counts.set(batch.kind,(counts.get(batch.kind)??0)+batch.count);
   return {
     level: state.level,
     wave,
-    enemies: definition.spawns.map(batch => ({
-      kind: batch.kind,
-      name: ENEMIES[batch.kind].name,
-      count: batch.count,
-      role: ROLES[batch.kind],
+    enemies: [...counts].map(([kind,count]) => ({
+      kind,
+      name: ENEMIES[kind].name,
+      count,
+      role: ROLES[kind],
     })),
     total: definition.spawns.reduce((sum, batch) => sum + batch.count, 0),
     boss: definition.boss,

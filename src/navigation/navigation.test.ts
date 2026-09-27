@@ -32,18 +32,20 @@ test('placement resolves flush inside every map edge',()=>{
   assert.deepEqual(resolvePlacement(DEFAULT_MAP,{x:40,y:0},1.25),{x:40,y:1.25});
   assert.deepEqual(resolvePlacement(DEFAULT_MAP,{x:40,y:100},1.25),{x:40,y:98.75});
 });
-test('player-built wall mounts snap and allow exactly centered tower placement',()=>{
-  const mount={x:32,y:20,width:4,height:4},map={...DEFAULT_MAP,obstacles:[...DEFAULT_MAP.obstacles,mount]};
-  assert.deepEqual(snapToMount({x:33.2,y:23.7},[mount]),{x:34,y:22});
-  assert.equal(canPlace(map,[],{x:34,y:22},1.25),false);
-  assert.equal(canPlace(map,[],{x:34,y:22},1.25,[mount]),true);
-  assert.equal(canPlace(map,[],{x:33.5,y:22},1.25,[mount]),false);
+test('an isolated wall has one stable top-cap hardpoint',()=>{
+  const wall={x:32,y:20,width:4,height:4},mounts=wallMountCells([wall]),map={...DEFAULT_MAP,obstacles:[...DEFAULT_MAP.obstacles,wall]};
+  assert.equal(mounts.length,1);
+  assert.deepEqual(mounts.map(mount=>({x:mount.x+mount.width/2,y:mount.y+mount.height/2})),[{x:34,y:21.35}]);
+  assert.deepEqual(snapToMount({x:33.8,y:21.5},mounts),{x:34,y:21.35});
+  assert.equal(canPlace(map,[],{x:34,y:21.35},1.25),false);
+  assert.equal(canPlace(map,[],{x:34,y:21.35},1.25,mounts),true);
 });
-test('starting walls support one centered tower per wall cell',()=>{
-  const mounts=wallMountCells(DEFAULT_MAP.obstacles);
-  assert.deepEqual(resolvePlacement(DEFAULT_MAP,{x:50.8,y:22.9},1.25,mounts),{x:50,y:22});
-  assert.equal(canPlace(DEFAULT_MAP,[],{x:50,y:22},1.25,mounts),true);
-  assert.equal(canPlace(DEFAULT_MAP,[{id:1,kind:'repulsor',x:50,y:22,level:0,branch:-1,angle:0,cooldown:0,spent:120}],{x:54,y:22},1.25,mounts),true);
+test('a linked vertical pair exposes three centered mounts along the run',()=>{
+  const walls=[{x:32,y:20,width:4,height:4},{x:32,y:24,width:4,height:4}],mounts=wallMountCells(walls),map={...DEFAULT_MAP,obstacles:[...DEFAULT_MAP.obstacles,...walls]};
+  const centers=mounts.map(mount=>({x:mount.x+mount.width/2,y:mount.y+mount.height/2}));
+  assert.deepEqual(centers,[{x:34,y:21.35},{x:34,y:25.35},{x:34,y:23.35}]);
+  assert.equal(canPlace(map,[],centers[0],1.25,mounts),true);
+  assert.equal(canPlace(map,[{id:1,kind:'repulsor',...centers[0],level:0,branch:-1,angle:0,cooldown:0,spent:120}],centers[2],1.25,mounts),true);
 });
 
 test('routes reserve body clearance and steer displaced enemies out of wall margins',()=>{

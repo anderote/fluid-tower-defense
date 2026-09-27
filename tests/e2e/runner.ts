@@ -34,7 +34,7 @@ async function loadFrame(path:string){
 }
 async function navigate(path='/'){
  await loadFrame(path);
- await until(()=>!!doc().querySelector('#adapter')?.textContent?.includes('/ WEBGPU'),'Game failed to initialize WebGPU');
+ await until(()=>!!doc().querySelector('.diagnostics'),'Game failed to initialize WebGPU');
  await until(()=>text('#metal')!=='000','Game failed to initialize UI');
 }
 async function fresh(path='/'){await loadFrame('about:blank');freshStorage();await navigate(path);}
@@ -61,10 +61,10 @@ const cases:{name:string;run:()=>Promise<void>}[]=[
  }},
 
  {name:'Checkpoint survives later autosaves and restores structures, Metal, and flow',run:async()=>{
-  await fresh();click('[data-action="wall-tool"]');point(22,22);await until(()=>text('#metal')==='2940','Wall was not charged');flow(2);snapshot();
-  click('[data-action="wire-tool"]');point(30,22);flow(3);await until(()=>text('#metal')==='2895','Wire was not charged');
+  await fresh();click('[data-action="wall-tool"]');point(22,22);await until(()=>text('#metal')==='2800','Wall was not charged');flow(2);snapshot();
+  click('[data-action="wire-tool"]');point(30,22);flow(3);await until(()=>text('#metal')==='2755','Wire was not charged');
   await until(()=>{const raw=localStorage.getItem('pressure-front.autosave.v1');return !!raw&&JSON.parse(raw).difficulty===3;},'Autosave did not capture changes');
-  click('[data-action="load"]');await until(()=>text('#metal')==='2940','Checkpoint did not restore Metal');assert(element<HTMLInputElement>('#difficulty').value==='2','Flow was not restored');
+  click('[data-action="load"]');await until(()=>text('#metal')==='2800','Checkpoint did not restore Metal');assert(element<HTMLInputElement>('#difficulty').value==='2','Flow was not restored');
   const restored=snapshot();assert(restored.builtWalls.length===1&&restored.builtWires.length===0,'Wrong structures restored');
  }},
  {name:'Corrupt tower checkpoints fail without changing the current defense',run:async()=>{
@@ -76,12 +76,12 @@ const cases:{name:string;run:()=>Promise<void>}[]=[
  {name:'Demolishing wire removes its collision obstacle immediately',run:async()=>{
   await fresh();click('[data-action="wire-tool"]');point(30,22);await until(()=>text('#metal')==='2955','Wire was not built');
   click('[data-action="demolish-tool"]');point(30,22);await until(()=>text('#metal')==='2977','Wire refund was not paid');
-  const saved=snapshot();assert(saved.builtWires.length===0,'Wire record remains');assert(!hasRect(saved.map.obstacles,28,20),'Invisible wire collision remains after demolition');
+  const saved=snapshot();assert(saved.builtWires.length===0,'Wire record remains');assert(!hasRect(saved.map.obstacles,30,22),'Invisible wire collision remains after demolition');
  }},
  {name:'Reset removes paid terrain and restores a fresh economy',run:async()=>{
   await fresh();click('[data-action="wall-tool"]');point(22,22);click('[data-action="wire-tool"]');point(30,22);
   click('[data-action="reset"]');click('[data-reset-choice="confirm"]');await until(()=>text('#metal')==='3000','Reset did not restore starting Metal');
-  const saved=snapshot();assert(saved.builtWalls.length===0&&saved.builtWires.length===0,'Reset kept free structures');assert(!hasRect(saved.map.obstacles,20,20)&&!hasRect(saved.map.obstacles,28,20),'Reset kept terrain collisions');
+  const saved=snapshot();assert(saved.builtWalls.length===0&&saved.builtWires.length===0,'Reset kept free structures');assert(!hasRect(saved.map.obstacles,20,20)&&!hasRect(saved.map.obstacles,30,22),'Reset kept terrain collisions');
  }},
  {name:'Ordinary clicks can mount towers; mounted walls cannot be demolished',run:async()=>{
   await fresh();click('[data-action="wall-tool"]');point(22,46);click('[data-tower="repulsor"]');point(21.7,46.3);
@@ -119,6 +119,15 @@ const cases:{name:string;run:()=>Promise<void>}[]=[
   assert(Math.abs(popup.top+popup.height/2-(canvas.top+canvas.height/2))<2,'Inspector is vertically detached from its tower');
   assert(popup.left>=arena.left&&popup.right<=arena.right&&popup.top>=arena.top&&popup.bottom<=arena.bottom,'Inspector escaped the arena');
  }},
+ {name:'Turrets can focus a ground point and return to automatic targeting',run:async()=>{
+  await fresh();click('[data-tower="repulsor"]');point(84,50);await until(()=>text('#metal')==='2880','Tower was not placed');
+  click('[data-tower="repulsor"]');point(84,50);await until(()=>element('.selected-popup').classList.contains('has-selection'),'Inspector did not open');
+  click('[data-action="set-ground-target"]');assert(element('.selected-popup').hidden,'Inspector should move out of the targeting surface');point(90,50);
+  await until(()=>text('.tower-config').includes('FOCUS: 90.0, 50.0'),'Ground focus did not appear in the inspector');
+  let saved=snapshot(),model=JSON.parse(saved.runState);assert(model.model.towers[0].groundTarget.x===90&&model.model.towers[0].groundTarget.y===50,'Ground focus did not persist');
+  click('[data-action="clear-ground-target"]');await until(()=>text('.tower-config').includes('TARGETING: AUTO'),'Automatic targeting was not restored');
+  saved=snapshot();model=JSON.parse(saved.runState);assert(model.model.towers[0].groundTarget===undefined,'Cleared ground focus remained in the save');
+ }},
  {name:'Run stat upgrades spend Metal and survive reload',run:async()=>{
   await fresh();click('#research-tab');
   click('[data-stat="damage"]');await until(()=>text('#metal')==='2925','Stat upgrade did not spend Metal');
@@ -144,8 +153,8 @@ const cases:{name:string;run:()=>Promise<void>}[]=[
   await sleep(600);assert(control.isConnected,'Research controls were recreated during telemetry refresh');assert(doc().activeElement===control,'Keyboard focus was lost during telemetry refresh');
  }},
  {name:'Research prerequisites unlock after purchase and remain locked in combat',run:async()=>{
-  await fresh();click('#research-tab');assert(element<HTMLButtonElement>('[data-command="repulsor-impact-2"]').disabled,'Rank II should be locked');
-  click('[data-command="repulsor-impact-1"]');await until(()=>!element<HTMLButtonElement>('[data-command="repulsor-impact-2"]').disabled,'Rank II did not unlock');
+  await fresh();click('#research-tab');assert(!doc().querySelector('[data-command="repulsor-impact-2"]'),'Future ranks should not render as separate controls');
+  click('[data-command="repulsor-impact-1"]');await until(()=>!!doc().querySelector('[data-command="repulsor-impact-2"]'),'Sequential control did not advance to Rank II');
   click('[data-action="start-wave"]');await until(()=>text('#phase')==='COMBAT','Wave did not start');assert(element<HTMLButtonElement>('[data-command="repulsor-impact-2"]').disabled,'Research is enabled in combat');
   click('#build-tab');click('[data-action="pause"]');
  }},

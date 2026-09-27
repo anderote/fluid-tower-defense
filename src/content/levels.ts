@@ -2,9 +2,10 @@ import type {Biome,MapScenery,Rect,WorldMap} from '../contracts/index.ts';
 import templates from '../../scripts/red-alert-terrain.json' with {type:'json'};
 const layouts:Record<string,{columns:number;rows:number;solid:number[]}>=templates;
 
-function author(biome:Biome,title:string,briefing:string){
+function author(biome:Biome,title:string,briefing:string,width=160,height=100){
   const scenery:MapScenery={biome,title,briefing,solids:[],mounts:[],tiles:[],props:[],regions:[]};
-  const map:WorldMap={id:`pressure-front-${biome}-1`,width:160,height:100,obstacles:[],spawn:{x:0,y:20,width:8,height:60},goal:{x:154,y:50},goalRadius:4,scenery};
+  const entryHeight=height===72?48:60;
+  const map:WorldMap={id:`pressure-front-${biome}-1`,width,height,obstacles:[],spawn:{x:0,y:(height-entryHeight)/2,width:8,height:entryHeight},goal:{x:width-6,y:height/2},goalRadius:4,scenery};
   const solid=(rect:Rect)=>{map.obstacles.push(rect);scenery.solids.push(rect);};
   const stamp=(name:string,x:number,y:number,blocking=false)=>{
     const layout=layouts[name];scenery.tiles.push({sprite:`${biome}:${name}`,x,y,columns:layout.columns,rows:layout.rows});
@@ -20,12 +21,14 @@ function author(biome:Biome,title:string,briefing:string){
     scenery.props.push({sprite:`${biome}:${sprite}`,x,y});solid({x:x-width/2,y:y-height,width,height});
   };
   const wall=(x:number,y:number,width:number,height:number)=>{const rect={x,y,width,height};map.obstacles.push(rect);scenery.mounts.push(rect);};
-  const road=(x:number,y:number,length:number)=>{for(let xx=x;xx<x+length;xx+=4)tile('d10',4+(Math.floor((xx-x)/4)%4),xx,y);};
-  const verticalRoad=(x:number,y:number,length:number)=>{for(let yy=y;yy<y+length;yy+=4)tile('d03',1,x,yy);};
-  const roadJoin=(x:number,y:number)=>{
-    // D05 is the original broad T-junction transition. The adjoining straight
-    // cells continue through it instead of terminating against a square stamp.
-    stamp('d05',x-4,y-8);
+  // D44/D45 are the full-width straight road cells. D03 is a narrow dirt
+  // track, and cropping D10 loses its shoulder and repeats a curved section.
+  const road=(x:number,y:number,length:number)=>{for(let xx=x;xx<x+length;xx+=4)tile('d45',0,xx,y);};
+  const verticalRoad=(x:number,y:number,length:number)=>{for(let yy=y;yy<y+length;yy+=4)tile('d44',0,x,yy);};
+  const roadJoin=(x:number,y:number,side:'west'|'east')=>{
+    // These two-cell-wide templates carry the vertical road in opposite
+    // columns. Their horizontal arm exits on the bottom row.
+    stamp(side==='west'?'d43':'d42',side==='west'?x-4:x,y-4);
   };
   const grove=(x:number,y:number,columns:number,rows:number,seed:number)=>{
     for(let row=0;row<rows;row++)for(let col=0;col<columns;col++){
@@ -38,19 +41,11 @@ function author(biome:Biome,title:string,briefing:string){
 }
 
 function forest(){
-  const a=author('forest','Pine Valley','Hold the village approach. Use the ridge mouth for a first defense, then cover both sides of the central rocks from the village clearing.');
-  // A broad, boss-safe first gate; a separate central spine creates two lanes.
-  a.ridge(48,0,40);a.ridge(48,64,36);a.ridge(88,28,48);
-  // Tracks pass the village. Use the original straight, vertical, and T-junction
-  // frames so every road section joins cleanly rather than repeating a cap.
-  a.road(0,48,80);a.road(112,48,48);
-  a.verticalRoad(76,20,56);a.verticalRoad(108,20,56);
-  a.roadJoin(76,48);a.roadJoin(108,48);
-  for(const [x,y] of [[16,32],[28,68],[64,12],[68,80],[104,16],[128,76],[136,8]])a.stamp('p07',x,y);
-  for(const [sprite,x,y] of [['v01',116,34],['v03',132,34],['v02',116,74],['v07',132,70],['v09',142,30]] as const)a.prop(sprite,x,y,sprite==='v09'?3:6,sprite==='v07'?3:5);
-  for(const [x,y] of [[16,12],[28,16],[36,8],[68,12],[76,20],[108,10],[124,12],[144,12],[16,88],[28,96],[38,84],[66,88],[78,96],[106,90],[122,92],[142,88]])a.prop('tc01',x,y,5,3);
-  for(const [i,[x,y]] of [[22,22],[38,28],[66,32],[72,70],[104,82],[146,72],[146,20],[34,76]].entries())a.prop(['t01','t03','t10','t16'][i%4],x,y,2,2);
-  a.grove(12,8,6,3,7);a.grove(12,82,6,3,13);a.grove(64,5,4,3,31);a.grove(112,5,7,3,43);a.grove(64,86,4,2,53);a.grove(116,85,7,2,71);
+  const a=author('forest','Long March','Hold the open approach. There are no natural choke points here: build your own defenses across the long firing lane.',240,72);
+  // The opening field intentionally has no cliffs, roads, or authored barriers.
+  // A handful of small trees at the edges keep it from reading as a blank test
+  // plane without interrupting the broad, straight approach to the base.
+  for(const [i,[x,y]] of [[24,10],[52,64],[88,8],[132,65],[176,9],[214,62]].entries())a.prop(['t01','t03','t10','t16'][i%4],x,y,2,2);
   return a.map;
 }
 function winter(){

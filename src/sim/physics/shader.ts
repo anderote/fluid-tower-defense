@@ -1,9 +1,13 @@
 import { PARTICLE_WGSL } from '../../contracts/index.ts';
 import { ENEMY_WGSL } from '../../content/index.ts';
+import {OBSTACLE_STANDOFF,SURGE_START,SURGE_FULL,SURGE_SPEED_GAIN,SURGE_RELEASE_GAIN,SURGE_COAST_DRAG} from './model.ts';
+import {AFTERMATH_WGSL,CORPSE_CAPACITY} from '../../effects/aftermath.ts';
+import {CORPSE_BLAST_EROSION,CORPSE_DECAY_SECONDS,CORPSE_DRAG,CORPSE_FIELD_SCALE,CORPSE_FIELD_WORD_OFFSET,CORPSE_MIN_MASS,CORPSE_SLOPE_FORCE} from './corpse-field.ts';
 
 export const PHYSICS_WGSL = /* wgsl */ `
 ${PARTICLE_WGSL}
 ${ENEMY_WGSL}
+${AFTERMATH_WGSL}
 
 struct Params {
   count: u32,
@@ -34,6 +38,8 @@ struct Params {
   substepCount: u32,
   obstacleCapacity: u32,
   approach: f32,
+  indexedObstacles: u32,
+  hybridCrowd: u32,
 }
 
 struct Obstacle { rect: vec4<f32> }
@@ -53,11 +59,13 @@ struct Effect {
 @group(0) @binding(7) var<storage, read> navigation: array<vec4<f32>>;
 @group(0) @binding(8) var<storage, read_write> counters: array<atomic<u32>>;
 @group(0) @binding(9) var<storage, read_write> obstacleCounters: array<atomic<u32>>;
+@group(0) @binding(10) var<storage, read_write> aftermath: Aftermath;
 
 const PI: f32 = 3.141592653589793;
 const MAX_FORCE: f32 = 90.0;
 const MAX_SPEED: f32 = 30.0;
 const MAX_DISPLACEMENT: f32 = 0.24;
+const PRESSURE_SURGE: bool = true;
 
 fn finite1(v: f32) -> bool { return v == v && abs(v) < 1e20; }
 fn finite2(v: vec2<f32>) -> bool { return finite1(v.x) && finite1(v.y); }
@@ -70,6 +78,9 @@ fn safeMass(v: f32) -> f32 {
   return clamp(abs(v), 0.1, 100.0);
 }
 fn occupiedArea(radius: f32) -> f32 { return PI * radius * radius; }
+fn pressureSurge(pressure: f32) -> f32 {
+  return select(0.0, smoothstep(${SURGE_START.toFixed(1)}, ${SURGE_FULL.toFixed(1)}, pressure), PRESSURE_SURGE);
+}
 
 fn kernel(distance: f32) -> f32 {
   let q = max(0.0, 1.0 - distance / params.kernelRadius);
@@ -86,6 +97,42 @@ fn validCell(cell: vec2<i32>) -> bool {
 
 fn cellIndex(cell: vec2<i32>) -> u32 {
   return u32(cell.y) * params.gridWidth + u32(cell.x);
+}
+fn corpseWord(cell:vec2i)->u32{return ${CORPSE_FIELD_WORD_OFFSET}u+cellIndex(cell);}
+
+fn blastFalloff(distance:f32,radius:f32)->f32 {
+  let safeRadius=max(radius,.0001);if(distance>=safeRadius){return 0.;}
+  let coreRadius=safeRadius*.2;let inverseRadius=coreRadius/max(coreRadius,distance);
+  return inverseRadius*(1.-smoothstep(.8,1.,distance/safeRadius));
+}
+
+@compute @workgroup_size(128)
+fn buildCorpseField(@builtin(global_invocation_id) gid:vec3u){
+  let i=gid.x;if(i>=${CORPSE_CAPACITY}u){return;}
+  var corpse=aftermath.deaths[i];
+  if(corpse.life.w<.5||corpse.life.z<=0.){return;}
+  var mass=corpse.life.z*max(0.,1.-params.fullDt/${CORPSE_DECAY_SECONDS});
+  for(var effectIndex=0u;effectIndex<params.effectCount;effectIndex++){
+    let effect=effects[effectIndex];
+    let kind=u32(max(0.,effect.flags.x)+.5);if(kind!=0u&&kind!=4u){continue;}
+    let d=max(0.,distance(corpse.body.xy,effect.posRadius.xy)-corpse.body.z);
+    mass=max(0.,mass-blastFalloff(d,effect.posRadius.z)*${CORPSE_BLAST_EROSION});
+  }
+  if(mass<${CORPSE_MIN_MASS}){mass=0.;}
+  corpse.life.z=mass;aftermath.deaths[i]=corpse;
+  let cell=cellFor(corpse.body.xy);
+  if(validCell(cell)&&mass>0.){atomicAdd(&cellHeads[corpseWord(cell)],u32(min(mass*${CORPSE_FIELD_SCALE},4294967040.)));}
+}
+
+fn corpseHeight(position:vec2f)->f32{
+  let grid=(position+vec2f(params.approach,0.))/params.cellSize-vec2f(.5);
+  let base=vec2i(floor(grid));let blend=fract(grid);var mass=0.;var weight=0.;
+  for(var y=0;y<=1;y++){for(var x=0;x<=1;x++){
+    let cell=base+vec2i(x,y);if(!validCell(cell)){continue;}
+    let w=select(1.-blend.x,blend.x,x==1)*select(1.-blend.y,blend.y,y==1);
+    mass+=w*f32(atomicLoad(&cellHeads[corpseWord(cell)]))/${CORPSE_FIELD_SCALE};weight+=w;
+  }}
+  return mass/max(.001,weight*params.cellSize*params.cellSize);
 }
 
 fn routeHash(index: u32, generation: f32, cell: vec2<i32>) -> u32 {
@@ -113,6 +160,35 @@ fn flowDirection(position: vec2<f32>, index: u32, generation: f32) -> vec2<f32> 
   return direct / max(length(direct), 0.0001);
 }
 
+fn obstacleRange(position:vec2f)->vec2u {
+ if(params.indexedObstacles==0u){return vec2u(0u,params.obstacleCount);}
+ let dimensions=vec2i(ceil(vec2f(params.worldWidth+params.approach,params.worldHeight)/8.));
+ let cell=clamp(vec2i(floor((position+vec2f(params.approach,0.))/8.)),vec2i(0),dimensions-1);
+ return vec2u(obstacles[params.obstacleCount+u32(cell.y*dimensions.x+cell.x)].rect.xy);
+}
+fn obstacleId(cursor:u32)->u32 {if(params.indexedObstacles==0u){return cursor;}return u32(obstacles[cursor].rect.x);}
+
+// Experimental particle/grid hybrid. Every live body contributes to the field;
+// individual contacts are bounded in dense neighborhoods. Fixed-point sums avoid
+// non-portable float atomics. Max 65,536 bodies and clamped velocities fit i32.
+fn fieldWord(plane:u32,cell:vec2i)->u32{return plane*params.gridWidth*params.gridHeight+cellIndex(cell);}
+fn neighborhoodCount(position:vec2f)->u32{
+ let center=cellFor(position);var count=0u;
+ for(var y=-1;y<=1;y++){for(var x=-1;x<=1;x++){let cell=center+vec2i(x,y);if(validCell(cell)){count+=atomicLoad(&cellHeads[fieldWord(1u,cell)]);}}}return count;
+}
+fn crowdField(position:vec2f)->vec3f{
+ let center=cellFor(position);var area=0.;var weight=0.;var velocity=vec2f(0.);var mass=0.;
+ for(var y=-1;y<=1;y++){for(var x=-1;x<=1;x++){
+  let cell=center+vec2i(x,y);if(!validCell(cell)){continue;}
+  let midpoint=(vec2f(cell)+.5)*params.cellSize-vec2f(params.approach,0.);
+  let w=max(0.,1.-distance(position,midpoint)/(params.cellSize*1.5));
+  area+=w*f32(atomicLoad(&cellHeads[fieldWord(2u,cell)]))/1024.;weight+=w;
+  let n=f32(atomicLoad(&cellHeads[fieldWord(1u,cell)]));mass+=w*n;
+  velocity+=w*vec2f(f32(bitcast<i32>(atomicLoad(&cellHeads[fieldWord(3u,cell)]))),f32(bitcast<i32>(atomicLoad(&cellHeads[fieldWord(4u,cell)]))))/256.;
+ }}return vec3f(area/max(.001,weight*params.cellSize*params.cellSize),velocity/max(1.,mass));
+}
+fn fieldPressure(position:vec2f)->f32{let density=crowdField(position).x;return min(200.,max(0.,params.pressureStiffness)*max(0.,density*density-1.));}
+
 fn boundaryPacking(position: vec2<f32>, radius: f32) -> f32 {
   var result = 0.0;
   let area = occupiedArea(radius);
@@ -121,7 +197,9 @@ fn boundaryPacking(position: vec2<f32>, radius: f32) -> f32 {
     let mirroredDistance = 2.0 * max(0.0, distances[side]);
     if (mirroredDistance < params.kernelRadius) { result += area * kernel(mirroredDistance); }
   }
-  for (var obstacleIndex = 0u; obstacleIndex < params.obstacleCount; obstacleIndex += 1u) {
+  let nearby=obstacleRange(position);
+  for (var candidate=0u;candidate<nearby.y;candidate++) {
+    let obstacleIndex=obstacleId(nearby.x+candidate);
     let rect = obstacles[obstacleIndex].rect;
     let nearest = clamp(position, rect.xy, rect.xy + rect.zw);
     let distance = length(position - nearest);
@@ -144,6 +222,12 @@ fn binParticles(@builtin(global_invocation_id) gid: vec3<u32>) {
   if (!validCell(cell)) { return; }
   let previous = atomicExchange(&cellHeads[cellIndex(cell)], index + 1u);
   nextParticle[index] = previous;
+  if(params.hybridCrowd!=0u){
+    atomicAdd(&cellHeads[fieldWord(1u,cell)],1u);
+    atomicAdd(&cellHeads[fieldWord(2u,cell)],u32(occupiedArea(safeRadius(particle.body.x))*1024.));
+    atomicAdd(&cellHeads[fieldWord(3u,cell)],bitcast<u32>(i32(clamp(particle.pos.z,-64.,64.)*256.)));
+    atomicAdd(&cellHeads[fieldWord(4u,cell)],bitcast<u32>(i32(clamp(particle.pos.w,-64.,64.)*256.)));
+  }
 }
 
 @compute @workgroup_size(128)
@@ -159,6 +243,13 @@ fn measureDensity(@builtin(global_invocation_id) gid: vec3<u32>) {
 
   var packing = boundaryPacking(particle.pos.xy, safeRadius(particle.body.x));
   let centerCell = cellFor(particle.pos.xy);
+  var bulk=false;
+  if(params.hybridCrowd!=0u){
+    let neighbors=neighborhoodCount(particle.pos.xy);let wasBulk=nextParticle[params.capacity+index]!=0u;
+    bulk=neighbors>=select(64u,48u,wasBulk);nextParticle[params.capacity+index]=select(0u,1u,bulk);
+  }
+  if(bulk){packing+=max(0.,crowdField(particle.pos.xy).x-occupiedArea(safeRadius(particle.body.x))/(params.cellSize*params.cellSize));}
+  else {
   for (var oy = -1; oy <= 1; oy += 1) {
     for (var ox = -1; ox <= 1; ox += 1) {
       let cell = centerCell + vec2<i32>(ox, oy);
@@ -178,6 +269,7 @@ fn measureDensity(@builtin(global_invocation_id) gid: vec3<u32>) {
     }
   }
 
+  }
   packing = clamp(packing, 0.0, 64.0);
   let pressure = min(200.0, max(0.0, params.pressureStiffness) * max(packing * packing - 1.0, 0.0));
   particles[index].state.x = packing;
@@ -186,7 +278,9 @@ fn measureDensity(@builtin(global_invocation_id) gid: vec3<u32>) {
   atomicMax(&counters[14], u32(pressure * 100.0));
   if (params.substepIndex == 0u) {
     let radius = safeRadius(particle.body.x);
-    for (var obstacleIndex = 0u; obstacleIndex < params.obstacleCount; obstacleIndex += 1u) {
+    let nearby=obstacleRange(particle.pos.xy);
+    for (var candidate=0u;candidate<nearby.y;candidate++) {
+      let obstacleIndex=obstacleId(nearby.x+candidate);
       let rect = obstacles[obstacleIndex].rect;
       let nearest = clamp(particle.pos.xy, rect.xy, rect.xy + rect.zw);
       if (distance(particle.pos.xy, nearest) <= radius + 0.18) {
@@ -255,16 +349,45 @@ fn computeMotion(@builtin(global_invocation_id) gid: vec3<u32>) {
   let radius = safeRadius(particle.body.x);
   let mass = safeMass(particle.body.y);
   let kind = u32(clamp(particle.state.z, 0.0, 5.0) + 0.5);
-  let desiredVelocity = flowDirection(position, index, particle.status.w) * enemySpeed(kind) * slowMultiplier(position, particle.status.x);
-  var acceleration = (desiredVelocity - velocity) * max(0.0, params.drive) * enemyDrive(kind) - velocity * 0.12;
+  let corpseDepth=corpseHeight(position);
+  let corpseSlow=max(.28,1./(1.+corpseDepth*${CORPSE_DRAG}));
+  let direction = flowDirection(position, index, particle.status.w);
+  let slow = slowMultiplier(position, particle.status.x)*corpseSlow;
+  let surge = pressureSurge(particle.state.y);
+  let baseSpeed = enemySpeedFor(kind,particle.body.w);
+  let desiredSpeed = baseSpeed * (1.0 + ${SURGE_SPEED_GAIN} * surge) * slow;
+  let desiredVelocity = direction * desiredSpeed;
+  let drive = max(0.0, params.drive) * enemyDriveFor(kind,particle.body.w);
+  var acceleration = (desiredVelocity - velocity) * drive - velocity * 0.12;
+  // Preserve only bounded forward overspeed. Steering and knockback still use
+  // normal drag; freezing immediately restores normal braking.
+  if (PRESSURE_SURGE && slow >= 0.999 && dot(direction,direction) > 0.99) {
+    let excess = clamp(dot(velocity,direction)-desiredSpeed,0.0,baseSpeed*${SURGE_SPEED_GAIN});
+    acceleration += direction * excess * max(0.0,drive-${SURGE_COAST_DRAG});
+  }
+  let releaseStrength = 0.055 * (1.0 + ${SURGE_RELEASE_GAIN} * surge);
+  if(corpseDepth>0.){
+    let h=params.cellSize*.5;
+    let slope=vec2f(corpseHeight(position+vec2f(h,0.))-corpseHeight(position-vec2f(h,0.)),corpseHeight(position+vec2f(0.,h))-corpseHeight(position-vec2f(0.,h)))/(2.*h);
+    acceleration-=slope*${CORPSE_SLOPE_FORCE}/mass;
+  }
   let centerCell = cellFor(position);
+  let bulk=params.hybridCrowd!=0u&&nextParticle[params.capacity+index]!=0u;
+  if(bulk){
+    let h=params.cellSize*.5;
+    let gradient=vec2f(fieldPressure(position+vec2f(h,0.))-fieldPressure(position-vec2f(h,0.)),fieldPressure(position+vec2f(0.,h))-fieldPressure(position-vec2f(0.,h)))/(2.*h);
+    acceleration-=gradient*releaseStrength/mass;
+    acceleration+=(crowdField(position).yz-velocity)*max(0.,params.viscosity)*.5/mass;
+  }
 
   for (var oy = -1; oy <= 1; oy += 1) {
     for (var ox = -1; ox <= 1; ox += 1) {
       let cell = centerCell + vec2<i32>(ox, oy);
       if (!validCell(cell)) { continue; }
       var link = atomicLoad(&cellHeads[cellIndex(cell)]);
+      var visits=0u;
       while (link != 0u) {
+        if(bulk&&visits>=8u){break;}visits++;
         let otherIndex = link - 1u;
         if (otherIndex != index) {
           let other = particles[otherIndex];
@@ -273,10 +396,11 @@ fn computeMotion(@builtin(global_invocation_id) gid: vec3<u32>) {
             let distance = length(offset);
             if (distance > 0.0001) {
               let normal = offset / distance;
-              if (distance < params.kernelRadius) {
+              if (!bulk && distance < params.kernelRadius) {
                 let q = 1.0 - distance / params.kernelRadius;
                 let otherArea = occupiedArea(safeRadius(other.body.x));
-                acceleration += normal * (particle.state.y + other.state.y) * otherArea * q * 0.055 / mass;
+                let pairRelease = 0.055 * (1.0 + ${SURGE_RELEASE_GAIN} * pressureSurge((particle.state.y+other.state.y)*0.5));
+                acceleration += normal * (particle.state.y + other.state.y) * otherArea * q * pairRelease / mass;
                 acceleration += (other.pos.zw - velocity) * max(0.0, params.viscosity) * otherArea * kernel(distance) / mass;
               }
               let contactDistance = radius + safeRadius(other.body.x);
@@ -338,8 +462,8 @@ fn sweepAabb(start: vec2<f32>, finish: vec2<f32>, minimum: vec2<f32>, maximum: v
 }
 
 fn resolveObstacle(start: vec2<f32>, finish: vec2<f32>, velocity: vec2<f32>, radius: f32, rect: vec4<f32>) -> vec4<f32> {
-  let minimum = rect.xy - vec2<f32>(radius);
-  let maximum = rect.xy + rect.zw + vec2<f32>(radius);
+  let minimum = rect.xy - vec2<f32>(radius + ${OBSTACLE_STANDOFF});
+  let maximum = rect.xy + rect.zw + vec2<f32>(radius + ${OBSTACLE_STANDOFF});
   var resultPosition = finish;
   var resultVelocity = velocity;
 
@@ -415,7 +539,17 @@ fn integrateParticles(@builtin(global_invocation_id) gid: vec3<u32>) {
   let start = position;
   position += displacement;
 
-  for (var obstacleIndex = 0u; obstacleIndex < params.obstacleCount; obstacleIndex += 1u) {
+  let nearby=obstacleRange(start);
+  // Embedded starts can be projected farther than a normal step. Preserve the
+  // reference solver's ordered full scan for that exceptional recovery path.
+  var embedded=false;
+  for(var candidate=0u;candidate<nearby.y;candidate++){
+    let rect=obstacles[obstacleId(nearby.x+candidate)].rect;
+    if(all(start>rect.xy-vec2f(radius+${OBSTACLE_STANDOFF}))&&all(start<rect.xy+rect.zw+vec2f(radius+${OBSTACLE_STANDOFF}))){embedded=true;break;}
+  }
+  let candidates=select(nearby.y,params.obstacleCount,embedded);
+  for (var candidate=0u;candidate<candidates;candidate++) {
+    var obstacleIndex=candidate;if(!embedded){obstacleIndex=obstacleId(nearby.x+candidate);}
     let resolved = resolveObstacle(start, position, velocity, radius, obstacles[obstacleIndex].rect);
     position = resolved.xy;
     velocity = resolved.zw;
@@ -430,16 +564,18 @@ fn integrateParticles(@builtin(global_invocation_id) gid: vec3<u32>) {
   // pressure remains fully physical (separation, steering, and compression),
   // but open-field zombie-on-zombie packing cannot kill the swarm.
   var obstacleContact = false;
-  for (var obstacleIndex = 0u; obstacleIndex < params.obstacleCount; obstacleIndex += 1u) {
+  let contacts=obstacleRange(position);
+  for (var candidate=0u;candidate<contacts.y;candidate++) {
+    let obstacleIndex=obstacleId(contacts.x+candidate);
     let rect = obstacles[obstacleIndex].rect;
     let nearest = clamp(position, rect.xy, rect.xy + rect.zw);
-    if (distance(position, nearest) <= radius + 0.2) { obstacleContact = true; }
+    if (distance(position, nearest) <= radius + ${OBSTACLE_STANDOFF}) { obstacleContact = true; }
   }
 
   particles[index].pos = vec4<f32>(position, velocity);
   particles[index].status.x = slowDuration(position, previousSlow);
   let kind = u32(clamp(particle.state.z, 0.0, 5.0) + 0.5);
-  let damageStart = enemyPressureLimit(kind) * max(0.0, params.damagePressure) / 24.0;
+  let damageStart = enemyPressureLimitFor(kind,particle.body.w) * max(0.0, params.damagePressure) / 24.0;
   let damageEnd = damageStart + max(0.001, params.crushPressure - params.damagePressure);
   let ramp = clamp((max(0.0, particle.state.y) - damageStart) / (damageEnd - damageStart), 0.0, 1.0);
   let smoothRamp = ramp * ramp * (3.0 - 2.0 * ramp);

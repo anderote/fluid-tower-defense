@@ -1,8 +1,9 @@
 import {DAM_ID} from '../content/dam.ts';
-import {compileTower, COMMAND_UPGRADES, DEFAULT_MAP, MAX_TOWER_LEVEL, MAX_VETERANCY, TOWERS, towerUpgradeCost, veterancyLevel} from '../content/index.ts';
-import {crusherPassageIssue, canPlace, hasSpawnRoute, mapWithTurretObstacles, resolvePlacement} from '../navigation/index.ts';
-import {commandUpgradeAvailability} from './research.ts';
-import type {Effect, BonusChoice, StatUpgrade, Rect, RunModel, Settlement, SpawnBatch, Tower, TowerKind, TowerUnlock, Vec2, WorldMap} from '../contracts/index.ts';
+import {COMMAND_UPGRADES, compileTower, DEFAULT_MAP, MAX_TOWER_LEVEL, MAX_VETERANCY, TOWERS, towerUpgradeCost, veterancyLevel} from '../content/index.ts';
+import {crusherPassageIssue,hasSpawnRoute,canPlace, mapWithTurretObstacles, resolvePlacement} from '../navigation/index.ts';
+import {commandUpgradeAvailability,researchCost,researchRank} from './research.ts';
+import {freshInfantry,validInfantry,infantryMap} from '../infantry/model.ts';
+import type {Effect,BonusChoice, StatUpgrade, Rect, RunModel, Settlement, SpawnBatch, Tower, TowerKind, TowerUnlock, Vec2, WorldMap} from '../contracts/index.ts';
 
 export type ActionResult = {ok:true} | {ok:false; reason:string};
 export type PlaceResult = ActionResult & {tower?:Tower};
@@ -10,19 +11,15 @@ export type Wave = {spawns:readonly SpawnBatch[]; payment:number; boss:boolean; 
 type Applied = Pick<Settlement,'kills'|'crushKills'|'leaks'|'earned'> & {tick:number;towerKills:number[]};
 type SavedRun = {version:1; contentVersion:string; mapId?:string; model:RunModel; epoch:number; applied:Applied};
 
-export const CONTENT_VERSION = 'pressure-front-7';
+export const CONTENT_VERSION = 'pressure-front-8';
 const SAVE_KEY = 'pressure-front.run.v1';
 const MAX_TOWERS = 64;
 export const WAVES_PER_LEVEL=10;
 export const STARTING_METAL=3_000;
+/** Flat redeployment charge; upgrades and accumulated investment stay with the tower. */
+export const TOWER_MOVE_COST=25;
 const STARTER_TOWERS:readonly TowerKind[]=Object.freeze(Object.keys(TOWERS) as TowerKind[]);
 const TOWER_UNLOCK_COSTS:Readonly<Partial<Record<TowerKind,number>>>=Object.freeze({mortar:3_000,cryo:4_000,tesla:6_000,incinerator:7_500,rocket:9_000,railgun:12_000});
-const STAT_DEFS=Object.freeze([
-  {id:'damage',name:'Ballistics Doctrine',description:'+4% tower damage per rank.',cost:75,maxRank:10},
-  {id:'rate',name:'Rapid Cycling',description:'+3.5% fire rate per rank.',cost:85,maxRank:10},
-  {id:'range',name:'Targeting Uplink',description:'+3% tower range per rank.',cost:70,maxRank:10},
-  {id:'force',name:'Hydraulic Overdrive',description:'+5% push force per rank.',cost:80,maxRank:10},
-] as const);
 const BONUSES: readonly BonusChoice[] = [
   {id:'hydraulic-advantage',name:'Hydraulic Advantage',description:'Repulsors push harder but pulse a little slower.'},
   {id:'cold-field',name:'Cold Field',description:'Cryo emitters cover a wider field.'},
@@ -34,7 +31,7 @@ const emptyApplied = ():Applied => ({kills:0,crushKills:0,leaks:0,earned:0,tick:
 const isFiniteInteger = (value:unknown):value is number => typeof value === 'number' && Number.isFinite(value) && Number.isInteger(value);
 const isNonNegative = (value:unknown):value is number => typeof value === 'number' && Number.isFinite(value) && value >= 0;
 const isTowerKind = (value:unknown):value is TowerKind => typeof value === 'string' && Object.hasOwn(TOWERS,value);
-const copy = (model:RunModel):RunModel => ({...model,towers:model.towers.map(t=>({...t})),pending:model.pending.map(b=>({...b})),bonusChoices:model.bonusChoices.map(b=>({...b})),bonuses:[...model.bonuses],commandUpgrades:[...model.commandUpgrades],unlockedTowers:[...model.unlockedTowers],statRanks:{...model.statRanks}});
+const copy = (model:RunModel):RunModel => ({...model,towers:model.towers.map(t=>({...t,...(t.groundTarget?{groundTarget:{...t.groundTarget}}:{})})),pending:model.pending.map(b=>({...b})),bonusChoices:model.bonusChoices.map(b=>({...b})),bonuses:[...model.bonuses],commandUpgrades:[...model.commandUpgrades],unlockedTowers:[...model.unlockedTowers],statRanks:{...model.statRanks}});
 const fresh = ():RunModel => ({phase:'preparation',metal:STARTING_METAL,salvageCredit:0,baseHealth:20,level:1,wave:0,waveCount:WAVES_PER_LEVEL,towers:[],selected:null,pending:[],bonusChoices:[],bonuses:[],commandUpgrades:[],unlockedTowers:[...STARTER_TOWERS],statRanks:{}});
 
 const PHASE_WEIGHTS:readonly (readonly [SpawnBatch['kind'],number])[][]=[
@@ -101,6 +98,7 @@ function validTower(map:WorldMap, tower:unknown, prior:readonly Tower[], mounts:
   if(value.kills!==undefined&&(!isFiniteInteger(value.kills)||value.kills<0))return false;
   if(value.veterancy!==undefined&&(!isFiniteInteger(value.veterancy)||value.veterancy<0||value.veterancy>MAX_VETERANCY))return false;
   if(value.veterancyXp!==undefined&&!isNonNegative(value.veterancyXp))return false;
+  if(value.groundTarget!==undefined&&(!value.groundTarget||!Number.isFinite(value.groundTarget.x)||!Number.isFinite(value.groundTarget.y)||value.groundTarget.x<0||value.groundTarget.y<0||value.groundTarget.x>map.width||value.groundTarget.y>map.height))return false;
   return canPlace(map,prior,value,1.25,mounts);
 }
 function validApplied(value:unknown): value is Applied {
@@ -118,6 +116,7 @@ export class RunController {
   private spawnElapsed=0;
   private spawnAllocation=0;
   private spawnMultiplier=1;
+  private spawnPeakRate=2_400;
   private waveStartBaseHealth=20;
   private map:WorldMap;
   private buildMounts:Rect[]=[];
@@ -132,12 +131,14 @@ export class RunController {
   get isBossWave():boolean { return this.model.wave>0&&this.model.wave%WAVES_PER_LEVEL===0; }
   setSpawnMultiplier(value:number):number { this.spawnMultiplier=Math.max(1,Math.min(40,Math.round(value)||1)); return this.spawnMultiplier; }
 
-
   statUpgrades():StatUpgrade[] {
-    return STAT_DEFS.map(def=>({...def,rank:this.model.statRanks[def.id]??0}));
+    return [];
   }
   statModifiers():readonly string[] {
-    return STAT_DEFS.flatMap(def=>Array(this.model.statRanks[def.id]??0).fill(def.id));
+    return [];
+  }
+  researchModifiers():readonly string[] {
+    return this.model.commandUpgrades;
   }
   isTowerUnlocked(kind:TowerKind):boolean { return this.model.unlockedTowers.includes(kind); }
   towerUnlocks():TowerUnlock[] {
@@ -154,14 +155,7 @@ export class RunController {
     return {ok:true};
   }
   buyStatUpgrade(id:string):ActionResult {
-    const def=STAT_DEFS.find(candidate=>candidate.id===id);
-    if (!def) return {ok:false,reason:'Unknown stat upgrade.'};
-    const rank=this.model.statRanks[id]??0;
-    if (rank>=def.maxRank) return {ok:false,reason:'This stat upgrade is fully researched.'};
-    const result=this.spendMetal(Math.round(def.cost*(1+rank*.55)));
-    if (!result.ok) return result;
-    this.model.statRanks[id]=rank+1;
-    return {ok:true};
+    return {ok:false,reason:'Research is organized through the technology tree.'};
   }
 
   place(kind:TowerKind, position:Vec2):PlaceResult {
@@ -171,11 +165,12 @@ export class RunController {
     if (this.model.towers.length>=MAX_TOWERS) return {ok:false,reason:'The tower limit has been reached.'};
     const def=TOWERS[kind];
     if (this.model.metal<def.cost) return {ok:false,reason:'Insufficient Metal.'};
-    const placement={...(kind==='crusher'?position:resolvePlacement(this.map,position,1.25,this.buildMounts)),kind};
-    if (!canPlace(this.map,this.model.towers,placement,1.25,this.buildMounts)) return {ok:false,reason:'That position is blocked or too close to another tower.'};
-    const passageIssue=kind==='crusher'?crusherPassageIssue(this.map,this.model.towers,placement):undefined;
+    const buildMap=infantryMap(this.map,this.model.infantry??freshInfantry());
+    const placement={...(kind==='crusher'?position:resolvePlacement(buildMap,position,1.25,this.buildMounts)),kind};
+    if (!canPlace(buildMap,this.model.towers,placement,1.25,this.buildMounts)) return {ok:false,reason:'That position is blocked or too close to another tower.'};
+    const passageIssue=kind==='crusher'?crusherPassageIssue(buildMap,this.model.towers,placement):undefined;
     if(passageIssue)return {ok:false,reason:passageIssue};
-    if (!hasSpawnRoute(mapWithTurretObstacles(this.map,[...this.model.towers,placement]))) return {ok:false,reason:'That turret would seal the zombie route to the goal.'};
+    if (!hasSpawnRoute(mapWithTurretObstacles(buildMap,[...this.model.towers,placement]))) return {ok:false,reason:'That turret would seal the zombie route to the goal.'};
     const tower:Tower={id:this.nextTowerId++,kind,x:placement.x,y:placement.y,level:0,branch:-1,angle:0,cooldown:0,spent:def.cost,kills:0,veterancy:0,veterancyXp:0};
     this.model.metal-=def.cost; this.model.towers.push(tower); this.model.selected=null;
     return {ok:true,tower};
@@ -186,6 +181,31 @@ export class RunController {
     if (index<0) return {ok:false,reason:'Tower not found.'};
     const [tower]=this.model.towers.splice(index,1); this.model.metal+=Math.floor(tower.spent*.7);
     if (this.model.selected===id) this.model.selected=null;
+    return {ok:true};
+  }
+  move(id:number, position:Vec2):ActionResult {
+    if (this.model.phase==='won' || this.model.phase==='lost') return {ok:false,reason:'The run is over.'};
+    const tower=this.model.towers.find(candidate=>candidate.id===id);
+    if (!tower) return {ok:false,reason:'Tower not found.'};
+    const buildMap=infantryMap(this.map,this.model.infantry??freshInfantry());
+    const placement=resolvePlacement(buildMap,position,1.25,this.buildMounts);
+    if (placement.x===tower.x && placement.y===tower.y) return {ok:false,reason:'Choose a new tower location.'};
+    const otherTowers=this.model.towers.filter(candidate=>candidate.id!==id);
+    if (!canPlace(buildMap,otherTowers,placement,1.25,this.buildMounts)) return {ok:false,reason:'That position is blocked or too close to another tower.'};
+    if (this.model.metal<TOWER_MOVE_COST) return {ok:false,reason:`Requires ${TOWER_MOVE_COST} Metal.`};
+    this.model.metal-=TOWER_MOVE_COST;tower.x=placement.x;tower.y=placement.y;delete tower.groundTarget;
+    return {ok:true};
+  }
+  setGroundTarget(id:number, target:Vec2|null):ActionResult {
+    if (this.model.phase==='won' || this.model.phase==='lost') return {ok:false,reason:'The run is over.'};
+    const tower=this.model.towers.find(candidate=>candidate.id===id);
+    if (!tower) return {ok:false,reason:'Tower not found.'};
+    if (target===null){delete tower.groundTarget;return {ok:true};}
+    if (!Number.isFinite(target.x)||!Number.isFinite(target.y)||target.x<0||target.y<0||target.x>this.map.width||target.y>this.map.height) return {ok:false,reason:'Choose a point inside the battlefield.'};
+    const range=compileTower(tower,this.model.bonuses,this.model.commandUpgrades,this.statModifiers()).range;
+    if (Math.hypot(target.x-tower.x,target.y-tower.y)>range) return {ok:false,reason:'That ground target is outside this turret’s range.'};
+    tower.groundTarget={x:target.x,y:target.y};
+    tower.angle=(Math.atan2(target.y-tower.y,target.x-tower.x)+Math.PI*2)%(Math.PI*2);
     return {ok:true};
   }
   upgrade(id:number, branch:number):ActionResult {
@@ -222,26 +242,37 @@ export class RunController {
   startWave():ActionResult {
     if (this.model.phase!=='preparation') return {ok:false,reason:'The current wave is not ready to start.'};
     if(this.model.bonusChoices.length)return {ok:false,reason:'Choose a command boon before starting the wave.'};
-    const wave=waveFor(this.model.level,this.model.wave+1,this.map.id); this.waveStartBaseHealth=this.model.baseHealth;for(const tower of this.model.towers)if(tower.kind==='crusher'){tower.cooldown=0;tower.crusherAnimation=0;}this.model.wave++; this.model.pending=wave.spawns.map(batch=>({...batch,credit:0})); this.model.phase='combat'; this.live=0;this.spawnElapsed=0;this.spawnAllocation=0;
+    const wave=waveFor(this.model.level,this.model.wave+1,this.map.id); this.waveStartBaseHealth=this.model.baseHealth;for(const tower of this.model.towers)if(tower.kind==='crusher'){tower.cooldown=0;tower.crusherAnimation=0;}this.model.wave++; this.model.pending=wave.spawns.map(batch=>({...batch,credit:0})); this.model.phase='combat'; this.live=0;this.spawnElapsed=0;this.spawnAllocation=0;this.spawnPeakRate=wave.peakRate;
     return {ok:true};
   }
   restartWave():ActionResult {
     if(this.model.wave<1||!['combat','settling','lost'].includes(this.model.phase))return {ok:false,reason:'There is no active wave to restart.'};
     const wave=waveFor(this.model.level,this.model.wave,this.map.id);this.model.pending=wave.spawns.map(batch=>({...batch,credit:0}));this.model.phase='combat';this.model.baseHealth=this.waveStartBaseHealth;this.model.selected=null;
-    this.live=0;this.spawnElapsed=0;this.spawnAllocation=0;this.runEpoch++;this.applied=emptyApplied();
+    this.live=0;this.spawnElapsed=0;this.spawnAllocation=0;this.spawnPeakRate=wave.peakRate;this.runEpoch++;this.applied=emptyApplied();
     return {ok:true};
   }
   takeSpawns(capacity:number, seconds=0):SpawnBatch[] {
     if (this.model.phase!=='combat' || !isFiniteInteger(capacity) || capacity<0) return [];
-    const previous=this.spawnElapsed;this.spawnElapsed+=Math.max(0,seconds);
+    const previous=this.spawnElapsed;this.spawnElapsed+=Math.max(0,seconds)*this.spawnMultiplier;
     const accepted:SpawnBatch[]=[];
     const earned=this.model.pending.map(batch=>{
-      const active=Math.max(0,this.spawnElapsed-Math.max(previous,batch.start??0));
+      const start=batch.start??0,duration=batch.duration;
+      let demand=0;
+      if(duration===undefined){
+        demand=Math.max(0,this.spawnElapsed-Math.max(previous,start))*(batch.rate??1);
+      }else{
+        const from=Math.max(0,Math.min(duration,previous-start)),to=Math.max(0,Math.min(duration,this.spawnElapsed-start));
+        const first=batch.rate??1,last=batch.endRate??first,slope=(last-first)/duration;
+        demand=first*(to-from)+slope*(to*to-from*from)/2;
+        const tail=Math.max(0,this.spawnElapsed-start-duration)-Math.max(0,previous-start-duration);
+        demand+=tail*(first+last)/2;
+      }
       // Credit is bounded: a blocked entrance cannot accumulate a catch-up explosion.
-      batch.credit=seconds===0?batch.count:Math.min((batch.credit??0)+active*(batch.rate??1)*this.spawnMultiplier,Math.max(1,(batch.rate??1)*this.spawnMultiplier*.5));
+      const creditRate=Math.max(batch.rate??1,batch.endRate??batch.rate??1);
+      batch.credit=seconds===0?batch.count:Math.min((batch.credit??0)+demand,Math.max(1,creditRate*this.spawnMultiplier*.5));
       return Math.min(batch.count,Math.floor(batch.credit));
     });
-    const total=earned.reduce((sum,value)=>sum+value,0), budget=seconds===0?total:Math.min(capacity,total);
+    const total=earned.reduce((sum,value)=>sum+value,0), budget=seconds===0?total:Math.min(capacity,total,Math.max(1,Math.ceil(this.spawnPeakRate*this.spawnMultiplier*.5)));
     let allocated=0,cumulative=0;
     const phase=budget>0?(this.spawnAllocation++*.61803398875)%1:0;
     for(let index=0;index<this.model.pending.length;index++){
@@ -263,10 +294,11 @@ export class RunController {
     const priorTowerKills=this.applied.towerKills;
     this.applied={kills:settlement.kills,crushKills:settlement.crushKills,leaks:settlement.leaks,earned:settlement.earned,tick:settlement.tick,towerKills:priorTowerKills};
     this.model.metal+=earned;
-    if(this.model.commandUpgrades.includes('salvage-magnets')){
-      // Four base Metal earn one bonus Metal, independent of readback batch size.
-      const credit=(this.model.salvageCredit??0)+earned;
-      this.model.metal+=Math.floor(credit/4);this.model.salvageCredit=credit%4;
+    const salvageRank=researchRank(this.model.commandUpgrades,'salvage-magnets');
+    if(salvageRank){
+      // Fractional credit keeps stacking salvage ranks independent of readback batch size.
+      const credit=(this.model.salvageCredit??0)+earned*salvageRank*0.015;
+      this.model.metal+=Math.floor(credit);this.model.salvageCredit=credit%1;
     }
     this.model.baseHealth=Math.max(0,this.model.baseHealth-leaks); this.live=settlement.live;
     const reported=settlement.towerKills??[];
@@ -295,6 +327,7 @@ export class RunController {
     const nextLevel=Math.floor(this.model.wave/WAVES_PER_LEVEL)+1;
     if(nextMap&&(nextLevel===this.model.level||!isFiniteInteger(structureRefund)||structureRefund<0))return {ok:false,reason:'Relocation is only available at the next level boundary.'};
     if(nextMap){
+      this.model.metal+=(this.model.infantry?.buildings??[]).reduce((sum,b)=>sum+b.spent,0);this.model.infantry=freshInfantry();
       this.model.metal+=this.model.towers.reduce((sum,tower)=>sum+tower.spent,0)+structureRefund;
       this.model.towers=[];this.model.selected=null;this.nextTowerId=1;this.map=nextMap;this.buildMounts=[];
       this.runEpoch++;this.applied=emptyApplied();this.live=0;
@@ -314,13 +347,13 @@ export class RunController {
     if(!availability.ok)return availability;
     const upgrade=COMMAND_UPGRADES.find(candidate=>candidate.id===id);
     if (!upgrade) return {ok:false,reason:'Unknown command upgrade.'};
-    this.model.metal-=upgrade.cost;this.model.commandUpgrades.push(id);
-    if(id==='bulkhead-plating') this.model.baseHealth=Math.min(30,this.model.baseHealth+5);
+    const rank=researchRank(this.model.commandUpgrades,id);this.model.metal-=researchCost(upgrade,rank);this.model.commandUpgrades.push(id);
+    if(id==='fortified-core') this.model.baseHealth=Math.min(100,this.model.baseHealth+1);
     return {ok:true};
   }
   spendMetal(cost:number):ActionResult { if(this.model.phase==='won'||this.model.phase==='lost')return {ok:false,reason:'The run is over.'};if(this.model.metal<cost)return {ok:false,reason:'Insufficient Metal.'};this.model.metal-=cost;return {ok:true}; }
   refundMetal(amount:number):void { this.model.metal+=Math.max(0,Math.floor(amount)); }
-  reset(level=1):void { Object.assign(this.model,fresh(),{level}); this.nextTowerId=1; this.runEpoch++; this.applied=emptyApplied(); this.live=0;this.waveStartBaseHealth=this.model.baseHealth; }
+  reset(level=1):void { Object.assign(this.model,fresh(),{level,infantry:freshInfantry()}); this.nextTowerId=1; this.runEpoch++; this.applied=emptyApplied(); this.live=0;this.waveStartBaseHealth=this.model.baseHealth; }
   clearSave():void { try { if(typeof window!=='undefined')window.localStorage.removeItem(SAVE_KEY); } catch {/* Persistence is optional. */} }
   resetTowerAttribution():void { this.applied.towerKills=Array(MAX_TOWERS).fill(0); }
   setMap(map:WorldMap):void { this.map=map; }
@@ -350,7 +383,7 @@ export class RunController {
         saved.contentVersion=CONTENT_VERSION;
       }
       if (!this.validSave(saved,context?.map,context?.buildMounts)) return {ok:false,reason:'Invalid saved run.'};
-      const next=copy(saved.model);next.salvageCredit??=0;
+      const next=copy(saved.model);next.salvageCredit??=0;next.infantry=structuredClone(saved.model.infantry??freshInfantry());
       if(context){this.setMap(context.map);this.setBuildMounts(context.buildMounts);}
       Object.assign(this.model,next); this.nextTowerId=Math.max(0,...next.towers.map(t=>t.id))+1;
       this.runEpoch=Math.max(this.runEpoch+1,saved.epoch+1); this.applied=emptyApplied(); this.live=0;this.waveStartBaseHealth=this.model.baseHealth;
@@ -363,17 +396,17 @@ export class RunController {
   private validSave(value:unknown,map=this.map,mounts:readonly Rect[]=this.buildMounts):value is SavedRun {
     if (!value || typeof value!=='object') return false;
     const saved=value as SavedRun, model=saved.model;
-    if (saved.version!==1 || saved.contentVersion!==CONTENT_VERSION || (saved.mapId!==map.id && !(saved.mapId===undefined && map.id===DEFAULT_MAP.id)) || !isFiniteInteger(saved.epoch) || saved.epoch<0 || !validApplied(saved.applied) || !model || typeof model!=='object' || !['preparation','checkpoint'].includes(model.phase) || !isFiniteInteger(model.metal) || model.metal<0 || !isFiniteInteger(model.baseHealth) || model.baseHealth<0 || model.baseHealth>30 || !isFiniteInteger(model.level) || model.level<1 || !isFiniteInteger(model.wave) || model.wave<0 || model.waveCount!==WAVES_PER_LEVEL || !Array.isArray(model.towers) || model.towers.length>MAX_TOWERS || !Array.isArray(model.pending) || model.pending.length!==0 || !Array.isArray(model.bonuses) || !Array.isArray(model.commandUpgrades) || !Array.isArray(model.bonusChoices) || model.bonusChoices.some(choice=>!BONUSES.some(known=>choice.id===known.id))) return false;
-    if(model.salvageCredit!==undefined&&(!isFiniteInteger(model.salvageCredit)||model.salvageCredit<0||model.salvageCredit>3))return false;
+    if (saved.version!==1 || saved.contentVersion!==CONTENT_VERSION || (saved.mapId!==map.id && !(saved.mapId===undefined && map.id===DEFAULT_MAP.id)) || !isFiniteInteger(saved.epoch) || saved.epoch<0 || !validApplied(saved.applied) || !model || typeof model!=='object' || !['preparation','checkpoint'].includes(model.phase) || !isFiniteInteger(model.metal) || model.metal<0 || !isFiniteInteger(model.baseHealth) || model.baseHealth<0 || model.baseHealth>100 || !isFiniteInteger(model.level) || model.level<1 || !isFiniteInteger(model.wave) || model.wave<0 || model.waveCount!==WAVES_PER_LEVEL || !Array.isArray(model.towers) || model.towers.length>MAX_TOWERS || !Array.isArray(model.pending) || model.pending.length!==0 || !Array.isArray(model.bonuses) || !Array.isArray(model.commandUpgrades) || !Array.isArray(model.bonusChoices) || model.bonusChoices.some(choice=>!BONUSES.some(known=>choice.id===known.id))) return false;
+    if(model.salvageCredit!==undefined&&(!Number.isFinite(model.salvageCredit)||model.salvageCredit<0||model.salvageCredit>=1))return false;
     if (!Array.isArray(model.unlockedTowers) || !STARTER_TOWERS.every(kind=>model.unlockedTowers.includes(kind)) || model.unlockedTowers.some((kind,index)=>!isTowerKind(kind)||model.unlockedTowers.indexOf(kind)!==index)) return false;
     if (!model.statRanks || typeof model.statRanks!=='object' || Array.isArray(model.statRanks) || Object.entries(model.statRanks).some(([id,rank])=>{
-      const definition=STAT_DEFS.find(def=>def.id===id);
-      return !definition || !isFiniteInteger(rank) || rank<0 || rank>definition.maxRank;
+      return !isFiniteInteger(rank) || rank!==0;
     })) return false;
     const towers:Tower[]=[];
+    if(model.infantry!==undefined&&!validInfantry(model.infantry,mapWithTurretObstacles(map,model.towers)))return false;
     for (const tower of model.towers) { if (!validTower(map,tower,towers,mounts) || !model.unlockedTowers.includes(tower.kind)) return false; towers.push(tower); }
     if (model.selected!==null && (!isFiniteInteger(model.selected) || !towers.some(tower=>tower.id===model.selected))) return false;
-    return model.bonuses.every((bonus,index)=>typeof bonus==='string' && BONUSES.some(known=>known.id===bonus) && model.bonuses.indexOf(bonus)===index) && model.commandUpgrades.every((upgrade,index)=>typeof upgrade==='string' && COMMAND_UPGRADES.some(known=>known.id===upgrade) && model.commandUpgrades.indexOf(upgrade)===index);
+    return model.bonuses.every((bonus,index)=>typeof bonus==='string' && BONUSES.some(known=>known.id===bonus) && model.bonuses.indexOf(bonus)===index) && model.commandUpgrades.every(upgrade=>typeof upgrade==='string' && COMMAND_UPGRADES.some(known=>known.id===upgrade)) && COMMAND_UPGRADES.every(upgrade=>researchRank(model.commandUpgrades,upgrade.id)<=(upgrade.maxRank??1));
   }
 }
 export const createRun=(initialMap:WorldMap=DEFAULT_MAP):RunController=>new RunController(initialMap);

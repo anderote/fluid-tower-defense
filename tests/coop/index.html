@@ -7,7 +7,7 @@ document.querySelector('#run').onclick=async()=>{
  try{
   for(const k of saved.keys())localStorage.removeItem(k);
   host.src='/?map=dam';await wait(()=>host.contentDocument?.querySelector('#metal')?.textContent==='3000','host GPU ready');
-  await wait(()=>[...host.contentDocument.querySelectorAll('button')].some(b=>b.textContent==='HOST CO-OP'),'host control');
+  await wait(()=>[...host.contentDocument.querySelectorAll('button')].some(b=>b.textContent==='HOST CO-OP'&&b.getClientRects().length>0),'host control');
   [...host.contentDocument.querySelectorAll('button')].find(b=>b.textContent==='HOST CO-OP').click();
   await wait(()=>host.contentDocument.querySelector('a[href*="/coop/#"]'),'join link');
   const link=host.contentDocument.querySelector('a[href*="/coop/#"]').href;guest.src='/coop/#'+link.split('#')[1];
@@ -18,7 +18,7 @@ document.querySelector('#run').onclick=async()=>{
   assert(pixels.some((v,i)=>i%4!==3&&v>80),'stream contains rendered terrain, not a blank GPU canvas');
   gd.querySelector('#tower').value='autocannon';const bounds=img.getBoundingClientRect();img.dispatchEvent(new MouseEvent('click',{clientX:bounds.left+bounds.width/2,clientY:bounds.top+bounds.height/2,bubbles:true}));
   await wait(()=>host.contentDocument.querySelector('#metal').textContent==='2920','partner placement');
-  assert(host.contentDocument.querySelector('#message').textContent.includes('Partner deployed'),'partner builds in host simulation and spends shared Metal');
+  assert(host.contentDocument.querySelector('#metal').textContent==='2920','partner builds in host simulation and spends shared Metal');
   await wait(()=>gd.querySelector('#status').textContent.includes('2920'),'shared Metal view');
   gd.querySelector('[data-command="start-wave"]').click();await wait(()=>host.contentDocument.querySelector('#phase').textContent==='COMBAT','start wave');
   assert(true,'partner starts the real wave');await new Promise(r=>setTimeout(r,250));

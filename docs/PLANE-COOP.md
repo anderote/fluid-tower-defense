@@ -31,11 +31,11 @@ When ready to lose the host's internet connection:
 6. **Start/restart the game server after the hotspot is active**, so it discovers the new address:
 
    ```sh
-   npm run play:lan
+   PORT=5175 npm run play:lan
    ```
 
-   If an old server is running in a terminal, stop it with Control-C first. If port 5173 is busy and you cannot find the old terminal, use `PORT=5174 npm run play:lan` and open `http://127.0.0.1:5174/`; this different port has separate browser saves. Do not kill every Node process.
-7. Host opens **http://127.0.0.1:5173/** in Chrome (or a working WebGPU browser), clicks **HOST CO-OP**, and gives the complete displayed link to the partner. Use the actual port if changed. Keep this game visible and the host Mac awake.
+   Port 5173 belongs to the stable published game; leave that service alone. Run this separate co-op session on 5175. If an older co-op server on 5175 is running in your terminal, stop only that instance with Control-C first. This port has separate browser saves. Do not kill every Node process.
+7. Host opens **http://127.0.0.1:5175/** in Chrome (or a working WebGPU browser), clicks **HOST CO-OP**, and gives the complete displayed link to the partner. Use the actual port if changed. Keep this game visible and the host Mac awake.
 
 The hotspot password controls joining Wi-Fi. The long code at the end of the game link controls joining the shared defense. Both are needed. The game is local HTTP, so use a trusted local network.
 
@@ -64,7 +64,7 @@ If the page will not open, verify that both Macs are on the host's network, the 
    ```
 
    This removes only `10.10.10.1` from `lo0`, disables only `Plane Co-op Local`, and preserves/restores `127.0.0.1`. The disabled service entry may remain because macOS refuses to remove the only network service on an interface. Do not delete system configuration plists or remove all loopback aliases to hide it. Running `prepare` again reuses it.
-5. Stop the LAN game server with Control-C when finished, or restart with `npm run play` for localhost-only solo play.
+5. Stop the LAN game server with Control-C when finished, or use the existing stable solo game at `http://127.0.0.1:5173/`.
 
 Emergency localhost repair (only if `ifconfig lo0` no longer shows `127.0.0.1`):
 
@@ -86,7 +86,7 @@ Run `npm run test:hotspot` for simulated macOS-command tests of setup, repeated 
 - Never run broad third-party cleanup scripts, edit SystemConfiguration plists, remove unrelated network services/aliases, or disable the firewall to make this work.
 - For recovery, check whether sharing is already OFF and internet/localhost already work before changing anything. Do not disconnect a working replacement connection merely to restore a particular SSID.
 - The partner needs only the Wi-Fi password and full join URL. Do not install dependencies or run host setup on the partner's Mac.
-- Restart the game server after the network changes, or its allowed addresses/join URLs may be stale. Stop only the identified game-server process, never all Node processes. Save state uses the browser origin; changing host or port can make saves appear missing.
+- Restart only the separate co-op server after the network changes, or its allowed addresses/join URLs may be stale. Never stop or replace the stable 5173 service for hotspot setup. Stop only the identified co-op process, never all Node processes. Save state uses the browser origin; changing host or port can make saves appear missing.
 - Distinguish verified local browser tests from a real two-device network test. Only the latter verifies the actual wireless link.
 
 References: [Apple Internet Sharing](https://support.apple.com/guide/mac-help/mchlp1540/mac), [loopback-source workaround](https://gist.github.com/zhuhuilin/01656866b3e73a677a434c21183b40d2). We use a scoped helper rather than the gist's broad reset scripts.

@@ -1,4 +1,4 @@
-import {ENEMIES} from '../../content/index.ts';
+import {ENEMIES,enemySpeedForScale} from '../../content/index.ts';
 import {HORDE_APPROACH, P, PARTICLE_FLOATS, type SpawnBatch, type WorldMap} from '../../contracts/index.ts';
 
 /** A moving cross-section of a much larger horde, generated in O(new arrivals). */
@@ -11,7 +11,7 @@ export class HordeFront {
     this.elapsed+=dt;
     if(!kinds.length)return [];
     const radius=Math.max(...kinds.map(batch=>ENEMIES[batch.kind].radius));
-    const speed=Math.min(...kinds.map(batch=>ENEMIES[batch.kind].speed));
+    const speed=Math.min(...kinds.map(batch=>enemySpeedForScale(batch.kind,batch.healthScale??1)));
     const spacing=radius*2+.16, interval=spacing/speed;
     const height=Math.min(map.height,Math.max(spacing,map.spawn.height)), bottom=Math.max(0,Math.min(map.height-height,map.spawn.y));
     const rows=Math.floor(height/spacing), positions:{x:number;y:number}[]=[];
@@ -42,7 +42,7 @@ export function encodeHorde(batches:readonly SpawnBatch[],positions:readonly {x:
     const batch=batches[selected],enemy=ENEMIES[batch.kind],offset=index*PARTICLE_FLOATS;
     remaining[selected]--;assigned[selected]++;
     output[offset+P.x]=positions[index].x;output[offset+P.y]=positions[index].y;
-    output[offset+P.vx]=enemy.speed;output[offset+P.radius]=enemy.radius;output[offset+P.mass]=enemy.mass;
+    output[offset+P.vx]=enemySpeedForScale(batch.kind,batch.healthScale??1);output[offset+P.radius]=enemy.radius;output[offset+P.mass]=enemy.mass;
     output[offset+P.hp]=output[offset+P.maxHp]=enemy.health*(batch.healthScale??1);
     output[offset+P.kind]=enemy.index;output[offset+P.alive]=1;
   }
