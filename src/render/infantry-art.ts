@@ -50,12 +50,12 @@ export function drawSamuraiFrame(ctx:CanvasRenderingContext2D,facing:number,fram
 
 /** Original hoplite pixels in the same olive/brass, eight-facing RTS scale. */
 export function drawPhalanxFrame(ctx:CanvasRenderingContext2D,facing:number,frame:number){
-  ctx.clearRect(0,0,48,48);
+  ctx.clearRect(0,0,INFANTRY_FRAME,INFANTRY_FRAME);
   const a=facing*Math.PI/4,fx=Math.cos(a),fy=Math.sin(a),sx=-fy,sy=fx;
   const dead=frame>=INFANTRY_DEATH,fall=dead?(frame-INFANTRY_DEATH)/7:0;
   const walk=frame>0&&frame<INFANTRY_ATTACK?Math.sin((frame-1)*Math.PI/3):0;
-  const thrust=frame>=INFANTRY_ATTACK&&!dead?Math.sin(Math.min(1,(frame-INFANTRY_ATTACK)/7)*Math.PI)*4:0;
-  const point=(x:number,y:number,z:number)=>[Math.round(24+fx*(x+fall*z*.25)+sx*y),Math.round(32+fy*(x+fall*z*.25)*.65+sy*y*.65-z*(1-fall*.9))];
+  const thrust=frame>=INFANTRY_ATTACK&&!dead?Math.sin(Math.min(1,(frame-INFANTRY_ATTACK)/7)*Math.PI)*3:0;
+  const point=(x:number,y:number,z:number)=>[Math.round(INFANTRY_PIVOT.x+fx*(x+fall*z*.25)+sx*y),Math.round(INFANTRY_PIVOT.y+fy*(x+fall*z*.25)*.65+sy*y*.65-z*(1-fall*.9))];
   const box=(x:number,y:number,z:number,w:number,h:number,color:string)=>{const p=point(x,y,z);ctx.fillStyle=color;ctx.fillRect(p[0]-Math.floor(w/2),p[1]-Math.floor(h/2),w,h);};
   const line=(x:number,y:number,z:number,xx:number,yy:number,zz:number,color:string)=>{const p=point(x,y,z),q=point(xx,yy,zz),steps=Math.max(Math.abs(q[0]-p[0]),Math.abs(q[1]-p[1]),1);ctx.fillStyle=color;for(let j=0;j<=steps;j++)ctx.fillRect(Math.round(p[0]+(q[0]-p[0])*j/steps),Math.round(p[1]+(q[1]-p[1])*j/steps),1,1);};
   box(0,0,0,9,2,'#18201688');
@@ -63,8 +63,8 @@ export function drawPhalanxFrame(ctx:CanvasRenderingContext2D,facing:number,fram
   box(0,0,7,7,9,'#20251f');box(0,0,8,5,7,'#737b50');box(0,0,5,6,2,'#873e2b');
   box(0,0,13,5,5,'#20251f');box(0,0,14,5,3,'#ab9455');box(1,0,12,3,2,'#b58a5d');box(0,0,17,2,3,'#873e2b');
   // Spear stays level while all three ranks brace; attack extends its steel tip.
-  line(-5+thrust,-2,9,17+thrust,-2,9,'#20251f');line(-5+thrust,-2,10,17+thrust,-2,10,'#8a7250');
-  line(15+thrust,-2,10,18+thrust,-2,10,'#d3d5bd');box(4,-2,9,2,2,'#b58a5d');
+  line(-8+thrust,-2,9,26+thrust,-2,9,'#20251f');line(-8+thrust,-2,10,26+thrust,-2,10,'#8a7250');
+  line(24+thrust,-2,10,27+thrust,-2,10,'#d3d5bd');box(4,-2,9,2,2,'#b58a5d');
   // Broad bronze round shield, dark rim and raised central boss.
   box(3,3,7,9,9,'#20251f');box(3,3,7,7,9,'#ab9455');box(3,3,7,9,5,'#ab9455');box(3,3,7,5,7,'#737b50');box(3,3,7,3,3,'#d9c688');
 }
