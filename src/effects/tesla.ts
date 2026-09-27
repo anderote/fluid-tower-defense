@@ -1,11 +1,12 @@
-/** One primary hit and up to five jumps. GPU damage and drawing share these links. */
-export const TESLA_LINKS=6;
-export const TESLA_HEADER_BYTES=64*TESLA_LINKS*16;
+/** Normal coils use four or six links; overload can jump through twelve targets. GPU damage and drawing share these links. */
+export const TESLA_LINKS=12;
+export const TESLA_HEADER_BYTES=(64*TESLA_LINKS+64)*16;
 export const TESLA_PARTICLE_BYTES=32;
 export const TESLA_STATE_WGSL=`
 struct TeslaVictim {shock:vec4f,corpse:vec4f}; // corpse = position, radius, death tick + 1
 struct TeslaState {
  links:array<vec4f,${64*TESLA_LINKS}>, // position, particle slot (-1 boss / -2 unused), generation
+ charges:array<vec4f,64>, // fraction charged, last shot overloaded, upgrade enabled, reserved
  victims:array<TeslaVictim>, // shock = hit tick + 1, generation, lethal hit, power
 };
 fn teslaAge(shock:vec4f,generation:f32,time:f32)->f32 {

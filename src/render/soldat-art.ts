@@ -18,6 +18,7 @@ type Face={points:Point[];color:Color;shade:number};
 const metal:Color=[137,151,155],dark:Color=[48,54,57],edge:Color=[209,215,197],rubber:Color=[32,35,34],copper:Color=[188,129,68],ceramic:Color=[204,216,213];
 // Painted housings carry identity at normal zoom; exposed steel stays neutral.
 const PAINT:Record<TowerKind,{body:Color;trim:Color}>={
+  crusher:{body:[155,120,43],trim:[255,195,77]},
   repulsor:{body:[42,153,145],trim:[135,236,216]},
   mortar:{body:[188,143,57],trim:[245,210,128]},
   autocannon:{body:[94,143,66],trim:[196,219,113]},

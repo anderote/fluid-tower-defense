@@ -1,3 +1,4 @@
+import {DAM_GATES} from '../content/dam.ts';
 import type {Rect,RenderScene,TowerKind} from '../contracts/index.ts';
 import {createSoldatAtlas,soldatFacing,soldatSpriteKey,SOLDAT_WORLD_SIZE} from './soldat-art.ts';
 import {wireTiles,wireDamage,type WireArtStyle} from './wire-art.ts';
@@ -125,7 +126,7 @@ struct Out{@builtin(position) pos:vec4<f32>,@location(0) uv:vec2<f32>,@location(
     const scenery=scene.map.scenery,biome=scenery?.biome;
     if(previousScenery!==scenery){previousScenery=scenery;sceneryVersion++;}
     const landscapeAvailable=biome&&biome!=='interior'&&atlas.sprites[`${biome}:clear1`]?.length;
-    const obstacles=scene.map.obstacles.filter(o=>!(scene.wires??[]).some(w=>!w.breached&&same(o,w))&&!(scene.fences??[]).some(f=>same(o,f))&&!((landscapeAvailable||biome==='interior')&&scenery?.solids.some(r=>same(r,o))));
+    const obstacles=scene.map.obstacles.filter(o=>!(scene.map.dam&&[...scenery?.mounts??[],...DAM_GATES].some(r=>same(r,o)))&&!(scene.wires??[]).some(w=>!w.breached&&same(o,w))&&!(scene.fences??[]).some(f=>same(o,f))&&!((landscapeAvailable||biome==='interior')&&scenery?.solids.some(r=>same(r,o))));
     const key=JSON.stringify([scene.map.width,scene.map.height,sceneryVersion,obstacles]);
     if(key!==terrainKey){
       const data:number[]=[],floor=landscapeAvailable?atlas.sprites[`${biome}:clear1`]:floorSprites(atlas.sprites,floorStyle);
@@ -219,6 +220,7 @@ struct Out{@builtin(position) pos:vec4<f32>,@location(0) uv:vec2<f32>,@location(
     upload(wireGhost,preview);
     const data:number[]=[],elevated:number[]=[];
     const draw=(target:number[],t:{kind:TowerKind;x:number;y:number;angle?:number;level?:number},tint?:number[])=>{
+      if(t.kind==='crusher')return;
       if(customSprites&&!usesClassicDefenseSprite(t.kind)){
         sprite(target,customSprites[soldatSpriteKey(t.kind,t.level)][soldatFacing(t.angle??0)],t.x-SOLDAT_WORLD_SIZE/2,t.y-SOLDAT_WORLD_SIZE/2,SOLDAT_WORLD_SIZE,SOLDAT_WORLD_SIZE,tint);return;
       }

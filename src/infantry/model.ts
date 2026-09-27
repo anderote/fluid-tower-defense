@@ -38,7 +38,7 @@ export const infantryUpgradeCost=(rank:number)=>200+rank*150;
 export const barracksRect=(b:Vec2)=>({x:b.x-2,y:b.y-2,width:4,height:4});
 export const infantryMap=(map:WorldMap,state:InfantryState):WorldMap=>({...map,obstacles:[...map.obstacles,...state.buildings.map(barracksRect)]});
 export function clearForSoldier(map:WorldMap,p:Vec2,r=.4){return p.x>=r&&p.y>=r&&p.x<map.width-r&&p.y<map.height-r&&!map.obstacles.some(o=>p.x+r>o.x&&p.x-r<o.x+o.width&&p.y+r>o.y&&p.y-r<o.y+o.height);}
-export function infantryField(map:WorldMap,rally:Vec2){return buildNavigation({...map,goal:rally,obstacles:map.obstacles.map(o=>({x:o.x-.45,y:o.y-.45,width:o.width+.9,height:o.height+.9}))});}
+export function infantryField(map:WorldMap,rally:Vec2){return buildNavigation({...map,goal:rally,obstacles:map.obstacles.map(o=>({x:o.x-.45,y:o.y-.45,width:o.width+.9,height:o.height+.9}))},0);}
 export function clearInfantryPath(map:WorldMap,from:Vec2,to:Vec2,r=.4):boolean {
   if(!clearForSoldier(map,from,r)||!clearForSoldier(map,to,r))return false;
   const dx=to.x-from.x,dy=to.y-from.y;

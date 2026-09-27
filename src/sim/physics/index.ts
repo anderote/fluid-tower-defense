@@ -24,7 +24,7 @@ const OBSTACLE_BYTES = 16;
 const EFFECT_BYTES = 48;
 const NAV_BYTES = 16;
 
-const EFFECT_KIND: Record<Effect['kind'], number> = { blast: 0, push: 1, slow: 2, shot: 3, 'corpse-blast':4 };
+const EFFECT_KIND: Record<Effect['kind'], number> = { blast: 0, push: 1, slow: 2, shot: 3, 'corpse-blast':4, flood:5, crush:6 };
 
 function finite(value: number, fallback = 0): number {
   return Number.isFinite(value) ? value : fallback;

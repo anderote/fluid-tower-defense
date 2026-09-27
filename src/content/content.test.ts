@@ -3,9 +3,9 @@ import {test} from 'node:test';
 import {ENEMIES, DEFAULT_MAP, MAX_VETERANCY, TOWERS, barbedWireStats, compileTower, createParticles, metalWallStats, towerBehavior, towerRequiresLineOfSight, validateContent, veterancyLevel, veterancyMultiplier, veterancyXpForLevel} from './index.ts';
 import {P, PARTICLE_FLOATS, type Tower} from '../contracts/index.ts';
 
-test('content registry is valid and has six readable enemy roles',()=>{ validateContent(); assert.equal(Object.keys(TOWERS).length,8);assert.equal(Object.keys(ENEMIES).length,6);assert.ok(ENEMIES.rager.drive>ENEMIES.shambler.drive);assert.ok(ENEMIES.husk.pressureLimit<ENEMIES.brute.pressureLimit); });
+test('content registry is valid and has six readable enemy roles',()=>{ validateContent(); assert.equal(Object.keys(TOWERS).length,9);assert.equal(Object.keys(ENEMIES).length,6);assert.ok(ENEMIES.rager.drive>ENEMIES.shambler.drive);assert.ok(ENEMIES.husk.pressureLimit<ENEMIES.brute.pressureLimit); });
 test('turret placement costs follow the intended power curve',()=>{
- assert.deepEqual(Object.fromEntries(Object.entries(TOWERS).map(([kind,tower])=>[kind,tower.cost])),{repulsor:120,mortar:350,autocannon:80,cryo:200,tesla:600,rocket:1_600,railgun:2_500,incinerator:800});
+ assert.deepEqual(Object.fromEntries(Object.entries(TOWERS).map(([kind,tower])=>[kind,tower.cost])),{repulsor:120,mortar:350,autocannon:80,cryo:200,tesla:600,rocket:1_600,railgun:2_500,incinerator:800,crusher:450});
 });
 test('Incinerator remains a short, narrow, temporary-burning defense',()=>{
  const base=TOWERS.incinerator,plain:Tower={id:1,kind:'incinerator',x:50,y:50,level:0,branch:-1,angle:0,cooldown:0,spent:base.cost};
@@ -50,10 +50,12 @@ test('every tower level keeps advancing core stats along both upgrade paths',()=
     const current=compileTower(tower),next=compileTower({...tower,level:2});
     assert.ok(next.damage>current.damage,`${kind} branch ${branch} damage`);
     assert.ok(next.peakPressureKpa>current.peakPressureKpa,`${kind} branch ${branch} pressure`);
-    assert.ok(next.range>current.range,`${kind} branch ${branch} range`);
+    if(kind==='crusher')assert.equal(next.range,current.range);
+    else assert.ok(next.range>current.range,`${kind} branch ${branch} range`);
     assert.ok(1/next.cooldown>1/current.cooldown,`${kind} branch ${branch} rate`);
     if(current.force>0)assert.ok(next.force>current.force,`${kind} branch ${branch} impulse`);
-    assert.ok(next.radius>current.radius,`${kind} branch ${branch} radius`);
+    if(kind==='crusher')assert.equal(next.radius,current.radius);
+    else assert.ok(next.radius>current.radius,`${kind} branch ${branch} radius`);
   }
 });
 

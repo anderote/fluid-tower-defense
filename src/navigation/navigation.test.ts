@@ -47,3 +47,12 @@ test('a linked vertical pair exposes three centered mounts along the run',()=>{
   assert.equal(canPlace(map,[],centers[0],1.25,mounts),true);
   assert.equal(canPlace(map,[{id:1,kind:'repulsor',...centers[0],level:0,branch:-1,angle:0,cooldown:0,spent:120}],centers[2],1.25,mounts),true);
 });
+
+test('routes reserve body clearance and steer displaced enemies out of wall margins',()=>{
+ const map={...DEFAULT_MAP,obstacles:[{x:48,y:0,width:8,height:40}]};
+ const field=buildNavigation(map),at=(x:number,y:number)=>y*field.width+x;
+ assert.equal(field.distances[at(56,20)],Infinity,'A body cannot move along the wall at x=56.0');
+ assert.ok(Number.isFinite(field.distances[at(57,20)]));
+ assert.ok(field.vectors[at(56,20)*2]>0,'Displaced body should move away from the wall');
+ assert.ok(field.vectors[at(47,20)*2]<0,'Western wall margin should escape west');
+});
