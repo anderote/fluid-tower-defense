@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {barrierCost,barrierLength,barrierSegments,sampleBarrier,simplifyBarrier,snapBarrierEndpoints} from './barrier-path.ts';
+import {barrierCost,barrierLength,barrierSegments,sampleBarrier,simplifyBarrier,snapBarrierEndpoints,barrierRectDistance,barrierLinesConflict} from './barrier-path.ts';
 
 test('straight barriers retain an arbitrary-angle centerline while their collision samples remain compact',()=>{
  const points=[{x:2,y:3},{x:11,y:9}],segments=barrierSegments('fence',7,points);
@@ -33,4 +33,15 @@ test('barrier endpoints snap to nearby fence connection points',()=>{
  const snapped=snapBarrierEndpoints([{x:0,y:0},{x:9,y:0}],[{x:1,y:.2},{x:8,y:.4}],1.5);
  assert.deepEqual(snapped,[{x:1,y:.2},{x:8,y:.4}]);
  assert.deepEqual(snapBarrierEndpoints([{x:0,y:0},{x:9,y:0}],[{x:3,y:0}],1),[{x:0,y:0},{x:9,y:0}]);
+});
+
+test('angled fence collision follows the centerline instead of its square bounds',()=>{
+ const segment={from:{x:0,y:0},to:{x:4,y:4}};
+ assert.ok(barrierRectDistance(segment,{x:1.8,y:1.8,width:.2,height:.2})<.36);
+ assert.ok(barrierRectDistance(segment,{x:1.8,y:2.7,width:.2,height:.2})>.36);
+});
+test('fence paths may join exactly at endpoints and reject close crossings',()=>{
+ const a={from:{x:0,y:0},to:{x:2,y:0}},joined={from:{x:2,y:0},to:{x:2,y:2}},crossing={from:{x:1,y:-1},to:{x:1,y:1}};
+ assert.equal(barrierLinesConflict(a,joined),false);
+ assert.equal(barrierLinesConflict(a,crossing),true);
 });
