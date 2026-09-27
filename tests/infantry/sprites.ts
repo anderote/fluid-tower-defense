@@ -7,6 +7,7 @@ import type {RenderScene,SharedGPU} from '../../src/contracts/index.ts';
 
 const status=document.querySelector<HTMLElement>('#status')!,canvas=document.querySelector<HTMLCanvasElement>('#game')!,gallery=document.querySelector<HTMLCanvasElement>('#gallery')!;
 try{
+  gallery.height=INFANTRY_KINDS.length*120;gallery.style.height=`${gallery.height}px`;
   const atlas=await createInfantryAtlas(),pixels=atlas.getContext('2d')!.getImageData(0,0,atlas.width,atlas.height).data;
   let checked=0;
   for(let row=0;row<INFANTRY_KINDS.length*8;row++)for(let frame=0;frame<INFANTRY_FRAMES;frame++){
@@ -21,7 +22,7 @@ try{
   let failed=false;device.addEventListener('uncapturederror',event=>{failed=true;status.textContent=`FAIL: ${event.error.message}`;});
   const shared:SharedGPU={capacity:8,particles:device.createBuffer({size:8*64,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST}),counters:device.createBuffer({size:512,usage:GPUBufferUsage.STORAGE})};
   const renderer=await createRenderer(device,canvas.getContext('webgpu')!,navigator.gpu.getPreferredCanvasFormat(),shared,canvas);
-  const soldiers:Soldier[]=Array.from({length:8},(_,i)=>({id:i+1,home:1,kind:INFANTRY_KINDS[i%4],quality:0,health:infantryStats(INFANTRY_KINDS[i%4]).health,cooldown:0,flash:0,walk:0,dead:0,angle:i<4?0:Math.PI/2,x:8+i%4*14,y:7+Math.floor(i/4)*15}));
+  const soldiers:Soldier[]=Array.from({length:8},(_,i)=>({id:i+1,home:1,kind:INFANTRY_KINDS[[0,3,4,5][i%4]],quality:0,health:infantryStats(INFANTRY_KINDS[[0,3,4,5][i%4]]).health,cooldown:0,flash:0,walk:0,dead:0,angle:i<4?0:Math.PI/2,x:8+i%4*14,y:7+Math.floor(i/4)*15}));
   const scene:RenderScene={map:{id:'infantry-study',width:60,height:31,obstacles:[],spawn:{x:0,y:0,width:0,height:0},goal:{x:59,y:15},goalRadius:0},count:8,time:0,towers:[],effects:[],heatmap:false,selection:null,infantry:{nextId:9,buildings:[],soldiers}};
   let pose='walk',paused=false,time=0,last=0,active=true,pending=0;const ctx=gallery.getContext('2d')!;ctx.imageSmoothingEnabled=false;
   document.querySelector<HTMLSelectElement>('#pose')!.onchange=event=>{pose=(event.target as HTMLSelectElement).value;time=0;};

@@ -485,7 +485,7 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
           for(let j=0;j<segments;j++){const t=j/11,angle=s.angle-1.2+t*2.35,r=1.15+Math.sin(t*Math.PI)*.48;const sx=x+Math.cos(angle)*r,sy=y-.58+Math.sin(angle)*r*.68;streak(a,sx,sy,-Math.sin(angle),Math.cos(angle),.32,.13,[.62,.82,1,.52*fade]);streak(a,sx,sy,-Math.sin(angle),Math.cos(angle),.23,.055,[1,.97,.78,.92*fade]);}
           if(slash.cut>.68){const hit=s.angle+1.12,hx=x+Math.cos(hit)*1.48,hy=y-.58+Math.sin(hit)*1.02;for(const turn of [0,Math.PI/2])streak(a,hx,hy,Math.cos(hit+turn),Math.sin(hit+turn),.48,.055,[1,.88,.45,.8*fade]);}
         }
-      }else if(s.flash>0&&kind!=='dog'){
+      }else if(s.flash>0&&kind!=='dog'&&kind!=='phalanx'){
         if(kind==='flame'){
           const reach=Math.max(1,infantryStats(kind,s.quality,s.defense,s.veterancy).range-.75),flow=Math.min(1,s.flash/.12);
           // Overlapping elongated tongues form one moving jet, with a yellow

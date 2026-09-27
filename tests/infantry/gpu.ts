@@ -46,5 +46,18 @@ try{
  for(let i=0;i<100&&(infantry.threats.get(1)?.pressure??0)!==120;i++)await new Promise(r=>setTimeout(r,10));
  assert((infantry.threats.get(1)?.pushX??0)<0&&infantry.threats.get(1)?.pressure===120,'crowd pressure pushes infantry away from contact');
  assert(new Float32Array(await read(shared.particles,64))[2]>0,'infantry physically resists zombie penetration');
+ soldier.kind='phalanx';soldier.brace=1;soldier.angle=0;
+ async function shieldContact(x:number,brace:number){
+  infantry.reset();soldier.brace=brace;
+  device.queue.writeBuffer(shared.particles,0,new Float32Array([x,10,0,0,.5,1,100,100,1,0,0,1,0,0,0,7]));
+  const encoder=device.createCommandEncoder(),done=infantry.encode(encoder,[soldier],[],map,1,true);device.queue.submit([encoder.finish()]);await done?.();
+  return {contact:infantry.threats.get(1)!.contact,velocity:new Float32Array(await read(shared.particles,64))[2]};
+ }
+ const front=await shieldContact(10.8,1),rear=await shieldContact(9.2,1),loose=await shieldContact(10.8,0);
+ assert(front.contact<rear.contact*.3&&front.contact<loose.contact*.3,'braced hoplite shields reduce frontal contact by 75% without protecting the rear');
+ assert(front.velocity>loose.velocity*5,'shield wall strongly resists forward zombie penetration');
+ soldier.x=8.3;writeEnemy();assert((await shoot(7,[],16))[6]===4,'third-rank spear reaches past two ranks to its target');
+ writeEnemy(8);assert((await shoot(7,[],16))[6]===20,'spears reject recycled target generations');
+ writeEnemy();assert((await shoot(7,[{x:11,y:9,width:.5,height:2}],16))[6]===20,'spears do not penetrate solid walls');
  assert(gpuErrors.length===0,'no GPU validation errors');infantry.destroy();combat.destroy();shared.particles.destroy();shared.counters.destroy();device.destroy();output.textContent+='\nALL CHECKS PASSED';
 }catch(error){output.textContent+='\nFAIL '+String(error);console.error(error);}

@@ -11,3 +11,5 @@ Rebuild from the verified local package:
 ```sh
 node --openssl-legacy-provider scripts/import-red-alert.mjs /path/to/ra-base.zip public/assets/red-alert/infantry --infantry
 ```
+
+Phalanx Trooper and Phalanx Barracks artwork is original project work, generated deterministically by `drawPhalanxFrame` in `src/render/infantry-art.ts` and `infantryBuildingPixels` in `src/render/infantry-building-art.ts`. It uses the existing Red Alert-scale palette and eight-direction presentation, with a bronze round shield, crested helmet, olive armor and level spear. No external hoplite asset is imported; the existing verified Red Alert infantry package contains no suitable spear-and-shield troop. These additions share the project's source-code licensing, not the EA asset license. Running the game rebuilds every pose into its runtime atlas; no separate import is required.
