@@ -331,3 +331,9 @@ footer button:first-of-type { border-color: var(--term-accent); background: var(
 .time-controls button.active { color: var(--term-accent); border-color: var(--term-accent); background: rgba(124, 255, 146, .08); }
 @media (max-width: 1200px) { .music-info { display: none; } .soundtrack { display: flex; } }
 @media (max-width: 520px) { .time-controls button { padding-inline: 5px; } .time-controls .time-pause { min-width: 55px; } .header-actions { gap: 5px; } }
+
+.boon-gate { position: fixed; z-index: 30; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(0,0,0,.72); }
+.boon-gate .bonuses { width: min(520px,100%); max-height: calc(100dvh - 40px); overflow: auto; padding: 20px; border: 1px solid var(--term-accent); background: var(--term-bg); box-shadow: 0 16px 48px rgba(0,0,0,.55); }
+.boon-gate #bonus-choices { display: grid; gap: 10px; margin-top: 16px; }
+.boon-gate button { width: 100%; text-align: left; padding: 14px; }
+.boon-gate button small { display: block; margin-top: 6px; line-height: 1.5; }

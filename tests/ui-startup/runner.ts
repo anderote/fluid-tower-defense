@@ -1,12 +1,12 @@
 import {createUI} from '../../src/ui/index.ts';
-import type {GameAction} from '../../src/contracts/index.ts';
+import type {GameAction, UIState} from '../../src/contracts/index.ts';
 
 // Exercise real DOM hierarchy rules without requiring WebGPU or touching saves.
 const result=document.querySelector<HTMLElement>('#result')!;
 const root=document.querySelector<HTMLElement>('#game')!;
 const actions:GameAction[]=[];
 try {
-  createUI(root,action=>actions.push(action));
+  const ui=createUI(root,action=>actions.push(action));
   const controls=root.querySelectorAll<HTMLButtonElement>('.selected-popup .tower-actions > button');
   if(controls.length!==4||controls[0].dataset.action!=='move'||controls[1].dataset.action!=='set-ground-target'||controls[2].dataset.action!=='clear-ground-target'||controls[3].dataset.action!=='sell') {
     throw new Error('Tower inspector must retain move, targeting, and sell controls');
@@ -29,6 +29,16 @@ try {
   handle.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowLeft',bubbles:true}));
   if(dock.dataset.windowMoved!=='true'||dock.style.position!=='fixed')throw Error('Window must retain its moved position');
   const rect=dock.getBoundingClientRect();if(rect.left<0||rect.top<0)throw Error('Moved window must remain onscreen');
+  const state:UIState={mode:'game',phase:'preparation',paused:false,fps:60,frameMs:16,population:0,capacity:5000,kills:5000,crushKills:0,leaks:0,earned:100,maxPressure:0,metal:3000,baseHealth:100,level:1,wave:3,waveCount:10,difficulty:1,streamWidth:60,selected:null,upgradeTarget:null,selectedKind:null,buildTool:null,upgradeMode:false,moveMode:false,targetMode:false,heatmap:false,tool:'inspect',message:'',adapter:'test',bonusChoices:[{id:'test-boon',name:'Test boon',description:'Increase defense strength'}],bonuses:[],commandUpgrades:[],statUpgrades:[],towerUnlocks:[]};
+  toggle.click();dock.hidden=true;
+  ui.update(state);
+  const gate=root.querySelector<HTMLElement>('.boon-gate')!,choice=gate.querySelector<HTMLButtonElement>('[data-bonus]')!;
+  if(gate.hidden||gate.closest('aside')||choice.closest('[hidden]'))throw Error('Boon must appear outside hidden/collapsed build controls');
+  if(document.activeElement!==choice)throw Error('New boon popup must focus its first choice');
+  actions.length=0;choice.click();
+  if(actions.length!==1||actions[0].type!=='bonus'||actions[0].id!=='test-boon')throw Error('Boon choice must dispatch selection');
+  ui.update({...state,bonusChoices:[]});
+  if(!gate.hidden||root.querySelector<HTMLButtonElement>('.wave-control')!.disabled)throw Error('Choosing a boon must dismiss the popup and unlock the next wave');
   result.textContent='PASS: UI initializes with working tower controls and top bar speed/pause controls';
 } catch(error) {
   result.textContent=`FAIL: ${String(error)}`;
