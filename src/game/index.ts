@@ -1,8 +1,9 @@
+import {DAM_ID} from '../content/dam.ts';
 import {COMMAND_UPGRADES, compileTower, DEFAULT_MAP, MAX_TOWER_LEVEL, MAX_VETERANCY, TOWERS, towerUpgradeCost, veterancyLevel} from '../content/index.ts';
-import {canPlace, mapWithTurretObstacles, resolvePlacement} from '../navigation/index.ts';
+import {crusherPassageIssue,hasSpawnRoute,canPlace, mapWithTurretObstacles, resolvePlacement} from '../navigation/index.ts';
 import {commandUpgradeAvailability,researchCost,researchRank} from './research.ts';
 import {freshInfantry,validInfantry,infantryMap} from '../infantry/model.ts';
-import type {BonusChoice, StatUpgrade, Rect, RunModel, Settlement, SpawnBatch, Tower, TowerKind, TowerUnlock, Vec2, WorldMap} from '../contracts/index.ts';
+import type {Effect,BonusChoice, StatUpgrade, Rect, RunModel, Settlement, SpawnBatch, Tower, TowerKind, TowerUnlock, Vec2, WorldMap} from '../contracts/index.ts';
 
 export type ActionResult = {ok:true} | {ok:false; reason:string};
 export type PlaceResult = ActionResult & {tower?:Tower};
@@ -49,54 +50,24 @@ const PHASE_WEIGHTS:readonly (readonly [SpawnBatch['kind'],number])[][]=[
 // made even rate-based waves look like periodic mass spawns.
 const burstFor=(_kind:SpawnBatch['kind']):number=>1;
 
-type WaveStage={duration:number;from:number;to:number;mix:readonly (readonly [SpawnBatch['kind'],number])[]};
-const OPENING_STAGES:readonly WaveStage[]=[
-  {duration:2,from:0,to:300,mix:[['shambler',1]]},
-  {duration:1,from:300,to:300,mix:[['shambler',.95],['runner',.05]]},
-  {duration:1,from:300,to:900,mix:[['shambler',.85],['runner',.15]]},
-  {duration:1,from:900,to:1_500,mix:[['shambler',.65],['runner',.25],['husk',.1]]},
-  {duration:1.5,from:1_500,to:1_500,mix:[['shambler',.7],['runner',.2],['husk',.1]]},
-  {duration:1,from:1_500,to:500,mix:[['shambler',.9],['runner',.1]]},
-  {duration:1,from:500,to:1_100,mix:[['shambler',.6],['runner',.25],['husk',.15]]},
-  {duration:1.5,from:1_100,to:1_100,mix:[['shambler',.55],['runner',.25],['husk',.2]]},
-  {duration:1,from:1_100,to:2_700,mix:[['shambler',.5],['runner',.3],['husk',.2]]},
-];
-
-const stagedSpawns=(stages:readonly WaveStage[],seed:number,healthScale:number):SpawnBatch[]=>{
-  const spawns:SpawnBatch[]=[];
-  let start=0,batchIndex=0;
-  for(const stage of stages){
-    const total=Math.round(stage.duration*(stage.from+stage.to)/2);
-    const weightTotal=stage.mix.reduce((sum,[,weight])=>sum+weight,0);
-    let assigned=0;
-    for(let index=0;index<stage.mix.length;index++){
-      const [kind,weight]=stage.mix[index],last=index===stage.mix.length-1;
-      const count=last?total-assigned:Math.round(total*weight/weightTotal);assigned+=count;
-      const share=count/total;
-      spawns.push({kind,count,seed:seed+batchIndex++*17,start,duration:stage.duration,rate:stage.from*share,endRate:stage.to*share,burst:burstFor(kind),band:'inlet',healthScale});
-    }
-    start+=stage.duration;
-  }
-  return spawns;
-};
-
 /** Deterministic authored-pattern director with bounded population and unbounded stat scaling. */
-export function waveFor(level:number,wave:number):Wave {
+export function waveFor(level:number,wave:number,mapId?:string):Wave {
   const globalWave=Math.max(1,Math.floor(wave>WAVES_PER_LEVEL?wave:(Math.max(1,level)-1)*WAVES_PER_LEVEL+wave));
   const threat=globalWave-1,phase=(globalWave-1)%WAVES_PER_LEVEL,cycle=Math.floor((globalWave-1)/WAVES_PER_LEVEL);
-  // The quota is intentionally far beyond the on-screen population. The inlet
-  // keeps feeding until it is met, while the runtime pauses it when capacity is full.
-  const total=globalWave===1?10_000:Math.round(100_000*Math.pow(globalWave,1.67));
+  // Short opening encounters; later difficulty grows through composition and health,
+  // not an unbounded backlog multiplied by the physical inlet width.
+  // Introducing brutes slows the physical front and adds much tougher bodies.
+  // Trade numbers for that new threat instead of tripling the arrival window.
+  const openingTotals=[1_200,1_800,2_400,1_700,1_800];
+  const total=mapId===DAM_ID&&globalWave===1?1_320:openingTotals[globalWave-1]??Math.min(12_000,1_200+threat*600);
   const healthScale=1+Math.max(0,globalWave-WAVES_PER_LEVEL)*.035;
   const seed=(globalWave*10_000+globalWave*977)>>>0;
-  if(globalWave===1){
-    const spawns=stagedSpawns(OPENING_STAGES,seed,healthScale);
-    return {spawns,payment:210,boss:false,total,healthScale,peakRate:2_700,rampSeconds:11};
-  }
   const weights=new Map(PHASE_WEIGHTS[phase]);
+  if(globalWave===4){weights.set('shambler',.68);weights.set('brute',.12);}
+  if(globalWave===5){weights.set('shambler',.5);weights.set('brute',.12);}
   if(cycle>0){for(const kind of ['runner','brute','rager','softbody','husk'] as const)weights.set(kind,(weights.get(kind)??0)+.025);}
   const weightTotal=[...weights.values()].reduce((sum,value)=>sum+value,0);
-  const arrivalRate=2_400;
+  const arrivalRate=Math.min(180,90+threat*6);
   const duration=total/arrivalRate;
   const spawns:SpawnBatch[]=[];
   let assigned=0,index=0;
@@ -122,6 +93,8 @@ function validTower(map:WorldMap, tower:unknown, prior:readonly Tower[], mounts:
   if (!tower || typeof tower !== 'object') return false;
   const value=tower as Tower;
   if (!isFiniteInteger(value.id) || value.id<=0 || !isTowerKind(value.kind) || !isNonNegative(value.x) || !isNonNegative(value.y) || !isFiniteInteger(value.level) || value.level<0 || value.level>MAX_TOWER_LEVEL || !isFiniteInteger(value.branch) || ![-1,0,1].includes(value.branch) || (value.level===0 && value.branch!==-1) || (value.level>0 && value.branch===-1) || !isNonNegative(value.angle) || !isNonNegative(value.cooldown) || !isFiniteInteger(value.spent) || value.spent!==spentAtLevel(value.kind,value.level) || prior.some(other=>other.id===value.id)) return false;
+  if(value.crusherRecharge!==undefined&&(!Number.isFinite(value.crusherRecharge)||value.crusherRecharge<=0))return false;
+  if(value.crusherAnimation!==undefined&&(!isNonNegative(value.crusherAnimation)||value.crusherAnimation>.7))return false;
   if(value.kills!==undefined&&(!isFiniteInteger(value.kills)||value.kills<0))return false;
   if(value.veterancy!==undefined&&(!isFiniteInteger(value.veterancy)||value.veterancy<0||value.veterancy>MAX_VETERANCY))return false;
   if(value.veterancyXp!==undefined&&!isNonNegative(value.veterancyXp))return false;
@@ -151,6 +124,10 @@ export class RunController {
   constructor(initialMap:WorldMap=DEFAULT_MAP) { this.map=initialMap; }
 
   get epoch():number { return this.runEpoch; }
+  get waveProgress(){
+    const queued=this.model.pending.reduce((sum,batch)=>sum+batch.count,0);
+    return {total:this.model.wave>0?waveFor(this.model.level,this.model.wave,this.map.id).total:0,queued,live:this.live};
+  }
   get isBossWave():boolean { return this.model.wave>0&&this.model.wave%WAVES_PER_LEVEL===0; }
   setSpawnMultiplier(value:number):number { this.spawnMultiplier=Math.max(1,Math.min(40,Math.round(value)||1)); return this.spawnMultiplier; }
 
@@ -189,8 +166,11 @@ export class RunController {
     const def=TOWERS[kind];
     if (this.model.metal<def.cost) return {ok:false,reason:'Insufficient Metal.'};
     const buildMap=infantryMap(this.map,this.model.infantry??freshInfantry());
-    const placement=resolvePlacement(buildMap,position,1.25,this.buildMounts);
+    const placement={...(kind==='crusher'?position:resolvePlacement(buildMap,position,1.25,this.buildMounts)),kind};
     if (!canPlace(buildMap,this.model.towers,placement,1.25,this.buildMounts)) return {ok:false,reason:'That position is blocked or too close to another tower.'};
+    const passageIssue=kind==='crusher'?crusherPassageIssue(buildMap,this.model.towers,placement):undefined;
+    if(passageIssue)return {ok:false,reason:passageIssue};
+    if (!hasSpawnRoute(mapWithTurretObstacles(buildMap,[...this.model.towers,placement]))) return {ok:false,reason:'That turret would seal the zombie route to the goal.'};
     const tower:Tower={id:this.nextTowerId++,kind,x:placement.x,y:placement.y,level:0,branch:-1,angle:0,cooldown:0,spent:def.cost,kills:0,veterancy:0,veterancyXp:0};
     this.model.metal-=def.cost; this.model.towers.push(tower); this.model.selected=null;
     return {ok:true,tower};
@@ -240,15 +220,34 @@ export class RunController {
     this.model.metal-=cost; tower.spent+=cost; tower.level++; tower.branch=branch;
     return {ok:true};
   }
+  /** Cooldowns advance only with combat simulation, never while paused or preparing. */
+  advanceCrushers(seconds:number):void {
+    if(this.model.phase!=='combat'||!Number.isFinite(seconds)||seconds<=0)return;
+    for(const tower of this.model.towers)if(tower.kind==='crusher'){
+      tower.cooldown=Math.max(0,tower.cooldown-seconds);
+      tower.crusherAnimation=Math.max(0,(tower.crusherAnimation??0)-seconds);
+    }
+  }
+  slamCrushers():Effect[] {
+    if(this.model.phase!=='combat')return [];
+    const effects:Effect[]=[];
+    this.model.towers.forEach((tower,index)=>{
+      if(tower.kind!=='crusher'||tower.cooldown>0)return;
+      const definition=compileTower(tower,this.model.bonuses,this.model.commandUpgrades,this.statModifiers());
+      tower.cooldown=definition.cooldown;tower.crusherRecharge=definition.cooldown;tower.crusherAnimation=.7;
+      effects.push({x:tower.x,y:tower.y,kind:'crush',radius:6,strength:definition.force,damage:definition.damage,direction:{x:0,y:1},cone:0,duration:.7,source:index+1,peakPressureKpa:definition.peakPressureKpa});
+    });
+    return effects;
+  }
   startWave():ActionResult {
     if (this.model.phase!=='preparation') return {ok:false,reason:'The current wave is not ready to start.'};
     if(this.model.bonusChoices.length)return {ok:false,reason:'Choose a command boon before starting the wave.'};
-    const wave=waveFor(this.model.level,this.model.wave+1); this.waveStartBaseHealth=this.model.baseHealth;this.model.wave++; this.model.pending=wave.spawns.map(batch=>({...batch,credit:0})); this.model.phase='combat'; this.live=0;this.spawnElapsed=0;this.spawnAllocation=0;this.spawnPeakRate=wave.peakRate;
+    const wave=waveFor(this.model.level,this.model.wave+1,this.map.id); this.waveStartBaseHealth=this.model.baseHealth;for(const tower of this.model.towers)if(tower.kind==='crusher'){tower.cooldown=0;tower.crusherAnimation=0;}this.model.wave++; this.model.pending=wave.spawns.map(batch=>({...batch,credit:0})); this.model.phase='combat'; this.live=0;this.spawnElapsed=0;this.spawnAllocation=0;this.spawnPeakRate=wave.peakRate;
     return {ok:true};
   }
   restartWave():ActionResult {
     if(this.model.wave<1||!['combat','settling','lost'].includes(this.model.phase))return {ok:false,reason:'There is no active wave to restart.'};
-    const wave=waveFor(this.model.level,this.model.wave);this.model.pending=wave.spawns.map(batch=>({...batch,credit:0}));this.model.phase='combat';this.model.baseHealth=this.waveStartBaseHealth;this.model.selected=null;
+    const wave=waveFor(this.model.level,this.model.wave,this.map.id);this.model.pending=wave.spawns.map(batch=>({...batch,credit:0}));this.model.phase='combat';this.model.baseHealth=this.waveStartBaseHealth;this.model.selected=null;
     this.live=0;this.spawnElapsed=0;this.spawnAllocation=0;this.spawnPeakRate=wave.peakRate;this.runEpoch++;this.applied=emptyApplied();
     return {ok:true};
   }
@@ -318,7 +317,7 @@ export class RunController {
   finishSettling():ActionResult {
     if (this.model.phase!=='combat' && this.model.phase!=='settling') return {ok:false,reason:'There is no wave to settle.'};
     if (this.model.pending.length || this.live>0) return {ok:false,reason:'Waiting for live enemies or queued spawns.'};
-    const completed=waveFor(this.model.level,this.model.wave); this.model.metal+=completed.payment;
+    const completed=waveFor(this.model.level,this.model.wave,this.map.id); this.model.metal+=completed.payment;
     this.model.bonusChoices=this.model.wave<WAVES_PER_LEVEL&&this.model.wave%3===0?offeredBonuses(this.model.level,this.model.wave,this.model.bonuses):[];
     this.model.phase=this.model.wave>=WAVES_PER_LEVEL?'checkpoint':'preparation';
     return {ok:true};
@@ -377,7 +376,7 @@ export class RunController {
       const saved=JSON.parse(raw) as unknown;
       // Old saves keep their defense and run progress while gaining the full
       // weapon roster. Account-wide ranks are no longer used.
-      if (saved && typeof saved==='object' && 'contentVersion' in saved && (saved.contentVersion==='pressure-front-4'||saved.contentVersion==='pressure-front-5') && 'model' in saved && saved.model && typeof saved.model==='object' && 'towers' in saved.model && Array.isArray(saved.model.towers)) {
+      if (saved && typeof saved==='object' && 'contentVersion' in saved && (saved.contentVersion==='pressure-front-4'||saved.contentVersion==='pressure-front-5'||saved.contentVersion==='pressure-front-6') && 'model' in saved && saved.model && typeof saved.model==='object' && 'towers' in saved.model && Array.isArray(saved.model.towers)) {
         const legacyModel=saved.model as Partial<RunModel> & {towers:unknown[]};
         legacyModel.unlockedTowers=[...STARTER_TOWERS];
         if(saved.contentVersion==='pressure-front-4')legacyModel.statRanks={};

@@ -4,7 +4,7 @@ const assetBase=(import.meta as ImportMeta&{env?:{BASE_URL?:string}}).env?.BASE_
 import {audioSettings,onAudioSettingsChange} from './settings.ts';
 import {AudioVoiceBudget,type AudioVoiceGroup} from './voice-budget.ts';
 
-const FIRE_PROFILES:Record<TowerKind,[AudioVoiceGroup,number]>={autocannon:['light',.09],railgun:['heavy',.15],mortar:['heavy',.62],rocket:['heavy',.7],tesla:['heavy',.2],incinerator:['sustained',.22],cryo:['sustained',.18],repulsor:['heavy',.22]};
+const FIRE_PROFILES:Record<TowerKind,[AudioVoiceGroup,number]>={autocannon:['light',.09],railgun:['heavy',.15],mortar:['heavy',.62],rocket:['heavy',.7],tesla:['heavy',.2],incinerator:['sustained',.22],cryo:['sustained',.18],repulsor:['heavy',.22],crusher:['heavy',.5]};
 
 /** Synthesized effects layered with original Red Alert combat audio from OpenRA. */
 export function createAudio(){
@@ -76,6 +76,8 @@ export function createAudio(){
         if(!sample('flameImpact',at,.18,pan,.98+jitter*.04,.17))hiss(at,.2,.1,180,4400,pan,serial*.157);tone(at,96,49,.13,.07,pan,'sawtooth');break;
       case 'cryo':
         hiss(at,.16,.085,650,5200,pan,serial*.173);tone(at,420,170,.14,.035,pan,'sine');break;
+      case 'crusher':
+        hiss(at,.22,.24,40,4200,pan,serial*.173);tone(at,160,28,.28,.22,pan,'sine');tone(at+.04,730,90,.13,.08,pan,'sawtooth');break;
       case 'repulsor':
         tone(at,116,43,.2,.16,pan,'sine');tone(at,510,120,.12,.045,pan,'triangle');break;
     }
@@ -101,6 +103,11 @@ export function createAudio(){
       if(kind==='flame')hiss(at,.14,.1,180,4400,pan,serial*.157);else if(kind==='rocket')hiss(at,.2,.14,90,3200,pan,serial*.137);else hiss(at,.05,.14,700,7200,pan,serial*.071);
     }
   });
+  const flood=()=>{
+    if(!ctx)return;const at=ctx.currentTime+.008;
+    tone(at,58,26,1.4,.19,0,'sine');
+    for(let layer=0;layer<5;layer++)hiss(at+layer*.42,1.1,.13,80+layer*90,2800+layer*400,.6-layer*.3,layer*.17);
+  };
   const beep=(hz:number,duration=.07)=>{arm();if(ctx)tone(ctx.currentTime+.004,hz,hz*.82,duration,.045,0,'sine');};
-  return {arm,fire,infantryFire,shell,explode,slash,bark,setCombatGain:(gain:number)=>{combatGain=Math.max(0,Math.min(1,Number.isFinite(gain)?gain:1));},click:()=>beep(420,.04),blast:()=>beep(90,.16),alert:()=>beep(760,.12),destroy:()=>{stopListening();void ctx?.close();ctx=undefined;master=undefined;noise=undefined;}};
+  return {arm,fire,flood,infantryFire,shell,explode,slash,bark,setCombatGain:(gain:number)=>{combatGain=Math.max(0,Math.min(1,Number.isFinite(gain)?gain:1));},click:()=>beep(420,.04),blast:()=>beep(90,.16),alert:()=>beep(760,.12),destroy:()=>{stopListening();void ctx?.close();ctx=undefined;master=undefined;noise=undefined;}};
 }

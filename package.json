@@ -12,7 +12,10 @@
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-strip-types --test \"src/**/*.test.ts\" \"tests/**/*.test.ts\"",
-    "test:e2e": "vite --host 127.0.0.1 --port 5180 --strictPort --open /tests/e2e/"
+    "test:e2e": "vite --host 127.0.0.1 --port 5180 --strictPort --open /tests/e2e/",
+    "play": "node scripts/play.mjs",
+    "play:lan": "node scripts/play.mjs --lan",
+    "test:local-server": "node --test scripts/play.test.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.6.2",

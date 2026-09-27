@@ -1,0 +1,33 @@
+<!doctype html><meta charset="utf-8"><title>Offline co-op browser checks</title><style>body{background:#182025;color:white;font:16px system-ui}iframe{width:720px;height:660px;border:1px solid #888}pre{white-space:pre-wrap}</style><h1>Offline co-op checks</h1><button id="run">Run shared-defense checks</button><pre id="result">Ready. Run only on a dedicated test port: this clears that port's dam autosave.</pre><iframe id="host" title="Host"></iframe><iframe id="guest" title="Partner"></iframe><script type="module">
+const result=document.querySelector('#result'),host=document.querySelector('#host'),guest=document.querySelector('#guest');
+const wait=async(fn,label)=>{const until=Date.now()+15000;while(Date.now()<until){if(fn())return;await new Promise(r=>setTimeout(r,100));}throw Error('Timeout: '+label);};
+const assert=(value,label)=>{if(!value)throw Error(label);result.textContent+='PASS '+label+'\n';};
+document.querySelector('#run').onclick=async()=>{
+ document.querySelector('#run').disabled=true;result.textContent='';const saved=new Map(Object.keys(localStorage).filter(k=>k.startsWith('pressure-front.')).map(k=>[k,localStorage.getItem(k)]));
+ try{
+  for(const k of saved.keys())localStorage.removeItem(k);
+  host.src='/?map=dam';await wait(()=>host.contentDocument?.querySelector('#metal')?.textContent==='3000','host GPU ready');
+  await wait(()=>[...host.contentDocument.querySelectorAll('button')].some(b=>b.textContent==='HOST CO-OP'),'host control');
+  [...host.contentDocument.querySelectorAll('button')].find(b=>b.textContent==='HOST CO-OP').click();
+  await wait(()=>host.contentDocument.querySelector('a[href*="/coop/#"]'),'join link');
+  const link=host.contentDocument.querySelector('a[href*="/coop/#"]').href;guest.src='/coop/#'+link.split('#')[1];
+  await wait(()=>guest.contentDocument?.querySelector('#connection')?.textContent.startsWith('Connected'),'guest live');
+  const gd=guest.contentDocument;const img=gd.querySelector('#view');
+  assert(img.naturalWidth>0,'partner receives a live battlefield image');
+  const sample=document.createElement('canvas');sample.width=img.naturalWidth;sample.height=img.naturalHeight;const context=sample.getContext('2d');context.drawImage(img,0,0);const pixels=context.getImageData(0,0,sample.width,sample.height).data;
+  assert(pixels.some((v,i)=>i%4!==3&&v>80),'stream contains rendered terrain, not a blank GPU canvas');
+  gd.querySelector('#tower').value='autocannon';const bounds=img.getBoundingClientRect();img.dispatchEvent(new MouseEvent('click',{clientX:bounds.left+bounds.width/2,clientY:bounds.top+bounds.height/2,bubbles:true}));
+  await wait(()=>host.contentDocument.querySelector('#metal').textContent==='2920','partner placement');
+  assert(host.contentDocument.querySelector('#message').textContent.includes('Partner deployed'),'partner builds in host simulation and spends shared Metal');
+  await wait(()=>gd.querySelector('#status').textContent.includes('2920'),'shared Metal view');
+  gd.querySelector('[data-command="start-wave"]').click();await wait(()=>host.contentDocument.querySelector('#phase').textContent==='COMBAT','start wave');
+  assert(true,'partner starts the real wave');await new Promise(r=>setTimeout(r,250));
+  gd.querySelector('[data-command="dam-flood"]').click();await wait(()=>host.contentDocument.querySelector('#reservoir-status').textContent.includes('0%'),'flood');assert(true,'partner releases a real flood');
+  await new Promise(r=>setTimeout(r,250));gd.querySelector('[data-command="pause"]').click();await wait(()=>gd.querySelector('#status').textContent.includes('PAUSED'),'pause');assert(true,'partner pauses shared simulation');
+  [...host.contentDocument.querySelectorAll('button')].find(b=>b.textContent==='STOP CO-OP').click();await wait(()=>gd.querySelector('[data-command="pause"]').disabled,'disconnect');assert(true,'stopping sharing disables partner controls');
+  result.textContent+='ALL 7 CHECKS PASSED';
+ }catch(error){result.textContent+='FAIL '+error.stack;}finally{
+  host.src='about:blank';guest.src='about:blank';await new Promise(r=>setTimeout(r,300));for(const k of Object.keys(localStorage))if(k.startsWith('pressure-front.'))localStorage.removeItem(k);for(const[k,v]of saved)localStorage.setItem(k,v);document.querySelector('#run').disabled=false;
+ }
+};
+</script>
