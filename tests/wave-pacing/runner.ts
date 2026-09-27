@@ -31,9 +31,9 @@ async function execute(firstWave:number){
   }
   await navigate('/');await until(()=>text('#adapter').includes('/ WEBGPU'),12000);
   if(firstWave===1){
-  assert(text('#wave-status-count')==='1,200 enemies','Opening forecast is wrong');
+  assert(text('#wave-status-count')==='5,000 enemies','Opening forecast is wrong');
   const width=frame.contentDocument!.querySelector<HTMLInputElement>('[aria-label="Zombie stream width"]')!;
-  for(const value of [1,100,60]){width.value=String(value);width.dispatchEvent(new Event('input',{bubbles:true}));assert(text('#wave-status-count')==='1,200 enemies','Stream width changed wave quota');}
+  for(const value of [1,100,60]){width.value=String(value);width.dispatchEvent(new Event('input',{bubbles:true}));assert(text('#wave-status-count')==='5,000 enemies','Stream width changed wave quota');}
 
   }
   const results:string[]=[];
