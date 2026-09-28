@@ -179,7 +179,7 @@ export function createUI(
   });
   menu.addEventListener("click", event => {
     const button=(event.target as HTMLElement).closest<HTMLButtonElement>("button");
-    if (button) closeMenu(!button.dataset.settingsOpen);
+    if (button && !button.closest(".coop-bar")) closeMenu(!button.dataset.settingsOpen);
   });
   root.addEventListener("pointerdown", event => {
     if (!(event.target instanceof Node) || !menu.contains(event.target) && !menuToggle.contains(event.target)) closeMenu();

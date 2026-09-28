@@ -6,9 +6,9 @@ export type Command={type:string;[key:string]:any};
 export function mountCoop(canvas:HTMLCanvasElement,callbacks:{screenToWorld:(x:number,y:number)=>Vec2;status:()=>string;snapshot:()=>CoopSnapshot;command:(command:Command,point?:Vec2)=>void}){
  let stream:EventSource|null=null,key='',room='',cloud=false,sharing=false,busy=false,last=0,id=0,generation=0;
  const frames=new Map<number,{time:number;start:Vec2;end:Vec2}>(),seen=new Set<string>();
- const panel=document.createElement('section');panel.className='coop-bar';panel.hidden=true;
+ const panel=document.createElement('section');panel.className='coop-bar';panel.setAttribute('aria-label','Co-op controls');panel.hidden=true;
  const button=document.createElement('button');button.textContent='HOST CO-OP';
- const detail=document.createElement('span');panel.append(button,detail);document.querySelector('.pf')?.prepend(panel);
+ const detail=document.createElement('span');panel.append(button,detail);canvas.closest('.pf')?.querySelector('#view-menu')?.append(panel);
  const capture=document.createElement('canvas'),context=capture.getContext('2d')!;
  let links:string[]=[],roomCode='';
  const url=(route:string)=>'/api/coop/'+route+'?room='+room;
