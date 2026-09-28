@@ -1,0 +1,36 @@
+import {createRun} from '../../src/game/index.ts';
+import {createInfantryController} from '../../src/infantry/controller.ts';
+import type {WorldMap} from '../../src/contracts/index.ts';
+import type {Barracks} from '../../src/infantry/model.ts';
+const result=document.querySelector('#result')!;
+try {
+  const map:WorldMap={id:'building-check',width:80,height:60,spawn:{x:0,y:10,width:2,height:20},goal:{x:78,y:30},goalRadius:1,obstacles:[]};
+  const run=createRun(map),root=document.querySelector<HTMLElement>('#fixture')!;
+  const controller=createInfantryController(root,run,()=>map,()=>{},()=>{},()=>{}),state=controller.state();
+  const building=(id:number,x:number,kind?:Barracks['kind']):Barracks=>({id,x,y:15,kind,rally:{x,y:25},production:0,training:0,progress:0,spent:200});
+  state.buildings=[building(1,10),building(2,25,'rifle'),building(3,40,'flame'),building(4,70,'rifle')];
+  const assert=(ok:boolean,label:string)=>{if(!ok)throw Error(label);};
+  const visible=(b:{x:number})=>b.x<60;
+  controller.click(state.buildings[0]);controller.click(state.buildings[0]);
+  assert(controller.selectBuildingType(state.buildings[0],visible),'double-click target handled');
+  assert([...controller.selectedBuildings].join(',')==='1,2','matching visible buildings selected, legacy rifle kind included');
+  assert(!root.querySelector<HTMLElement>('.formation-placement-hint')!.hidden,'group rally instructions visible');
+  const before=state.buildings.map(b=>({...b.rally}));
+  assert(controller.command({x:30,y:35}),'move-style command handled');
+  assert(state.buildings.slice(0,2).every(b=>b.rally.x===30.5&&b.rally.y===35.5),'all selected rally points updated');
+  assert(state.buildings.slice(2).every((b,i)=>b.rally.x===before[i+2].x&&b.rally.y===before[i+2].y),'other types and offscreen buildings unchanged');
+  const valid=JSON.stringify(state.buildings.map(b=>b.rally));
+  controller.command(state.buildings[2]);
+  assert(JSON.stringify(state.buildings.map(b=>b.rally))===valid,'blocked order preserves all rally points');
+  controller.selectBuildingType(state.buildings[2],visible,true);
+  assert(controller.selectedBuildings.size===3,'Shift adds another building type');
+  controller.selectBuildingType(state.buildings[2],visible);
+  assert([...controller.selectedBuildings].join(',')==='3','plain double-click replaces selection');
+  controller.click({x:55,y:45});controller.update();
+  assert(controller.selectedBuildings.size===0&&controller.selected===null&&!!controller.inspector.hidden,'empty click clears selection and inspector');
+  controller.selectBuildingType(state.buildings[0],visible);controller.cancel();
+  assert(!controller.command({x:35,y:35}),'Escape cancellation prevents further rally orders');
+  controller.selectBuildingType(state.buildings[0],visible);run.model.phase='lost';controller.command({x:35,y:35});
+  assert(JSON.stringify(state.buildings.map(b=>b.rally))===valid,'ended runs cannot change rally points');
+  result.textContent='PASS: building type selection, viewport filtering, group rally orders, blocked destinations, Shift selection, deselection and ended-run guards';
+} catch(error) {result.textContent=`FAIL: ${error}`;throw error;}

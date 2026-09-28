@@ -21,7 +21,7 @@ export function createInfantryController(root:HTMLElement,run:RunController,getM
   root.addEventListener('build-panel-change',()=>{tool=null;cancelTools();});
   const summary=panel.querySelector<HTMLElement>('.infantry-summary')!,details=panel.querySelector<HTMLElement>('.infantry-details')!;
   const inspector=document.createElement('section');inspector.className='infantry-panel infantry-inspector';inspector.hidden=true;inspector.setAttribute('aria-label','Infantry building inspector');inspector.append(details);root.querySelector('.arena')!.append(inspector);
-  const windowControls=makeGameWindow(inspector,'BUILDING INSPECTOR',()=>{selected=null;tool=null;update();});
+  const windowControls=makeGameWindow(inspector,'BUILDING INSPECTOR',()=>{selected=null;selectedBuildings.clear();tool=null;update();});
   const unitInspector=document.createElement('section');unitInspector.className='infantry-panel infantry-inspector infantry-unit-inspector';unitInspector.hidden=true;unitInspector.setAttribute('aria-label','Infantry unit inspector');
   const unitDetails=document.createElement('div');unitInspector.append(unitDetails);root.querySelector('.arena')!.append(unitInspector);
   const unitWindow=makeGameWindow(unitInspector,'UNIT INSPECTOR',()=>{if(remote)remote.send('deselect');else{clearSoldierSelection();update();}});
@@ -37,12 +37,14 @@ export function createInfantryController(root:HTMLElement,run:RunController,getM
     if(unit){
       if(inspectedUnitId!==unit.id){inspectedUnitId=unit.id;unitWindow.expand();}
       const stats=infantryStats(unit.kind,unit.quality,unit.defense,unit.veterancy,run.researchModifiers()),rank=unit.veterancy??0,xp=unit.veterancyXp??0,next=veterancyXpForLevel(rank+1);
-      const html=`<div class="building-identity"><span class="selection-icon unit-icon unit-icon-${unit.kind??'rifle'}" aria-hidden="true"></span><b>${INFANTRY[unit.kind??'rifle'].name.toUpperCase()} #${unit.id}</b></div><dl class="unit-stat-grid"><dt>Health</dt><dd>${Math.ceil(unit.health)} / ${Math.round(stats.health)}</dd><dt>Kills</dt><dd>${unit.kills??0}</dd><dt>Rank</dt><dd>${rank} / ${MAX_VETERANCY}</dd><dt>Experience</dt><dd>${Math.floor(xp)} XP${rank<MAX_VETERANCY?` / ${Math.ceil(next)} for next rank`:' · MAX'}</dd><dt>Damage</dt><dd>${stats.damage.toFixed(1)}</dd><dt>Attack interval</dt><dd>${stats.cooldown.toFixed(2)}s</dd><dt>Range</dt><dd>${stats.range.toFixed(1)}</dd><dt>Armor</dt><dd>${Math.round(stats.armor*100)}%</dd><dt>Speed</dt><dd>${stats.speed.toFixed(1)}</dd>${unit.kind==='phalanx'?`<dt>Shield wall</dt><dd>${Math.round((unit.brace??0)*75)}% frontal protection</dd>`:''}</dl><p>Double-click a trooper to select its squad. Right-drag to place a formation.</p>`;
+      const health=Math.max(0,Math.min(100,unit.health/stats.health*100));
+      const stat=(label:string,value:string)=>`<div><dt>${label}</dt><dd>${value}</dd></div>`;
+      const html=`<div class="unit-identity"><span class="selection-icon unit-icon unit-icon-${unit.kind??'rifle'}" aria-hidden="true"></span><b>${INFANTRY[unit.kind??'rifle'].name.toUpperCase()}<small>#${unit.id} · RANK ${rank}${rank===MAX_VETERANCY?' · MAX':''}</small></b></div><div class="unit-health"><span>Health</span><b>${Math.ceil(unit.health)} / ${Math.round(stats.health)}</b></div><div class="unit-health-bar" role="meter" aria-label="Health" aria-valuemin="0" aria-valuemax="${Math.round(stats.health)}" aria-valuenow="${Math.ceil(unit.health)}"><i style="width:${health}%;${health<30?'background:#ef8b70':''}"></i></div><div class="unit-record"><span>Kills <b>${unit.kills??0}</b></span><span title="${rank<MAX_VETERANCY?`${Math.max(0,Math.ceil(next-xp))} XP to next rank`:'Maximum rank'}">Experience <b>${Math.floor(xp)} XP</b></span></div><dl class="unit-stat-grid">${stat('Damage',stats.damage.toFixed(1))}${stat('Attack',`${stats.cooldown.toFixed(2)}s`)}${stat('Range',stats.range.toFixed(1))}${stat('Armor',`${Math.round(stats.armor*100)}%`)}${stat('Speed',stats.speed.toFixed(1))}${unit.kind==='phalanx'?stat('Shield',`${Math.round((unit.brace??0)*75)}%`):''}</dl>`;
       if(html!==lastUnitHTML){unitDetails.innerHTML=html;lastUnitHTML=html;}
     }
     const b=state().buildings.find(b=>b.id===selected);if(!b)selected=null;
-    formationHint.hidden=selectedSoldiers.size===0;
-    formationHint.textContent=formationPreview?`${formationPreview.valid?'RELEASE TO PLACE':'BLOCKED — CHOOSE CLEAR GROUND'} · ${formationPreview.columns} files × ${formationPreview.rows} ranks · Arrow shows facing · Esc cancels`:'FORMATION — Right-drag to set width and facing · Right-click to move · Double-click selects squad · Shift adds units';
+    formationHint.hidden=selectedSoldiers.size===0&&selectedBuildings.size===0;
+    formationHint.textContent=selectedSoldiers.size===0&&selectedBuildings.size?`${selectedBuildings.size} BUILDING${selectedBuildings.size===1?'':'S'} SELECTED — Right-click clear ground to set rally points · Double-click selects this building type in view · Esc clears selection`:formationPreview?`${formationPreview.valid?'RELEASE TO PLACE':'BLOCKED — CHOOSE CLEAR GROUND'} · ${formationPreview.columns} files × ${formationPreview.rows} ranks · Arrow shows facing · Esc cancels`:'FORMATION — Right-drag to set width and facing · Right-click to move · Double-click selects squad · Shift adds units';
     inspector.hidden=!b;if(b&&inspectedId!==b.id){inspectedId=b.id;windowControls.expand();}
     rallyHint.hidden=tool!=='rally';root.querySelector('canvas')!.classList.toggle('setting-infantry-rally',tool==='rally');
     summary.textContent=tool==='build'?'Click clear ground to place. Esc cancels.':tool==='rally'?'SET RALLY POINT: click clear ground on the battlefield. Esc keeps the current flag.':`${state().soldiers.filter(s=>s.health>0).length} infantry · ${state().buildings.length} buildings. Click a building to command it.`;
@@ -83,6 +85,18 @@ export function createInfantryController(root:HTMLElement,run:RunController,getM
     for(const s of squad)if(remove)selectedSoldiers.delete(s.id);else selectedSoldiers.add(s.id);
     selected=null;selectedBuildings.clear();tool=null;commandTarget=null;cancelTools();update();message(`${selectedSoldiers.size} infantry selected. Right-click to move; right-drag to set width and facing.`);return true;
   };
+  const selectBuildingType=(p:Vec2,visible:(building:Vec2)=>boolean,additive=false)=>{
+    const clicked=state().buildings.find(b=>Math.abs(b.x-p.x)<=2.5&&Math.abs(b.y-p.y)<=2.5);
+    if(!clicked)return false;
+    const matches=state().buildings.filter(b=>(b.kind??'rifle')===(clicked.kind??'rifle')&&visible(b));
+    if(!additive)selectedBuildings.clear();
+    clearSoldierSelection();
+    for(const b of matches)selectedBuildings.add(b.id);
+    selected=selectedBuildings.size===1?[...selectedBuildings][0]:null;
+    tool=null;cancelTools();update();
+    message(`${selectedBuildings.size} buildings selected. Right-click to set their rally points.`);
+    return true;
+  };
   const selectBox=(from:Vec2,to:Vec2,additive=false)=>{
     const minX=Math.min(from.x,to.x),maxX=Math.max(from.x,to.x),minY=Math.min(from.y,to.y),maxY=Math.max(from.y,to.y);
     const soldiers=state().soldiers.filter(s=>s.health>0&&s.x>=minX&&s.x<=maxX&&s.y>=minY&&s.y<=maxY);
@@ -117,6 +131,7 @@ export function createInfantryController(root:HTMLElement,run:RunController,getM
   };
   const commandBuildings=(target:Vec2)=>{
     const buildings=state().buildings.filter(b=>selectedBuildings.has(b.id));if(!buildings.length)return false;
+    if(ended()){message('The run is over.');return true;}
     const active=map(),rally={x:Math.floor(target.x)+.5,y:Math.floor(target.y)+.5};
     const valid=buildings.filter(b=>reachableRallyPoint(active,b,rally));
     if(valid.length!==buildings.length){message(valid.length?`That rally point is not reachable by ${buildings.length-valid.length} selected barracks.`:'Choose clear ground reachable from every selected barracks.');return true;}
@@ -124,7 +139,7 @@ export function createInfantryController(root:HTMLElement,run:RunController,getM
     fieldKey='';commandTarget={...rally};changed();message(`${valid.length} rally points updated.`);update();return true;
   };
   function ensureFields(){const active=map(),orders=state().soldiers.filter(s=>s.health>0&&s.moveTarget),rallying=state().soldiers.filter(s=>s.health>0&&!s.moveTarget&&s.rallyTarget),key=JSON.stringify([active.obstacles,state().buildings.map(b=>[b.id,b.rally]),orders.map(s=>[s.id,s.moveTarget]),rallying.map(s=>[s.id,s.rallyTarget])]);if(key!==fieldKey){fields.clear();orderFields.clear();for(const b of state().buildings)fields.set(b.id,infantryField(active,b.rally));const cached=new Map<string,NavigationField>();for(const s of [...orders,...rallying]){const target=s.moveTarget??s.rallyTarget!;const targetKey=`${target.x},${target.y}`;let field=cached.get(targetKey);if(!field){field=infantryField(active,target);cached.set(targetKey,field);}orderFields.set(s.id,field);}fieldKey=key;}const living=new Set(state().soldiers.filter(s=>s.health>0).map(s=>s.id));for(const id of selectedSoldiers)if(!living.has(id))selectedSoldiers.delete(id);return active;}
-  return {snapshot:()=>({state:state(),selected,tool,buildKind,selectedSoldiers:[...selectedSoldiers]}),state,fields,orderFields,ensureFields,update,inspector,unitInspector,get selectedUnit(){return selectedUnit();},selectAt,selectBox,previewFormation,commandFormation,clearFormationPreview(){formationPreview=undefined;},get formationPreview(){return formationPreview;},command:(target:Vec2)=>command(target)||commandBuildings(target),get selected(){return selected;},get selectedBuildings(){return selectedBuildings as ReadonlySet<number>;},get selectedSoldiers(){return selectedSoldiers as ReadonlySet<number>;},get commandTarget(){return commandTarget;},get tool(){return tool;},cancel(){tool=null;selected=null;selectedBuildings.clear();clearSoldierSelection();},reset(){tool=null;selected=null;selectedBuildings.clear();clearSoldierSelection();fieldKey='';fields.clear();orderFields.clear();},
+  return {snapshot:()=>({state:state(),selected,tool,buildKind,selectedSoldiers:[...selectedSoldiers]}),state,fields,orderFields,ensureFields,update,inspector,unitInspector,get selectedUnit(){return selectedUnit();},selectAt,selectBuildingType,selectBox,previewFormation,commandFormation,clearFormationPreview(){formationPreview=undefined;},get formationPreview(){return formationPreview;},command:(target:Vec2)=>command(target)||commandBuildings(target),get selected(){return selected;},get selectedBuildings(){return selectedBuildings as ReadonlySet<number>;},get selectedSoldiers(){return selectedSoldiers as ReadonlySet<number>;},get commandTarget(){return commandTarget;},get tool(){return tool;},cancel(){tool=null;selected=null;selectedBuildings.clear();clearSoldierSelection();},reset(){tool=null;selected=null;selectedBuildings.clear();clearSoldierSelection();fieldKey='';fields.clear();orderFields.clear();},
     preview(p:Vec2){const at={x:Math.floor(p.x)+.5,y:Math.floor(p.y)+.5};return {...at,valid:!ended()&&infantryAvailable(state(),buildKind)&&run.model.metal>=INFANTRY[buildKind].cost&&clearForSoldier(map(),at,2.5)&&Math.hypot(at.x-getMap().goal.x,at.y-getMap().goal.y)>=getMap().goalRadius+3};},
     click(p:Vec2,select=true,additive=false):boolean {
       if(ended())return !!tool;
@@ -145,7 +160,7 @@ export function createInfantryController(root:HTMLElement,run:RunController,getM
         message('Choose clear ground that recruits can reach from the barracks.');return true;
       }
       if(select&&selectAt(p,additive))return true;
-      if(select){const b=state().buildings.find(b=>Math.abs(b.x-p.x)<=2.5&&Math.abs(b.y-p.y)<=2.5);if(b){if(!additive){selectedBuildings.clear();selectedSoldiers.clear();}if(additive&&selectedBuildings.has(b.id))selectedBuildings.delete(b.id);else selectedBuildings.add(b.id);selected=selectedBuildings.size===1?[...selectedBuildings][0]:null;tool=null;cancelTools();update();message(`${selectedBuildings.size} barracks selected. Right-click to set rally points.`);return true;}if(!additive){selectedBuildings.clear();clearSoldierSelection();}}
+      if(select){const b=state().buildings.find(b=>Math.abs(b.x-p.x)<=2.5&&Math.abs(b.y-p.y)<=2.5);if(b){if(!additive){selectedBuildings.clear();selectedSoldiers.clear();}if(additive&&selectedBuildings.has(b.id))selectedBuildings.delete(b.id);else selectedBuildings.add(b.id);selected=selectedBuildings.size===1?[...selectedBuildings][0]:null;tool=null;cancelTools();update();message(`${selectedBuildings.size} barracks selected. Right-click to set rally points.`);return true;}if(!additive){selected=null;selectedBuildings.clear();clearSoldierSelection();}}
       return false;
     }
   };
