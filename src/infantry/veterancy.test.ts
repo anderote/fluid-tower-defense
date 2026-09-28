@@ -3,7 +3,7 @@ import {test} from 'node:test';
 import {MAX_VETERANCY,veterancyXpForLevel} from '../content/index.ts';
 import {createRun} from '../game/index.ts';
 import type {WorldMap} from '../contracts/index.ts';
-import {INFANTRY,INFANTRY_VETERANCY_KILLS,infantryVeterancyLevel,infantryVeterancyXpForLevel,awardInfantryKills,freshInfantry,infantryStats,type InfantryKind,type Soldier} from './model.ts';
+import {INFANTRY,INFANTRY_VETERANCY_KILLS,infantryVeterancyLevel,infantryVeterancyXpForLevel,awardInfantryKills,awardInfantryKillTotals,freshInfantry,infantryStats,type InfantryKind,type Soldier} from './model.ts';
 const soldier=(kind:InfantryKind,id=2):Soldier=>({id,home:1,kind,x:15,y:15,quality:0,health:20,cooldown:0,angle:0,flash:0,walk:0,dead:0,kills:0,veterancy:0,veterancyXp:0});
 
 test('every infantry type has exact, increasing rank boundaries and a capped progression',()=>{
@@ -52,4 +52,13 @@ test('loading old infantry revalues stored kills immediately and remains stable 
   const again=createRun(map);assert.equal(again.load(restored.serialize()).ok,true);
   assert.deepEqual(again.model.infantry!.soldiers,[veteran]);
  }
+});
+
+test('delayed GPU kill totals credit persistent soldier IDs, including troops missing from the live roster',()=>{
+ const state=freshInfantry();state.soldiers=[soldier('archer',2),{...soldier('rifle',5),health:0}];
+ const totals=[0,2,0,0,4],previous=[0,0,0,0,0];
+ awardInfantryKillTotals(state,totals,previous);
+ assert.deepEqual(state.soldiers.map(s=>[s.kills,s.veterancyXp,s.veterancy]),[[2,2,1],[4,4,1]]);
+ awardInfantryKillTotals(state,totals,totals);assert.equal(state.soldiers[0].kills,2,'same snapshot does not double-count kills');
+ awardInfantryKillTotals(state,[0,0],totals);assert.equal(state.soldiers[0].kills,2,'counter reset never removes earned XP');
 });

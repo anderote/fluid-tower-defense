@@ -299,6 +299,12 @@ export function awardInfantryKills(state:InfantryState,ids:readonly number[],kil
   ids.forEach((id,index)=>{const earned=Math.max(0,Math.floor(kills[index]??0));if(!earned)return;const soldier=soldiers.get(id);if(!soldier)return;refreshInfantryVeterancy(soldier);soldier.kills=(soldier.kills??0)+earned;soldier.veterancyXp=(soldier.veterancyXp??0)+earned;refreshInfantryVeterancy(soldier);});
 }
 
+/** GPU counters use persistent soldier IDs, not the live roster at readback time. */
+export function awardInfantryKillTotals(state:InfantryState,totals:readonly number[],previous:readonly number[]){
+ const ids=state.soldiers.map(s=>s.id);
+ awardInfantryKills(state,ids,ids.map(id=>Math.max(0,(totals[id-1]??0)-(previous[id-1]??0))));
+}
+
 export function validInfantry(value:unknown,map:WorldMap):value is InfantryState{
   if(!value||typeof value!=='object')return false;const v=value as InfantryState;
   if(v.era!==undefined&&(!Number.isInteger(v.era)||v.era<0||v.era>=INFANTRY_ERAS.length))return false;

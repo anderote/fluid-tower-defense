@@ -6,7 +6,7 @@ import {createWallInspector} from '../ui/wall-inspector.ts';
 import {firingObstacles, createStructurePreview, clearPlayerTerrain, restoreSessionTerrain, terrainMounts, wallMountCells} from '../game/terrain.ts';
 import {createInfantryController} from '../infantry/controller.ts';
 import {createInfantryGPU} from '../infantry/gpu.ts';
-import {advanceInfantry,awardInfantryKills,infantryMap,freshInfantry} from '../infantry/model.ts';
+import {advanceInfantry,awardInfantryKillTotals,infantryMap,freshInfantry} from '../infantry/model.ts';
 import {damMap,DAM_ID,DAM_GATES,freshDam,sameRect,validDam} from '../content/dam.ts';
 import {advanceDam,advanceCurrents,releaseFlood,toggleDamGate} from '../game/dam.ts';
 import {campaignMap,isCampaignMap} from '../content/levels.ts';
@@ -134,8 +134,8 @@ try {
    const currentLive=gpu.shared.capacity-hordeCapacity.available(gpu.shared.capacity);
    latest=s;state.population=currentLive;state.kills=s.kills;state.crushKills=s.crushKills;state.leaks=s.leaks;state.earned=s.earned;state.maxPressure=Math.max(state.maxPressure,s.maxPressure??0);
    if(state.mode==='game'){
-     const reported=s.infantryKills??[],earnedBySoldier=reported.map((total,index)=>Math.max(0,total-(previousInfantryKills[index]??0)));
-     awardInfantryKills(infantry.state(),infantryGPU.liveIds,earnedBySoldier);previousInfantryKills=[...reported];
+     const reported=s.infantryKills??[];
+     awardInfantryKillTotals(infantry.state(),reported,previousInfantryKills);previousInfantryKills=[...reported];
      run.applySettlement({...s,live:currentLive});
      if(currentLive===0&&count>0&&s.tick>=waveStartTick&&run.model.pending.length===0&&run.model.phase==='combat'){
        const clearedWave=run.model.wave,result=run.finishSettling();if(result.ok){const checkpoint=clearedWave>=10;state.message=checkpoint?`Wave ${clearedWave} contained. Extract or continue with your Metal and research.`:run.model.bonusChoices.length?'Wave cleared. Choose a command boon.':'Wave cleared. Spend your Metal on defenses and research.';count=0;}

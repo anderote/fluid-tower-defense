@@ -37,4 +37,4 @@ One credited kill grants one XP. Infantry uses role-specific thresholds: total X
 | Flamethrowers, bazooka teams, rocket troops | 10 | 250 | 1,000 |
 | Towers (comparison) | 65 | 1,620 | 6,480 |
 
-Existing infantry recalculates ranks from stored XP when loading; older records without XP use their kill count. Earned ranks are never removed, and promotions do not heal wounds. The unit inspector's experience tooltip uses the same role-specific threshold to show kills remaining to the next rank.
+Existing infantry recalculates ranks from stored XP when loading; older records without XP use their kill count. Earned ranks are never removed, and promotions do not heal wounds. The unit inspector shows current XP / the next rank's XP threshold, with kills remaining in its tooltip. Asynchronous GPU kill totals are credited by persistent soldier ID, so changing the live roster before readback cannot drop earned XP. `/tests/infantry/veterancy.html` verifies GPU kills through settlement, individual XP, and promotion.
