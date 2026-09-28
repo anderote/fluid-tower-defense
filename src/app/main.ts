@@ -439,8 +439,8 @@ try {
  ui.canvas.addEventListener('dblclick',event=>{
    if(event.button!==0||failed||editor.active||state.mode!=='game'||state.buildTool||state.selectedKind||state.upgradeMode||state.moveMode||state.targetMode||infantry.tool)return;
    const point=renderer.screenToWorld(event.clientX,event.clientY);
-   const view=ui.canvas.getBoundingClientRect(),visible=(building:Vec2)=>{const screen=renderer.worldToScreen(building.x,building.y);return screen.x>=view.left&&screen.x<=view.right&&screen.y>=view.top&&screen.y<=view.bottom;};
-   if(infantry.selectBuildingType(point,visible,event.shiftKey)||infantry.selectAt(point,event.shiftKey,true)){event.preventDefault();renderer.clearEnemySelection?.();run.model.selected=null;infantryDrag=undefined;return;}
+   const view=ui.canvas.getBoundingClientRect(),visible=(unit:Vec2)=>{const screen=renderer.worldToScreen(unit.x,unit.y);return screen.x>=view.left&&screen.x<=view.right&&screen.y>=view.top&&screen.y<=view.bottom;};
+   if(infantry.selectBuildingType(point,visible,event.shiftKey)||infantry.selectAt(point,event.shiftKey,visible)){event.preventDefault();renderer.clearEnemySelection?.();run.model.selected=null;infantryDrag=undefined;return;}
    if(run.model.selected!==null||infantry.selectedBuildings.size)return;
    event.preventDefault();infantryDrag=undefined;renderer.selectEnemies?.(point);
  });
