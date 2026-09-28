@@ -1,6 +1,6 @@
 import type {RenderScene} from '../contracts/index.ts';
 import {createInfantryAtlas} from './infantry-art.ts';
-import {createInfantryAnimator,INFANTRY_FRAME,INFANTRY_KINDS,INFANTRY_PIVOT,INFANTRY_PIXEL} from './infantry-animation.ts';
+import {infantryAtlasOrigin,createInfantryAnimator,INFANTRY_FRAME,INFANTRY_PIVOT,INFANTRY_PIXEL} from './infantry-animation.ts';
 
 export async function createInfantrySprites(device:GPUDevice,format:GPUTextureFormat,camera:GPUBuffer){
   const atlas=await createInfantryAtlas();
@@ -29,8 +29,8 @@ fn clip(p:vec2<f32>)->vec2<f32>{let aspect=camera.viewport.x/camera.viewport.y;l
       count=soldiers.length;if(!count)return;
       if(count>capacity){instances.destroy();capacity=2**Math.ceil(Math.log2(count));instances=device.createBuffer({label:'Infantry sprite instances',size:capacity*64,usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST});}
       const data=new Float32Array(count*16);
-      soldiers.forEach((s,i)=>{const p=poses[i],row=INFANTRY_KINDS.indexOf(s.kind??'rifle')*8+p.facing;
-        data.set([s.x-INFANTRY_PIVOT.x*INFANTRY_PIXEL,s.y-INFANTRY_PIVOT.y*INFANTRY_PIXEL,INFANTRY_FRAME*INFANTRY_PIXEL,INFANTRY_FRAME*INFANTRY_PIXEL,p.frame*INFANTRY_FRAME,row*INFANTRY_FRAME,INFANTRY_FRAME,INFANTRY_FRAME,1,1,1,p.alpha,s.y,s.health<=0?1:0,0,0],i*16);
+      soldiers.forEach((s,i)=>{const p=poses[i],origin=infantryAtlasOrigin(s.kind??'rifle',p.facing,p.frame);
+        data.set([s.x-INFANTRY_PIVOT.x*INFANTRY_PIXEL,s.y-INFANTRY_PIVOT.y*INFANTRY_PIXEL,INFANTRY_FRAME*INFANTRY_PIXEL,INFANTRY_FRAME*INFANTRY_PIXEL,origin.x,origin.y,INFANTRY_FRAME,INFANTRY_FRAME,1,1,1,p.alpha,s.y,s.health<=0?1:0,0,0],i*16);
       });
       device.queue.writeBuffer(instances,0,data);
     },

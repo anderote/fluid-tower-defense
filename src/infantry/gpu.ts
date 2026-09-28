@@ -1,5 +1,5 @@
 import {PARTICLE_WGSL,type SharedGPU,type WorldMap} from '../contracts/index.ts';
-import {infantryStats,type Soldier,type Threat,type RifleShot} from './model.ts';
+import {infantryCombatKind,infantryStats,type Soldier,type Threat,type RifleShot} from './model.ts';
 import {MAX_TOWERS,MAX_INFANTRY_KILL_SLOTS} from '../contracts/index.ts';
 
 export async function createInfantryGPU(device:GPUDevice,shared:SharedGPU){
@@ -97,7 +97,7 @@ fn visible(a:vec2f,b:vec2f)->bool {
     if(lineOfSightMap.obstacles.length)device.queue.writeBuffer(walls,0,new Float32Array(lineOfSightMap.obstacles.flatMap(o=>[o.x,o.y,o.width,o.height])));
     device.queue.writeBuffer(params,0,new Uint32Array([count,live.length,lineOfSightMap.obstacles.length,cells]));
     liveIds=[];const shotMap=new Map(shots.map(s=>[s.soldier,s]));let maxRange=4;const data=new Float32Array(live.length*12);
-    live.forEach((s,i)=>{const shot=shotMap.get(s.id),stats=infantryStats(s.kind,s.quality,s.defense,s.veterancy,research),slot=s.id-1,owner=slot<MAX_INFANTRY_KILL_SLOTS?MAX_TOWERS+slot+1:0;if(owner)liveIds[slot]=s.id;maxRange=Math.max(maxRange,stats.range+3.5);data.set([s.x,s.y,stats.range,['rifle','rocket','flame','samurai','dog','phalanx'].indexOf(s.kind??'rifle'),shot?.target??-1,shot?.generation??0,shot?.damage??0,owner,shot?.x??0,shot?.y??0,s.angle,s.brace??0],i*12);});device.queue.writeBuffer(units,0,data);
+    live.forEach((s,i)=>{const shot=shotMap.get(s.id),stats=infantryStats(s.kind,s.quality,s.defense,s.veterancy,research),slot=s.id-1,owner=slot<MAX_INFANTRY_KILL_SLOTS?MAX_TOWERS+slot+1:0;if(owner)liveIds[slot]=s.id;maxRange=Math.max(maxRange,stats.range+3.5);data.set([s.x,s.y,stats.range,infantryCombatKind(s.kind),shot?.target??-1,shot?.generation??0,shot?.damage??0,owner,shot?.x??0,shot?.y??0,s.angle,s.brace??0],i*12);});device.queue.writeBuffer(units,0,data);
     device.queue.writeBuffer(params,16,new Float32Array([width,height,dt,maxRange]));encoder.clearBuffer(heads);
     const group=device.createBindGroup({layout,entries:[params,shared.particles,units,results,walls,shared.damageOwners!,heads,links].map((buffer,binding)=>({binding,resource:{buffer}}))});
     {const pass=encoder.beginComputePass();pass.setPipeline(bucket);pass.setBindGroup(0,group);pass.dispatchWorkgroups(Math.ceil(Math.max(count,live.length)/128));pass.end();}

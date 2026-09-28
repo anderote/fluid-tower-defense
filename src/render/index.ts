@@ -497,7 +497,8 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
           if(slash.cut>.68){const hit=s.angle+1.12,hx=x+Math.cos(hit)*1.48,hy=y-.58+Math.sin(hit)*1.02;for(const turn of [0,Math.PI/2])streak(a,hx,hy,Math.cos(hit+turn),Math.sin(hit+turn),.48,.055,[1,.88,.45,.8*fade]);}
         }
       }else if(s.flash>0&&kind!=='dog'&&kind!=='phalanx'){
-        if(kind==='flame'){
+        if(kind==='archer'||kind==='slinger'){streak(a,mx+dx*2,my+dy*2,dx,dy,kind==='archer'?1.4:.25,.07,[.72,.67,.48,s.flash*8]);}
+        else if(kind==='flame'){
           const reach=Math.max(1,infantryStats(kind,s.quality,s.defense,s.veterancy).range-.75),flow=Math.min(1,s.flash/.12);
           // Overlapping elongated tongues form one moving jet, with a yellow
           // core and wider orange edges; animation never restarts on each hit.
@@ -511,7 +512,7 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
             streak(a,fx,fy,dx,dy,.12+age*.2,width*.23,[1,.94,.48,alpha]);
           }
         }
-        else if(kind==='rocket'){streak(a,mx+dx*4,my+dy*4,dx,dy,4,.14,[.88,.84,.65,s.flash*5]);disc(a,mx,my,.4,[1,.6,.15,.8],6);}
+        else if(kind==='rocket'||kind==='bazooka'){streak(a,mx+dx*4,my+dy*4,dx,dy,4,.14,[.88,.84,.65,s.flash*5]);disc(a,mx,my,.4,[1,.6,.15,.8],6);}
         else {disc(a,mx,my,.24,[1,.86,.29,.95],5);streak(a,mx+dx*2,my+dy*2,dx,dy,2,.025,[1,.89,.43,s.flash*6]);}
       }
       if(scene.selectedInfantry?.has(s.id)){const maxHealth=infantryStats(s.kind,s.quality,s.defense,s.veterancy,scene.infantryResearch).health;rect(a,x-.65,y-2.1,1.3,.13,[.12,.13,.1,1]);rect(a,x-.65,y-2.1,1.3*Math.max(0,Math.min(1,s.health/maxHealth)),.13,[.5,.85,.22,1]);}

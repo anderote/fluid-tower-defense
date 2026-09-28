@@ -4,24 +4,57 @@ import {MAX_VETERANCY,veterancyLevel,veterancyMultiplier} from '../content/index
 import {buildNavigation} from '../navigation/index.ts';
 
 export const BARRACKS_COST=120;
-export type InfantryKind='rifle'|'rocket'|'flame'|'samurai'|'dog'|'phalanx';
+export type InfantryKind=keyof typeof INFANTRY;
 export const INFANTRY={
- rifle:{building:'Rifle Barracks',name:'Riflemen',cost:120,interval:5,capacity:40,health:40,damage:12,range:14,cooldown:1.05,armor:0,speed:4,role:'Mass rifle infantry · free continuous recruitment'},
+ rifle:{building:'Rifle Barracks',name:'Bolt-action infantry',cost:120,interval:5,capacity:40,health:40,damage:12,range:14,cooldown:1.05,armor:0,speed:4,role:'Mass rifle infantry · free continuous recruitment'},
  rocket:{building:'Rocket Academy',name:'Rocket troops',cost:200,interval:4,capacity:20,health:55,damage:22,range:16,cooldown:3.1,armor:.1,speed:3.5,role:'Deliberate splash volleys against dense hordes'},
  flame:{building:'Flame Depot',name:'Flamethrowers',cost:160,interval:3,capacity:20,health:80,damage:6,range:6,cooldown:.45,armor:.2,speed:4,role:'Short-range cones that punish crowded approaches'},
  samurai:{building:'Samurai Dojo',name:'Samurai',cost:240,interval:6,capacity:20,health:95,damage:18,range:2.6,cooldown:.9,armor:.2,speed:4.8,role:'Close-range shock troops with a focused sword sweep'},
  phalanx:{building:'Phalanx Barracks',name:'Phalanx Troopers',cost:220,interval:4,capacity:24,health:110,damage:16,range:4.2,cooldown:1.2,armor:.3,speed:3,role:'Hoplite shield wall · three ranks · frontal blocking · rally toward the enemy approach'},
  dog:{building:'Dog Kennel',name:'Attack dogs',cost:60,interval:1.5,capacity:40,health:25,damage:24,range:1.8,cooldown:.6,armor:0,speed:8,role:'Fast packs that chase and bite nearby zombies'},
+ archer:{building:'Archery Range',name:'Archers',cost:100,interval:3,capacity:30,health:32,damage:10,range:17,cooldown:1.8,armor:0,speed:4,role:'Long-range bow fire behind the shield wall'},
+ musketeer:{building:'Musketeer Barracks',name:'Musketeers',cost:150,interval:4,capacity:30,health:48,damage:28,range:15,cooldown:3.6,armor:0.05,speed:3.5,role:'Two-rank firing line · powerful shots with slow reloads'},
+ grenadier:{building:'Grenadier Guardhouse',name:'Grenadiers',cost:210,interval:5,capacity:24,health:80,damage:36,range:12,cooldown:3.8,armor:0.15,speed:3.2,role:'Veteran musket guards · durable two-rank firing line'},
+ skirmisher:{building:'Skirmisher Lodge',name:'Riflemen',cost:180,interval:4,capacity:24,health:38,damage:20,range:19,cooldown:2.5,armor:0,speed:5,role:'Loose rifle screens · long reach and fast movement'},
+ machinegun:{building:'Machine Gun Post',name:'Machine gunners',cost:230,interval:6,capacity:16,health:65,damage:7,range:16,cooldown:0.38,armor:0.1,speed:2.8,role:'Sustained machine-gun fire · slow-moving support'},
+ assault:{building:'Assault Barracks',name:'Assault infantry',cost:190,interval:4,capacity:28,health:65,damage:8,range:10,cooldown:0.5,armor:0.12,speed:4.5,role:'Submachine guns · rapid close-range fire'},
+ paratrooper:{building:'Airborne School',name:'Paratroopers',cost:250,interval:6,capacity:20,health:85,damage:20,range:16,cooldown:1.3,armor:0.15,speed:5,role:'Mobile elite rifle infantry'},
+ commando:{building:'Commando Center',name:'Commandos',cost:300,interval:6,capacity:20,health:100,damage:16,range:17,cooldown:0.8,armor:0.25,speed:5.2,role:'Armored assault-rifle teams'},
+ marksman:{building:'Marksman School',name:'Marksmen',cost:280,interval:7,capacity:16,health:55,damage:65,range:26,cooldown:4,armor:0.1,speed:4,role:'Precision rifles · long-range single-target damage'},
+ support:{building:'Support Weapons Depot',name:'Support gunners',cost:320,interval:7,capacity:16,health:110,damage:10,range:18,cooldown:0.4,armor:0.3,speed:3.2,role:'Heavy machine guns · armored sustained fire'},
+ slinger:{building:'Slinger Camp',name:'Slingers',cost:75,interval:2.5,capacity:32,health:28,damage:7,range:12,cooldown:1.2,armor:0,speed:5.5,role:'Cheap mobile stone slingers'},
+ light:{building:'Light Infantry Camp',name:'Light infantry',cost:130,interval:3,capacity:30,health:35,damage:13,range:13,cooldown:2,armor:0,speed:5.8,role:'Fast musket flankers with loose spacing'},
+ raider:{building:'Trench Raider Dugout',name:'Trench raiders',cost:200,interval:4,capacity:24,health:90,damage:18,range:4,cooldown:1,armor:0.18,speed:4.8,role:'Shotgun assault troops · close-range cone fire'},
+ semiauto:{building:'Rifle Squad Barracks',name:'Rifle squad',cost:180,interval:4,capacity:32,health:60,damage:15,range:16,cooldown:0.95,armor:0.1,speed:4.2,role:'Versatile semiautomatic rifle squads'},
+ bazooka:{building:'Bazooka School',name:'Bazooka teams',cost:240,interval:5,capacity:20,health:60,damage:28,range:17,cooldown:3.4,armor:0.1,speed:3.5,role:'Explosive rockets against dense crowds'},
 } as const;
+
+export const INFANTRY_ERAS=[
+ {id:'classical',name:'Classical',cost:0,kinds:['samurai','phalanx','archer','slinger']},
+ {id:'napoleonic',name:'Napoleonic',cost:2500,kinds:['musketeer','grenadier','skirmisher','light']},
+ {id:'ww1',name:'WW1',cost:6000,kinds:['rifle','machinegun','flame','raider']},
+ {id:'ww2',name:'WW2',cost:12000,kinds:['semiauto','assault','bazooka','paratrooper']},
+ {id:'modern',name:'Modern Infantry',cost:24000,kinds:['commando','marksman','support','rocket']},
+] as const satisfies readonly {id:string;name:string;cost:number;kinds:readonly InfantryKind[]}[];
+export const infantryEra=(kind:InfantryKind)=>INFANTRY_ERAS.find(era=>(era.kinds as readonly InfantryKind[]).includes(kind))??{id:'utility',name:'Utility',cost:0,kinds:['dog'] as const};
+/** Legacy saves retain access through their most advanced existing building. */
+export const unlockedInfantryEra=(state:InfantryState)=>state.era??Math.max(0,...state.buildings.map(b=>INFANTRY_ERAS.findIndex(era=>(era.kinds as readonly InfantryKind[]).includes(b.kind??'rifle'))));
+export const infantryAvailable=(state:InfantryState,kind:InfantryKind)=>kind==='dog'||INFANTRY_ERAS.findIndex(era=>(era.kinds as readonly InfantryKind[]).includes(kind))<=unlockedInfantryEra(state);
+
+/** Stable GPU combat families, independent of roster and sprite order. */
+const combatKinds:Partial<Record<InfantryKind,number>>={rocket:1,bazooka:1,flame:2,raider:2,samurai:3,dog:4,phalanx:5};
+export const infantryCombatKind=(kind:InfantryKind='rifle')=>combatKinds[kind]??0;
+export const formsFiringLine=(kind?:InfantryKind)=>kind==='musketeer'||kind==='grenadier';
+
 export const infantryCapacity=(kind:InfantryKind='rifle',production=0)=>INFANTRY[kind].capacity+Math.ceil(INFANTRY[kind].capacity*.2)*Math.max(0,Math.min(5,production));
 const SAMURAI_HUNT_MEMORY=1.15;
-export const infantryStats=(kind:InfantryKind='rifle',quality=0,defense=0,veterancy=0,research:readonly string[]=[] )=>{const v=INFANTRY[kind],rank=(id:string)=>research.filter(upgrade=>upgrade===id).length,experience=veterancyMultiplier(veterancy),veteranGain=experience-1,rifleFamily=kind==='rifle',flameFamily=kind==='flame',explosiveFamily=kind==='rocket',armorRank=rank('infantry-armor');return {...v,health:(v.health+quality*12+defense*20)*(1+armorRank*.02)*(1+veteranGain*.45),damage:v.damage*(1+quality/3)*experience*(1+rank('ballistics')*.01*Number(rifleFamily))*(1+rank('rifle-tech')*.02*Number(rifleFamily))*(1+rank('thermal-science')*.01*Number(flameFamily))*(1+rank('flame-tech')*.025*Number(flameFamily))*(1+rank('explosive-ordnance')*.01*Number(explosiveFamily))*(1+rank('high-explosives')*.02*Number(explosiveFamily)),range:v.range*(1+rank('precision-optics')*.015*Number(rifleFamily))*(1+veteranGain*.35),cooldown:v.cooldown/(1+quality*.08)/(1+veteranGain*.4),armor:Math.min(.85,v.armor+defense*.06+armorRank*.01+veteranGain*.04)};};
+export const infantryStats=(kind:InfantryKind='rifle',quality=0,defense=0,veterancy=0,research:readonly string[]=[] )=>{const v=INFANTRY[kind],rank=(id:string)=>research.filter(upgrade=>upgrade===id).length,experience=veterancyMultiplier(veterancy),veteranGain=experience-1,rifleFamily=(infantryCombatKind(kind)===0&&kind!=='archer'&&kind!=='slinger')||kind==='raider',flameFamily=kind==='flame',explosiveFamily=infantryCombatKind(kind)===1,armorRank=rank('infantry-armor');return {...v,health:(v.health+quality*12+defense*20)*(1+armorRank*.02)*(1+veteranGain*.45),damage:v.damage*(1+quality/3)*experience*(1+rank('ballistics')*.01*Number(rifleFamily))*(1+rank('rifle-tech')*.02*Number(rifleFamily))*(1+rank('thermal-science')*.01*Number(flameFamily))*(1+rank('flame-tech')*.025*Number(flameFamily))*(1+rank('explosive-ordnance')*.01*Number(explosiveFamily))*(1+rank('high-explosives')*.02*Number(explosiveFamily)),range:v.range*(1+rank('precision-optics')*.015*Number(rifleFamily))*(1+veteranGain*.35),cooldown:v.cooldown/(1+quality*.08)/(1+veteranGain*.4),armor:Math.min(.85,v.armor+defense*.06+armorRank*.01+veteranGain*.04)};};
 export interface Barracks extends Vec2 {kind?:InfantryKind;defense?:number;id:number;rally:Vec2;production:number;training:number;progress:number;spent:number;recruited?:number}
 export interface Soldier extends Vec2 {kind?:InfantryKind;defense?:number;id:number;home:number;quality:number;health:number;cooldown:number;angle:number;flash:number;walk:number;dead:number;kills?:number;veterancy?:number;veterancyXp?:number;casualtyRecorded?:boolean;deathCause?:'enemy'|'friendly-fire';attackAge?:number;moving?:boolean;brace?:number;pressure?:number;moveTarget?:Vec2;moveFormation?:InfantryFormation;moveSlot?:number;rallyTarget?:Vec2;rallySlot?:number}
-export interface InfantryState {casualties?:number;friendlyFire?:number;nextId:number;buildings:Barracks[];soldiers:Soldier[]}
+export interface InfantryState {era?:number;casualties?:number;friendlyFire?:number;nextId:number;buildings:Barracks[];soldiers:Soldier[]}
 export interface Threat extends Vec2 {target:number;generation:number;contact:number;age:number;pushX?:number;pushY?:number;pressure?:number}
 export interface RifleShot {soldier:number;target:number;generation:number;damage:number;x:number;y:number}
-export const freshInfantry=():InfantryState=>({nextId:1,buildings:[],soldiers:[],casualties:0,friendlyFire:0});
+export const freshInfantry=():InfantryState=>({era:0,nextId:1,buildings:[],soldiers:[],casualties:0,friendlyFire:0});
 /** Count the living-to-dead transition once, even while its corpse remains visible. */
 export function recordInfantryCasualty(state:InfantryState,s:Soldier,cause:'enemy'|'friendly-fire'){
   if(s.health>0||s.casualtyRecorded)return;
@@ -124,6 +157,11 @@ export function phalanxPoint(center:Vec2,slot:number,angle:number):Vec2 {
   const file=Math.floor(slot/3),lateral=(file===0?0:Math.ceil(file/2)*(file%2?1:-1))*.9,depth=(slot%3)*.85;
   return {x:center.x-Math.cos(angle)*depth-Math.sin(angle)*lateral,y:center.y-Math.sin(angle)*depth+Math.cos(angle)*lateral};
 }
+/** Two ranks expand out from the rally flag and close gaps after casualties. */
+export function firingLinePoint(center:Vec2,slot:number,angle:number):Vec2 {
+ const file=Math.floor(slot/2),lateral=(file===0?0:Math.ceil(file/2)*(file%2?1:-1))*.9,depth=(slot%2)*.85;
+ return {x:center.x-Math.cos(angle)*depth-Math.sin(angle)*lateral,y:center.y-Math.sin(angle)*depth+Math.cos(angle)*lateral};
+}
 export const phalanxFacing=(map:WorldMap,center:Vec2)=>Math.atan2(map.spawn.y+map.spawn.height/2-center.y,map.spawn.x+map.spawn.width/2-center.x);
 
 type FormationSlot={centerX:number;centerY:number;slot:number;target:Vec2};
@@ -147,12 +185,12 @@ export function advanceInfantry(state:InfantryState,map:WorldMap,fields:Map<numb
   }
   const homes=new Map(state.buildings.map(b=>[b.id,b]));
   const phalanxSlots=new Map<number,{target:Vec2;angle:number}>(),groups=new Map<string,Soldier[]>();
-  for(const s of state.soldiers)if((s.kind==='phalanx'||s.moveFormation)&&s.health>0){
+  for(const s of state.soldiers)if((s.kind==='phalanx'||formsFiringLine(s.kind)||s.moveFormation)&&s.health>0){
     const b=homes.get(s.home);if(!b)continue;const center=s.moveTarget??s.rallyTarget??b.rally;
     const key=`${s.moveTarget?'order':s.home}:${center.x},${center.y}:${s.moveFormation?.angle??'auto'}:${s.moveFormation?.columns??0}`,group=groups.get(key)??[];group.push(s);groups.set(key,group);
   }
   for(const group of groups.values())group.sort((a,b)=>a.id-b.id).forEach((s,slot)=>{
-    const center=s.moveTarget??s.rallyTarget??homes.get(s.home)!.rally,angle=s.moveFormation?.angle??phalanxFacing(map,center),point=s.moveFormation?formationPoint(center,slot,s.moveFormation):phalanxPoint(center,slot,angle);
+    const center=s.moveTarget??s.rallyTarget??homes.get(s.home)!.rally,angle=s.moveFormation?.angle??phalanxFacing(map,center),point=s.moveFormation?formationPoint(center,slot,s.moveFormation):formsFiringLine(s.kind)?firingLinePoint(center,slot,angle):phalanxPoint(center,slot,angle);
     phalanxSlots.set(s.id,{angle,target:clearForSoldier(map,point)&&clearInfantryPath(map,center,point)?point:infantryFanPoint(map,center,slot)});
   });
   const cells=new Map<string,Soldier[]>(),key=(x:number,y:number)=>`${Math.floor(x/2)},${Math.floor(y/2)}`;
@@ -186,7 +224,8 @@ export function advanceInfantry(state:InfantryState,map:WorldMap,fields:Map<numb
     s.cooldown=Math.max(0,s.cooldown-dt);
     const formation=phalanxSlots.get(s.id);if(formation)s.angle=formation.angle;
     const frontal=s.kind!=='phalanx'||!formation||!!fresh&&Math.cos(Math.atan2(fresh.y-s.y,fresh.x-s.x)-formation.angle)>.55;
-    if(fresh&&fresh.target>=0&&distance<=stats.range&&frontal){
+    const firingReady=!formsFiringLine(s.kind)||!formation||Math.hypot(s.x-formation.target.x,s.y-formation.target.y)<.22;
+    if(fresh&&fresh.target>=0&&distance<=stats.range&&frontal&&firingReady){
       if(s.kind!=='phalanx'||!formation)s.angle=Math.atan2(fresh.y-s.y,fresh.x-s.x);
       // Sustain the nozzle while tracking a live target, independent of damage pulses.
       if(s.kind==='flame')s.flash=.12;
@@ -213,12 +252,22 @@ export function advanceInfantry(state:InfantryState,map:WorldMap,fields:Map<numb
       if(other.id===s.id)continue;const ox=s.x-other.x,oy=s.y-other.y,d=Math.hypot(ox,oy);
       const spacing=settled?.52:.88;if(d<spacing){const angle=(s.id<other.id?1:-1),force=(spacing-d)*(settled?.8:1.5);dx+=(d>.001?ox/d:angle)*force;dy+=(d>.001?oy/d:0)*force;}
     }
-    const pushResistance=1-(s.brace??0)*.92;dx+=(fresh?.pushX??0)*pushResistance;dy+=(fresh?.pushY??0)*pushResistance;
+    const pushResistance=1-(s.brace??0)*.65;
+    const pressureX=(fresh?.pushX??0)*pushResistance,pressureY=(fresh?.pushY??0)*pushResistance;
+    // Incoming bodies slow the return to a formation slot. Apply displacement
+    // separately below so normalizing movement cannot erase crowd pressure.
+    const recovery=formation?1/(1+Math.hypot(pressureX,pressureY)*2):1;
+    dx*=recovery;dy*=recovery;
     const length=Math.hypot(dx,dy);if(length>.04){dx/=Math.max(1,length);dy/=Math.max(1,length);const step=stats.speed*dt,oldX=s.x,oldY=s.y;
       if(clearForSoldier(map,{x:s.x+dx*step,y:s.y}))s.x+=dx*step;
       if(clearForSoldier(map,{x:s.x,y:s.y+dy*step}))s.y+=dy*step;
       s.moving=Math.hypot(s.x-oldX,s.y-oldY)>.001;if(s.moving){s.walk+=dt*10;if(!formation&&distance>stats.range)s.angle=Math.atan2(dy,dx);}
     }
+    const pressureLength=Math.hypot(pressureX,pressureY),pressureScale=Math.min(1,2.5/Math.max(.001,pressureLength))*dt;
+    const pushX=pressureX*pressureScale,pushY=pressureY*pressureScale;
+    if(clearForSoldier(map,{x:s.x+pushX,y:s.y}))s.x+=pushX;
+    if(clearForSoldier(map,{x:s.x,y:s.y+pushY}))s.y+=pushY;
+    if(Math.hypot(pushX,pushY)>.001)s.moving=true;
   }
   state.soldiers=state.soldiers.filter(s=>s.health>0||s.dead<3);
   const cache=formationCaches.get(state);if(cache&&cache.size>state.soldiers.length+64){const retained=new Set(state.soldiers.map(s=>s.id));for(const id of cache.keys())if(!retained.has(id))cache.delete(id);}
@@ -232,11 +281,12 @@ export function awardInfantryKills(state:InfantryState,ids:readonly number[],kil
 
 export function validInfantry(value:unknown,map:WorldMap):value is InfantryState{
   if(!value||typeof value!=='object')return false;const v=value as InfantryState;
+  if(v.era!==undefined&&(!Number.isInteger(v.era)||v.era<0||v.era>=INFANTRY_ERAS.length))return false;
   const n=(x:number)=>Number.isFinite(x)&&x>=0,rank=(x:number)=>Number.isInteger(x)&&x>=0&&x<=5;
   if(!Number.isSafeInteger(v.nextId)||v.nextId<1||!Array.isArray(v.buildings)||!Array.isArray(v.soldiers))return false;
   if(!Number.isSafeInteger(v.casualties??0)||(v.casualties??0)<0||!Number.isSafeInteger(v.friendlyFire??0)||(v.friendlyFire??0)<0||(v.friendlyFire??0)>(v.casualties??0))return false;
   const ids=new Set<number>();const id=(x:number)=>Number.isSafeInteger(x)&&x>0&&x<v.nextId&&!ids.has(x)&&!!ids.add(x);
-  for(const b of v.buildings){if(!b||!id(b.id)||!(b.kind===undefined||Object.hasOwn(INFANTRY,b.kind))||!rank(b.defense??0)||!rank(b.production)||!rank(b.training)||!n(b.progress)||b.progress>1||!b.rally||!clearForSoldier(map,b,2)||!clearForSoldier(map,b.rally)||!Number.isInteger(b.spent)||(b.recruited!==undefined&&(!Number.isSafeInteger(b.recruited)||b.recruited<0)))return false;let spent:number=INFANTRY[b.kind??'rifle'].cost;for(const rank of [b.production,b.training,b.defense??0])for(let i=0;i<rank;i++)spent+=infantryUpgradeCost(i);const legacy={rifle:600,rocket:850,flame:750,samurai:950,dog:60,phalanx:220}[b.kind??'rifle'];if(b.spent!==spent&&b.spent!==spent-INFANTRY[b.kind??'rifle'].cost+legacy)return false;}
+  for(const b of v.buildings){if(!b||!id(b.id)||!(b.kind===undefined||Object.hasOwn(INFANTRY,b.kind))||!rank(b.defense??0)||!rank(b.production)||!rank(b.training)||!n(b.progress)||b.progress>1||!b.rally||!clearForSoldier(map,b,2)||!clearForSoldier(map,b.rally)||!Number.isInteger(b.spent)||(b.recruited!==undefined&&(!Number.isSafeInteger(b.recruited)||b.recruited<0)))return false;let spent:number=INFANTRY[b.kind??'rifle'].cost;for(const rank of [b.production,b.training,b.defense??0])for(let i=0;i<rank;i++)spent+=infantryUpgradeCost(i);const legacy=({rifle:600,rocket:850,flame:750,samurai:950,dog:60,phalanx:220} as Partial<Record<InfantryKind,number>>)[b.kind??'rifle']??INFANTRY[b.kind??'rifle'].cost;if(b.spent!==spent&&b.spent!==spent-INFANTRY[b.kind??'rifle'].cost+legacy)return false;}
   if(v.buildings.some((b,i)=>v.buildings.slice(i+1).some(o=>Math.abs(b.x-o.x)<4&&Math.abs(b.y-o.y)<4)))return false;
   for(const s of v.soldiers){if(!s||(s.moveFormation!==undefined&&(!s.moveTarget||!validFormation(s.moveFormation)))||(s.casualtyRecorded!==undefined&&typeof s.casualtyRecorded!=='boolean')||(s.deathCause!==undefined&&!['enemy','friendly-fire'].includes(s.deathCause))||!id(s.id)||!v.buildings.some(b=>b.id===s.home&&(b.kind??'rifle')===(s.kind??'rifle'))||!rank(s.defense??0)||!rank(s.quality)||!n(s.x)||!n(s.y)||s.x>=map.width||s.y>=map.height||!n(s.health)||s.health>infantryStats(s.kind,s.quality,s.defense,s.veterancy??0).health||!n(s.cooldown)||!Number.isFinite(s.angle)||!n(s.flash)||!n(s.walk)||!n(s.dead)||!n(s.kills??0)||!n(s.veterancyXp??0)||!Number.isInteger(s.veterancy??0)||(s.veterancy??0)<0||(s.veterancy??0)>MAX_VETERANCY||(s.moveSlot!==undefined&&(!Number.isSafeInteger(s.moveSlot)||s.moveSlot<0))||(s.rallySlot!==undefined&&(!Number.isSafeInteger(s.rallySlot)||s.rallySlot<0))||!!s.moveTarget&&(!Number.isFinite(s.moveTarget.x)||!Number.isFinite(s.moveTarget.y)||s.moveTarget.x<0||s.moveTarget.y<0||s.moveTarget.x>=map.width||s.moveTarget.y>=map.height)||!!s.rallyTarget&&(!Number.isFinite(s.rallyTarget.x)||!Number.isFinite(s.rallyTarget.y)||s.rallyTarget.x<0||s.rallyTarget.y<0||s.rallyTarget.x>=map.width||s.rallyTarget.y>=map.height))return false;}
   return true;

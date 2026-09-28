@@ -3,7 +3,7 @@ import {canFinishWaveEarly} from './wave-progress.ts';
 import {COMMAND_UPGRADES, compileTower, DEFAULT_MAP, MAX_TOWER_LEVEL, MAX_VETERANCY, TOWERS, towerUpgradeCost, veterancyLevel} from '../content/index.ts';
 import {crusherPassageIssue,hasSpawnRoute,canPlace, mapWithTurretObstacles, resolvePlacement} from '../navigation/index.ts';
 import {commandUpgradeAvailability,researchCost,researchRank} from './research.ts';
-import {freshInfantry,validInfantry,infantryMap} from '../infantry/model.ts';
+import {INFANTRY_ERAS,unlockedInfantryEra,freshInfantry,validInfantry,infantryMap} from '../infantry/model.ts';
 import type {Effect,BonusChoice, StatUpgrade, Rect, RunModel, Settlement, SpawnBatch, Tower, TowerKind, TowerUnlock, Vec2, WorldMap} from '../contracts/index.ts';
 
 export type ActionResult = {ok:true} | {ok:false; reason:string};
@@ -340,7 +340,7 @@ export class RunController {
     if(nextMap&&this.hasRemainingEnemies)return {ok:false,reason:'Clear the remaining enemies before relocating to the next battlefield.'};
     if(nextMap&&(nextLevel===this.model.level||!isFiniteInteger(structureRefund)||structureRefund<0))return {ok:false,reason:'Relocation is only available at the next level boundary.'};
     if(nextMap){
-      this.model.metal+=(this.model.infantry?.buildings??[]).reduce((sum,b)=>sum+b.spent,0);this.model.infantry=freshInfantry();
+      this.model.metal+=(this.model.infantry?.buildings??[]).reduce((sum,b)=>sum+b.spent,0);this.model.infantry={...freshInfantry(),era:unlockedInfantryEra(this.model.infantry??freshInfantry())};
       this.model.metal+=this.model.towers.reduce((sum,tower)=>sum+tower.spent,0)+structureRefund;
       this.model.towers=[];this.model.selected=null;this.nextTowerId=1;this.map=nextMap;this.buildMounts=[];
       this.runEpoch++;this.applied=emptyApplied();this.live=0;
@@ -363,6 +363,12 @@ export class RunController {
     const rank=researchRank(this.model.commandUpgrades,id);this.model.metal-=researchCost(upgrade,rank);this.model.commandUpgrades.push(id);
     if(id==='fortified-core') this.model.baseHealth=Math.min(100,this.model.baseHealth+1);
     return {ok:true};
+  }
+  unlockInfantryEra(id:string):ActionResult {
+    const state=this.model.infantry??freshInfantry(),next=INFANTRY_ERAS[unlockedInfantryEra(state)+1];
+    if(!next||next.id!==id)return {ok:false,reason:'Unlock infantry eras in order.'};
+    const paid=this.spendMetal(next.cost);if(!paid.ok)return paid;
+    state.era=unlockedInfantryEra(state)+1;this.model.infantry=state;return {ok:true};
   }
   spendMetal(cost:number):ActionResult { if(this.model.phase==='won'||this.model.phase==='lost')return {ok:false,reason:'The run is over.'};if(this.model.metal<cost)return {ok:false,reason:'Insufficient Metal.'};this.model.metal-=cost;return {ok:true}; }
   refundMetal(amount:number):void { this.model.metal+=Math.max(0,Math.floor(amount)); }
@@ -396,7 +402,7 @@ export class RunController {
         saved.contentVersion=CONTENT_VERSION;
       }
       if (!this.validSave(saved,context?.map,context?.buildMounts)) return {ok:false,reason:'Invalid saved run.'};
-      const next=copy(saved.model);next.salvageCredit??=0;next.infantry=structuredClone(saved.model.infantry??freshInfantry());
+      const next=copy(saved.model);next.salvageCredit??=0;next.infantry=structuredClone(saved.model.infantry??freshInfantry());next.infantry.era=unlockedInfantryEra(next.infantry);
       if(context){this.setMap(context.map);this.setBuildMounts(context.buildMounts);}
       Object.assign(this.model,next); this.nextTowerId=Math.max(0,...next.towers.map(t=>t.id))+1;
       this.runEpoch=Math.max(this.runEpoch+1,saved.epoch+1); this.applied=emptyApplied(); this.live=0;this.carriedQuota=0;this.waveStartBaseHealth=this.model.baseHealth;

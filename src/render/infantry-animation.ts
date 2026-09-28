@@ -1,10 +1,16 @@
-import {infantryStats,type Soldier,type InfantryKind} from '../infantry/model.ts';
+import {INFANTRY,infantryStats,type Soldier,type InfantryKind} from '../infantry/model.ts';
 
 // Extra transparent padding accommodates long spears without scaling troop bodies.
 export const INFANTRY_FRAME=64,INFANTRY_FRAMES=31,INFANTRY_FACINGS=8;
 export const INFANTRY_PIVOT={x:32,y:40};
 export const INFANTRY_PIXEL=.1;
-export const INFANTRY_KINDS=['rifle','rocket','flame','samurai','dog','phalanx'] as const;
+export const INFANTRY_KINDS=Object.keys(INFANTRY) as InfantryKind[];
+// Tile kinds into columns to stay within WebGPU's default 8192 texture limit.
+export const INFANTRY_ATLAS_ROWS=8;
+export const infantryAtlasOrigin=(kind:InfantryKind,facing:number,frame:number)=>{
+ const index=INFANTRY_KINDS.indexOf(kind);
+ return {x:Math.floor(index/INFANTRY_ATLAS_ROWS)*INFANTRY_FRAME*INFANTRY_FRAMES+frame*INFANTRY_FRAME,y:((index%INFANTRY_ATLAS_ROWS)*8+facing)*INFANTRY_FRAME};
+};
 // Shared atlas layout: idle, six run frames, sixteen attack slots, eight collapse frames.
 export const INFANTRY_ATTACK=7,INFANTRY_DEATH=23;
 export const SAMURAI_ATTACK_DURATION=.64;

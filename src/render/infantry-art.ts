@@ -1,4 +1,5 @@
-import {INFANTRY_FRAME,INFANTRY_FRAMES,INFANTRY_FACINGS,INFANTRY_PIVOT,INFANTRY_KINDS,INFANTRY_ATTACK,INFANTRY_DEATH,classicInfantryFacing,classicDogFrame,attackFrames} from './infantry-animation.ts';
+import {infantryEra,type InfantryKind} from '../infantry/model.ts';
+import {infantryAtlasOrigin,INFANTRY_ATLAS_ROWS,INFANTRY_FRAME,INFANTRY_FRAMES,INFANTRY_FACINGS,INFANTRY_PIVOT,INFANTRY_KINDS,INFANTRY_ATTACK,INFANTRY_DEATH,classicInfantryFacing,classicDogFrame,attackFrames} from './infantry-animation.ts';
 type Point=[number,number,number];
 type Atlas={frames:{x:number;y:number;width:number;height:number}[];sprites:Record<string,number[]>};
 const assetBase=(import.meta as ImportMeta&{env?:{BASE_URL?:string}}).env?.BASE_URL??'/';
@@ -69,6 +70,41 @@ export function drawPhalanxFrame(ctx:CanvasRenderingContext2D,facing:number,fram
   box(3,3,7,9,9,'#20251f');box(3,3,7,7,9,'#ab9455');box(3,3,7,9,5,'#ab9455');box(3,3,7,5,7,'#737b50');box(3,3,7,3,3,'#d9c688');
 }
 
+
+/** Original historical infantry, built as crisp directional pixels at runtime. */
+export function drawEraInfantryFrame(ctx:CanvasRenderingContext2D,kind:InfantryKind,facing:number,frame:number){
+ ctx.clearRect(0,0,INFANTRY_FRAME,INFANTRY_FRAME);
+ const era=infantryEra(kind).id,napoleonic=era==='napoleonic',archer=kind==='archer',slinger=kind==='slinger';
+ const angle=facing*Math.PI/4,fx=Math.cos(angle),fy=Math.sin(angle),sx=-fy,sy=fx;
+ const fall=frame>=INFANTRY_DEATH?(frame-INFANTRY_DEATH)/7:0,walk=frame>0&&frame<INFANTRY_ATTACK?Math.sin((frame-1)*Math.PI/3):0;
+ const attack=frame>=INFANTRY_ATTACK&&frame<INFANTRY_DEATH,recoil=attack?Math.sin(Math.min(1,(frame-INFANTRY_ATTACK)/7)*Math.PI):0;
+ const cloth=archer?'#737b50':slinger?'#8a7250':kind==='grenadier'?'#873e2b':napoleonic?(kind==='skirmisher'||kind==='light'?'#424e32':'#4d5b73'):era==='modern'?'#626e45':'#737b50';
+ const point=(x:number,y:number,z:number)=>[Math.round(INFANTRY_PIVOT.x+fx*(x+fall*z*.4)+sx*y),Math.round(INFANTRY_PIVOT.y+fy*(x+fall*z*.4)*.65+sy*y*.65-z*(1-fall*.92))];
+ const box=(x:number,y:number,z:number,w:number,h:number,color:string)=>{const p=point(x,y,z);ctx.fillStyle=color;ctx.fillRect(p[0]-Math.floor(w/2),p[1]-Math.floor(h/2),w,h);};
+ const line=(a:number[],b:number[],color:string)=>{const p=point(a[0],a[1],a[2]),q=point(b[0],b[1],b[2]),steps=Math.max(1,Math.abs(q[0]-p[0]),Math.abs(q[1]-p[1]));ctx.fillStyle=color;for(let i=0;i<=steps;i++)ctx.fillRect(Math.round(p[0]+(q[0]-p[0])*i/steps),Math.round(p[1]+(q[1]-p[1])*i/steps),1,1);};
+ box(0,0,0,9,2,'#18201666');
+ for(const side of [-1,1]){box(walk*side*2,side*2,2,3,5,napoleonic?'#b2ae91':'#383e30');box(walk*side*2+1,side*2,0,3,2,'#20251f');}
+ box(0,0,8,7,9,'#20251f');box(0,0,8,5,7,cloth);box(0,0,5,6,1,'#ab9455');
+ if(napoleonic){line([0,-2,11],[1,2,6],'#d3d5bd');line([0,2,11],[1,-2,6],'#d3d5bd');}
+ box(0,0,13,4,4,'#b58a5d');box(0,0,16,napoleonic?5:7,napoleonic?6:3,napoleonic?'#20251f':cloth);
+ if(napoleonic)box(0,0,20,2,3,kind==='grenadier'?'#d9c688':'#873e2b');
+ if(kind==='paratrooper'){box(0,0,16,6,3,'#873e2b');box(-2,0,8,3,6,'#8a7250');}
+ if(kind==='raider'){box(1,0,12,4,2,'#20251f');box(-2,0,7,4,6,'#5c4932');}
+ if(kind==='marksman'){box(-1,0,14,6,4,'#424e32');box(-2,0,9,3,8,'#424e32');}
+ box(2,2,9,3,4,cloth);box(4,-2,9,2,2,'#b58a5d');
+ if(archer){
+   line([5,0,4],[7,0,7],'#8a7250');line([7,0,7],[7,0,13],'#8a7250');line([7,0,13],[5,0,16],'#8a7250');
+   line([5,0,4],[5-recoil*3,0,10],'#d3d5bd');line([5-recoil*3,0,10],[5,0,16],'#d3d5bd');line([2,0,10],[13,0,10],'#ab9455');
+ }else if(slinger){line([3,2,11],[5+recoil*4,2,18],'#8a7250');box(5+recoil*4,2,18,2,2,'#a3ac97');}
+ else{
+   const length=kind==='marksman'?18:napoleonic?16:kind==='assault'?9:13;
+   line([-2-recoil,-1,9],[length-recoil,-1,9],'#20251f');line([-1-recoil,-1,10],[length-recoil,-1,10],napoleonic?'#8a7250':'#70786c');
+   if(kind==='machinegun'||kind==='support'){box(5,-1,8,4,3,'#20251f');line([10,-1,9],[13,-3,3],'#434b44');line([10,-1,9],[13,2,3],'#434b44');}
+   if(kind==='marksman')box(5,-1,12,5,2,'#20251f');
+   if(kind==='commando'||kind==='support')box(0,0,9,5,5,'#434b44');
+ }
+}
+
 /** Normalize all troops to a common foot pivot; never rotate a flat sprite in screen space. */
 export async function createInfantryAtlas(){
   const [metadata,response]=await Promise.all([fetch(`${assetBase}assets/red-alert/infantry/atlas.json`),fetch(`${assetBase}assets/red-alert/infantry/atlas.png`)]);
@@ -77,12 +113,12 @@ export async function createInfantryAtlas(){
   const [dogMetadata,dogResponse]=await Promise.all([fetch(`${assetBase}assets/red-alert/atlas.json`),fetch(`${assetBase}assets/red-alert/atlas.png`)]);
   if(!dogMetadata.ok||!dogResponse.ok){bitmap.close();throw Error('Red Alert dog atlas is missing');}
   const dogAtlas:Atlas=await dogMetadata.json(),dogBitmap=await createImageBitmap(await dogResponse.blob(),{premultiplyAlpha:'none',colorSpaceConversion:'none'});
-  const canvas=document.createElement('canvas');canvas.width=INFANTRY_FRAME*INFANTRY_FRAMES;canvas.height=INFANTRY_FRAME*INFANTRY_FACINGS*INFANTRY_KINDS.length;
+  const canvas=document.createElement('canvas');canvas.width=INFANTRY_FRAME*INFANTRY_FRAMES*Math.ceil(INFANTRY_KINDS.length/INFANTRY_ATLAS_ROWS);canvas.height=INFANTRY_FRAME*INFANTRY_FACINGS*INFANTRY_ATLAS_ROWS;
   const ctx=canvas.getContext('2d')!;ctx.imageSmoothingEnabled=false;
   const tile=document.createElement('canvas');tile.width=tile.height=INFANTRY_FRAME;const brush=tile.getContext('2d')!;brush.imageSmoothingEnabled=false;
   try{
-    for(const [row,kind] of INFANTRY_KINDS.entries())for(let facing=0;facing<8;facing++)for(let frame=0;frame<INFANTRY_FRAMES;frame++){
-      const x=frame*INFANTRY_FRAME,y=(row*8+facing)*INFANTRY_FRAME;
+    for(const kind of INFANTRY_KINDS)for(let facing=0;facing<8;facing++)for(let frame=0;frame<INFANTRY_FRAMES;frame++){
+      const {x,y}=infantryAtlasOrigin(kind,facing,frame);
       if(kind==='phalanx'){drawPhalanxFrame(brush,facing,frame);ctx.drawImage(tile,x,y);continue;}
       if(kind==='samurai'){drawSamuraiFrame(brush,facing,frame);ctx.drawImage(tile,x,y);continue;}
       if(kind==='dog'){
@@ -90,9 +126,11 @@ export async function createInfantryAtlas(){
         if(!f)throw Error(`Missing dog frame ${pose.sprite}/${pose.frame}`);
         ctx.drawImage(dogBitmap,f.x,f.y,f.width,f.height,x+INFANTRY_PIVOT.x-25,y+INFANTRY_PIVOT.y-20,f.width,f.height);continue;
       }
+      if(!['rifle','rocket','flame','bazooka'].includes(kind)){drawEraInfantryFrame(brush,kind,facing,frame);ctx.drawImage(tile,x,y);continue;}
+      const sourceKind=kind==='bazooka'?'rocket':kind;
       const direction=classicInfantryFacing(facing),shootLength=attackFrames(kind);
       const source=frame===0?direction:frame<INFANTRY_ATTACK?16+direction*6+frame-1:frame<INFANTRY_DEATH?64+direction*shootLength+Math.min(shootLength-1,frame-INFANTRY_ATTACK):64+shootLength*8+frame-INFANTRY_DEATH;
-      const f=atlas.frames[atlas.sprites[kind]?.[source]];
+      const f=atlas.frames[atlas.sprites[sourceKind]?.[source]];
       if(!f)throw Error(`Missing ${kind} infantry frame ${source}`);
       // Native 50×39 Westwood canvas: its foot pivot is (25,20), not its center.
       ctx.drawImage(bitmap,f.x,f.y,f.width,f.height,x+INFANTRY_PIVOT.x-25,y+INFANTRY_PIVOT.y-20,f.width,f.height);

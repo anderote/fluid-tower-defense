@@ -13,7 +13,7 @@ export function validAction(a){
 export function validRemoteCommand(c){
  if(!c||typeof c!=='object')return false;
  if(c.type==='action')return validAction(c.action);
- if(c.type==='infantry')return ['build','rally','production','training','defense','sell','deselect'].includes(c.action)&&(c.action!=='build'||['rifle','rocket','flame','samurai','dog','phalanx'].includes(c.kind));
+ if(c.type==='infantry')return ['build','unlock-era','rally','production','training','defense','sell','deselect'].includes(c.action)&&(c.action!=='build'||['rifle','rocket','flame','samurai','dog','phalanx','archer','musketeer','grenadier','skirmisher','machinegun','assault','paratrooper','commando','marksman','support','slinger','light','raider','semiauto','bazooka'].includes(c.kind))&&(c.action!=='unlock-era'||['napoleonic','ww1','ww2','modern'].includes(c.kind));
  if(c.type==='key')return ['Escape',' '].includes(c.key);
  if(c.type==='pan')return Number.isFinite(c.dx)&&Number.isFinite(c.dy)&&Math.abs(c.dx)<=50&&Math.abs(c.dy)<=50;
  if(c.type==='pointer'||c.type==='zoom')return Number.isFinite(c.x)&&Number.isFinite(c.y)&&c.x>=0&&c.x<=1&&c.y>=0&&c.y<=1&&Number.isSafeInteger(c.frame)&&(c.type==='zoom'?Number.isFinite(c.factor)&&c.factor>=.5&&c.factor<=2:['pointerdown','pointermove','pointerup','dblclick'].includes(c.phase)&&[0,2].includes(c.button)&&[0,1,2].includes(c.buttons)&&typeof c.shiftKey==='boolean');
