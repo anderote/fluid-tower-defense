@@ -65,3 +65,11 @@ test('navigation reserves collision standoff around fractional tree and fence ed
  assert.ok(Number.isFinite(field.distances[5*field.width+10]));
  assert.equal(hasSpawnRoute(map),true);
 });
+
+test('corner recovery steers away from both wall faces',()=>{
+ const map={...DEFAULT_MAP,obstacles:[{x:32,y:32,width:100,height:10}]};
+ const field=buildNavigation(map),corner=31*field.width+31;
+ assert.equal(field.distances[corner],Infinity);
+ assert.ok(field.vectors[corner*2]<-.7&&field.vectors[corner*2+1]<-.7,
+  'Escape northwest so neither collision face cancels movement along the other');
+});

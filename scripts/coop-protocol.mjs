@@ -7,6 +7,7 @@ export function validAction(a){
  if(a.type==='unlock-tower')return towers.includes(a.kind);
  if(['upgrade','upgrade-tower'].includes(a.type))return [0,1].includes(a.branch)&&(a.type==='upgrade'||Number.isSafeInteger(a.id)&&a.id>0);
  if(['buy-command','buy-stat','bonus'].includes(a.type))return typeof a.id==='string'&&/^[a-z0-9-]{1,80}$/.test(a.id);
+ if(a.type==='simulation-speed')return [1,2,3,5].includes(a.value);
  if(a.type==='heatmap')return typeof a.value==='boolean';
  return false;
 }
