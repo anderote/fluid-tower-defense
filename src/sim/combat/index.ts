@@ -1,5 +1,5 @@
 import {FIRE_STATE_BYTES,FIRE_STATE_WGSL,FIRE_BURN_SECONDS} from '../../effects/fire.ts';
-import {HEAVY_SALVO_SLOTS,impactTickOffset} from '../../effects/heavy-weapons.ts';
+import {HEAVY_MAX_TICKS,HEAVY_SALVO_SLOTS,impactTickOffset} from '../../effects/heavy-weapons.ts';
 import {TESLA_STATE_WGSL,TESLA_LINKS,TESLA_HEADER_BYTES,TESLA_PARTICLE_BYTES} from '../../effects/tesla.ts';
 import {createAftermathEvents} from '../../effects/aftermath.ts';
 import { PARTICLE_WGSL, HORDE_PRESSURE_COUNTER, MAX_EFFECTS, MAX_INFANTRY_KILL_SLOTS, type Rect, type SharedGPU, type PhysicsFrame, type Tower, type TowerDef, type TowerKind } from '../../contracts/index.ts';
@@ -235,7 +235,7 @@ fn roundFall(round:Round,point:vec2f,bodyRadius:f32)->vec3f {
   if(u32(towers[t].position.w)!=1u&&u32(towers[t].position.w)!=12u){continue;}
   for(var slot=0u;slot<${HEAVY_SALVO_SLOTS}u;slot++){
    let round=firing.rounds[t*${HEAVY_SALVO_SLOTS}u+slot];
-   if(round.aim.w<=0.||round.definition.flags.x!=towers[t].flags.x||params.clock.y-round.aim.w>${impactTickOffset('rocket',2)}.){continue;}
+   if(round.aim.w<=0.||round.definition.flags.x!=towers[t].flags.x||params.clock.y-round.aim.w>${HEAVY_MAX_TICKS}.){continue;}
    let blast=roundFall(round,p.pos.xy,0.);
    if(blast.z>0.){p.body.z-=round.definition.weapon.y*blast.z;atomicStore(&owners[i],t+1u);let kick=blast.xy*round.definition.weapon.z*blast.z/max(.1,p.body.y);p.pos.z+=kick.x;p.pos.w+=kick.y;}
   }
@@ -297,7 +297,7 @@ fn roundFall(round:Round,point:vec2f,bodyRadius:f32)->vec3f {
   if(u32(towers[t].position.w)!=1u&&u32(towers[t].position.w)!=12u){continue;}
   for(var slot=0u;slot<${HEAVY_SALVO_SLOTS}u;slot++){
    let round=firing.rounds[t*${HEAVY_SALVO_SLOTS}u+slot];
-   if(round.aim.w<=0.||round.definition.flags.x!=towers[t].flags.x||params.clock.y-round.aim.w>${impactTickOffset('rocket',2)}.){continue;}
+   if(round.aim.w<=0.||round.definition.flags.x!=towers[t].flags.x||params.clock.y-round.aim.w>${HEAVY_MAX_TICKS}.){continue;}
    let blast=roundFall(round,b.motion.xy,b.body.x);
    b.body.z-=round.definition.weapon.y*blast.z*vulnerable;
   }

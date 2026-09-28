@@ -1,3 +1,4 @@
+import {projectilePose} from '../effects/projectile-flight.ts';
 import {formationOutline} from '../infantry/formation.ts';
 import {createEnemySelection} from './enemy-selection.ts';
 import {createInfantrySprites} from './infantry-sprites.ts';
@@ -481,6 +482,11 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
       for(const turn of [-.7,.7])segment(a,{x:tip.x-Math.cos(angle+turn)*.8,y:tip.y-Math.sin(angle+turn)*.8},tip,.06,color);
     }
     if(scene.infantryCommandTarget){const p=scene.infantryCommandTarget;ring(a,p.x,p.y,1.1,[.4,1,.38,.8],.12);rect(a,p.x-.08,p.y-.7,.16,1.4,[.48,1,.42,.75]);rect(a,p.x-.7,p.y-.08,1.4,.16,[.48,1,.42,.75]);}
+    for(const arrow of scene.groundedArrows??[]){
+      const fade=Math.min(1,(arrow.life-arrow.age)/3),dx=Math.cos(arrow.angle),dy=Math.sin(arrow.angle),wobble=Math.sin(arrow.age*35)*Math.exp(-arrow.age*9)*.12;
+      segment(a,arrow,{x:arrow.x-dx*.48,y:arrow.y-dy*.25-.5+wobble},.07,[.54,.4,.21,fade]);
+      segment(a,{x:arrow.x-dx*.48,y:arrow.y-dy*.25-.5+wobble},{x:arrow.x-dx*.35-dy*.12,y:arrow.y-dy*.18-.38+wobble},.09,[.76,.72,.57,fade]);
+    }
     for(const b of scene.infantry?.buildings??[]){
       if(!redAlert?.hasInfantrySprites||(b.kind!=='dog'&&(b.kind??'rifle')!=='rifle'))for(const p of infantryBuildingPixels(b.kind??'rifle'))rect(a,b.x+(p.x-BUILDING_ANCHOR.x)*BUILDING_PIXEL,b.y+(p.y-BUILDING_ANCHOR.y)*BUILDING_PIXEL,p.width*BUILDING_PIXEL,p.height*BUILDING_PIXEL,p.color);
       if(scene.selectedBarracksSet?.has(b.id)||b.id===scene.selectedBarracks){const distance=Math.hypot(b.rally.x-b.x,b.rally.y-b.y);for(let d=3;d<distance-1;d+=1.2){const t=d/distance;rect(a,b.x+(b.rally.x-b.x)*t-.08,b.y+(b.rally.y-b.y)*t-.08,.16,.16,[.85,.77,.3,.6]);}rectOutline(a,b.x-2.35,b.y-2.35,4.7,4.7,[.72,.93,.35,.95],.1);ring(a,b.rally.x,b.rally.y,2.5,[.65,.93,.35,.8],.12);rect(a,b.rally.x,b.rally.y-2,.1,2,[.8,.9,.5,1]);rect(a,b.rally.x+.1,b.rally.y-2,1,.6,[.85,.77,.19,1]);}
@@ -499,8 +505,8 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
           for(let j=0;j<segments;j++){const t=j/11,angle=s.angle-1.2+t*2.35,r=1.15+Math.sin(t*Math.PI)*.48;const sx=x+Math.cos(angle)*r,sy=y-.58+Math.sin(angle)*r*.68;streak(a,sx,sy,-Math.sin(angle),Math.cos(angle),.32,.13,[.62,.82,1,.52*fade]);streak(a,sx,sy,-Math.sin(angle),Math.cos(angle),.23,.055,[1,.97,.78,.92*fade]);}
           if(slash.cut>.68){const hit=s.angle+1.12,hx=x+Math.cos(hit)*1.48,hy=y-.58+Math.sin(hit)*1.02;for(const turn of [0,Math.PI/2])streak(a,hx,hy,Math.cos(hit+turn),Math.sin(hit+turn),.48,.055,[1,.88,.45,.8*fade]);}
         }
-      }else if(s.flash>0&&kind!=='dog'&&kind!=='phalanx'){
-        if(kind==='archer'||kind==='slinger'){streak(a,mx+dx*2,my+dy*2,dx,dy,kind==='archer'?1.4:.25,.07,[.72,.67,.48,s.flash*8]);}
+      }else if(s.flash>0&&kind!=='dog'&&kind!=='phalanx'&&kind!=='archer'){
+        if(kind==='slinger'){streak(a,mx+dx*2,my+dy*2,dx,dy,.25,.07,[.72,.67,.48,s.flash*8]);}
         else if(kind==='flame'){
           const reach=Math.max(1,infantryStats(kind,s.quality,s.defense,s.veterancy).range-.75),flow=Math.min(1,s.flash/.12);
           // Overlapping elongated tongues form one moving jet, with a yellow
@@ -520,9 +526,17 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
       }
       if(scene.selectedInfantry?.has(s.id)){const maxHealth=infantryStats(s.kind,s.quality,s.defense,s.veterancy,scene.infantryResearch).health;rect(a,x-.65,y-2.1,1.3,.13,[.12,.13,.1,1]);rect(a,x-.65,y-2.1,1.3*Math.max(0,Math.min(1,s.health/maxHealth)),.13,[.5,.85,.22,1]);}
     }
+    for(const arrow of scene.infantryArrows??[]){
+      const distance=Math.hypot(arrow.target.x-arrow.x,arrow.target.y-arrow.y),pose=projectilePose(arrow,arrow.target,arrow.age/arrow.life,Math.min(7,1+distance*.18),.9);
+      const dx=Math.cos(pose.angle),dy=Math.sin(pose.angle);
+      disc(a,pose.ground.x,pose.ground.y,.13,[.05,.06,.04,.25/(1+pose.height*.15)],6);
+      segment(a,{x:pose.x-dx*.55,y:pose.y-dy*.55},{x:pose.x+dx*.35,y:pose.y+dy*.35},.07,[.62,.46,.25,1]);
+      segment(a,{x:pose.x+dx*.28,y:pose.y+dy*.28},{x:pose.x+dx*.5,y:pose.y+dy*.5},.1,[.81,.82,.72,1]);
+      for(const side of [-1,1])segment(a,{x:pose.x-dx*.5,y:pose.y-dy*.5},{x:pose.x-dx*.3-dy*side*.12,y:pose.y-dy*.3+dx*side*.12},.065,[.83,.79,.62,.95]);
+    }
     for(const projectile of scene.infantryRocketProjectiles??[]){
-      const t=Math.max(0,Math.min(1,projectile.age/projectile.life)),dx=projectile.target.x-projectile.x,dy=projectile.target.y-projectile.y,length=Math.max(.001,Math.hypot(dx,dy)),forward={x:dx/length,y:dy/length},side={x:-forward.y,y:forward.x},x=projectile.x+dx*t,y=projectile.y+dy*t,angle=Math.atan2(forward.y,forward.x);
-      for(let j=1;j<=5;j++){const u=Math.max(0,t-j*.07/projectile.life),sx=projectile.x+dx*u+side.x*Math.sin(projectile.serial+j)*.08,sy=projectile.y+dy*u+side.y*Math.sin(projectile.serial+j)*.08;disc(a,sx,sy,.12+j*.045,[.23,.23,.2,(1-j/6)*.42],8);}
+      const t=Math.max(0,Math.min(1,projectile.age/projectile.life)),dx=projectile.target.x-projectile.x,dy=projectile.target.y-projectile.y,length=Math.max(.001,Math.hypot(dx,dy)),pose=projectilePose(projectile,projectile.target,t,Math.min(1.5,length*.035),.85),forward={x:Math.cos(pose.angle),y:Math.sin(pose.angle)},side={x:-forward.y,y:forward.x},x=pose.x,y=pose.y,angle=pose.angle;
+      for(let j=1;j<=5;j++){const u=Math.max(0,t-j*.07/projectile.life),trail=projectilePose(projectile,projectile.target,u,Math.min(1.5,length*.035),.85),sx=trail.x+side.x*Math.sin(projectile.serial+j)*.08,sy=trail.y+side.y*Math.sin(projectile.serial+j)*.08;disc(a,sx,sy,.12+j*.045,[.23,.23,.2,(1-j/6)*.42],8);}
       streak(a,x-forward.x*.55,y-forward.y*.55,forward.x,forward.y,1.15,.13,[1,.78,.2,.95]);
       orientedRect(a,x,y,.72,.25,angle,[.28,.29,.25,1]);
       tri(a,{x:x+forward.x*.9,y:y+forward.y*.9},{x:x+forward.x*.5+side.x*.22,y:y+forward.y*.5+side.y*.22},{x:x+forward.x*.5-side.x*.22,y:y+forward.y*.5-side.y*.22},[.92,.84,.58,1]);
@@ -545,12 +559,13 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
       const local=projectile.age-projectile.delay;if(local<0)continue;const t=Math.max(0,Math.min(1,local/projectile.flight));
       const dx=projectile.target.x-projectile.x,dy=projectile.target.y-projectile.y,length=Math.max(.001,Math.hypot(dx,dy)),forward={x:dx/length,y:dy/length},side={x:-forward.y,y:forward.x};
       if(projectile.kind==='mortar'){
-        const arc=Math.sin(t*Math.PI)*1.28*(projectile.serial%2 ? .72 : -.72),x=projectile.x+dx*t+side.x*arc,y=projectile.y+dy*t+side.y*arc;
-        streak(a,x,y,forward.x,forward.y,1.65,.085,[1,.92,.18,.82]);streak(a,x-forward.x*.22,y-forward.y*.22,forward.x,forward.y,.82,.18,[1,.56,.055,.35]);
-        casing(a,x,y,.59,projectile.serial*.71+local*24,[.25,.2,.105,1]);disc(a,x,y,.16,[.9,.68,.21,.72],7);
+        const pose=projectilePose(projectile,projectile.target,t,Math.min(13,3+length*.2)),x=pose.x,y=pose.y;
+        disc(a,pose.ground.x,pose.ground.y,.24,[.04,.04,.025,.3/(1+pose.height*.1)],8);
+        streak(a,x,y,Math.cos(pose.angle),Math.sin(pose.angle),.8,.06,[.78,.73,.49,.45]);
+        casing(a,x,y,.59,pose.angle,[.25,.2,.105,1]);disc(a,x,y,.16,[.9,.68,.21,.72],7);
       }else{
-        const x=projectile.x+dx*t,y=projectile.y+dy*t,angle=Math.atan2(forward.y,forward.x);
-        for(let j=1;j<=6;j++){const lag=j*.045/projectile.flight;if(t<=lag*.45)continue;const u=Math.max(0,t-lag),jitter=Math.sin(projectile.serial*3.17+j*7.3)*(.08+j*.025),sx=projectile.x+dx*u+side.x*jitter,sy=projectile.y+dy*u+side.y*jitter,fade=(1-j/7)*Math.min(1,t*5);disc(a,sx,sy,.2+j*.075,[.29,.28,.26,.17*fade],9);disc(a,sx-side.x*.08,sy-side.y*.08,.12+j*.04,[.48,.45,.38,.09*fade],8);}
+        const pose=projectilePose(projectile,projectile.target,t,Math.min(2,length*.035)),x=pose.x,y=pose.y,angle=pose.angle;
+        for(let j=1;j<=6;j++){const lag=j*.045/projectile.flight;if(t<=lag*.45)continue;const u=Math.max(0,t-lag),jitter=Math.sin(projectile.serial*3.17+j*7.3)*(.08+j*.025),trail=projectilePose(projectile,projectile.target,u,Math.min(2,length*.035)),sx=trail.x+side.x*jitter,sy=trail.y+side.y*jitter,fade=(1-j/7)*Math.min(1,t*5);disc(a,sx,sy,.2+j*.075,[.29,.28,.26,.17*fade],9);disc(a,sx-side.x*.08,sy-side.y*.08,.12+j*.04,[.48,.45,.38,.09*fade],8);}
         streak(a,x-forward.x*.48,y-forward.y*.48,forward.x,forward.y,1.45,.12,[1,.73,.15,.76]);disc(a,x-forward.x*.78,y-forward.y*.78,.24,[1,.29,.025,.8],7);
         orientedRect(a,x,y,.78,.27,angle,[.19,.2,.17,1]);orientedRect(a,x+side.x*.07,y+side.y*.07,.55,.09,angle,[.65,.66,.56,.72]);
         const nose={x:x+forward.x*1.02,y:y+forward.y*1.02},left={x:x+forward.x*.67+side.x*.27,y:y+forward.y*.67+side.y*.27},right={x:x+forward.x*.67-side.x*.27,y:y+forward.y*.67-side.y*.27};tri(a,nose,left,right,[.77,.76,.64,1]);
