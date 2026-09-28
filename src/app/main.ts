@@ -449,7 +449,7 @@ try {
    command:(command,point)=>{
      if(failed||editor.active||state.mode!=='game')return;
      if(command.type==='action'){handleAction(command.action as GameAction);}
-     else if(command.type==='infantry'){const target=root.querySelector<HTMLButtonElement>(`[data-infantry="${command.action}"]${command.kind?`[data-kind="${command.kind}"]`:''}`);target?.click();}
+     else if(command.type==='infantry'){const target=root.querySelector<HTMLButtonElement>(`[data-infantry="${command.action}"]${command.kind?`[${command.action==='unlock-era'?'data-era':'data-kind'}="${command.kind}"]`:''}`);target?.click();}
      else if(command.type==='key'){window.dispatchEvent(new KeyboardEvent('keydown',{key:command.key,bubbles:true}));}
      else if(command.type==='pan'){renderer.pan(command.dx,command.dy);}
      else if(command.type==='zoom'&&point){const screen=renderer.worldToScreen(point.x,point.y);renderer.zoomAt(command.factor,screen.x,screen.y);}
@@ -587,7 +587,7 @@ try {
    horde.encode(encoder,arrivals,count);
    const infantryShots=advanceInfantry(infantry.state(),infantry.ensureFields(),infantry.fields,infantryGPU.threats,clock.step,state.mode==='game'&&enemiesActive(),researchModifiers,infantry.orderFields);
    const finishInfantry=state.mode==='game'?infantryGPU.encode(encoder,infantry.state().soldiers,infantryShots,activeMap,count,clock.tick%6===0,researchModifiers,clock.step,infantrySightMap):undefined;
-   if(infantryShots.length){for(const shot of infantryShots){const soldier=infantry.state().soldiers.find(s=>s.id===shot.soldier),kind=soldier?.kind;if(kind==='rocket'&&soldier){const muzzle=infantryMuzzle(soldier);infantryRocketProjectiles.push({x:muzzle.x,y:muzzle.y,target:{x:shot.x,y:shot.y},age:0,life:.26,serial:clock.tick*1000+shot.soldier});}setCombatAudioGain();if(kind==='dog')audio.bark(shot.x,clock.tick);else if(kind==='samurai'||kind==='phalanx')audio.slash(shot.x,clock.tick);else audio.infantryFire(kind==='rocket'?'rocket':kind==='flame'?'flame':'rifle',shot.x,clock.tick);}}
+   if(infantryShots.length){for(const shot of infantryShots){const soldier=infantry.state().soldiers.find(s=>s.id===shot.soldier),kind=soldier?.kind;if((kind==='rocket'||kind==='bazooka')&&soldier){const muzzle=infantryMuzzle(soldier);infantryRocketProjectiles.push({x:muzzle.x,y:muzzle.y,target:{x:shot.x,y:shot.y},age:0,life:.26,serial:clock.tick*1000+shot.soldier});}setCombatAudioGain();if(kind==='archer'||kind==='slinger')continue;if(kind==='dog')audio.bark(shot.x,clock.tick);else if(kind==='samurai'||kind==='phalanx')audio.slash(shot.x,clock.tick);else audio.infantryFire(kind==='rocket'||kind==='bazooka'?'rocket':kind==='flame'?'flame':'rifle',shot.x,clock.tick);}}
    combat.encodeBefore(encoder,frame);boss.encode(encoder,bossFrame);physics.encode(encoder,frame);combat.encodeAfter(encoder,frame);boss.encodeResolve(encoder,bossFrame);
    let finish:(()=>void)|undefined,finishShots:(()=>void)|undefined;
    if(clock.tick-lastTickSample>=6){finish=settlement.encode(encoder,gpu.shared.counters,gpu.shared.obstacleCounters!,gpu.shared.obstacleCapacity!,epoch,clock.tick);if(finish)lastTickSample=clock.tick;}

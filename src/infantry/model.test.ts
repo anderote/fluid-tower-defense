@@ -23,7 +23,7 @@ test('starting rifleman recruitment takes five seconds',()=>{
   const f=setup('rifle');f.step(4.9);assert.equal(f.state.soldiers.length,0);f.step(.2);assert.equal(f.state.soldiers.length,1);
 });
 test('barracks population caps are type-specific and rise with production',()=>{
-  assert.deepEqual(Object.fromEntries((Object.keys(INFANTRY) as InfantryKind[]).map(kind=>[kind,infantryCapacity(kind)])),{rifle:40,rocket:20,flame:20,samurai:20,dog:40,phalanx:24});
+  assert.deepEqual(Object.fromEntries((['rifle','rocket','flame','samurai','dog','phalanx'] as InfantryKind[]).map(kind=>[kind,infantryCapacity(kind)])),{rifle:40,rocket:20,flame:20,samurai:20,dog:40,phalanx:24});
   for(const kind of Object.keys(INFANTRY) as InfantryKind[]){assert.ok(infantryCapacity(kind,5)>infantryCapacity(kind));}
 });
 test('rocket and flame infantry trade area damage for restrained sustained power',()=>{

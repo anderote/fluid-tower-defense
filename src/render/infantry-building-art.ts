@@ -1,4 +1,4 @@
-import type {InfantryKind} from '../infantry/model.ts';
+import {infantryEra,INFANTRY,type InfantryKind} from '../infantry/model.ts';
 
 // Original, north-lit pixel artwork. The foundation remains the gameplay 4 × 4
 // footprint; roofs project upward, never changing collision or recruitment.
@@ -93,7 +93,7 @@ export function infantryBuildingPixels(kind:InfantryKind):readonly BuildingPixel
     polygon([[32,27],[53,44],[48,46],[32,34]],'roofDark');
     box(25,49,14,16,'black');box(25,48,14,2,'outline');
     box(18,62,7,2,'woodLight');box(41,62,6,2,'woodLight');
-  }else{
+  }else if(kind==='samurai'){
     // A fortified field dojo: concrete bunker, dark tiled hip roof, red beams.
     box(12,36,38,28,'outline');box(13,37,36,25,'wall');box(43,38,6,25,'wallDark');
     for(const x of [14,28,45]){box(x,42,3,21,'redDark');box(x,42,1,20,'redLight');}
@@ -109,6 +109,29 @@ export function infantryBuildingPixels(kind:InfantryKind):readonly BuildingPixel
     box(21,63,22,2,'edge');box(19,66,26,2,'concrete');
     box(29,42,6,4,'black');box(30,43,4,1,'brass');
     crate(45,62);
+  }
+  else {
+    const era=infantryEra(kind),historical=era.id==='classical'||era.id==='napoleonic',index=Object.keys(INFANTRY).indexOf(kind);
+    // Shared period architecture with distinct training equipment and insignia.
+    box(10,34,42,30,'outline');box(11,35,40,28,historical?'wall':'concrete');
+    polygon([[8,35],[17,21],[43,21],[55,35]],historical?'roofDark':'steelDark');
+    polygon([[9,34],[17,21],[41,21],[50,34]],historical?'roof':'steel');box(9,34,44,2,'light');
+    door(25,47,12,16);window(14,41,7);window(40,41,7);
+    box(17,16,1,18,'woodLight');box(18,16,10,6,era.id==='napoleonic'?'red':'olive');
+    for(let i=0;i<index%4+1;i++)box(19+i*2,18,1,3,'lamp');
+    if(kind==='archer'||kind==='slinger'){
+      for(const x of [16,45]){box(x,51,2,14,'wood');ellipse(x,51,6,7,'outline');ellipse(x,50,5,6,'woodLight');ellipse(x,50,3,4,'red');ellipse(x,50,1,2,'lamp');}
+    }else if(era.id==='napoleonic'){
+      for(let i=0;i<index%3+2;i++){box(41+i*3,49,1,16,'woodLight');box(41+i*3,44,1,6,'steelLight');}box(40,57,13,2,'wood');
+      box(14,51,6,10,'redDark');box(15,52,4,2,'brass');
+    }else{
+      vent(14,24);box(46,8,1,25,'steelLight');box(41,13,11,1,'steel');
+      for(let i=0;i<index%3+1;i++)crate(11+i*8,61);
+      box(39,51,12,10,'steelDark');box(40,52,10,2,'steelLight');
+      if(kind==='bazooka'){box(42,36,3,19,'steel');polygon([[41,37],[43,30],[46,37]],'red');}
+    }
+    // Unit-specific plaque uses four brass service marks, not random decoration.
+    box(26,38,10,5,'black');for(let i=0;i<4;i++)if(index&(1<<i))box(27+i*2,39,1,3,'brass');
   }
   // Sparse, deterministic patina; avoid shimmering random texture each frame.
   const colors=new Map<string,[number,number,number,number]>();

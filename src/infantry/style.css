@@ -1,6 +1,6 @@
 .infantry-panel { margin-top: 12px; padding: 10px 0 0; border-top: 1px solid #485343; }
 .infantry-panel button { width: 100%; text-align: left; margin: 4px 0; padding: 8px; white-space: normal; }
-.infantry-panel > button[data-kind] { display: grid; grid-template-columns: 34px 1fr; gap: 8px; align-items: center; }
+.infantry-panel button[data-kind] { display: grid; grid-template-columns: 34px 1fr; gap: 8px; align-items: center; }
 .selection-icon { position: relative; display: inline-block; flex: none; width: 28px; height: 28px; border: 2px solid #161b13; background: #656d49; box-shadow: inset 2px 2px 0 #a4a36b, inset -2px -2px 0 #252a1d, 2px 2px 0 #0008; }
 .unit-icon::before, .building-icon::before { content: ""; position: absolute; background: #273125; }
 .unit-icon::after, .building-icon::after { content: ""; position: absolute; background: #c4bd7b; }
@@ -46,3 +46,12 @@ canvas.setting-infantry-rally { cursor: crosshair; }
 .unit-stat-grid dt { color:#a8b5a4; }
 .unit-stat-grid dd { margin:0; color:#edf3c3; text-align:right; }
 .infantry-unit-inspector { width:min(330px,calc(100% - 24px)); }
+
+.infantry-era { margin:8px 0; border:1px solid #485343; padding:6px; }
+.infantry-era summary { cursor:pointer; color:#edf3c3; font:bold 12px/1.5 monospace; padding:4px; }
+.infantry-era summary small { display:inline; float:right; font-size:10px; }
+.unit-icon-archer::after { width:9px; height:20px; border:2px solid #c4bd7b; border-left:0; border-radius:0 100% 100% 0; background:transparent; top:2px; }
+.unit-icon-musketeer,.unit-icon-grenadier { background:#526078; }
+.unit-icon-skirmisher { background:#49604a; }
+.unit-icon-marksman::after { width:21px; }
+.unit-icon-support::after,.unit-icon-machinegun::after { height:4px; }

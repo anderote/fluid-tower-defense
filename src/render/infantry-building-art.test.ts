@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {infantryBuildingPixels,BUILDING_PIXEL,BUILDING_ANCHOR} from './infantry-building-art.ts';
-import type {InfantryKind} from '../infantry/model.ts';
-const kinds:InfantryKind[]=['rifle','rocket','flame','samurai','dog','phalanx'];
+import {INFANTRY,type InfantryKind} from '../infantry/model.ts';
+const kinds:InfantryKind[]=Object.keys(INFANTRY) as InfantryKind[];
 test('infantry facilities have unique, cached, finite pixel artwork and transparent surroundings',()=>{
   const signatures=new Set<string>();
   for(const kind of kinds){

@@ -1,5 +1,5 @@
 import {createInfantryAtlas} from '../../src/render/infantry-art.ts';
-import {INFANTRY_FRAME,INFANTRY_FRAMES,INFANTRY_KINDS,INFANTRY_ATTACK,INFANTRY_DEATH,attackFrames} from '../../src/render/infantry-animation.ts';
+import {infantryAtlasOrigin,INFANTRY_FRAME,INFANTRY_FRAMES,INFANTRY_KINDS,INFANTRY_ATTACK,INFANTRY_DEATH,attackFrames} from '../../src/render/infantry-animation.ts';
 import {createRenderer} from '../../src/render/index.ts';
 import {ENEMIES} from '../../src/content/index.ts';
 import {infantryStats,type Soldier} from '../../src/infantry/model.ts';
@@ -11,9 +11,10 @@ try{
   const atlas=await createInfantryAtlas(),pixels=atlas.getContext('2d')!.getImageData(0,0,atlas.width,atlas.height).data;
   let checked=0;
   for(let row=0;row<INFANTRY_KINDS.length*8;row++)for(let frame=0;frame<INFANTRY_FRAMES;frame++){
+    const origin=infantryAtlasOrigin(INFANTRY_KINDS[Math.floor(row/8)],row%8,frame);
     let visible=0;
     for(let y=0;y<INFANTRY_FRAME;y++)for(let x=0;x<INFANTRY_FRAME;x++){
-      const alpha=pixels[((row*INFANTRY_FRAME+y)*atlas.width+frame*INFANTRY_FRAME+x)*4+3];
+      const alpha=pixels[((origin.y+y)*atlas.width+origin.x+x)*4+3];
       if(alpha>128){visible++;if(x===0||y===0||x===INFANTRY_FRAME-1||y===INFANTRY_FRAME-1)throw Error(`Sprite touches tile edge: row ${row}, frame ${frame}`);}
     }
     if(visible<20)throw Error(`Empty sprite: row ${row}, frame ${frame}`);checked++;
@@ -43,7 +44,7 @@ try{
     ctx.fillStyle='#263125';ctx.fillRect(0,0,gallery.width,gallery.height);
     INFANTRY_KINDS.forEach((kind,row)=>{
       const frame=pose==='idle'?0:pose==='walk'?1+Math.floor(time*10)%6:pose==='death'?INFANTRY_DEATH+Math.min(7,Math.floor((time%3)/.08)):INFANTRY_ATTACK+Math.floor(time*12)%attackFrames(kind);
-      for(let facing=0;facing<8;facing++)ctx.drawImage(atlas,frame*INFANTRY_FRAME,(row*8+facing)*INFANTRY_FRAME,INFANTRY_FRAME,INFANTRY_FRAME,facing*150-24,row*120-39,192,192);
+      for(let facing=0;facing<8;facing++){const origin=infantryAtlasOrigin(kind,facing,frame);ctx.drawImage(atlas,origin.x,origin.y,INFANTRY_FRAME,INFANTRY_FRAME,facing*150-24,row*120-39,192,192);}
     });
     requestAnimationFrame(draw);
   }
