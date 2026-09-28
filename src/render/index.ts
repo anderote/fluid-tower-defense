@@ -1,3 +1,4 @@
+import {formationOutline} from '../infantry/formation.ts';
 import {createEnemySelection} from './enemy-selection.ts';
 import {createInfantrySprites} from './infantry-sprites.ts';
 import {infantryCasing,infantryMuzzle,samuraiSlashPhase,SAMURAI_ATTACK_DURATION} from './infantry-animation.ts';
@@ -468,6 +469,8 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
     if(scene.infantrySelectionBox){const box=scene.infantrySelectionBox;rect(a,box.x,box.y,box.width,box.height,[.33,.94,.38,.09]);rectOutline(a,box.x,box.y,box.width,box.height,[.45,1,.48,.9],.08);}
     if(scene.infantryFormationPreview){
       const preview=scene.infantryFormationPreview,color:[number,number,number,number]=preview.valid?[.45,1,.55,.85]:[1,.3,.2,.9];
+      const outline=formationOutline(preview.center,preview,preview.positions.length);
+      for(let i=0;i<outline.length;i++)segment(a,outline[i],outline[(i+1)%outline.length],.06,color);
       for(const p of preview.positions){
         const tint:[number,number,number,number]=p.valid?color:[1,.2,.15,1];
         ring(a,p.x,p.y,.32,tint,.08);

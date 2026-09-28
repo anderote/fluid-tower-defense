@@ -12,7 +12,7 @@ Classical is available from the start. Each upgrade is purchased once per run, i
 
 Costs are incremental: reaching Modern costs 44,500 Metal. Individual buildings and their upgrades cost extra. These are initial balance values; troop roles and squad capacity differ rather than every later unit replacing every earlier unit. Classical is a broad pre-gunpowder gameplay grouping that includes samurai.
 
-Musketeers and grenadiers automatically form two ranks toward the enemy approach and settle before firing. Phalanxes form three ranks and gain frontal protection from neighboring braced hoplites. All infantry can receive manual drag formations. Both automatic formations close casualty gaps.
+Musketeers and grenadiers automatically form two ranks toward the enemy approach and settle before firing. Phalanxes form three ranks and gain frontal protection from neighboring braced hoplites. All infantry can receive Total War-style manual drag formations: draw the front line to set width and facing, with remaining troops filling as many ranks as needed behind it. Narrow drags create deep blocks, wide drags create shallow lines; reversing the drag reverses facing. A full block outline previews its footprint. Both automatic formations close casualty gaps.
 
 Zombie contact displaces infantry independently of their walking velocity. Formation recovery slows under pressure, so dense crowds push ranks backward instead of having their force erased by movement normalization. Fully braced hoplites reduce displacement by 65%; they can still yield. Push speed is capped at 2.5 world units/second, and displacement respects obstacles. When pressure eases, troops return to their ordered slots.
 
