@@ -11,18 +11,18 @@ try{
  const run=createRun(map),controller=createInfantryController(root,run,()=>map,()=>{},()=>{},()=>{}),state=controller.state();
  const center={x:44,y:20};state.buildings=[{id:1,x:57,y:33,kind:'phalanx',rally:center,production:0,training:0,progress:0,spent:220}];state.nextId=26;
  state.soldiers=Array.from({length:24},(_,i):Soldier=>({...formationPoint(center,i,{angle:Math.PI,columns:8}),id:i+2,home:1,kind:'phalanx',quality:0,health:infantryStats('phalanx').health,angle:Math.PI,cooldown:0,flash:0,walk:0,dead:0,moveTarget:center,moveFormation:{angle:Math.PI,columns:8},moveSlot:i}));
- controller.selectAt(state.soldiers[0],false,true);
+ controller.selectAt(state.soldiers[0],false,()=>true);
  const adapter=await navigator.gpu.requestAdapter();if(!adapter)throw Error('WebGPU unavailable');const device=await adapter.requestDevice();
  device.addEventListener('uncapturederror',e=>{output.textContent=`FAIL ${e.error.message}`;});
  const shared:SharedGPU={capacity:1,particles:device.createBuffer({size:64,usage:GPUBufferUsage.STORAGE}),counters:device.createBuffer({size:512,usage:GPUBufferUsage.STORAGE})};
  const renderer=await createRenderer(device,canvas.getContext('webgpu')!,navigator.gpu.getPreferredCanvasFormat(),shared,canvas);
  attachFormationPlacement(canvas,{canStart:()=>controller.selectedSoldiers.size>0,point:(x,y)=>renderer.screenToWorld(x,y),preview:(a,b)=>{controller.previewFormation(a,b);},clear:()=>controller.clearFormationPreview(),commit:(a,b)=>{if(b)controller.commandFormation(a,b);else controller.command(a);}});
- canvas.addEventListener('dblclick',e=>{controller.selectAt(renderer.screenToWorld(e.clientX,e.clientY),e.shiftKey,true);});
+ canvas.addEventListener('dblclick',e=>{controller.selectAt(renderer.screenToWorld(e.clientX,e.clientY),e.shiftKey,p=>{const view=canvas.getBoundingClientRect(),screen=renderer.worldToScreen(p.x,p.y);return screen.x>=view.left&&screen.x<=view.right&&screen.y>=view.top&&screen.y<=view.bottom;});});
  canvas.addEventListener('contextmenu',e=>e.preventDefault());canvas.addEventListener('pointerdown',e=>{if(e.button===0)controller.selectAt(renderer.screenToWorld(e.clientX,e.clientY),e.shiftKey);});
  let time=0,active=true;const scene:RenderScene={map,towers:[],count:0,time:0,effects:[],heatmap:false,selection:null,infantry:state};
  const draw=()=>{if(!active)return;time+=1/60;controller.update();advanceInfantry(state,controller.ensureFields(),controller.fields,new Map(),1/60,true,[],controller.orderFields);scene.time=time;scene.selectedInfantry=controller.selectedSoldiers;scene.infantryFormationPreview=controller.formationPreview;scene.infantryCommandTarget=controller.commandTarget;const e=device.createCommandEncoder();renderer.encode(e,scene);device.queue.submit([e.finish()]);requestAnimationFrame(draw);};draw();
  output.textContent='READY — 24 hoplites selected. Drag a formation on clear ground.';
- document.querySelector('#preview')!.addEventListener('click',()=>{controller.selectAt(state.soldiers[0],false,true);controller.previewFormation({x:12,y:14},{x:24,y:18});});
+ document.querySelector('#preview')!.addEventListener('click',()=>{controller.selectAt(state.soldiers[0],false,()=>true);controller.previewFormation({x:12,y:14},{x:24,y:18});});
  document.querySelector('#inspect')!.addEventListener('click',()=>{controller.clearFormationPreview();state.soldiers[0].kills=42;state.soldiers[0].veterancyXp=42;state.soldiers[0].health=73;controller.selectAt(state.soldiers[0]);controller.update();});
  document.querySelector('#deselect')!.addEventListener('click',()=>{controller.cancel();controller.update();});
  document.querySelector('#checks')!.addEventListener('click',()=>{
@@ -30,7 +30,7 @@ try{
   const pointer=(phase:string,p:{x:number;y:number},buttons:number)=>{const screen=renderer.worldToScreen(p.x,p.y);canvas.dispatchEvent(new PointerEvent(phase,{clientX:screen.x,clientY:screen.y,button:2,buttons,pointerId:123,bubbles:true}));};
   try{
    controller.selectAt(state.soldiers[0]);controller.update();assert(controller.selectedSoldiers.size===1&&!controller.unitInspector.hidden,'single click opens only that trooper’s inspector');assert(controller.unitInspector.textContent!.includes('Experience')&&controller.unitInspector.textContent!.includes('Kills'),'unit inspector shows XP and kills');
-   controller.selectAt(state.soldiers[0],false,true);controller.update();assert(!!controller.unitInspector.hidden,'multi-selection hides individual stats');assert(controller.selectedSoldiers.size===24,'double-click selects the squad');
+   controller.selectAt(state.soldiers[0],false,()=>true);controller.update();assert(!!controller.unitInspector.hidden,'multi-selection hides individual stats');assert(controller.selectedSoldiers.size===24,'double-click selects the visible type');
    const old=JSON.stringify(state.soldiers.map(s=>s.moveTarget));
    pointer('pointerdown',{x:14,y:15},2);pointer('pointermove',{x:23,y:15},2);
    const preview=controller.formationPreview!;assert(preview.valid&&preview.positions.length===24,'right-drag previews every slot');

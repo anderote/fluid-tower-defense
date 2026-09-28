@@ -2,7 +2,7 @@ import {connectGPU} from '../../src/runtime/gpu.ts';
 import {createCombat,type CombatFrame} from '../../src/sim/combat/index.ts';
 import {DEFAULT_TUNING,P,type HeavyProjectile,type Tower} from '../../src/contracts/index.ts';
 import {TOWERS} from '../../src/content/index.ts';
-import {advanceHeavyProjectiles,createHeavyProjectiles} from '../../src/effects/heavy-weapons.ts';
+import {advanceHeavyProjectiles,createHeavyProjectiles,HEAVY_MAX_TICKS} from '../../src/effects/heavy-weapons.ts';
 const status=document.querySelector('#status')!;
 const assert=(ok:unknown,message:string)=>{if(!ok)throw Error(message);};
 try{
@@ -29,7 +29,7 @@ try{
   let projectiles:HeavyProjectile[]=createHeavyProjectiles(kind,[tower],{x:30,y:10},1).map(p=>({...p,launchTick:100}));
   let before=await step(100);assert(before[P.hp]===1000&&before[16+P.hp]===1000,`${kind} damaged on launch`);checks++;
   const shot=await read(combat.shotState,48);assert(shot[11]===100,'Launch timestamp missing');checks++;
-  for(let tick=101;tick<=140;tick++){
+  for(let tick=101;tick<=100+HEAVY_MAX_TICKS+5;tick++){
    const after=await step(tick),advanced=advanceHeavyProjectiles(projectiles,0,tick);projectiles=advanced.active;
    const changed=[0,1,2].some(i=>after[i*16+P.hp]<before[i*16+P.hp]);
    assert(changed===(advanced.impacts.length>0),`${kind} damage and visible impact disagree on tick ${tick}`);
@@ -43,7 +43,7 @@ try{
  // Boss damage obeys the same flight time.
  seed();frame.map={...frame.map,goal:{x:25,y:10}};device.queue.writeBuffer(shared.bossState,0,new Float32Array([25,10,0,0,1,1,1000,1000,0,0,1,0,1,0,0,0]));
  await step(100);assert((await read(shared.bossState,64))[6]===1000,'Boss damaged at launch');checks++;
- for(let tick=101;tick<=136;tick++)await step(tick);
+ for(let tick=101;tick<=100+HEAVY_MAX_TICKS+5;tick++)await step(tick);
  assert((await read(shared.bossState,64))[6]<1000,'Boss missed delayed salvo');checks++;
  const error=await device.popErrorScope();if(error)throw Error(error.message);
  status.textContent=`PASS: ${checks} GPU checks — launch, each impact tick, blast overlap, boss damage and reset.`;

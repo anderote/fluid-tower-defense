@@ -17,3 +17,24 @@ Musketeers and grenadiers automatically form two ranks toward the enemy approach
 Zombie contact displaces infantry independently of their walking velocity. Formation recovery slows under pressure, so dense crowds push ranks backward instead of having their force erased by movement normalization. Fully braced hoplites reduce displacement by 65%; they can still yield. Push speed is capped at 2.5 world units/second, and displacement respects obstacles. When pressure eases, troops return to their ordered slots.
 
 Artwork provenance and reproduction: `public/assets/red-alert/infantry/NOTICE.md`. Troop/building pixels follow the existing original-art pipeline; no new external assets are imported.
+
+Archer arrows now travel at roughly 12 world units/second on raised ballistic arcs, with mild deterministic spread. Damage is resolved against a single body at the landing point; moving targets can escape and another body can intercept the landing. Misses make a dust puff and leave an embedded shaft for 18 seconds (up to 384 retained). Arrows turn down on descent and cast ground shadows. Rocket and bazooka rounds travel at roughly 22 units/second, keep their launch aim, and apply splash damage only on arrival—even if the shooter has died. Pending rounds clear on restart/load and finish harmlessly when a wave ends.
+
+Mortar tower rounds take 1.2 seconds and rocket tower salvos take 0.8 seconds plus 0.08-second launch staggering. Visuals and GPU damage share fixed-tick deadlines. Mortars have raised arcs and shadows; rockets follow shallow lofted paths with smoke trails. `/tests/infantry/projectiles.html` checks real GPU hits/misses and `/tests/heavy-weapons/` checks turret impact timing. `/tests/infantry/projectile-flight.html` provides a scrub-able rendering preview without touching saves.
+
+## Infantry veterancy
+
+One credited kill grants one XP. Infantry uses role-specific thresholds: total XP for rank N is the first-rank cost × N², capped at rank 100. These are initial balance values based on single-target kill rate, exposure, and crowd-clearing ability, not era or purchase price. Stat bonuses per rank remain unchanged. Tower progression remains 64.8 × N².
+
+| Units | First rank | Rank 5 total | Rank 10 total |
+| --- | ---: | ---: | ---: |
+| Archers, slingers | 2 | 50 | 200 |
+| Musketeers, light infantry, phalanxes, dogs | 3 | 75 | 300 |
+| Bolt-action infantry, riflemen, grenadiers, marksmen, samurai | 4 | 100 | 400 |
+| Rifle squads, paratroopers | 5 | 125 | 500 |
+| Assault infantry, commandos, trench raiders | 6 | 150 | 600 |
+| Machine gunners, support gunners | 8 | 200 | 800 |
+| Flamethrowers, bazooka teams, rocket troops | 10 | 250 | 1,000 |
+| Towers (comparison) | 65 | 1,620 | 6,480 |
+
+Existing infantry recalculates ranks from stored XP when loading; older records without XP use their kill count. Earned ranks are never removed, and promotions do not heal wounds. The unit inspector shows current XP / the next rank's XP threshold, with kills remaining in its tooltip. Asynchronous GPU kill totals are credited by persistent soldier ID, so changing the live roster before readback cannot drop earned XP. `/tests/infantry/veterancy.html` verifies GPU kills through settlement, individual XP, and promotion.

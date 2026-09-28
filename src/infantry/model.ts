@@ -1,6 +1,6 @@
 import {formationPoint,validFormation,type InfantryFormation} from './formation.ts';
 import type {NavigationField,Vec2,WorldMap} from '../contracts/index.ts';
-import {MAX_VETERANCY,veterancyLevel,veterancyMultiplier} from '../content/index.ts';
+import {MAX_VETERANCY,veterancyMultiplier} from '../content/index.ts';
 import {buildNavigation} from '../navigation/index.ts';
 
 export const BARRACKS_COST=120;
@@ -28,6 +28,26 @@ export const INFANTRY={
  semiauto:{building:'Rifle Squad Barracks',name:'Rifle squad',cost:180,interval:4,capacity:32,health:60,damage:15,range:16,cooldown:0.95,armor:0.1,speed:4.2,role:'Versatile semiautomatic rifle squads'},
  bazooka:{building:'Bazooka School',name:'Bazooka teams',cost:240,interval:5,capacity:20,health:60,damage:28,range:17,cooldown:3.4,armor:0.1,speed:3.5,role:'Explosive rockets against dense crowds'},
 } as const;
+
+/** Base credited kills for rank one; later ranks require base × rank² total kills.
+ * Slow single-target and exposed melee troops advance faster than crowd-clearing weapons.
+ */
+export const INFANTRY_VETERANCY_KILLS:Record<InfantryKind,number>={
+ archer:2,slinger:2,
+ musketeer:3,light:3,phalanx:3,dog:3,
+ rifle:4,skirmisher:4,grenadier:4,marksman:4,samurai:4,
+ semiauto:5,paratrooper:5,
+ assault:6,commando:6,raider:6,
+ machinegun:8,support:8,
+ flame:10,bazooka:10,rocket:10,
+};
+export const infantryVeterancyXpForLevel=(kind:InfantryKind='rifle',level:number)=>INFANTRY_VETERANCY_KILLS[kind]*Math.max(0,Math.min(MAX_VETERANCY,Math.ceil(level)))**2;
+export const infantryVeterancyLevel=(kind:InfantryKind='rifle',xp:number)=>Math.min(MAX_VETERANCY,Math.floor(Math.sqrt(Math.max(0,xp)/INFANTRY_VETERANCY_KILLS[kind])));
+/** Revalue existing experience without removing earned ranks or healing wounded troops. */
+export function refreshInfantryVeterancy(soldier:Soldier){
+ soldier.veterancyXp??=soldier.kills??0;
+ soldier.veterancy=Math.max(soldier.veterancy??0,infantryVeterancyLevel(soldier.kind,soldier.veterancyXp));
+}
 
 export const INFANTRY_ERAS=[
  {id:'classical',name:'Classical',cost:0,kinds:['samurai','phalanx','archer','slinger']},
@@ -276,7 +296,13 @@ export function advanceInfantry(state:InfantryState,map:WorldMap,fields:Map<numb
 
 export function awardInfantryKills(state:InfantryState,ids:readonly number[],kills:readonly number[]){
   const soldiers=new Map(state.soldiers.map(s=>[s.id,s]));
-  ids.forEach((id,index)=>{const earned=Math.max(0,Math.floor(kills[index]??0));if(!earned)return;const soldier=soldiers.get(id);if(!soldier)return;soldier.kills=(soldier.kills??0)+earned;soldier.veterancyXp=(soldier.veterancyXp??0)+earned;soldier.veterancy=veterancyLevel(soldier.veterancyXp);});
+  ids.forEach((id,index)=>{const earned=Math.max(0,Math.floor(kills[index]??0));if(!earned)return;const soldier=soldiers.get(id);if(!soldier)return;refreshInfantryVeterancy(soldier);soldier.kills=(soldier.kills??0)+earned;soldier.veterancyXp=(soldier.veterancyXp??0)+earned;refreshInfantryVeterancy(soldier);});
+}
+
+/** GPU counters use persistent soldier IDs, not the live roster at readback time. */
+export function awardInfantryKillTotals(state:InfantryState,totals:readonly number[],previous:readonly number[]){
+ const ids=state.soldiers.map(s=>s.id);
+ awardInfantryKills(state,ids,ids.map(id=>Math.max(0,(totals[id-1]??0)-(previous[id-1]??0))));
 }
 
 export function validInfantry(value:unknown,map:WorldMap):value is InfantryState{

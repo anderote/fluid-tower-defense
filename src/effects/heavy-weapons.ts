@@ -2,10 +2,12 @@ import type {HeavyProjectile, Vec2} from '../contracts/index.ts';
 
 // Impact deadlines are quantized to the fixed simulation clock, shared by CPU visuals and GPU damage.
 export const HEAVY_STEP=1/60;
-export const MORTAR_FLIGHT=.54, ROCKET_FLIGHT=.5, ROCKET_DELAY=.045;
+export const MORTAR_FLIGHT=1.2, ROCKET_FLIGHT=.8, ROCKET_DELAY=.08;
 // Keep overlapping upgraded salvos alive independently of the tower firing state.
 export const HEAVY_SALVO_SLOTS=8;
 export const impactTickOffset=(kind:HeavyProjectile['kind'],index=0)=>Math.ceil(((kind==='mortar'?MORTAR_FLIGHT:ROCKET_FLIGHT)+index*ROCKET_DELAY)/HEAVY_STEP-1e-9);
+
+export const HEAVY_MAX_TICKS=Math.max(impactTickOffset('mortar'),impactTickOffset('rocket',2));
 
 export interface HeavyImpact extends Vec2 {
   kind:HeavyProjectile['kind'];
