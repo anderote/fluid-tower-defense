@@ -13,7 +13,7 @@ export async function mountPartner(root:HTMLElement){
  let snapshot:CoopSnapshot|undefined,frameId=0,lastSeen=0,cloud=false,stream:EventSource|null=null,closed=false,queue=Promise.resolve(),online=false;
  const ui=createUI(root,action=>{if(action.type==='select-map'){status.textContent='The host chooses the battlefield before creating a room.';return;}send({type:'action',action});});
  const shell=root.querySelector<HTMLElement>('.pf')!;shell.classList.add('coop-guest','coop-offline');mountRedAlertSoundtrack(root);
- const bar=document.createElement('section');bar.className='coop-bar';const status=document.createElement('span');status.id='connection';status.textContent='Connecting to shared defense…';bar.append(status);shell.prepend(bar);
+ const bar=document.createElement('section');bar.className='coop-bar';bar.setAttribute('aria-label','Co-op controls');const status=document.createElement('span');status.id='connection';status.textContent='Connecting to shared defense…';bar.append(status);shell.querySelector('#view-menu')!.append(bar);
  const leave=document.createElement('button');leave.textContent='LEAVE CO-OP';leave.onclick=()=>{location.assign('/');};bar.append(leave);
  const form=document.createElement('form');form.className='coop-join';form.innerHTML='<label for="room-code">JOIN SHARED DEFENSE</label><input id="room-code" aria-label="Room code" placeholder="ABCDE-12345" maxlength="20" autocomplete="off" required><button>JOIN GAME</button><p role="status"></p>';root.append(form);
  const input=form.querySelector<HTMLInputElement>('input')!;input.value=code;
