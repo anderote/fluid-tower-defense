@@ -26,3 +26,7 @@ test('remote input rejects selectors, arbitrary actions and unbounded coordinate
  assert.ok(validRemoteCommand({type:'action',action:{type:'upgrade-tower',id:1,branch:0}}));
  for(const c of [{type:'action',action:{type:'eval',code:'evil'}},{type:'infantry',action:'build',kind:'"] script'},{type:'action',action:{type:'buy-command',id:'<script>'}},{type:'pointer',phase:'click',x:2,y:0,frame:1},{type:'pan',dx:Infinity,dy:0}])assert.equal(validRemoteCommand(c),false);
 });
+test('partners can use only the supported simulation speed presets',()=>{
+ for(const value of [1,2,3,5])assert.ok(validRemoteCommand({type:'action',action:{type:'simulation-speed',value}}));
+ for(const value of [0,-1,4,Infinity,'2'])assert.equal(validRemoteCommand({type:'action',action:{type:'simulation-speed',value}}),false);
+});
