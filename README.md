@@ -71,7 +71,7 @@ Run `npm run test:local-server` for server/security checks. For the real two-pla
 
 ## Play
 
-Use the **Battlefield** selector at the top of the sidebar to switch between **Campaign** and **Thunderhead Dam**. Each has separate autosave and checkpoint slots. Switching during combat resumes that battlefield from its last preparation save.
+Use the **Battlefield** selector at the top of the sidebar to switch between **Campaign** and **Thunderhead Dam**. Every battlefield has separate autosave and checkpoint slots. Progress autosaves every 1.5 seconds, when leaving the tab, and before switching maps: infantry and XP, formations, buildings, towers, barriers, Metal, research, eras, and level/wave progress. Returning opens the map paused. Combat resumes the remaining wave quota with surviving zombies re-entering through the inlet; zombie positions, damage, and airborne projectiles are not preserved. Boss health and defeated status are retained. Saves are local to this browser and origin. New Game resets only the current map. Manual defense checkpoints remain separate from autosaves.
 
 ### Thunderhead Dam
 

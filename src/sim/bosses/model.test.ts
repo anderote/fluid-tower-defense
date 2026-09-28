@@ -38,3 +38,12 @@ test('boss phase transitions preserve overshoot and cycle after recovery', () =>
     elapsed: 0,
   });
 });
+
+test('saved bosses keep damaged health and defeated status without initializing again',async()=>{
+  const {restoreBossState}=await import('./model.ts');
+  const live=restoreBossState({x:50,y:30,health:240,maxHealth:800,phase:2,active:true})!;
+  assert.equal(live[6],240);assert.equal(live[8],2);assert.equal(live[10],1);
+  const dead=restoreBossState({x:50,y:30,health:0,maxHealth:800,phase:4,active:false})!;
+  assert.equal(dead[10],0);assert.equal(dead[11],1);
+  assert.equal(restoreBossState({health:-2}),undefined);
+});

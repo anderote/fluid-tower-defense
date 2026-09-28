@@ -10,7 +10,8 @@ export type ActionResult = {ok:true} | {ok:false; reason:string};
 export type PlaceResult = ActionResult & {tower?:Tower};
 export type Wave = {spawns:readonly SpawnBatch[]; payment:number; boss:boolean; total:number; healthScale:number; peakRate:number; rampSeconds:number};
 type Applied = Pick<Settlement,'kills'|'crushKills'|'leaks'|'earned'> & {tick:number;towerKills:number[]};
-type SavedRun = {version:1; contentVersion:string; mapId?:string; model:RunModel; epoch:number; applied:Applied};
+type ResumeState = {live:number;carriedQuota:number;spawnElapsed:number;spawnAllocation:number;waveStartBaseHealth:number};
+type SavedRun = {resume?:ResumeState;version:1; contentVersion:string; mapId?:string; model:RunModel; epoch:number; applied:Applied};
 
 export const CONTENT_VERSION = 'pressure-front-8';
 const SAVE_KEY = 'pressure-front.run.v1';
@@ -101,6 +102,14 @@ function validApplied(value:unknown): value is Applied {
   if (!value || typeof value !== 'object') return false;
   const applied=value as Applied;
   return isFiniteInteger(applied.tick) && applied.tick>=-1 && isFiniteInteger(applied.kills) && applied.kills>=0 && isFiniteInteger(applied.crushKills) && applied.crushKills>=0 && isFiniteInteger(applied.leaks) && applied.leaks>=0 && isFiniteInteger(applied.earned) && applied.earned>=0 && Array.isArray(applied.towerKills) && applied.towerKills.length===MAX_TOWERS && applied.towerKills.every(value=>isFiniteInteger(value)&&value>=0);
+}
+
+function validPending(batches:SpawnBatch[]):boolean {
+  return batches.length<=1000&&batches.every(b=>b&&['shambler','runner','brute','rager','softbody','husk'].includes(b.kind)
+    &&isFiniteInteger(b.count)&&b.count>0&&b.count<=250000&&isFiniteInteger(b.seed)&&b.seed>=0&&b.seed<=0xffffffff
+    &&['initialCount','spawnOffset','start','rate','endRate','duration','burst','healthScale','credit'].every(key=>{
+      const value=b[key as keyof SpawnBatch];return value===undefined||isNonNegative(value);
+    })&&(b.duration===undefined||b.duration>0)&&(b.band===undefined||['full','upper','center','lower','inlet'].includes(b.band)));
 }
 
 export class RunController {
@@ -388,6 +397,15 @@ export class RunController {
     if (!['preparation','checkpoint'].includes(this.model.phase)) throw new Error('Runs can only be saved between waves.');
     return JSON.stringify({version:1,contentVersion:CONTENT_VERSION,mapId:this.map.id,model:copy(this.model),epoch:this.runEpoch,applied:this.applied} satisfies SavedRun);
   }
+  /** Autosaves retain the current defense even while a wave is running.
+   * GPU enemies are reintroduced at the inlet; already settled rewards stay paid.
+   */
+  serializeSession():string {
+    return JSON.stringify({version:1,contentVersion:CONTENT_VERSION,mapId:this.map.id,
+      model:copy(this.model),epoch:this.runEpoch,applied:this.applied,
+      resume:{live:this.live,carriedQuota:this.carriedQuota,spawnElapsed:this.spawnElapsed,
+        spawnAllocation:this.spawnAllocation,waveStartBaseHealth:this.waveStartBaseHealth}} satisfies SavedRun);
+  }
   load(text?:string, context?:{map:WorldMap;buildMounts:readonly Rect[]}):ActionResult {
     try {
       const raw=text ?? (typeof window!=='undefined' ? window.localStorage.getItem(SAVE_KEY) : null);
@@ -406,6 +424,20 @@ export class RunController {
       if(context){this.setMap(context.map);this.setBuildMounts(context.buildMounts);}
       Object.assign(this.model,next); this.nextTowerId=Math.max(0,...next.towers.map(t=>t.id))+1;
       this.runEpoch=Math.max(this.runEpoch+1,saved.epoch+1); this.applied=emptyApplied(); this.live=0;this.carriedQuota=0;this.waveStartBaseHealth=this.model.baseHealth;
+      this.spawnElapsed=saved.resume?.spawnElapsed??0;this.spawnAllocation=saved.resume?.spawnAllocation??0;
+      this.carriedQuota=saved.resume?.carriedQuota??0;this.waveStartBaseHealth=saved.resume?.waveStartBaseHealth??this.model.baseHealth;
+      const wave=waveFor(this.model.level,Math.max(1,this.model.wave),this.map.id);this.spawnPeakRate=wave.peakRate;
+      if(saved.resume?.live){
+        // Keep the exact surviving count, distributed across this wave's roster.
+        let assigned=0,cumulative=0;
+        for(const batch of wave.spawns){
+          cumulative+=batch.count;const target=Math.round(cumulative*saved.resume.live/wave.total),count=target-assigned;assigned=target;
+          if(count>0)this.model.pending.push({...batch,count,initialCount:count,start:this.spawnElapsed,credit:0});
+        }
+      }
+      if(['combat','settling'].includes(this.model.phase)){
+        this.model.phase='combat';if(!this.hasRemainingEnemies)this.finishSettling();
+      }
       return {ok:true};
     } catch { return {ok:false,reason:'Invalid saved run.'}; }
   }
@@ -415,14 +447,18 @@ export class RunController {
   private validSave(value:unknown,map=this.map,mounts:readonly Rect[]=this.buildMounts):value is SavedRun {
     if (!value || typeof value!=='object') return false;
     const saved=value as SavedRun, model=saved.model;
-    if (saved.version!==1 || saved.contentVersion!==CONTENT_VERSION || (saved.mapId!==map.id && !(saved.mapId===undefined && map.id===DEFAULT_MAP.id)) || !isFiniteInteger(saved.epoch) || saved.epoch<0 || !validApplied(saved.applied) || !model || typeof model!=='object' || !['preparation','checkpoint'].includes(model.phase) || !isFiniteInteger(model.metal) || model.metal<0 || !isFiniteInteger(model.baseHealth) || model.baseHealth<0 || model.baseHealth>100 || !isFiniteInteger(model.level) || model.level<1 || !isFiniteInteger(model.wave) || model.wave<0 || model.waveCount!==WAVES_PER_LEVEL || !Array.isArray(model.towers) || model.towers.length>MAX_TOWERS || !Array.isArray(model.pending) || model.pending.length!==0 || !Array.isArray(model.bonuses) || !Array.isArray(model.commandUpgrades) || !Array.isArray(model.bonusChoices) || model.bonusChoices.some(choice=>!BONUSES.some(known=>choice.id===known.id))) return false;
+    if (saved.version!==1 || saved.contentVersion!==CONTENT_VERSION || (saved.mapId!==map.id && !(saved.mapId===undefined && map.id===DEFAULT_MAP.id)) || !isFiniteInteger(saved.epoch) || saved.epoch<0 || !validApplied(saved.applied) || !model || typeof model!=='object' || !(saved.resume?['preparation','checkpoint','combat','settling','lost','won']:['preparation','checkpoint']).includes(model.phase) || !isFiniteInteger(model.metal) || model.metal<0 || !isFiniteInteger(model.baseHealth) || model.baseHealth<0 || model.baseHealth>100 || !isFiniteInteger(model.level) || model.level<1 || !isFiniteInteger(model.wave) || model.wave<0 || model.waveCount!==WAVES_PER_LEVEL || !Array.isArray(model.towers) || model.towers.length>MAX_TOWERS || !Array.isArray(model.pending) || (saved.resume?!validPending(model.pending):model.pending.length!==0) || !Array.isArray(model.bonuses) || !Array.isArray(model.commandUpgrades) || !Array.isArray(model.bonusChoices) || model.bonusChoices.some(choice=>!BONUSES.some(known=>choice.id===known.id))) return false;
+    if(saved.resume!==undefined){
+      const r=saved.resume;
+      if(!r||!isFiniteInteger(r.live)||r.live<0||r.live>250000||!isFiniteInteger(r.carriedQuota)||r.carriedQuota<0||!isNonNegative(r.spawnElapsed)||!isFiniteInteger(r.spawnAllocation)||r.spawnAllocation<0||!isFiniteInteger(r.waveStartBaseHealth)||r.waveStartBaseHealth<0||r.waveStartBaseHealth>100)return false;
+    }
     if(model.salvageCredit!==undefined&&(!Number.isFinite(model.salvageCredit)||model.salvageCredit<0||model.salvageCredit>=1))return false;
     if (!Array.isArray(model.unlockedTowers) || !STARTER_TOWERS.every(kind=>model.unlockedTowers.includes(kind)) || model.unlockedTowers.some((kind,index)=>!isTowerKind(kind)||model.unlockedTowers.indexOf(kind)!==index)) return false;
     if (!model.statRanks || typeof model.statRanks!=='object' || Array.isArray(model.statRanks) || Object.entries(model.statRanks).some(([id,rank])=>{
       return !isFiniteInteger(rank) || rank!==0;
     })) return false;
     const towers:Tower[]=[];
-    if(model.infantry!==undefined&&!validInfantry(model.infantry,mapWithTurretObstacles(map,model.towers)))return false;
+    if(model.infantry!==undefined&&!validInfantry(model.infantry,mapWithTurretObstacles(map,model.towers),model.commandUpgrades))return false;
     for (const tower of model.towers) { if (!validTower(map,tower,towers,mounts) || !model.unlockedTowers.includes(tower.kind)) return false; towers.push(tower); }
     if (model.selected!==null && (!isFiniteInteger(model.selected) || !towers.some(tower=>tower.id===model.selected))) return false;
     return model.bonuses.every((bonus,index)=>typeof bonus==='string' && BONUSES.some(known=>known.id===bonus) && model.bonuses.indexOf(bonus)===index) && model.commandUpgrades.every(upgrade=>typeof upgrade==='string' && COMMAND_UPGRADES.some(known=>known.id===upgrade)) && COMMAND_UPGRADES.every(upgrade=>researchRank(model.commandUpgrades,upgrade.id)<=(upgrade.maxRank??1));
