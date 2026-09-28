@@ -3,7 +3,7 @@ import {canFinishWaveEarly} from './wave-progress.ts';
 import {COMMAND_UPGRADES, compileTower, DEFAULT_MAP, MAX_TOWER_LEVEL, MAX_VETERANCY, TOWERS, towerUpgradeCost, veterancyLevel} from '../content/index.ts';
 import {crusherPassageIssue,hasSpawnRoute,canPlace, mapWithTurretObstacles, resolvePlacement} from '../navigation/index.ts';
 import {commandUpgradeAvailability,researchCost,researchRank} from './research.ts';
-import {INFANTRY_ERAS,unlockedInfantryEra,freshInfantry,validInfantry,infantryMap} from '../infantry/model.ts';
+import {refreshInfantryVeterancy,INFANTRY_ERAS,unlockedInfantryEra,freshInfantry,validInfantry,infantryMap} from '../infantry/model.ts';
 import type {Effect,BonusChoice, StatUpgrade, Rect, RunModel, Settlement, SpawnBatch, Tower, TowerKind, TowerUnlock, Vec2, WorldMap} from '../contracts/index.ts';
 
 export type ActionResult = {ok:true} | {ok:false; reason:string};
@@ -402,7 +402,7 @@ export class RunController {
         saved.contentVersion=CONTENT_VERSION;
       }
       if (!this.validSave(saved,context?.map,context?.buildMounts)) return {ok:false,reason:'Invalid saved run.'};
-      const next=copy(saved.model);next.salvageCredit??=0;next.infantry=structuredClone(saved.model.infantry??freshInfantry());next.infantry.era=unlockedInfantryEra(next.infantry);
+      const next=copy(saved.model);next.salvageCredit??=0;next.infantry=structuredClone(saved.model.infantry??freshInfantry());next.infantry.era=unlockedInfantryEra(next.infantry);next.infantry.soldiers.forEach(refreshInfantryVeterancy);
       if(context){this.setMap(context.map);this.setBuildMounts(context.buildMounts);}
       Object.assign(this.model,next); this.nextTowerId=Math.max(0,...next.towers.map(t=>t.id))+1;
       this.runEpoch=Math.max(this.runEpoch+1,saved.epoch+1); this.applied=emptyApplied(); this.live=0;this.carriedQuota=0;this.waveStartBaseHealth=this.model.baseHealth;

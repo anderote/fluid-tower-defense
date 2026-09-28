@@ -103,7 +103,7 @@ test('training snapshots recruits and production upgrades preserve normalized pr
 test('infantry ranks from credited kills and benefits from relevant technology',()=>{
  const f=setup();f.step(8.1);const rifle=f.state.soldiers[0],base=infantryStats('rifle'),researched=infantryStats('rifle',0,0,0,['rifle-tech','precision-optics']);
  awardInfantryKills(f.state,[rifle.id],[80]);
- assert.equal(rifle.kills,80);assert.equal(rifle.veterancyXp,80);assert.equal(rifle.veterancy,1);
+ assert.equal(rifle.kills,80);assert.equal(rifle.veterancyXp,80);assert.equal(rifle.veterancy,4);
  assert.ok(infantryStats('rifle',0,0,rifle.veterancy).damage>base.damage);
  assert.ok(infantryStats('rifle',0,0,rifle.veterancy).range>base.range);
  assert.ok(infantryStats('rifle',0,0,rifle.veterancy).cooldown<base.cooldown);
