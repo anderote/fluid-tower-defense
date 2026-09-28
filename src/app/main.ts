@@ -1,3 +1,5 @@
+import {restoreBossState} from '../sim/bosses/model.ts';
+import {mapSaveKey,migrateMapSlots} from '../persistence/map-slots.ts';
 import {advanceInfantryProjectiles,launchInfantryProjectile,groundedArrow} from '../infantry/projectiles.ts';
 import {attachFormationPlacement} from '../infantry/formation-input.ts';
 import '../coop/style.css';
@@ -11,7 +13,7 @@ import {damMap,DAM_ID,DAM_GATES,freshDam,sameRect,validDam} from '../content/dam
 import {advanceDam,advanceCurrents,releaseFlood,toggleDamGate} from '../game/dam.ts';
 import {campaignMap,isCampaignMap} from '../content/levels.ts';
 import {allBattlefields,battlefield} from '../content/battlefields.ts';
-import {AUTOSAVE_KEY as DEFAULT_AUTOSAVE_KEY, CHECKPOINT_KEY as DEFAULT_CHECKPOINT_KEY, saveDefense, loadDefense} from '../persistence/defense.ts';
+import {saveDefense, loadDefense} from '../persistence/defense.ts';
 import { connectGPU } from '../runtime/gpu.ts';
 import { verifyABI } from '../runtime/abi-check.ts';
 import { FixedClock } from '../runtime/clock.ts';
@@ -52,8 +54,6 @@ const TURRET_HIT_RADIUS=2.25;
 const requestedMap=params.get('map');
 const damScenario=requestedMap==='dam'||requestedMap==='pressure-front-hydroelectric';
 const initialMap=damScenario?damMap():/^\d+$/.test(requestedMap??'')?campaignMap(Math.max(1,Math.min(3,Number(requestedMap)))):battlefield(requestedMap??campaignMap(1).id);
-const AUTOSAVE_KEY=damScenario?'pressure-front.dam.autosave.v1':initialMap.id===campaignMap(1).id?DEFAULT_AUTOSAVE_KEY:`pressure-front.${initialMap.id}.autosave.v1`;
-const CHECKPOINT_KEY=damScenario?'pressure-front.dam.checkpoint.v1':initialMap.id===campaignMap(1).id?DEFAULT_CHECKPOINT_KEY:`pressure-front.${initialMap.id}.checkpoint.v1`;
 if(location.pathname.startsWith('/coop')||params.has('join')) {
  const {mountPartner}=await import('../coop/partner.ts');await mountPartner(root);
 } else if(params.has('validate')) {
@@ -110,6 +110,7 @@ try {
  const errors:string[]=[];
  let previousPaused=false;
  let lastAutosave=0;
+ let savedBoss:Settlement['boss'];
  const towerMounts=()=>[...terrainMounts(clearPlayerTerrain(map,builtWalls,builtWires,builtFences)),...wallMountCells(builtWalls.filter(wall=>map.obstacles.some(obstacle=>obstacle.x===wall.x&&obstacle.y===wall.y&&obstacle.width===wall.width&&obstacle.height===wall.height)))];
  const syncTowerMounts=()=>run.setBuildMounts(towerMounts());
  const combatMap=()=>mapWithTurretObstacles(state.mode==='game'?infantryMap(map,run.model.infantry??freshInfantry()):map,state.mode==='game'?run.model.towers:[]);
@@ -118,14 +119,20 @@ try {
  const infantry=createInfantryController(root,run,()=>map,refreshNavigation,text=>{state.message=text;},()=>{state.selectedKind=null;state.buildTool=null;state.upgradeMode=false;state.moveMode=false;state.targetMode=false;movingTowerId=null;targetingTowerId=null;run.model.selected=null;});
  const resizeSpawn=()=>{const width=Math.max(1,Math.min(100,Math.round(state.streamWidth)));map={...map,spawn:{...spawnBaseline,y:(map.height-width)/2,height:width}};};
  const restoreSegment=<T extends {x:number;y:number;width:number;height:number}>(kind:BarrierKind,segment:T,index:number)=>{const saved=segment as T&Partial<BarrierSegment>;return {...segment,from:saved.from??{x:segment.x,y:segment.y+segment.height/2},to:saved.to??{x:segment.x+segment.width,y:segment.y+segment.height/2},run:saved.run??index+1,kind} as T&BarrierSegment;};
- const saveSession=()=>{if(state.mode!=='game'||run.hasRemainingEnemies||!['preparation','checkpoint'].includes(run.model.phase))return;try{const runState=damScenario?run.serialize():run.save();localStorage.setItem(AUTOSAVE_KEY,JSON.stringify({runState,map,spawnBaseline,builtWalls,builtWires,builtFences,difficulty:state.difficulty,streamWidth:state.streamWidth}));}catch{/* Local persistence is optional. */}};
- const restoreSession=()=>{try{const saved=JSON.parse(localStorage.getItem(AUTOSAVE_KEY)??'null') as {runState?:string;map?:WorldMap;spawnBaseline?:Rect;builtWalls?:(Rect & Partial<{health:number;maxHealth:number}>)[];builtWires?:(Rect & {health:number;maxHealth:number;breached:boolean})[];builtFences?:(Rect & {health:number;maxHealth:number})[];difficulty?:number;streamWidth?:number}|null;if(!saved?.runState||!saved.map||saved.map.id!==initialMap.id||!validDam(saved.map))return false;builtWalls=(saved.builtWalls??[]).filter(w=>Number.isFinite(w.x)&&Number.isFinite(w.y)).map(w=>{const maxHealth=typeof w.maxHealth==='number'&&Number.isFinite(w.maxHealth)?w.maxHealth:wallCapacity(0),health=typeof w.health==='number'&&Number.isFinite(w.health)?w.health:maxHealth;return {...w,health,maxHealth};});builtWires=(saved.builtWires??[]).filter(w=>Number.isFinite(w.x)&&Number.isFinite(w.y)&&Number.isFinite(w.health)).map((wire,index)=>restoreSegment('wire',wire,index));builtFences=(saved.builtFences??[]).filter(f=>Number.isFinite(f.x)&&Number.isFinite(f.y)&&Number.isFinite(f.health)).map((fence,index)=>restoreSegment('fence',fence,index));nextBarrierRun=1+Math.max(0,...builtWires.map(wire=>wire.run),...builtFences.map(fence=>fence.run));const defaultSession=saved.map.id===DEFAULT_MAP.id;map=restoreSessionTerrain(saved.map,DEFAULT_MAP,builtWalls,builtWires,builtFences);spawnBaseline=defaultSession?DEFAULT_MAP.spawn:saved.spawnBaseline??saved.map.spawn;state.difficulty=run.setSpawnMultiplier(saved.difficulty??1);state.streamWidth=Math.max(1,Math.min(100,Math.round(saved.streamWidth??map.spawn.height)));resizeSpawn();run.setMap(map);syncTowerMounts();const loaded=run.load(saved.runState).ok;if(loaded)refreshNavigation();return loaded;}catch{return false;}};
+ const saveSession=()=>{
+   if(state.mode!=='game')return true;
+   try{localStorage.setItem(mapSaveKey(map.id),JSON.stringify({runState:run.serializeSession(),boss:latest.boss,map,spawnBaseline,builtWalls,builtWires,builtFences,difficulty:state.difficulty,streamWidth:state.streamWidth}));return true;}
+   catch{state.message='Progress could not be saved. Browser storage may be full or unavailable.';return false;}
+ };
+ window.addEventListener('pagehide',saveSession);
+ document.addEventListener('visibilitychange',()=>{if(document.hidden)saveSession();});
+ const restoreSession=()=>{try{const saved=JSON.parse(localStorage.getItem(mapSaveKey(initialMap.id))??'null') as {boss?:Settlement['boss'];runState?:string;map?:WorldMap;spawnBaseline?:Rect;builtWalls?:(Rect & Partial<{health:number;maxHealth:number}>)[];builtWires?:(Rect & {health:number;maxHealth:number;breached:boolean})[];builtFences?:(Rect & {health:number;maxHealth:number})[];difficulty?:number;streamWidth?:number}|null;if(!saved?.runState||!saved.map||saved.map.id!==initialMap.id||!validDam(saved.map))return false;builtWalls=(saved.builtWalls??[]).filter(w=>Number.isFinite(w.x)&&Number.isFinite(w.y)).map(w=>{const maxHealth=typeof w.maxHealth==='number'&&Number.isFinite(w.maxHealth)?w.maxHealth:wallCapacity(0),health=typeof w.health==='number'&&Number.isFinite(w.health)?w.health:maxHealth;return {...w,health,maxHealth};});builtWires=(saved.builtWires??[]).filter(w=>Number.isFinite(w.x)&&Number.isFinite(w.y)&&Number.isFinite(w.health)).map((wire,index)=>restoreSegment('wire',wire,index));builtFences=(saved.builtFences??[]).filter(f=>Number.isFinite(f.x)&&Number.isFinite(f.y)&&Number.isFinite(f.health)).map((fence,index)=>restoreSegment('fence',fence,index));nextBarrierRun=1+Math.max(0,...builtWires.map(wire=>wire.run),...builtFences.map(fence=>fence.run));const defaultSession=saved.map.id===DEFAULT_MAP.id;map=restoreSessionTerrain(saved.map,DEFAULT_MAP,builtWalls,builtWires,builtFences);spawnBaseline=defaultSession?DEFAULT_MAP.spawn:saved.spawnBaseline??saved.map.spawn;state.difficulty=run.setSpawnMultiplier(saved.difficulty??1);state.streamWidth=Math.max(1,Math.min(100,Math.round(saved.streamWidth??map.spawn.height)));resizeSpawn();run.setMap(map);syncTowerMounts();const loaded=run.load(saved.runState).ok;if(loaded){savedBoss=saved.boss;refreshNavigation();}return loaded;}catch{return false;}};
  const editor=createLevelEditor(root.querySelector<HTMLElement>('.view-menu')!,map,newMap=>{
    map=newMap;if(map.id!==DAM_ID)delete map.dam;spawnBaseline=newMap.spawn;builtWalls=[];builtWires=[];builtFences=[];nextBarrierRun=1;resizeSpawn();navigation=buildNavigation(map);run.setMap(map);syncTowerMounts();state.mode='game';resetWorld();previousPaused=false;
    state.message='Custom level ready. Build your defense, then start a wave.';
  },active=>{if(active){previousPaused=state.paused;state.paused=true;state.selectedKind=null;state.buildTool=null;state.upgradeMode=false;state.moveMode=false;state.targetMode=false;movingTowerId=null;targetingTowerId=null;state.message='Paint walls on the arena. Right-drag erases. Apply & Play starts a fresh defense.';}else{state.paused=previousPaused;}},root.querySelector<HTMLElement>('.view-actions')!);
  makeGameWindow(root.querySelector<HTMLElement>('.level-editor-panel')!,'LEVEL EDITOR');
- const newGame=()=>{try{localStorage.removeItem(AUTOSAVE_KEY);if(!damScenario)localStorage.removeItem('pressure-front.customlevel.v1');}catch{/* Local persistence is optional. */}if(!damScenario)run.clearSave();state.mode='game';state.difficulty=1;state.streamWidth=60;map=battlefield(initialMap.id);spawnBaseline=map.spawn;editor.setMap(map);resizeSpawn();builtWalls=[];builtWires=[];builtFences=[];nextBarrierRun=1;navigation=buildNavigation(map);run.setMap(map);syncTowerMounts();resetWorld();state.message='New game started.';};
+ const newGame=()=>{try{localStorage.removeItem(mapSaveKey(map.id));if(!damScenario)localStorage.removeItem('pressure-front.customlevel.v1');}catch{/* Local persistence is optional. */}if(!damScenario)run.clearSave();state.mode='game';state.difficulty=1;state.streamWidth=60;map=battlefield(map.id);spawnBaseline=map.spawn;editor.setMap(map);resizeSpawn();builtWalls=[];builtWires=[];builtFences=[];nextBarrierRun=1;navigation=buildNavigation(map);run.setMap(map);syncTowerMounts();resetWorld();state.message='New game started.';};
 
  const settlement=new SettlementReader(gpu.device,s=>{
    if(s.epoch!==epoch)return;
@@ -178,8 +185,8 @@ try {
    if(['select-tower','wall-tool','fence-tool','wire-tool','demolish-tool','upgrade-tool','move','set-ground-target','mode','new-game','reset','load','restart-wave'].includes(action.type)){infantry.cancel();renderer.clearEnemySelection?.();}
    if(['start-wave','restart-wave','continue-run','load'].includes(action.type))infantryGPU.reset();
    switch(action.type){
-     case 'select-map':saveSession();location.assign(`/?map=${encodeURIComponent(action.map)}`);break;
-     case 'mode':state.mode=action.mode;resetWorld();break;
+     case 'select-map':if(!saveSession())break;location.assign(`/?map=${encodeURIComponent(action.map)}`);break;
+     case 'mode':saveSession();state.mode=action.mode;resetWorld();break;
      case 'pause':state.paused=!state.paused;break;
      case 'simulation-speed':if(!editor.active&&[1,2,3,5].includes(action.value)){state.simulationSpeed=action.value;state.paused=false;}break;
      case 'dam-north':case 'dam-south':{
@@ -243,12 +250,14 @@ try {
        latest={...latest,inletBlocked:false};count=0;spawnSlot=0;heavyProjectiles=[];heavyExplosions=[];infantryProjectiles=[];groundedArrows=[];infantryRocketExplosions=[];cameraShake=0;state.population=0;physics.reset();combat.reset();resetHorde();shotReader.reset();boss.reset(run.isBossWave);waveStartTick=clock.tick+1;state.paused=false;state.selectedKind=null;break;
      }
      case 'continue-run':{
+       if(!saveSession())break;
        const nextLevel=Math.floor(run.model.wave/10)+1;
        const nextMap=isCampaignMap(map)&&nextLevel!==run.model.level&&nextLevel<=3?campaignMap(nextLevel):undefined;
+       if(nextMap&&localStorage.getItem(mapSaveKey(nextMap.id))){location.assign(`/?map=${encodeURIComponent(nextMap.id)}`);break;}
        const barrierValue=(sections:readonly BarrierSegment[],cost:number)=>[...new Set(sections.map(section=>section.run))].reduce((total,runId)=>total+barrierCost(sections.filter(section=>section.run===runId).reduce((length,section)=>length+Math.hypot(section.to.x-section.from.x,section.to.y-section.from.y),0),cost),0);
        const result=run.continueRun(nextMap,nextMap?builtWalls.length*METAL_WALL_COST+barrierValue(builtFences,CHAINLINK_FENCE_COST)+barrierValue(builtWires,45):0);
        if(result.ok){
-         if(nextMap){map=nextMap;spawnBaseline=map.spawn;builtWalls=[];builtWires=[];builtFences=[];nextBarrierRun=1;resizeSpawn();navigation=buildNavigation(map);run.setMap(map);syncTowerMounts();editor.setMap(map);resetWorld(false);state.message=`${map.scenery!.title}: defenses refunded for rebuilding; Metal and research retained.`;saveSession();}
+         if(nextMap){map=nextMap;history.replaceState(null,'',`/?map=${encodeURIComponent(map.id)}`);spawnBaseline=map.spawn;builtWalls=[];builtWires=[];builtFences=[];nextBarrierRun=1;resizeSpawn();navigation=buildNavigation(map);run.setMap(map);syncTowerMounts();editor.setMap(map);resetWorld(false);state.message=`${map.scenery!.title}: defenses refunded for rebuilding; Metal and research retained.`;saveSession();}
          else state.message=`Defense and research retained. Wave ${run.model.wave+1} is ready.`;
        }else state.message=result.reason;break;
      }
@@ -263,11 +272,11 @@ try {
      case 'bonus':actionResult(run.chooseBonus(action.id),'Bonus installed for this run.');break;
      case 'save':if(run.hasRemainingEnemies){state.message='Clear the remaining enemies before saving your defense.';break;}try{
        if(state.mode!=='game'||run.hasRemainingEnemies||!['preparation','checkpoint'].includes(run.model.phase))throw new Error('Defenses can only be saved between waves in Game mode.');
-       saveDefense(localStorage,CHECKPOINT_KEY,run,{map,spawnBaseline,builtWalls,builtWires,builtFences,difficulty:state.difficulty,streamWidth:state.streamWidth});
+       saveDefense(localStorage,mapSaveKey(map.id,'checkpoint'),run,{map,spawnBaseline,builtWalls,builtWires,builtFences,difficulty:state.difficulty,streamWidth:state.streamWidth});
        state.message='Defense checkpoint saved. Autosaves will not overwrite it.';
      }catch(error){state.message=`Could not save defense: ${error instanceof Error?error.message:String(error)}`;}break;
      case 'load':try{
-       const saved=loadDefense(localStorage,CHECKPOINT_KEY,run);
+       const saved=loadDefense(localStorage,mapSaveKey(map.id,'checkpoint'),run);
        map=saved.map;spawnBaseline=saved.spawnBaseline;
        builtWalls=saved.builtWalls.map(wall=>{const stored=wall as Rect & Partial<{health:number;maxHealth:number}>,maxHealth=typeof stored.maxHealth==='number'?stored.maxHealth:wallCapacity(0);return {...stored,health:typeof stored.health==='number'?stored.health:maxHealth,maxHealth};});
        builtWires=saved.builtWires.map((wire,index)=>restoreSegment('wire',wire,index));builtFences=(saved.builtFences??[]).map((fence,index)=>restoreSegment('fence',fence,index));nextBarrierRun=1+Math.max(0,...builtWires.map(wire=>wire.run),...builtFences.map(fence=>fence.run));state.difficulty=saved.difficulty;state.streamWidth=saved.streamWidth??Math.max(1,Math.min(100,Math.round(saved.map.spawn.height)));
@@ -657,9 +666,12 @@ try {
      requestAnimationFrame(frame);
    }catch(error){fail(error);}
  }
+ try{migrateMapSlots(localStorage,allBattlefields().map(battlefield=>battlefield.id));}catch{/* Browser storage may be disabled. */}
  let restored=false;
  if(state.mode==='game')restored=restoreSession();
- resetWorld(!restored);updateUI(performance.now());requestAnimationFrame(frame);
+ resetWorld(!restored);
+ if(restored){if(run.isBossWave&&run.model.phase==='combat'){boss.reset(true);const data=restoreBossState(savedBoss);if(data)gpu.device.queue.writeBuffer(boss.buffer,0,data.buffer);latest.boss=savedBoss;}state.paused=true;state.message=`Map progress restored: level ${run.model.level}, wave ${run.model.wave}. Resume when ready.`;}
+ updateUI(performance.now());requestAnimationFrame(frame);
 } catch(error){state.message=String(error);state.paused=true;ui.update(state);console.error(error);}
 
 }

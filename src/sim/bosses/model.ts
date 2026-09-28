@@ -42,3 +42,14 @@ export function nextBossPhase(phase: number, elapsed: number): { phase: number; 
   if (elapsed < durations[phase]) return { phase, elapsed };
   return { phase: (phase + 1) % 4, elapsed: elapsed - durations[phase] };
 }
+
+/** Rehydrate settled boss health; dead bosses must not pay a second reward. */
+export function restoreBossState(value:unknown):Float32Array|undefined {
+  if(!value||typeof value!=='object')return;
+  const b=value as {x:number;y:number;health:number;maxHealth:number;phase:number;active:boolean};
+  if(![b.x,b.y,b.health,b.maxHealth,b.phase].every(Number.isFinite)||b.x<0||b.y<0||b.x>160||b.y>100||b.health<0||b.health>BOSS_HEALTH||b.maxHealth!==BOSS_HEALTH||!Number.isInteger(b.phase)||b.phase<0||b.phase>5||typeof b.active!=='boolean')return;
+  const state=initialBossState(b.active,1);
+  state.set([b.x,b.y,0,0],0);state[6]=b.health;
+  state.set([b.phase,0,b.active?1:0,b.active?0:1],8);
+  return state;
+}
