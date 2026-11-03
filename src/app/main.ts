@@ -682,10 +682,10 @@ try {
  if(state.mode==='game')restored=restoreSession();
  resetWorld(!restored);
  if(restored){if(run.isBossWave&&run.model.phase==='combat'){boss.reset(true);const data=restoreBossState(savedBoss);if(data)gpu.device.queue.writeBuffer(boss.buffer,0,data.buffer);latest.boss=savedBoss;}state.paused=true;state.message=`Map progress restored: level ${run.model.level}, wave ${run.model.wave}. Resume when ready.`;}
- const portrait=matchMedia('(pointer: coarse) and (orientation: portrait)');
+ const portrait=matchMedia('(orientation: portrait)');
  let orientationPaused=false;
- const syncOrientation=()=>{if(portrait.matches){if(!state.paused){orientationPaused=true;state.paused=true;}}else if(orientationPaused){orientationPaused=false;state.paused=false;}};
- portrait.addEventListener('change',syncOrientation);syncOrientation();
+ const syncOrientation=()=>{if(portrait.matches&&document.documentElement.classList.contains('mobile-layout')){if(!state.paused){orientationPaused=true;state.paused=true;}}else if(orientationPaused){orientationPaused=false;state.paused=false;}};
+ portrait.addEventListener('change',syncOrientation);window.addEventListener('game-layout-change',syncOrientation);syncOrientation();
  updateUI(performance.now());requestAnimationFrame(frame);
 } catch(error){
  state.message=String(error);state.paused=true;ui.update(state);console.error(error);

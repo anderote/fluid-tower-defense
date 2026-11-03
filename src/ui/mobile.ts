@@ -1,12 +1,22 @@
 import './mobile.css';
 export function mountMobileUI(root:HTMLElement){
   const shell=root.querySelector<HTMLElement>('.pf')!;
+  const preference='pressure-front.layout.v1';
+  let saved:string|null=null;try{saved=localStorage.getItem(preference);}catch{}
+  let mobileLayout=saved?saved==='mobile':matchMedia('(pointer: coarse), (max-width:900px)').matches;
+  const switchButton=document.createElement('button');switchButton.className='layout-switch';
+  const rotateSwitch=document.createElement('button');
+  const applyLayout=()=>{document.documentElement.classList.toggle('mobile-layout',mobileLayout);switchButton.textContent=mobileLayout?'Desktop':'Mobile';switchButton.setAttribute('aria-label',mobileLayout?'Switch to desktop mode':'Switch to mobile mode');rotateSwitch.textContent='Use desktop mode';window.dispatchEvent(new Event('game-layout-change'));};
+  const toggleLayout=()=>{mobileLayout=!mobileLayout;try{localStorage.setItem(preference,mobileLayout?'mobile':'desktop');}catch{}applyLayout();};
+  switchButton.onclick=toggleLayout;rotateSwitch.onclick=toggleLayout;
+  root.querySelector('.header-actions')!.prepend(switchButton);applyLayout();
+
   const toolbar=document.createElement('nav');toolbar.className='mobile-toolbar';toolbar.setAttribute('aria-label','Touch controls');
   toolbar.innerHTML='<button data-panel="build" aria-expanded="false">Build</button><button data-panel="wave" aria-expanded="false">Wave</button><button data-touch-mode="pan" aria-pressed="true">Pan</button><button data-touch-mode="select" aria-pressed="false">Select</button><button data-touch-mode="order" aria-pressed="false">Order</button><button data-touch-cancel>Cancel</button>';
   shell.append(toolbar);
   const rotate=document.createElement('section');rotate.className='rotate-gate';rotate.setAttribute('aria-label','Landscape play');
   rotate.innerHTML='<div class="rotate-device" aria-hidden="true">↻</div><h1>Turn your phone sideways</h1><p>Pressure Front plays in widescreen.<br>Rotate your phone to see the battlefield.</p><button data-landscape>Play fullscreen</button><small>Turn off portrait orientation lock if the screen does not rotate.</small>';
-  shell.append(rotate);
+  rotate.append(rotateSwitch);shell.append(rotate);
   const fullscreen=async()=>{try{if(!document.fullscreenElement&&shell.requestFullscreen)await shell.requestFullscreen();const orientation=screen.orientation as ScreenOrientation&{lock?:(mode:string)=>Promise<void>};await orientation.lock?.('landscape');}catch{/* Safari uses physical device rotation instead. */}};
   rotate.querySelector<HTMLButtonElement>('[data-landscape]')!.onclick=fullscreen;
   const fullButton=document.createElement('button');fullButton.textContent='LANDSCAPE / FULLSCREEN';fullButton.onclick=fullscreen;root.querySelector('#view-menu')!.append(fullButton);
