@@ -392,7 +392,7 @@ try {
    canDraw:()=>mobile.mode()==='select'||state.buildTool==='fence'||state.buildTool==='wire'||state.buildTool==='wall',
    tap:p=>{const button=mobile.mode()==='order'?2:0;touchMouse('pointerdown',p,button);touchMouse('pointerup',p,button);},
    draw:points=>{touchMouse('pointerdown',points[0]);for(const p of points.slice(1))touchMouse('pointermove',p);touchMouse('pointerup',points[points.length-1]);},
-   pan:(from,to)=>{const a=renderer.screenToWorld(from.x,from.y),b=renderer.screenToWorld(to.x,to.y);renderer.pan(a.x-b.x,a.y-b.y);},
+   pan:(from,to)=>{const a=renderer.screenToWorld(from.x,from.y),b=renderer.screenToWorld(to.x,to.y);renderer.pan(a.x-b.x,document.documentElement.classList.contains('vertical-scroll')?0:a.y-b.y);},
    zoom:(factor,p)=>renderer.zoomAt(factor,p.x,p.y),
  },()=>audio.arm());
  const formationPlacement=attachFormationPlacement(ui.canvas,{
