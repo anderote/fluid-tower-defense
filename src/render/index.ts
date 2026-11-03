@@ -15,7 +15,7 @@ import {createAftermathRenderer} from './aftermath.ts';
 import {TESLA_STATE_WGSL,TESLA_HEADER_BYTES,TESLA_PARTICLE_BYTES} from '../effects/tesla.ts';
 import { ENEMY_WGSL, towerBehavior, towerRequiresLineOfSight } from '../content/index.ts';
 import { PARTICLE_WGSL, type RenderScene, type Renderer, type SharedGPU, type TowerKind, type Vec2 } from '../contracts/index.ts';
-import {cameraPanBounds,screenToWorld as unproject, worldToScreen as project} from './camera.ts';
+import {cameraDimensions,cameraPanBounds,screenToWorld as unproject, worldToScreen as project} from './camera.ts';
 import {TURRET_GRID, turretHardpoints, turretPixelRects, type TurretInk} from './turret-art.ts';
 import {createRedAlertArt,hasRedAlertSprite,type TurretArtStyle,type FloorArtStyle} from './red-alert.ts';
 import type {WireArtStyle} from './wire-art.ts';
@@ -194,10 +194,11 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
   const cameraOverlay=device.createBindGroup({layout:overlay.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:uniform}}]});
   const cameraCues=device.createBindGroup({layout:cues.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:uniform}},{binding:1,resource:{buffer:shared.shotState ?? emptyShots}},{binding:2,resource:{buffer:towerVisuals}}]});
   let pixelW=0,pixelH=0,sceneDepth:GPUTexture|undefined;
-  let camera={x:0,y:0,zoom:1};
+  let camera={x:0,y:0,zoom:1,fill:false};
+  let previousView:{width:number;height:number}|undefined;
   let world={width:160,height:100};
-  const view=()=>({width:world.width/camera.zoom,height:world.height/camera.zoom});
-  const clampCamera=()=>{const bounds=cameraPanBounds(camera,world);camera.x=Math.max(bounds.minX,Math.min(bounds.maxX,camera.x));camera.y=Math.max(bounds.minY,Math.min(bounds.maxY,camera.y));};
+  const view=()=>cameraDimensions(canvas.getBoundingClientRect(),camera,world);
+  const clampCamera=()=>{const bounds=cameraPanBounds(camera,world,canvas.getBoundingClientRect());camera.x=Math.max(bounds.minX,Math.min(bounds.maxX,camera.x));camera.y=Math.max(bounds.minY,Math.min(bounds.maxY,camera.y));};
   const resize=()=>{const d=Math.min(devicePixelRatio||1,2)*resolutionScale,max=device.limits.maxTextureDimension2D; const w=Math.max(1,Math.min(max,Math.round(canvas.clientWidth*d))),h=Math.max(1,Math.min(max,Math.round(canvas.clientHeight*d))); if(w!==pixelW||h!==pixelH){pixelW=w;pixelH=h;canvas.width=w;canvas.height=h;sceneDepth?.destroy();sceneDepth=device.createTexture({label:'World object depth order',size:[w,h],format:'depth32float',usage:GPUTextureUsage.RENDER_ATTACHMENT});context.configure({device,format,alphaMode:'opaque'});} };
   const screenToWorld=(clientX:number,clientY:number):Vec2=>unproject({x:clientX,y:clientY},canvas.getBoundingClientRect(),camera,world);
   const worldToScreen=(x:number,y:number):Vec2=>project({x,y},canvas.getBoundingClientRect(),camera,world);
@@ -583,6 +584,12 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
   }
   return { encode(encoder,scene){
       if(world.width!==scene.map.width||world.height!==scene.map.height){world={width:scene.map.width,height:scene.map.height};clampCamera();}
+      camera.fill=document.documentElement.classList.contains('mobile-layout');
+      const currentView=view();
+      if(previousView&&(previousView.width!==currentView.width||previousView.height!==currentView.height)){
+        camera.x+=(previousView.width-currentView.width)/2;camera.y+=(previousView.height-currentView.height)/2;clampCamera();
+      }else if(!previousView&&camera.fill){camera.x=(world.width-currentView.width)/2;camera.y=(world.height-currentView.height)/2;}
+      previousView=currentView;
       enemySelection.encode(encoder,scene.count);
       resize();const v=view(),shake=(scene.cameraShake??0)*explosionShakeScale(camera.zoom),shakeX=Math.sin(scene.time*83.7)*shake,shakeY=Math.cos(scene.time*71.3)*shake*.7;
       device.queue.writeBuffer(uniform,0,new Float32Array([pixelW,pixelH,0,0,camera.x+shakeX,camera.y+shakeY,v.width,v.height,scene.time,scene.heatmap?1:0,0,0,0,0,0,0]));
@@ -636,7 +643,7 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
     setResolutionScale(value:number){if(Number.isFinite(value))resolutionScale=Math.max(.5,Math.min(1,value));},
     worldToScreen,
     pan(dx,dy){camera.x+=dx;camera.y+=dy;clampCamera();},
-    zoomAt(factor,clientX,clientY){const before=screenToWorld(clientX,clientY);camera.zoom=Math.max(1,Math.min(12,camera.zoom*factor));const after=screenToWorld(clientX,clientY);camera.x+=before.x-after.x;camera.y+=before.y-after.y;clampCamera();},
+    zoomAt(factor,clientX,clientY){const before=screenToWorld(clientX,clientY);camera.zoom=Math.max(1,Math.min(12,camera.zoom*factor));const after=screenToWorld(clientX,clientY);camera.x+=before.x-after.x;camera.y+=before.y-after.y;clampCamera();previousView=view();},
     combatAudioScale(){return explosionShakeScale(camera.zoom);},
     clearAftermath(preserveBlood=false){enemySelection.clear();shamblers.reset();aftermath?.reset();if(!preserveBlood)blood?.reset();},
     destroy(){enemySelection.destroy();damSurface.destroy();corpseField?.destroy();blood?.destroy();fire.destroy();emptyHeat?.destroy();aftermath?.destroy();tesla?.destroy();emptyTesla?.destroy();shamblers.destroy();infantrySprites.destroy();redAlert?.destroy();sceneDepth?.destroy();uniform.destroy();overlays.destroy();foreground.destroy();towerVisuals.destroy();emptyShots.destroy();}

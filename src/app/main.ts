@@ -1,3 +1,4 @@
+import {showGameFailure} from '../ui/game-failure.ts';
 import {attachTouchInput} from './touch-input.ts';
 import {mountMobileUI} from '../ui/mobile.ts';
 import {restoreBossState} from '../sim/bosses/model.ts';
@@ -76,7 +77,7 @@ try {
  const cachedTower=createTowerDefinitionCache();
  const graphics=mountGraphicsSettings(root);
  let failed=false;
- function fail(error:unknown){if(failed)return;failed=true;state.message=String(error instanceof Error?error.message:error);state.paused=true;ui.update(state);console.error(error);}
+ function fail(error:unknown){if(failed)return;failed=true;state.message=String(error instanceof Error?error.message:error);state.paused=true;ui.update(state);console.error(error);showGameFailure(root,error);}
  gpu.device.addEventListener('uncapturederror',event=>fail(event.error.message));
  void gpu.device.lost.then(info=>fail(`GPU connection lost: ${info.message}. Reload to reconnect.`));
  if(!await verifyABI(gpu.device))throw new Error('GPU particle layout check failed.');
@@ -108,7 +109,7 @@ try {
  const lastTowerPressurePopup=new Map<number,number>();
  let latest:Settlement={epoch,tick:0,kills:0,crushKills:0,leaks:0,earned:0,live:0,invalid:0,maxPacking:0},previousInfantryKills:number[]=[];
  let lastUI=0, previous=performance.now(), simulatedTime=0;
- const diagnostics=document.createElement('details');diagnostics.className='diagnostics';diagnostics.innerHTML='<summary>Developer diagnostics</summary><pre></pre>';root.append(diagnostics);
+ const diagnostics=document.createElement('details');diagnostics.className='diagnostics';diagnostics.innerHTML='<summary>Developer diagnostics</summary><pre></pre>';if(params.has('debug')||params.has('profile'))root.append(diagnostics);
  const diagnosticText=diagnostics.querySelector('pre')!;
  const errors:string[]=[];
  let previousPaused=false;
@@ -682,19 +683,10 @@ try {
  if(state.mode==='game')restored=restoreSession();
  resetWorld(!restored);
  if(restored){if(run.isBossWave&&run.model.phase==='combat'){boss.reset(true);const data=restoreBossState(savedBoss);if(data)gpu.device.queue.writeBuffer(boss.buffer,0,data.buffer);latest.boss=savedBoss;}state.paused=true;state.message=`Map progress restored: level ${run.model.level}, wave ${run.model.wave}. Resume when ready.`;}
- const portrait=matchMedia('(orientation: portrait)');
- let orientationPaused=false;
- const syncOrientation=()=>{if(portrait.matches&&document.documentElement.classList.contains('mobile-layout')){if(!state.paused){orientationPaused=true;state.paused=true;}}else if(orientationPaused){orientationPaused=false;state.paused=false;}};
- portrait.addEventListener('change',syncOrientation);window.addEventListener('game-layout-change',syncOrientation);syncOrientation();
  updateUI(performance.now());requestAnimationFrame(frame);
 } catch(error){
  state.message=String(error);state.paused=true;ui.update(state);console.error(error);
- const notice=document.createElement('section');notice.className='gpu-notice';notice.setAttribute('role','alert');
- const title=document.createElement('h1');title.textContent='Unable to start Pressure Front';
- const detail=document.createElement('p');detail.textContent=error instanceof Error?error.message:String(error);
- const help=document.createElement('p');help.textContent='This game needs WebGPU and a compatible GPU. On iPhone or iPad, use Safari on iOS 26 or later. On Android, use an up-to-date Chrome on a supported device.';
- const retry=document.createElement('button');retry.textContent='Try again';retry.onclick=()=>location.reload();
- notice.append(title,detail,help,retry);root.append(notice);
+ showGameFailure(root,error);
 }
 
 }
