@@ -1,0 +1,47 @@
+.mobile-toolbar,.mobile-hint { display:none; }
+.arena canvas { touch-action:none; }
+@media (max-width: 900px), (pointer: coarse) {
+  .pf { padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+  .pf > header { min-height:52px; padding:4px 8px; gap:6px; }
+  .header-actions { gap:4px; }
+  .header-actions .soundtrack,.time-controls [data-simulation-speed]:not([data-simulation-speed="1"]) { display:none; }
+  .header-stack { min-width:0; }
+  .hud { grid-template-columns:repeat(8,max-content); }
+  .hud div { padding:0 8px; }
+  .hud b { font-size:14px; }
+  .hud span { font-size:10px; }
+  .pf button,.game-window button { min-height:44px; }
+  .view-menu-toggle { width:44px; height:44px; }
+  .mobile-toolbar { display:grid; grid-template-columns:repeat(6,1fr); gap:3px; padding:4px; background:var(--term-field); border-top:1px solid var(--term-border); flex:none; }
+  .mobile-toolbar button { padding:4px 2px; font-size:11px; color:var(--term-fg); }
+  .mobile-toolbar button[aria-expanded="true"],.mobile-toolbar button[aria-pressed="true"] { color:var(--term-accent); border-color:var(--term-accent); background:#ffdc4714; }
+  .mobile-hint { display:block; flex:none; padding:2px 6px 4px; text-align:center; font-size:10px; color:var(--term-muted); }
+  .pf footer { height:auto; min-height:26px; padding:4px 8px; font-size:11px; }
+  .pf footer .run-summary { display:none; }
+  .body > aside,.body > .wave-command { display:none; }
+  .pf[data-mobile-panel="build"] .body > aside,.pf[data-mobile-panel="wave"] .body > .wave-command { display:block; position:absolute!important; inset:auto 6px 6px auto!important; width:min(350px,calc(100% - 12px))!important; max-height:80%; transform:none!important; background:#101112f5; }
+  .game-window .window-handle { pointer-events:none; }
+  .selected-popup,.upgrade-hover-card,.infantry-inspector { position:absolute!important; left:6px!important; top:auto!important; bottom:6px!important; width:min(310px,calc(100% - 12px)); max-height:calc(100% - 12px)!important; min-height:0!important; overflow:auto!important; transform:none!important; }
+  .boss-status { top:6px; right:6px; width:220px; padding:6px; font-size:11px; }
+  .boon-gate,.settings-gate,.reset-gate { padding:8px; }
+  .boon-gate > *, .settings-gate > *, .reset-gate > * { max-width:100%; max-height:calc(100dvh - 32px); overflow:auto; }
+  select,input { font-size:16px; }
+}
+@media (max-height:500px) and (orientation:landscape) {
+  .mobile-hint,.pf footer { display:none; }
+  .pf > header { min-height:48px; }
+  .pf[data-mobile-panel] .body > .game-window { max-height:calc(100% - 8px); }
+}
+.gpu-notice { position:fixed; z-index:100; inset:0; display:flex; flex-direction:column; justify-content:center; align-items:flex-start; padding:max(24px,env(safe-area-inset-left)); background:#0a0a0a; overflow:auto; }
+.gpu-notice h1 { font-size:22px; }
+.gpu-notice p { max-width:520px; line-height:1.6; }
+.gpu-notice button { min-height:44px; color:var(--term-accent); }
+.rotate-gate { display:none; }
+@media (pointer:coarse) and (orientation:portrait) {
+  .rotate-gate { position:fixed; z-index:90; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; padding:32px; text-align:center; background:radial-gradient(ellipse at center,#20241a,#0a0a0a 70%); }
+  .rotate-gate h1 { margin:0; font-size:22px; color:var(--term-fg); }
+  .rotate-gate p { margin:0; line-height:1.7; color:var(--term-muted); }
+  .rotate-gate small { max-width:280px; color:var(--term-muted); }
+  .rotate-gate button { padding:12px 20px; color:var(--term-accent); border-color:var(--term-accent); }
+  .rotate-device { border:2px solid var(--term-accent); border-radius:12px; width:105px; height:58px; color:var(--term-accent); font-size:34px; line-height:50px; }
+}

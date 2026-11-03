@@ -1,3 +1,5 @@
+import {attachTouchInput} from './touch-input.ts';
+import {mountMobileUI} from '../ui/mobile.ts';
 import {restoreBossState} from '../sim/bosses/model.ts';
 import {mapSaveKey,migrateMapSlots} from '../persistence/map-slots.ts';
 import {advanceInfantryProjectiles,launchInfantryProjectile,groundedArrow} from '../infantry/projectiles.ts';
@@ -63,6 +65,7 @@ const run=createRun(initialMap);
 const state:UIState={mode:params.get('mode')==='lab'?'lab':'game',phase:'preparation',paused:false,simulationSpeed:1,fps:0,frameMs:0,population:10000,capacity:65536,kills:0,crushKills:0,leaks:0,earned:0,maxPressure:0,metal:STARTING_METAL,baseHealth:100,level:1,wave:0,waveCount:10,difficulty:1,streamWidth:60,selected:null,upgradeTarget:null,selectedKind:null,buildTool:null,upgradeMode:false,moveMode:false,targetMode:false,heatmap:true,tool:'blast',message:'Connecting to local GPU…',adapter:'WebGPU',bonusChoices:[],bonuses:[],commandUpgrades:[],statUpgrades:run.statUpgrades(),towerUnlocks:run.towerUnlocks()};
 let handleAction:(action:GameAction)=>void=()=>{};
 const ui=createUI(root,action=>handleAction(action));
+const mobile=mountMobileUI(root);
 try {
  mountRedAlertSoundtrack(root);
  const gpu=await connectGPU(ui.canvas,{profile:params.has('profile')});
@@ -383,6 +386,14 @@ try {
  };
  const nearestBarrier=(segments:readonly BarrierSegment[],point:Vec2)=>segments.map(segment=>({segment,distance:pointToBarrierDistance(point,segment)})).filter(candidate=>candidate.distance<=1.3).sort((a,b)=>a.distance-b.distance)[0]?.segment;
  const demolishAt=(point:Vec2)=>{const wall=builtWalls.find(candidate=>point.x>=candidate.x&&point.x<candidate.x+candidate.width&&point.y>=candidate.y&&point.y<candidate.y+candidate.height);if(wall){removeWall(point);return;}if(nearestBarrier(builtFences,point)){removeFence(point);return;}if(nearestBarrier(builtWires,point)){removeWire(point);return;}state.message='Only player-built Metal Walls, Chain-link Fences, and Barbed Wire can be demolished.';};
+ const touchMouse=(phase:string,p:{x:number;y:number},button=0)=>ui.canvas.dispatchEvent(new PointerEvent(phase,{clientX:p.x,clientY:p.y,button,buttons:phase==='pointerup'?0:button===2?2:1,pointerId:9002,pointerType:'mouse',bubbles:true}));
+ attachTouchInput(ui.canvas,{
+   canDraw:()=>mobile.mode()==='select'||state.buildTool==='fence'||state.buildTool==='wire'||state.buildTool==='wall',
+   tap:p=>{const button=mobile.mode()==='order'?2:0;touchMouse('pointerdown',p,button);touchMouse('pointerup',p,button);},
+   draw:points=>{touchMouse('pointerdown',points[0]);for(const p of points.slice(1))touchMouse('pointermove',p);touchMouse('pointerup',points[points.length-1]);},
+   pan:(from,to)=>{const a=renderer.screenToWorld(from.x,from.y),b=renderer.screenToWorld(to.x,to.y);renderer.pan(a.x-b.x,a.y-b.y);},
+   zoom:(factor,p)=>renderer.zoomAt(factor,p.x,p.y),
+ },()=>audio.arm());
  const formationPlacement=attachFormationPlacement(ui.canvas,{
    canStart:()=>!failed&&!editor.active&&state.mode==='game'&&!state.buildTool&&!state.selectedKind&&!state.upgradeMode&&!state.moveMode&&!state.targetMode&&!infantry.tool&&infantry.selectedSoldiers.size>0,
    point:(x,y)=>renderer.screenToWorld(x,y),
@@ -671,7 +682,19 @@ try {
  if(state.mode==='game')restored=restoreSession();
  resetWorld(!restored);
  if(restored){if(run.isBossWave&&run.model.phase==='combat'){boss.reset(true);const data=restoreBossState(savedBoss);if(data)gpu.device.queue.writeBuffer(boss.buffer,0,data.buffer);latest.boss=savedBoss;}state.paused=true;state.message=`Map progress restored: level ${run.model.level}, wave ${run.model.wave}. Resume when ready.`;}
+ const portrait=matchMedia('(pointer: coarse) and (orientation: portrait)');
+ let orientationPaused=false;
+ const syncOrientation=()=>{if(portrait.matches){if(!state.paused){orientationPaused=true;state.paused=true;}}else if(orientationPaused){orientationPaused=false;state.paused=false;}};
+ portrait.addEventListener('change',syncOrientation);syncOrientation();
  updateUI(performance.now());requestAnimationFrame(frame);
-} catch(error){state.message=String(error);state.paused=true;ui.update(state);console.error(error);}
+} catch(error){
+ state.message=String(error);state.paused=true;ui.update(state);console.error(error);
+ const notice=document.createElement('section');notice.className='gpu-notice';notice.setAttribute('role','alert');
+ const title=document.createElement('h1');title.textContent='Unable to start Pressure Front';
+ const detail=document.createElement('p');detail.textContent=error instanceof Error?error.message:String(error);
+ const help=document.createElement('p');help.textContent='This game needs WebGPU and a compatible GPU. On iPhone or iPad, use Safari on iOS 26 or later. On Android, use an up-to-date Chrome on a supported device.';
+ const retry=document.createElement('button');retry.textContent='Try again';retry.onclick=()=>location.reload();
+ notice.append(title,detail,help,retry);root.append(notice);
+}
 
 }
