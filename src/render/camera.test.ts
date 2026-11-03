@@ -28,3 +28,11 @@ test('pan limits let the viewport center reach every map edge',()=>{
  assert.deepEqual(cameraPanBounds({x:0,y:0,zoom:2}),{minX:-40,maxX:120,minY:-25,maxY:75});
  assert.deepEqual(cameraPanBounds({x:0,y:0,zoom:1}),{minX:-80,maxX:80,minY:-50,maxY:50});
 });
+test('mobile projection fills portrait without letterboxing and preserves pointer mapping',()=>{
+ const viewport={left:0,top:100,width:390,height:600},camera={x:40,y:0,zoom:1,fill:true};
+ close(worldToScreen({x:40,y:0},viewport,camera).x,0);
+ close(worldToScreen({x:40,y:0},viewport,camera).y,100);
+ close(worldToScreen({x:105,y:100},viewport,camera).x,390);
+ close(worldToScreen({x:105,y:100},viewport,camera).y,700);
+ const p={x:75,y:42},roundTrip=screenToWorld(worldToScreen(p,viewport,camera),viewport,camera);close(roundTrip.x,p.x);close(roundTrip.y,p.y);
+});

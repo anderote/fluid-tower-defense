@@ -36,13 +36,23 @@
 .gpu-notice h1 { font-size:22px; }
 .gpu-notice p { max-width:520px; line-height:1.6; }
 .gpu-notice button { min-height:44px; color:var(--term-accent); }
-.rotate-gate { display:none; }
-@media (orientation:portrait) {
-  html.mobile-layout .rotate-gate { position:fixed; z-index:90; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; padding:32px; text-align:center; background:radial-gradient(ellipse at center,#20241a,#0a0a0a 70%); }
-  html.mobile-layout .rotate-gate h1 { margin:0; font-size:22px; color:var(--term-fg); }
-  html.mobile-layout .rotate-gate p { margin:0; line-height:1.7; color:var(--term-muted); }
-  html.mobile-layout .rotate-gate small { max-width:280px; color:var(--term-muted); }
-  html.mobile-layout .rotate-gate button { padding:12px 20px; color:var(--term-accent); border-color:var(--term-accent); }
-  html.mobile-layout .rotate-device { border:2px solid var(--term-accent); border-radius:12px; width:105px; height:58px; color:var(--term-accent); font-size:34px; line-height:50px; }
-}
 .layout-switch { min-height:44px; padding:6px 8px; font-size:11px; color:var(--term-accent); }
+
+/* Phone HUD: retain essential counters without squeezing them behind the actions. */
+@media (max-width:600px) {
+ html.mobile-layout .pf > header { flex-wrap:wrap; gap:4px; }
+ html.mobile-layout .header-stack { flex:1 0 100%; order:2; }
+ html.mobile-layout .header-actions { width:100%; justify-content:flex-end; }
+ html.mobile-layout .hud { display:flex; width:100%; border-left:0; }
+ html.mobile-layout .hud > div { flex:1; padding:0 8px; }
+ html.mobile-layout .hud > div:nth-child(3),html.mobile-layout .hud > div:nth-child(4),html.mobile-layout .hud > div:nth-child(5),html.mobile-layout .hud > div:nth-child(7) { display:none; }
+ html.mobile-layout .header-telemetry { overflow:visible; }
+ html.mobile-layout .pf[data-mobile-panel] .body > .game-window { left:6px!important; right:6px!important; width:auto!important; max-height:58%!important; }
+ html.mobile-layout .selected-popup,html.mobile-layout .upgrade-hover-card,html.mobile-layout .infantry-inspector { max-height:58%!important; }
+ html.mobile-layout .tower-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+ html.mobile-layout .mobile-toolbar { grid-template-columns:repeat(6,minmax(0,1fr)); }
+}
+html,body { overscroll-behavior:none; }
+
+.gpu-notice details { margin-top:24px; max-width:100%; color:var(--term-muted); }
+.gpu-notice pre { white-space:pre-wrap; overflow-wrap:anywhere; font-size:11px; max-height:35dvh; overflow:auto; }
