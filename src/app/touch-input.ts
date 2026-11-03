@@ -36,7 +36,7 @@ export function attachTouchInput(canvas:HTMLCanvasElement,actions:Actions,arm:()
   for(const type of ['pointerdown','pointermove','pointerup','pointercancel'] as const){
     canvas.addEventListener(type,event=>{
       if(event.pointerType!=='touch')return;
-      event.preventDefault();event.stopImmediatePropagation();
+      if(!document.documentElement.classList.contains('vertical-scroll'))event.preventDefault();event.stopImmediatePropagation();
       const p={x:event.clientX,y:event.clientY};
       if(type==='pointerdown'){arm();canvas.setPointerCapture(event.pointerId);input.down(event.pointerId,p);}
       else if(type==='pointermove')input.move(event.pointerId,p);

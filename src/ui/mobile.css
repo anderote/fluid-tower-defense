@@ -56,3 +56,19 @@ html,body { overscroll-behavior:none; }
 
 .gpu-notice details { margin-top:24px; max-width:100%; color:var(--term-muted); }
 .gpu-notice pre { white-space:pre-wrap; overflow-wrap:anywhere; font-size:11px; max-height:35dvh; overflow:auto; }
+
+.scroll-layout-switch { min-height:44px; padding:6px 8px; font-size:11px; color:var(--term-accent); }
+html.mobile-layout.vertical-scroll .pf { height:auto; min-height:100dvh; overflow:visible; }
+html.mobile-layout.vertical-scroll .pf > header { order:0; }
+html.mobile-layout.vertical-scroll .mobile-toolbar { order:1; position:sticky; top:0; z-index:25; }
+html.mobile-layout.vertical-scroll .mobile-hint { order:2; }
+html.mobile-layout.vertical-scroll .body { order:3; display:flex; flex-direction:column; flex:none; }
+html.mobile-layout.vertical-scroll .arena { position:relative; inset:auto; height:65dvh; min-height:280px; flex:none; scroll-margin-top:56px; }
+html.mobile-layout.vertical-scroll .arena canvas { touch-action:pan-y; }
+html.mobile-layout.vertical-scroll .body > aside,html.mobile-layout.vertical-scroll .body > .wave-command { display:block; position:relative!important; inset:auto!important; width:calc(100% - 12px)!important; max-height:none!important; overflow:visible; margin:6px; transform:none!important; scroll-margin-top:56px; }
+html.mobile-layout.vertical-scroll .body > .wave-command { order:1; }
+html.mobile-layout.vertical-scroll .body > aside { order:2; }
+html.mobile-layout.vertical-scroll .window-toggle { display:none; }
+html.mobile-layout.vertical-scroll .game-window.window-collapsed > :not(.window-bar) { display:block!important; }
+
+@media (max-width:600px) { html.mobile-layout .time-controls [data-simulation-speed] { display:none; } }
