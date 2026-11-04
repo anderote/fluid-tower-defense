@@ -52,10 +52,10 @@ export function refreshInfantryVeterancy(soldier:Soldier){
 
 export const INFANTRY_ERAS=[
  {id:'classical',name:'Classical',cost:0,kinds:['samurai','phalanx','archer','slinger']},
- {id:'napoleonic',name:'Napoleonic',cost:2500,kinds:['musketeer','grenadier','skirmisher','light']},
- {id:'ww1',name:'WW1',cost:6000,kinds:['rifle','machinegun','flame','raider']},
- {id:'ww2',name:'WW2',cost:12000,kinds:['semiauto','assault','bazooka','paratrooper']},
- {id:'modern',name:'Modern Infantry',cost:24000,kinds:['commando','marksman','support','rocket']},
+ {id:'napoleonic',name:'Napoleonic',cost:2200,kinds:['musketeer','grenadier','skirmisher','light']},
+ {id:'ww1',name:'WW1',cost:5000,kinds:['rifle','machinegun','flame','raider']},
+ {id:'ww2',name:'WW2',cost:10000,kinds:['semiauto','assault','bazooka','paratrooper']},
+ {id:'modern',name:'Modern Infantry',cost:20000,kinds:['commando','marksman','support','rocket']},
 ] as const satisfies readonly {id:string;name:string;cost:number;kinds:readonly InfantryKind[]}[];
 export const infantryEra=(kind:InfantryKind)=>INFANTRY_ERAS.find(era=>(era.kinds as readonly InfantryKind[]).includes(kind))??{id:'utility',name:'Utility',cost:0,kinds:['dog','medic'] as const};
 /** Legacy saves retain access through their most advanced existing building. */

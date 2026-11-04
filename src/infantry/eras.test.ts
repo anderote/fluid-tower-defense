@@ -27,7 +27,7 @@ test('era purchases are sequential, charged once, and rejected atomically when u
   for(const kind of era.kinds)assert.ok(infantryAvailable(run.model.infantry!,kind));
  }
  assert.equal(run.unlockInfantryEra('bogus').ok,false);
- run.reset();run.model.metal=2499;assert.equal(run.unlockInfantryEra('napoleonic').ok,false);assert.equal(run.model.metal,2499);assert.equal(run.model.infantry!.era,0);
+ run.reset();run.model.metal=INFANTRY_ERAS[1].cost-1;assert.equal(run.unlockInfantryEra('napoleonic').ok,false);assert.equal(run.model.metal,INFANTRY_ERAS[1].cost-1);assert.equal(run.model.infantry!.era,0);
  run.model.metal=10000;run.model.phase='lost';assert.equal(run.unlockInfantryEra('napoleonic').ok,false);assert.equal(run.model.metal,10000);
 });
 
