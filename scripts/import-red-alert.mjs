@@ -108,6 +108,7 @@ if(infantryOnly){
     const all=shp(asset(`${file}.shp`));
     add(name,[...all.slice(0,count),...all.slice(death,death+8)],colors);
   }
+  add('medic',shp(asset('medi.shp')).slice(0,201),colors);
 }else{
 add('floor',tiles(asset('flor0001.int')));
 for(let i=1;i<=49;i++)add(`wall${i}`,tiles(asset(`wall${String(i).padStart(4,'0')}.int`)));

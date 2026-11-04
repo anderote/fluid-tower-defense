@@ -65,3 +65,15 @@ canvas.setting-infantry-rally { cursor: crosshair; }
 .unit-icon-skirmisher { background:#49604a; }
 .unit-icon-marksman::after { width:21px; }
 .unit-icon-support::after,.unit-icon-machinegun::after { height:4px; }
+
+.unit-icon-medic::after { content: "+"; color: #ff6a60; font-weight: bold; font-size: 22px; position: absolute; inset: 0; text-align: center; }
+
+.infantry-build-row { display:flex; align-items:stretch; gap:4px; }
+.infantry-build-row > button:first-child { flex:1; min-width:0; }
+.infantry-panel .infantry-upgrades-toggle { flex:0 0 auto; width:auto; font-size:9px; }
+.infantry-type-upgrades { padding:4px 4px 8px 14px; border-left:2px solid #a9b35e; }
+.infantry-type-upgrades[hidden] { display:none; }
+
+.infantry-stance { display:flex; flex-wrap:wrap; gap:4px; margin-top:8px; }
+.infantry-stance label { flex-basis:100%; }
+.infantry-panel .infantry-stance button { width:auto; flex:1; padding:5px; font-size:9px; }

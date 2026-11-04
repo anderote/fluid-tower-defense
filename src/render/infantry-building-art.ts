@@ -43,6 +43,9 @@ export function infantryBuildingPixels(kind:InfantryKind):readonly BuildingPixel
     box(43,42,9,20,'wallDark');box(42,38,12,6,'outline');box(43,38,10,4,'roof');
     window(45,46,6);box(48,18,1,20,'steelLight');box(49,18,8,5,'red');box(49,18,6,1,'redLight');
     crate(11,61);crate(42,63);box(23,64,13,2,'light');
+  }else if(kind==='medic'){
+    polygon([[8,52],[14,28],[24,18],[39,18],[54,52]],'outline');polygon([[10,51],[16,29],[25,21],[39,21],[52,51]],'wall');polygon([[16,29],[25,21],[31,21],[31,50],[10,51]],'wallDark');
+    box(29,27,13,13,'light');box(34,28,3,11,'red');box(30,32,11,3,'red');door(23,46,12,16);box(9,51,44,2,'outline');
   }else if(kind==='rocket'){
     // Reinforced academy with two upright training missiles and radar mast.
     box(10,35,40,29,'outline');box(11,36,30,27,'wall');box(41,36,8,27,'wallDark');

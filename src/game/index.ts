@@ -3,7 +3,7 @@ import {canFinishWaveEarly} from './wave-progress.ts';
 import {COMMAND_UPGRADES, compileTower, DEFAULT_MAP, MAX_TOWER_LEVEL, MAX_VETERANCY, TOWERS, towerUpgradeCost, veterancyLevel} from '../content/index.ts';
 import {crusherPassageIssue,hasSpawnRoute,canPlace, mapWithTurretObstacles, resolvePlacement} from '../navigation/index.ts';
 import {commandUpgradeAvailability,researchCost,researchRank} from './research.ts';
-import {refreshInfantryVeterancy,INFANTRY_ERAS,unlockedInfantryEra,freshInfantry,validInfantry,infantryMap} from '../infantry/model.ts';
+import {refreshInfantryVeterancy,infantryTypeUpgrades,INFANTRY,INFANTRY_ERAS,unlockedInfantryEra,freshInfantry,validInfantry,infantryMap} from '../infantry/model.ts';
 import type {Effect,BonusChoice, StatUpgrade, Rect, RunModel, Settlement, SpawnBatch, Tower, TowerKind, TowerUnlock, Vec2, WorldMap} from '../contracts/index.ts';
 
 export type ActionResult = {ok:true} | {ok:false; reason:string};
@@ -349,7 +349,7 @@ export class RunController {
     if(nextMap&&this.hasRemainingEnemies)return {ok:false,reason:'Clear the remaining enemies before relocating to the next battlefield.'};
     if(nextMap&&(nextLevel===this.model.level||!isFiniteInteger(structureRefund)||structureRefund<0))return {ok:false,reason:'Relocation is only available at the next level boundary.'};
     if(nextMap){
-      this.model.metal+=(this.model.infantry?.buildings??[]).reduce((sum,b)=>sum+b.spent,0);this.model.infantry={...freshInfantry(),era:unlockedInfantryEra(this.model.infantry??freshInfantry())};
+      this.model.metal+=(this.model.infantry?.buildings??[]).reduce((sum,b)=>sum+b.spent,0);const previous=this.model.infantry??freshInfantry(),upgrades=Object.fromEntries(Object.keys(INFANTRY).map(kind=>[kind,infantryTypeUpgrades(previous,kind as keyof typeof INFANTRY)]));this.model.infantry={...freshInfantry(),era:unlockedInfantryEra(previous),upgrades};
       this.model.metal+=this.model.towers.reduce((sum,tower)=>sum+tower.spent,0)+structureRefund;
       this.model.towers=[];this.model.selected=null;this.nextTowerId=1;this.map=nextMap;this.buildMounts=[];
       this.runEpoch++;this.applied=emptyApplied();this.live=0;

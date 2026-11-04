@@ -126,6 +126,11 @@ export async function createInfantryAtlas(){
         if(!f)throw Error(`Missing dog frame ${pose.sprite}/${pose.frame}`);
         ctx.drawImage(dogBitmap,f.x,f.y,f.width,f.height,x+INFANTRY_PIVOT.x-25,y+INFANTRY_PIVOT.y-20,f.width,f.height);continue;
       }
+      if(kind==='medic'){
+        const direction=classicInfantryFacing(facing),source=frame===0?direction:frame<INFANTRY_ATTACK?8+direction*6+frame-1:frame<INFANTRY_DEATH?56+Math.floor((frame-INFANTRY_ATTACK)*57/15):193+frame-INFANTRY_DEATH;
+        const f=atlas.frames[atlas.sprites.medic?.[source]];if(!f)throw Error(`Missing medic frame ${source}`);
+        ctx.drawImage(bitmap,f.x,f.y,f.width,f.height,x+INFANTRY_PIVOT.x-25,y+INFANTRY_PIVOT.y-20,f.width,f.height);continue;
+      }
       if(!['rifle','rocket','flame','bazooka'].includes(kind)){drawEraInfantryFrame(brush,kind,facing,frame);ctx.drawImage(tile,x,y);continue;}
       const sourceKind=kind==='bazooka'?'rocket':kind;
       const direction=classicInfantryFacing(facing),shootLength=attackFrames(kind);

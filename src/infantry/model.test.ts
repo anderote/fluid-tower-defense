@@ -47,7 +47,7 @@ test('samurai trade reach and sustained damage for a focused melee sweep',()=>{
   assert.equal(INFANTRY.samurai.interval,6);
 });
 test('samurai close toward nearby zombies and sweep only once within melee range',()=>{
-  const f=setup('samurai');f.step(16);const s=f.state.soldiers[0];const x=s.x;
+  const f=setup('samurai');f.step(16);const s=f.state.soldiers[0];s.stance='search';const x=s.x;
   f.threats.set(s.id,{target:0,generation:1,x:s.x-6,y:s.y,contact:0,age:.6});
   assert.equal(advanceInfantry(f.state,f.active,f.fields,f.threats,.1,true).length,0);assert.ok(s.x<x);
   f.threats.set(s.id,{target:0,generation:1,x:s.x-2,y:s.y,contact:0,age:0});
@@ -61,7 +61,7 @@ test('specialized saves reject invalid types and armor while old rifle saves sti
 });
 function setup(kind:InfantryKind='rifle'){ const state=freshInfantry();state.nextId=2;state.buildings.push({id:1,x:20.5,y:20.5,rally:{x:15.5,y:23.5},production:0,training:0,progress:0,spent:INFANTRY[kind].cost,kind});const active=infantryMap(map,state),fields=new Map([[1,infantryField(active,state.buildings[0].rally)]]),threats=new Map<number,Threat>();const step=(seconds:number,combat=true)=>{for(let i=0;i<Math.round(seconds*60);i++)advanceInfantry(state,active,fields,threats,1/60,combat);};return {state,active,fields,threats,step};}
 test('dogs pursue nearby targets, bite in melee, and take horde pressure',()=>{
- const f=setup('dog');f.step(1.6);const s=f.state.soldiers[0],x=s.x;
+ const f=setup('dog');f.step(1.6);const s=f.state.soldiers[0];s.stance='search';const x=s.x;
  f.threats.set(s.id,{target:0,generation:1,x:s.x-5,y:s.y,contact:0,age:0});
  assert.equal(advanceInfantry(f.state,f.active,f.fields,f.threats,.1,true).length,0);assert.ok(s.x<x);
  f.threats.set(s.id,{target:0,generation:1,x:s.x-1,y:s.y,contact:10,pushX:2,pressure:100,age:0});
@@ -69,14 +69,14 @@ test('dogs pursue nearby targets, bite in melee, and take horde pressure',()=>{
  assert.ok(validInfantry(f.state,map));
 });
 test('idle infantry search for nearby enemies while explicit move orders take priority',()=>{
- const f=setup();f.step(recruitInterval(0)+.1);const s=f.state.soldiers[0];f.state.soldiers=[s];
+ const f=setup();f.step(recruitInterval(0)+.1);const s=f.state.soldiers[0];s.stance='search';f.state.soldiers=[s];
  f.threats.set(s.id,{target:0,generation:1,x:s.x+18,y:s.y,contact:0,age:0});const beforeSearch=s.x;
  advanceInfantry(f.state,f.active,f.fields,f.threats,.1,true);assert.ok(s.x>beforeSearch);
  s.moveTarget={x:s.x-3,y:s.y};const orders=new Map([[s.id,infantryField(f.active,s.moveTarget)]]);f.threats.set(s.id,{target:0,generation:1,x:s.x+18,y:s.y,contact:0,age:0});const beforeOrder=s.x;
  advanceInfantry(f.state,f.active,f.fields,f.threats,.1,true,[],orders);assert.ok(s.x<beforeOrder);
 });
 test('ranged infantry holds its firing line until the target moves clearly away',()=>{
- const f=setup();f.step(recruitInterval(0)+.1);const s=f.state.soldiers[0];f.state.soldiers=[s];
+ const f=setup();f.step(recruitInterval(0)+.1);const s=f.state.soldiers[0];s.stance='search';f.state.soldiers=[s];
  const holdX=s.x;f.threats.set(s.id,{target:0,generation:1,x:s.x+14.4,y:s.y,contact:0,age:0});
  advanceInfantry(f.state,f.active,f.fields,f.threats,.1,true);assert.equal(s.x,holdX);
  f.threats.set(s.id,{target:0,generation:2,x:s.x+15.2,y:s.y,contact:0,age:0});
@@ -211,4 +211,24 @@ test('all three spear ranks attack in front but hold their facing against a rear
  for(const s of troops){s.cooldown=0;f.threats.set(s.id,{x:s.x-Math.cos(angle),y:s.y-Math.sin(angle),target:0,generation:1,contact:0,age:0});}
  assert.equal(advanceInfantry(f.state,f.active,f.fields,f.threats,.01,true).length,0);
  assert.equal(front.angle,angle);
+});
+
+test('medics heal injured allies in their upgraded zone without attacking zombies',()=>{
+ const f=setup('medic');f.step(6.1);const medic=f.state.soldiers[0];f.state.buildings.push({id:50,x:27,y:20,kind:'rifle',rally:{x:25,y:20},production:0,training:0,defense:0,progress:0,spent:120});
+ const patient={...medic,id:51,home:50,kind:'rifle' as const,x:medic.x+1,y:medic.y,health:10,quality:0,defense:0};f.state.soldiers.push(patient);f.state.nextId=52;
+ const shots=advanceInfantry(f.state,f.active,f.fields,new Map(),.1,true);assert.equal(shots.length,0);assert.equal(patient.health,22);assert.equal(medic.healing,true);
+ const far={...patient,id:52,x:45,y:35,health:10};f.state.soldiers=[medic,far];medic.cooldown=0;advanceInfantry(f.state,f.active,f.fields,new Map(),.1,true);assert.equal(far.health,10);
+});
+test('type upgrades affect new recruits and survive validation',()=>{
+ const f=setup('rifle');f.state.upgrades={rifle:{production:2,training:2,defense:1}};f.step(recruitInterval(2,'rifle')+.1);assert.equal(f.state.soldiers[0].quality,2);assert.equal(f.state.soldiers[0].defense,1);assert.ok(validInfantry(f.state,map));
+ const invalid=structuredClone(f.state);invalid.upgrades!.rifle!.training=6;assert.equal(validInfantry(invalid,map),false);
+});
+test('default hold keeps position while search pursues sensed targets',()=>{
+ const f=setup('rifle');f.step(5.1);const s=f.state.soldiers[0];s.rallyTarget={x:s.x,y:s.y};const x=s.x;f.threats.set(s.id,{target:0,generation:1,x:x+20,y:s.y,contact:0,age:0});advanceInfantry(f.state,f.active,f.fields,f.threats,.1,true);assert.equal(s.x,x);
+ s.stance='search';f.threats.set(s.id,{target:0,generation:1,x:x+20,y:s.y,contact:0,age:0});advanceInfantry(f.state,f.active,f.fields,f.threats,.1,true);assert.ok(s.x>x);
+});
+
+test('type upgrades apply to every matching building without changing other types',()=>{
+ const f=setup('rifle');const b=f.state.buildings[0];f.state.buildings.push({...b,id:50,x:35,y:25,rally:{x:30,y:25}});f.state.nextId=51;f.fields.set(50,infantryField(f.active,{x:30,y:25}));f.state.upgrades={rifle:{production:1,training:3,defense:2}};
+ f.step(recruitInterval(1,'rifle')+.2);const recruits=f.state.soldiers.filter(s=>s.home===1||s.home===50);assert.equal(recruits.length,2);assert.ok(recruits.every(s=>s.quality===3&&s.defense===2));assert.ok(validInfantry(f.state,map));
 });

@@ -12,7 +12,7 @@ const expected='aa022b208a3b45b4a45c00fdae22ccf3c6de3e5c';
 const source=resolve(process.argv[2]??'artifacts/red-alert/ra-base.zip');
 const output=resolve(process.argv[3]??'public/audio/openra');
 const sounds={
-  'rifle-fire':'gun11.aud', 'rocket-fire':'missile1.aud', 'rocket-impact':'kaboom25.aud',
+  'medic-heal':'heal2.aud', 'rifle-fire':'gun11.aud', 'rocket-fire':'missile1.aud', 'rocket-impact':'kaboom25.aud',
   'flame-impact':'firebl3.aud', 'autocannon-fire':'gun13.aud', 'mortar-fire':'tank5.aud',
   'tesla-fire':'tesla1.aud', 'cannon-fire':'turret1.aud', 'heavy-impact':'kaboom15.aud'
 };

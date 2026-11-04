@@ -48,3 +48,9 @@ test('formation save validation rejects non-finite facing and invalid file count
  for(const bad of [null,{}, {angle:NaN,columns:3},{angle:0,columns:0},{angle:0,columns:1.5},{angle:0,columns:Infinity}])assert.equal(validFormation(bad),false);
  assert.ok(validFormation({angle:-Math.PI,columns:8}));
 });
+
+test('removing a soldier from an ordered formation does not reassign the remaining slots',()=>{
+ const center={x:30,y:20},formation={angle:0,columns:3},state=freshInfantry();state.buildings=[{id:1,x:45,y:30,kind:'phalanx',rally:center,production:0,training:0,progress:0,spent:220}];state.nextId=5;
+ state.soldiers=[0,1,2].map((slot)=>({...formationPoint(center,slot,formation),id:slot+2,home:1,kind:'phalanx' as const,quality:0,health:110,cooldown:0,angle:0,flash:0,walk:0,dead:0,moveTarget:center,moveSlot:slot,moveFormation:formation}));
+ state.soldiers=state.soldiers.slice(1);const expected=state.soldiers.map(s=>({x:s.x,y:s.y}));const fields=new Map([[1,infantryField(map,center)]]);for(let i=0;i<60;i++)advanceInfantry(state,map,fields,new Map(),1/60,true);state.soldiers.forEach((s,i)=>assert.ok(Math.hypot(s.x-expected[i].x,s.y-expected[i].y)<.2));
+});

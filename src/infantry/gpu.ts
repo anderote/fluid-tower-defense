@@ -46,7 +46,7 @@ fn visible(a:vec2f,b:vec2f)->bool {
  }return true;
 }
 @compute @workgroup_size(64) fn sense(@builtin(global_invocation_id) gid:vec3u){
- let u=gid.x;if(u>=params.counts.y){return;}let unit=units[u];if(unit.position.w>=6.){return;}var best=unit.position.z+select(8.,12.,unit.position.w>=3.);if(unit.position.w==3.){best+=8.;}var result=Result(vec4f(-1,0,0,0),vec4f(0));
+ let u=gid.x;if(u>=params.counts.y){return;}let unit=units[u];if(unit.position.w>=6.){return;}var best=unit.position.z+select(8.,12.,unit.position.w>=3.);if(unit.impact.w<0.){best=max(best,48.);}if(unit.position.w==3.){best+=8.;}var result=Result(vec4f(-1,0,0,0),vec4f(0));
  let low=cell(unit.position.xy-vec2f(best+4.));let high=cell(unit.position.xy+vec2f(best+4.));
  for(var y=low.y;y<=high.y;y++){for(var x=low.x;x<=high.x;x++){
  var link=atomicLoad(&heads[index(vec2i(x,y))]);
@@ -54,7 +54,7 @@ fn visible(a:vec2f,b:vec2f)->bool {
   let p=particles[i];if(p.state.w<.5||p.body.z<=0.){continue;}
   let d=distance(p.pos.xy,unit.position.xy);
   if(d<p.body.x+1.0&&visible(unit.position.xy,p.pos.xy)){let frontal=dot((p.pos.xy-unit.position.xy)/max(d,.01),vec2f(cos(unit.impact.z),sin(unit.impact.z)))>.55;
-   let shield=select(1.,1.-.75*unit.impact.w,unit.position.w==5.&&frontal);
+   let shield=select(1.,1.-.75*select(unit.impact.w,-unit.impact.w-1.,unit.impact.w<0.),unit.position.w==5.&&frontal);
    result.contact.x+=(10.+min(40.,p.state.y*.15))*shield;result.contact+=vec4f(0.,(unit.position.xy-p.pos.xy)/max(d,.01)*(p.body.x+1.-d)*.8,0.);result.contact.w=max(result.contact.w,p.state.y);}
   let inFront=unit.position.w!=5.||dot((p.pos.xy-unit.position.xy)/max(d,.01),vec2f(cos(unit.impact.z),sin(unit.impact.z)))>.55;
   if(inFront&&d<best&&visible(unit.position.xy,p.pos.xy)){best=d;result.aim=vec4f(f32(i),p.status.w,p.pos.xy);}
@@ -82,7 +82,7 @@ fn visible(a:vec2f,b:vec2f)->bool {
   let unit=units[u];
   let delta=p.pos.xy-unit.position.xy;let d=length(delta);let kind=unit.position.w;
   let front=dot(delta/max(d,.01),vec2f(cos(unit.impact.z),sin(unit.impact.z)))>.55;
-  let brace=select(0.,unit.impact.w,kind==5.&&front);let radius=p.body.x+.45+brace*.45;
+  let brace=select(0.,select(unit.impact.w,-unit.impact.w-1.,unit.impact.w<0.),kind==5.&&front);let radius=p.body.x+.45+brace*.45;
   if(kind<6.&&d<radius&&visible(unit.position.xy,p.pos.xy)){p.pos+=vec4f(0.,0.,delta/max(d,.01)*(radius-d)*params.grid.z*(18.+brace*90.)/max(1.,p.body.y));}
   if(unit.shot.z<=0.){continue;}
   var hit=unit.shot.x==f32(i)&&unit.shot.y==p.status.w&&d<=unit.position.z;
@@ -114,7 +114,7 @@ fn visible(a:vec2f,b:vec2f)->bool {
     if(lineOfSightMap.obstacles.length)device.queue.writeBuffer(walls,0,new Float32Array(lineOfSightMap.obstacles.flatMap(o=>[o.x,o.y,o.width,o.height])));
     device.queue.writeBuffer(params,0,new Uint32Array([count,unitCount,lineOfSightMap.obstacles.length,cells]));
     liveIds=[];const shotMap=new Map(shots.map(s=>[s.soldier,s]));let maxRange=4;const data=new Float32Array(unitCount*12);
-    live.forEach((s,i)=>{const shot=shotMap.get(s.id),stats=infantryStats(s.kind,s.quality,s.defense,s.veterancy,research),slot=s.id-1,owner=slot<MAX_INFANTRY_KILL_SLOTS?MAX_TOWERS+slot+1:0;if(owner)liveIds[slot]=s.id;maxRange=Math.max(maxRange,stats.range+3.5);data.set([s.x,s.y,stats.range,infantryCombatKind(s.kind),shot?.target??-1,shot?.generation??0,shot?.damage??0,owner,shot?.x??0,shot?.y??0,s.angle,s.brace??0],i*12);});
+    live.forEach((s,i)=>{const shot=shotMap.get(s.id),stats=infantryStats(s.kind,s.quality,s.defense,s.veterancy,research),slot=s.id-1,owner=slot<MAX_INFANTRY_KILL_SLOTS?MAX_TOWERS+slot+1:0;if(owner)liveIds[slot]=s.id;maxRange=Math.max(maxRange,stats.range+3.5);data.set([s.x,s.y,stats.range,infantryCombatKind(s.kind),shot?.target??-1,shot?.generation??0,shot?.damage??0,owner,shot?.x??0,shot?.y??0,s.angle,s.stance==='search'?-(s.brace??0)-1:(s.brace??0)],i*12);});
     impacts.forEach((p,i)=>{const slot=p.soldier-1,owner=slot<MAX_INFANTRY_KILL_SLOTS?MAX_TOWERS+slot+1:0;if(owner)liveIds[slot]=p.soldier;data.set([p.target.x,p.target.y,4,p.kind==='arrow'?6:7,-1,0,p.damage,owner,p.target.x,p.target.y,Math.atan2(p.target.y-p.y,p.target.x-p.x),0],(live.length+i)*12);});
     device.queue.writeBuffer(units,0,data);
     device.queue.writeBuffer(params,16,new Float32Array([width,height,dt,maxRange]));encoder.clearBuffer(heads);encoder.clearBuffer(results);

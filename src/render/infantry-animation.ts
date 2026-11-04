@@ -17,7 +17,7 @@ export const SAMURAI_ATTACK_DURATION=.64;
 export const infantryFacing=(angle:number)=>((Math.round(angle/(Math.PI/4))%8)+8)%8;
 // Westwood frames start north and turn counterclockwise; our world starts east.
 export const classicInfantryFacing=(facing:number)=>(6-facing+8)%8;
-export const attackFrames=(kind:InfantryKind)=>kind==='dog'?4:kind==='flame'||kind==='samurai'?16:8;
+export const attackFrames=(kind:InfantryKind)=>kind==='dog'?4:kind==='flame'||kind==='samurai'||kind==='medic'?16:8;
 /** A readable three-beat cut: coil, fast crescent, then a held follow-through. */
 export function samuraiSlashPhase(age:number){
   const progress=Math.max(0,Math.min(1,age/SAMURAI_ATTACK_DURATION));

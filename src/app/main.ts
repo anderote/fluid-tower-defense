@@ -612,6 +612,7 @@ try {
    const infantryShots=advanceInfantry(infantry.state(),infantry.ensureFields(),infantry.fields,infantryGPU.threats,clock.step,state.mode==='game'&&enemiesActive(),researchModifiers,infantry.orderFields);
    const advancedInfantry=advanceInfantryProjectiles(infantryProjectiles,clock.tick);infantryProjectiles=advancedInfantry.active;
    const immediateShots:typeof infantryShots=[];
+   for(const medic of infantry.state().soldiers)if(medic.healing){setCombatAudioGain();audio.medicHeal(medic.x);}
    const soldiersById=new Map(infantry.state().soldiers.map(s=>[s.id,s]));
    for(const shot of infantryShots){
      const soldier=soldiersById.get(shot.soldier),kind=soldier?.kind,projectile=soldier&&launchInfantryProjectile(soldier,shot,clock.tick);

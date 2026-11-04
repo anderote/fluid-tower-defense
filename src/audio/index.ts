@@ -11,14 +11,14 @@ export function createAudio(){
   let ctx:AudioContext|undefined,master:GainNode|undefined,noise:AudioBuffer|undefined;
   let combatGain=1,eventGain=1;
   const stopListening=onAudioSettingsChange(settings=>{if(master)master.gain.value=settings.effects;});
-  const samples:Partial<Record<'rifleFire'|'rocketFire'|'rocketImpact'|'flameImpact'|'autocannonFire'|'mortarFire'|'teslaFire'|'heavyImpact',AudioBuffer>>={};
+  const samples:Partial<Record<'medicHeal'|'rifleFire'|'rocketFire'|'rocketImpact'|'flameImpact'|'autocannonFire'|'mortarFire'|'teslaFire'|'heavyImpact',AudioBuffer>>={};
   const voiceBudget=new AudioVoiceBudget();
   let samplesLoading=false;
 
   const loadSamples=()=>{
     if(!ctx||samplesLoading)return;samplesLoading=true;
     const files={
-      rifleFire:`${assetBase}audio/openra/rifle-fire.wav`,rocketFire:`${assetBase}audio/openra/rocket-fire.wav`,rocketImpact:`${assetBase}audio/openra/rocket-impact.wav`,
+      medicHeal:`${assetBase}audio/openra/medic-heal.wav`,rifleFire:`${assetBase}audio/openra/rifle-fire.wav`,rocketFire:`${assetBase}audio/openra/rocket-fire.wav`,rocketImpact:`${assetBase}audio/openra/rocket-impact.wav`,
       flameImpact:`${assetBase}audio/openra/flame-impact.wav`,autocannonFire:`${assetBase}audio/openra/autocannon-fire.wav`,mortarFire:`${assetBase}audio/openra/mortar-fire.wav`,
       teslaFire:`${assetBase}audio/openra/tesla-fire.wav`,heavyImpact:`${assetBase}audio/openra/heavy-impact.wav`
     } as const;
@@ -96,6 +96,7 @@ export function createAudio(){
   });
   const slash=(x:number,serial=0)=>combat(()=>{if(!ctx||!admit('detail',.17))return;const at=ctx.currentTime+.008,pan=stereo(x);hiss(at,.16,.12,1200,8000,pan,serial*.13);tone(at,1800,350,.11,.035,pan,'triangle');});
   const bark=(x:number,serial=0)=>combat(()=>{if(!ctx||!admit('detail',.11))return;const at=ctx.currentTime+.008,pan=stereo(x);hiss(at,.09,.1,180,1700,pan,serial*.17);tone(at,210,105,.1,.065,pan,'sawtooth');});
+  const medicHeal=(x:number)=>combat(()=>{if(!ctx||!admit('detail',.25))return;const at=ctx.currentTime+.008,pan=stereo(x);if(!sample('medicHeal',at,.22,pan,1,.4))tone(at,660,880,.12,.035,pan,'sine');});
   const infantryFire=(kind:'rifle'|'rocket'|'flame',x:number,serial=0)=>combat(()=>{
     if(!ctx||!admit(kind==='flame'?'sustained':'light',kind==='rocket'?.64:.18,.008))return;const at=ctx.currentTime+.008,pan=stereo(x),jitter=((serial*37)%17-8)/100;
     const name=kind==='rifle'?'rifleFire':kind==='rocket'?'rocketFire':'flameImpact';
@@ -109,5 +110,5 @@ export function createAudio(){
     for(let layer=0;layer<5;layer++)hiss(at+layer*.42,1.1,.13,80+layer*90,2800+layer*400,.6-layer*.3,layer*.17);
   };
   const beep=(hz:number,duration=.07)=>{arm();if(ctx)tone(ctx.currentTime+.004,hz,hz*.82,duration,.045,0,'sine');};
-  return {arm,fire,flood,infantryFire,shell,explode,slash,bark,setCombatGain:(gain:number)=>{combatGain=Math.max(0,Math.min(1,Number.isFinite(gain)?gain:1));},click:()=>beep(420,.04),blast:()=>beep(90,.16),alert:()=>beep(760,.12),destroy:()=>{stopListening();void ctx?.close();ctx=undefined;master=undefined;noise=undefined;}};
+  return {arm,fire,flood,infantryFire,medicHeal,shell,explode,slash,bark,setCombatGain:(gain:number)=>{combatGain=Math.max(0,Math.min(1,Number.isFinite(gain)?gain:1));},click:()=>beep(420,.04),blast:()=>beep(90,.16),alert:()=>beep(760,.12),destroy:()=>{stopListening();void ctx?.close();ctx=undefined;master=undefined;noise=undefined;}};
 }
