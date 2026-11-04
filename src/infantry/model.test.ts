@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {INFANTRY,infantryStats,infantryCapacity,type InfantryKind,advanceInfantry,awardInfantryKills,clearForSoldier,clearInfantryPath,damageInfantry,recordInfantryCasualty,freshInfantry,infantryFanPoint,infantryMap,infantryField,infantryNavigationWaypoint,reachableRallyPoint,rifleStats,recruitInterval,validInfantry,type Threat} from './model.ts';
+import {INFANTRY,infantryStats,infantryCapacity,infantryCapacityUpgradeCost,infantryTypeUpgrades,type InfantryKind,advanceInfantry,awardInfantryKills,clearForSoldier,clearInfantryPath,damageInfantry,recordInfantryCasualty,freshInfantry,infantryFanPoint,infantryMap,infantryField,infantryNavigationWaypoint,reachableRallyPoint,rifleStats,recruitInterval,validInfantry,type Threat} from './model.ts';
 import {createRun} from '../game/index.ts';
 import type {WorldMap} from '../contracts/index.ts';
 const map:WorldMap={id:'infantry-test',width:50,height:40,spawn:{x:0,y:10,width:3,height:20},goal:{x:47,y:20},goalRadius:2,obstacles:[]};
@@ -23,7 +23,7 @@ test('starting rifleman recruitment takes five seconds',()=>{
   const f=setup('rifle');f.step(4.9);assert.equal(f.state.soldiers.length,0);f.step(.2);assert.equal(f.state.soldiers.length,1);
 });
 test('barracks population caps are type-specific and rise with production',()=>{
-  assert.deepEqual(Object.fromEntries((['rifle','rocket','flame','samurai','dog','phalanx'] as InfantryKind[]).map(kind=>[kind,infantryCapacity(kind)])),{rifle:40,rocket:20,flame:20,samurai:20,dog:40,phalanx:24});
+  assert.deepEqual(Object.fromEntries((['rifle','rocket','flame','samurai','dog','phalanx'] as InfantryKind[]).map(kind=>[kind,infantryCapacity(kind)])),{rifle:20,rocket:8,flame:8,samurai:6,dog:20,phalanx:12});
   for(const kind of Object.keys(INFANTRY) as InfantryKind[]){assert.ok(infantryCapacity(kind,5)>infantryCapacity(kind));}
 });
 test('rocket and flame infantry trade area damage for restrained sustained power',()=>{
@@ -191,7 +191,7 @@ test('flame troops sustain their stream between damage pulses and stop after los
 });
 
 test('hoplites settle three ranks deep, brace together, and close casualty gaps',()=>{
- const f=setup('phalanx');f.step(105);const troops=f.state.soldiers;assert.equal(troops.length,24);
+ const f=setup('phalanx');f.state.upgrades={phalanx:{production:0,training:0,defense:0,capacity:12}};f.step(105);const troops=f.state.soldiers;assert.equal(troops.length,24);
  assert.ok(troops.filter(s=>(s.brace??0)>.5).length>=20,'most of the wall should lock shields');
  const positions=troops.map(s=>({x:s.x,y:s.y}));
  for(const s of troops)f.threats.set(s.id,{target:0,generation:1,x:s.x-12,y:s.y,contact:0,age:0});
@@ -231,4 +231,14 @@ test('default hold keeps position while search pursues sensed targets',()=>{
 test('type upgrades apply to every matching building without changing other types',()=>{
  const f=setup('rifle');const b=f.state.buildings[0];f.state.buildings.push({...b,id:50,x:35,y:25,rally:{x:30,y:25}});f.state.nextId=51;f.fields.set(50,infantryField(f.active,{x:30,y:25}));f.state.upgrades={rifle:{production:1,training:3,defense:2}};
  f.step(recruitInterval(1,'rifle')+.2);const recruits=f.state.soldiers.filter(s=>s.home===1||s.home===50);assert.equal(recruits.length,2);assert.ok(recruits.every(s=>s.quality===3&&s.defense===2));assert.ok(validInfantry(f.state,map));
+});
+
+test('capacity upgrades add one slot for 15 metal and preserve legacy production purchases',()=>{
+ assert.equal(infantryCapacity('samurai'),6);assert.equal(infantryCapacity('samurai',1),7);assert.equal(infantryCapacityUpgradeCost(),15);
+ const f=setup('samurai');f.state.buildings[0].production=2;f.state.buildings[0].spent=240+200+350;
+ const legacy=infantryTypeUpgrades(f.state,'samurai');assert.equal(legacy.capacity,8);assert.equal(infantryCapacity('samurai',legacy.capacity),14);assert.ok(validInfantry(f.state,map));
+ f.state.upgrades={samurai:{...legacy,capacity:legacy.capacity+1}};assert.equal(infantryCapacity('samurai',infantryTypeUpgrades(f.state,'samurai').capacity),15);assert.ok(validInfantry(f.state,map));
+});
+test('new production upgrades increase recruitment speed without adding free capacity',()=>{
+ const f=setup('samurai');f.state.upgrades={samurai:{production:2,training:0,defense:0,capacity:0}};const upgrades=infantryTypeUpgrades(f.state,'samurai');assert.equal(infantryCapacity('samurai',upgrades.capacity),6);assert.ok(recruitInterval(upgrades.production,'samurai')<recruitInterval(0,'samurai'));
 });
