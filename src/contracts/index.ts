@@ -1,6 +1,6 @@
 export type Vec2 = { x: number; y: number };
 export interface RunModel {infantry?:import('../infantry/model.ts').InfantryState}
-export interface SharedGPU {embeddedArrows?:GPUBuffer;damageOwners?:GPUBuffer;bloodWalls?:GPUBuffer;bloodWallSlots?:Map<string,number>}
+export interface SharedGPU {samuraiCuts?:GPUBuffer;embeddedArrows?:GPUBuffer;damageOwners?:GPUBuffer;bloodWalls?:GPUBuffer;bloodWallSlots?:Map<string,number>}
 export interface RenderScene {infantry?:import('../infantry/model.ts').InfantryState;selectedBarracks?:number|null;selectedBarracksSet?:ReadonlySet<number>;selectedInfantry?:ReadonlySet<number>;infantrySelectionBox?:Rect;infantryCommandTarget?:Vec2|null;infantryResearch?:readonly string[];infantryFormationPreview?:import('../infantry/formation.ts').FormationPreview}
 export interface RenderScene {barracksGhost?:Vec2&{valid:boolean}}
 export interface Renderer {selectEnemies?(point:Vec2):void;clearEnemySelection?():void;setResolutionScale?(scale:number):void}

@@ -1,3 +1,4 @@
+import {createInfantryGPU} from '../../src/infantry/gpu.ts';
 import {connectGPU} from '../../src/runtime/gpu.ts';
 import {createCombat,type CombatFrame} from '../../src/sim/combat/index.ts';
 import {createRenderer} from '../../src/render/index.ts';
@@ -29,6 +30,17 @@ try{
   device.queue.writeBuffer(shared.particles,0,data);
   frame.effects=[{kind:'shot',x:12,y:17,radius:12,strength:0,damage:100,direction:{x:1,y:0},cone:0,duration:0,source:0},{kind:'blast',x:30,y:17,radius:12,strength:0,damage:100,direction:{x:1,y:0},cone:0,duration:0,source:0}];step();frame.effects=[];
  }
+ // An actual sword kill writes the cut marker before the combat snapshot.
+ const infantry=await createInfantryGPU(device,shared);
+ const sword={id:1,home:1,kind:'samurai' as const,x:10,y:8,health:95,quality:0,angle:0,cooldown:0,flash:0,walk:0,dead:0};
+ async function swordOutcome(health:number,generation:number){
+  combat.reset();combat.clearAftermath();frame.count=1;frame.towers=[];frame.effects=[];frame.tick++;seed(1,health,generation);
+  const encoder=device.createCommandEncoder();infantry.encode(encoder,[sword],[{soldier:1,target:0,generation,damage:18,x:12,y:8}],map,1,false,[],1/60,map);combat.encodeBefore(encoder,frame);combat.encodeAfter(encoder,frame);device.queue.submit([encoder.finish()]);
+  return new Float32Array(await read(shared.aftermath!),AFTERMATH_HEADER_BYTES);
+ }
+ let swordDeath=await swordOutcome(1,1);assert(swordDeath[7]===6,'A confirmed sword kill should produce its deterministic decapitation variant');
+ await swordOutcome(30,2);let swordAfter=await read(shared.aftermath!);assert(new Uint32Array(swordAfter)[2]===0,'A nonlethal sword hit must not create a death');
+ swordDeath=await swordOutcome(1,3);assert(swordDeath[7]===0,'Ordinary sword deaths must remain possible');
  // Real combat deaths must publish once and survive immediate slot reuse.
  showBattle();let data=await read(shared.aftermath!),heads=new Uint32Array(data,0,4),events=new Float32Array(data,AFTERMATH_HEADER_BYTES);
  assert(heads[2]===12,'Not all three death causes were captured');
@@ -64,5 +76,5 @@ try{
  function draw(){if(!active)return;const choice=(document.querySelector('#age') as HTMLSelectElement).value;const age=choice==='auto'?(performance.now()-start)/1000:Number(choice);scene.time=1+age;scene.heavyExplosions=age<1.65?[{x:30,y:17,kind:'mortar',age,life:1.65,scale:1,direction:{x:1,y:0},serial:1}]:[];const encoder=device.createCommandEncoder();renderer.encode(encoder,scene);device.queue.submit([encoder.finish()]);requestAnimationFrame(draw);}draw();
  await device.queue.onSubmittedWorkDone();const error=await device.popErrorScope();if(error)throw Error(error.message);
  status.textContent=`PASS: ${assertions} GPU checks · slot reuse, hit direction, Tesla exclusion, overflow and reset.`;results.textContent='Simulation records confirmed kills; the visual pools retain the aftermath independently.\nPause the timeline to inspect airborne fragments and their ground shadows.';
- window.addEventListener('pagehide',()=>{active=false;renderer.destroy();combat.destroy();shared.particles.destroy();shared.counters.destroy();device.destroy();});
+ window.addEventListener('pagehide',()=>{active=false;renderer.destroy();infantry.destroy();combat.destroy();shared.particles.destroy();shared.counters.destroy();device.destroy();});
 }catch(error){status.textContent=`FAIL: ${String(error)}`;console.error(error);}

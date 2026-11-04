@@ -27,6 +27,7 @@ struct Result {aim:vec4f,contact:vec4f};
 @group(0) @binding(6) var<storage,read_write> heads:array<atomic<u32>>;
 @group(0) @binding(7) var<storage,read_write> links:array<u32>;
 @group(0) @binding(8) var<storage,read_write> embeddedArrows:array<vec4f>;
+@group(0) @binding(9) var<storage,read_write> samuraiCuts:array<vec4f>;
 fn cell(p:vec2f)->vec2i{return clamp(vec2i(floor(p/8.)),vec2i(0),vec2i(params.grid.xy)-1);}
 fn index(p:vec2i)->u32{return u32(p.y)*u32(params.grid.x)+u32(p.x);}
 @compute @workgroup_size(128) fn bucket(@builtin(global_invocation_id) gid:vec3u){
@@ -89,11 +90,13 @@ fn visible(a:vec2f,b:vec2f)->bool {
   if(kind==1.||kind==7.){hit=distance(p.pos.xy,unit.impact.xy)<=3.5&&visible(unit.impact.xy,p.pos.xy);}
   if(kind==2.||kind==3.){let alignment=dot(delta/max(d,.001),vec2f(cos(unit.impact.z),sin(unit.impact.z)));hit=d<=unit.position.z&&alignment>=select(.65,.35,kind==3.);}
   if(kind==6.){hit=results[u].aim.x==f32(i)&&results[u].aim.y==p.status.w;}
-  if(hit&&visible(unit.position.xy,p.pos.xy)){if(kind==6.){results[u].contact.x=1.;embeddedArrows[i]=vec4f(p.status.w,unit.impact.z,1.,0.);}p.body.z-=unit.shot.z;atomicStore(&owners[i],u32(unit.shot.w));}
+  if(hit&&visible(unit.position.xy,p.pos.xy)){if(kind==6.){results[u].contact.x=1.;embeddedArrows[i]=vec4f(p.status.w,unit.impact.z,1.,0.);}let healthBefore=p.body.z;p.body.z-=unit.shot.z;
+   if(kind==3.&&healthBefore>0.&&p.body.z<=0.){let variant=(i*1664525u+u32(p.status.w)*1013904223u)%6u;let cause=select(0.,5.+f32(variant),variant<3u);samuraiCuts[i]=vec4f(p.status.w,cos(unit.impact.z),sin(unit.impact.z),cause);}
+   atomicStore(&owners[i],u32(unit.shot.w));}
  }}}particles[i]=p;
 }`});
   const errors=(await shader.getCompilationInfo()).messages.filter(m=>m.type==='error');if(errors.length)throw Error(errors.map(m=>m.message).join('\n'));
-  const layout=device.createBindGroupLayout({entries:[{binding:0,visibility:GPUShaderStage.COMPUTE,buffer:{type:'uniform'}},...[1,2,3,4,5,6,7,8].map(binding=>({binding,visibility:GPUShaderStage.COMPUTE,buffer:{type:([2,4].includes(binding)?'read-only-storage':'storage') as GPUBufferBindingType}}))]});
+  const layout=device.createBindGroupLayout({entries:[{binding:0,visibility:GPUShaderStage.COMPUTE,buffer:{type:'uniform'}},...[1,2,3,4,5,6,7,8,9].map(binding=>({binding,visibility:GPUShaderStage.COMPUTE,buffer:{type:([2,4].includes(binding)?'read-only-storage':'storage') as GPUBufferBindingType}}))]});
   const pipelineLayout=device.createPipelineLayout({bindGroupLayouts:[layout]});
   const sense=device.createComputePipeline({layout:pipelineLayout,compute:{module:shader,entryPoint:'sense'}}),damage=device.createComputePipeline({layout:pipelineLayout,compute:{module:shader,entryPoint:'damage'}});
   const impactTargets=device.createComputePipeline({layout:pipelineLayout,compute:{module:shader,entryPoint:'impactTargets'}});
@@ -118,7 +121,7 @@ fn visible(a:vec2f,b:vec2f)->bool {
     impacts.forEach((p,i)=>{const slot=p.soldier-1,owner=slot<MAX_INFANTRY_KILL_SLOTS?MAX_TOWERS+slot+1:0;if(owner)liveIds[slot]=p.soldier;data.set([p.target.x,p.target.y,4,p.kind==='arrow'?6:7,-1,0,p.damage,owner,p.target.x,p.target.y,Math.atan2(p.target.y-p.y,p.target.x-p.x),0],(live.length+i)*12);});
     device.queue.writeBuffer(units,0,data);
     device.queue.writeBuffer(params,16,new Float32Array([width,height,dt,maxRange]));encoder.clearBuffer(heads);encoder.clearBuffer(results);
-    const group=device.createBindGroup({layout,entries:[params,shared.particles,units,results,walls,shared.damageOwners!,heads,links,embeddedArrows].map((buffer,binding)=>({binding,resource:{buffer}}))});
+    const group=device.createBindGroup({layout,entries:[params,shared.particles,units,results,walls,shared.damageOwners!,heads,links,embeddedArrows,shared.samuraiCuts!].map((buffer,binding)=>({binding,resource:{buffer}}))});
     {const pass=encoder.beginComputePass();pass.setPipeline(bucket);pass.setBindGroup(0,group);pass.dispatchWorkgroups(Math.ceil(Math.max(count,unitCount)/128));pass.end();}
     if(impacts.length){const pass=encoder.beginComputePass();pass.setPipeline(impactTargets);pass.setBindGroup(0,group);pass.dispatchWorkgroups(Math.ceil(unitCount/64));pass.end();}
     if(count){const pass=encoder.beginComputePass();pass.setPipeline(damage);pass.setBindGroup(0,group);pass.dispatchWorkgroups(Math.ceil(count/128));pass.end();}

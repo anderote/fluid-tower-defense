@@ -26,7 +26,7 @@ fn eventAt(i:u32)->Remnant{if(i<${CORPSE_CAPACITY}u){return aftermath.deaths[i];
 // Ground displacement, height and spin. Gravity is visual altitude, not map Y.
 fn piece(e:Remnant,part:u32,age:f32)->vec4f{
  let seed=e.life.y+f32(part)*3.71;let base=atan2(e.force.y,e.force.x);let angle=base+(f32(part)-1.5)*.77+(hash(seed)-.5)*.5;
- let heavy=select(1.,.72,e.body.w==2.);let speed=(3.+hash(seed+1.)*5.)*heavy;
+ let sword=e.force.w>=5.;let heavy=select(1.,.72,e.body.w==2.);let speed=(3.+hash(seed+1.)*5.)*heavy*select(1.,.38,sword);
  let flight=.42+hash(seed+2.)*.36;let t=min(age,1.8);let travel=speed*.62*(1.-exp(-t/.62));
  var height=0.;if(age<flight){height=sin(age/flight*3.141593)*(1.1+hash(seed+3.)*1.2);}else if(age<flight+.22){height=sin((age-flight)/.22*3.141593)*.22;}
  let ground=e.body.xy+vec2f(cos(angle),sin(angle))*travel;
@@ -37,7 +37,7 @@ fn piece(e:Remnant,part:u32,age:f32)->vec4f{
  if(e.life.w<.5||age<0.||age>life){return empty();}let shard=vi/6u;let q=corner(vi);let seed=e.life.y+f32(shard)*2.17;
  var center=e.body.xy;var radius=e.body.z*select(.65,2.5,death);var alpha=.78;
  if(shard>0u){
-  if(death&&e.force.w==1.){let p=piece(e,shard-1u,age);if(age<.65){return empty();}center=p.xy;radius*=.34;}
+  if(death&&(e.force.w==1.||e.force.w>=5.)){let p=piece(e,shard-1u,age);if(age<.65){return empty();}center=p.xy;radius*=.34;}
   else{center+=rotate(vec2f(.3+hash(seed)*1.1,(hash(seed+1.)-.5)*1.2),atan2(e.force.y,e.force.x))*e.body.z*1.5;radius*=.18+hash(seed+2.)*.3;}
   alpha=.85;
  }
@@ -47,7 +47,7 @@ fn piece(e:Remnant,part:u32,age:f32)->vec4f{
 }
 @vertex fn corpseVS(@builtin(vertex_index) vi:u32,@builtin(instance_index) i:u32)->Out{
  let e=aftermath.deaths[i];let age=camera.time.x-e.life.x;let sprite=zombieAtlas(u32(e.body.w));
- if(e.life.w<.5||age<0.||age>45.||e.force.w==1.||sprite<0.){return empty();}
+ if(e.life.w<.5||age<0.||age>45.||(e.force.w==1.||e.force.w>=5.)||sprite<0.){return empty();}
  let q=(corner(vi)+1.)*.5;let frame=10.+floor(min(5.,age/zombieCollapseStep(u32(e.body.w))));let facing=f32((i32(round(e.force.z/.7853981634))+16)%8);
  let slide=e.force.xy*e.body.z*.45*(1.-exp(-age*7.));
  let p=e.body.xy+slide+(q-vec2f(${ZOMBIE_PIVOT.x/ZOMBIE_FRAME},${ZOMBIE_PIVOT.y/ZOMBIE_FRAME}))*e.body.z*zombieTileScale(u32(e.body.w));
@@ -55,16 +55,23 @@ fn piece(e:Remnant,part:u32,age:f32)->vec4f{
 }
 fn partVertex(vi:u32,i:u32,air:bool)->Out{
  let e=aftermath.deaths[i];let age=camera.time.x-e.life.x;
- if(e.life.w<.5||age<0.||age>38.||e.force.w!=1.){return empty();}
- let part=vi/6u;let q=corner(vi);let p=piece(e,part,age);if((p.z>.001)!=air){return empty();}
+ if(e.life.w<.5||age<0.||age>38.||(e.force.w!=1.&&e.force.w<5.)){return empty();}
+ let part=vi/6u;let sword=e.force.w>=5.;
+ // Sword cuts use two or three recognizable pieces, rather than an explosive gib.
+ if(sword&&part>=select(2u,3u,e.force.w==7.)){return empty();}
+ let spritePart=select(part,select(select(3u,2u,part==1u),select(0u,3u,part==1u),e.force.w==6.),sword);
+ if(e.force.w==5.){spritePart=4u+part;}
+ if(e.force.w==7.){spritePart=select(select(3u,1u,part==1u),2u,part==2u);}
+ let q=corner(vi);let p=piece(e,part,age);if((p.z>.001)!=air){return empty();}
  let size=e.body.z*1.5;var o=place(p.xy-vec2f(0,p.z)+rotate(q*size,p.w),q,vec4f(vec3f(1.),1.-smoothstep(25.,38.,age)),2.,e.life.y);
- o.uv=(vec2f(f32(part),e.body.w)+(q+1.)*.5)*16.;return o;
+ o.uv=(vec2f(f32(spritePart),e.body.w)+(q+1.)*.5)*16.;return o;
 }
 @vertex fn groundPartVS(@builtin(vertex_index) vi:u32,@builtin(instance_index) i:u32)->Out{return partVertex(vi,i,false);}
 @vertex fn airPartVS(@builtin(vertex_index) vi:u32,@builtin(instance_index) i:u32)->Out{return partVertex(vi,i,true);}
 @vertex fn shadowVS(@builtin(vertex_index) vi:u32,@builtin(instance_index) i:u32)->Out{
- let e=aftermath.deaths[i];let age=camera.time.x-e.life.x;if(e.life.w<.5||age<0.||age>1.3||e.force.w!=1.){return empty();}
- let p=piece(e,vi/6u,age);let q=corner(vi);return place(p.xy+q*e.body.z*vec2f(.58,.3),q,vec4f(.025,.022,.018,.32/(1.+p.z*.45)),3.,e.life.y);
+ let e=aftermath.deaths[i];let age=camera.time.x-e.life.x;if(e.life.w<.5||age<0.||age>1.3||(e.force.w!=1.&&e.force.w<5.)){return empty();}
+ let part=vi/6u;if(e.force.w>=5.&&part>=select(2u,3u,e.force.w==7.)){return empty();}
+ let p=piece(e,part,age);let q=corner(vi);return place(p.xy+q*e.body.z*vec2f(.58,.3),q,vec4f(.025,.022,.018,.32/(1.+p.z*.45)),3.,e.life.y);
 }
 @vertex fn sprayVS(@builtin(vertex_index) vi:u32,@builtin(instance_index) i:u32)->Out{
  let e=eventAt(i);let age=camera.time.x-e.life.x;if(e.life.w<.5||age<0.||age>.34){return empty();}
