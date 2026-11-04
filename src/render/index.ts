@@ -112,6 +112,26 @@ fn pressureColor(value:f32)->vec3<f32>{
 }
 @fragment fn fs(i:Out)->@location(0) vec4<f32>{let d=length(i.local);let blood=i.bloodMode>.5;let irregular=.045*sin(i.local.x*13.+i.local.y*7.)+.035*sin(i.local.y*19.);let edge=select(1.,1.+irregular,blood);if(d>edge||i.color.a<.02){discard;}var alpha=i.color.a*(1.-smoothstep(edge-.16,edge,d));if(i.bloodMode>1.5){alpha*=.72+.28*sin((i.local.x-i.local.y)*12.);}let light=max(0.,dot(normalize(i.local+vec2(.001)),normalize(vec2(-.65,-.75))));let rim=smoothstep(.62,.98,d);let col=select(i.color.rgb*(.82+.18*light)+vec3(.07)*light*light,mix(i.color.rgb,vec3(.16,.002,0.),rim*.35),blood);return vec4(col,alpha);}
 `});
+  const embeddedArrowModule=device.createShaderModule({label:'Arrows attached to hit zombies',code:`
+${PARTICLE_WGSL}
+struct Camera { viewport:vec4f, world:vec4f, time:vec4f };
+@group(0) @binding(0) var<uniform> camera:Camera;
+@group(0) @binding(1) var<storage,read> bodies:array<Particle>;
+@group(0) @binding(2) var<storage,read> arrows:array<vec4f>;
+struct Out { @builtin(position) pos:vec4f, @location(0) color:vec4f };
+fn world(p:vec2f)->vec2f { let aspect=camera.viewport.x/max(1.,camera.viewport.y); let target=camera.world.z/camera.world.w; return vec2f((((p.x-camera.world.x)/camera.world.z)*2.-1.)*min(1.,target/aspect),(1.-((p.y-camera.world.y)/camera.world.w)*2.)*min(1.,aspect/target)); }
+@vertex fn vs(@builtin(vertex_index) vi:u32,@builtin(instance_index) i:u32)->Out {
+ let corners=array<vec2f,6>(vec2f(0.,-1.),vec2f(1.,-1.),vec2f(0.,1.),vec2f(0.,1.),vec2f(1.,-1.),vec2f(1.,1.));
+ let body=bodies[i];let arrow=arrows[i];var o:Out;
+ if(arrow.z<.5||arrow.x!=body.status.w||body.state.w<.5||body.body.z<=0.){o.pos=vec4f(2.,2.,0.,1.);o.color=vec4f(0.);return o;}
+ let part=vi/6u;let c=corners[vi%6u];let dir=vec2f(cos(arrow.y),sin(arrow.y));let rawBack=vec2f(-dir.x,-dir.y*.45-.65);let back=rawBack/max(length(rawBack),.001);let side=vec2f(-back.y,back.x);
+ let anchor=body.pos.xy+vec2f(0.,-max(.5,body.body.x)*.8);let start=select(0.,.78,part==1u);let span=select(1.05,.28,part==1u);let width=select(.075,.16,part==1u);
+ o.pos=vec4f(world(anchor+back*(start+c.x*span)+side*c.y*width),0.,1.);o.color=select(vec4f(.72,.49,.25,1.),vec4f(.94,.88,.68,1.),part==1u);return o;
+}
+@fragment fn fs(i:Out)->@location(0) vec4f{return i.color;}
+`});
+  const embeddedArrowPipeline=device.createRenderPipeline({layout:'auto',vertex:{module:embeddedArrowModule,entryPoint:'vs'},fragment:{module:embeddedArrowModule,entryPoint:'fs',targets:[{format}]},primitive:{topology:'triangle-list'}});
+  const embeddedArrowBindings=device.createBindGroup({layout:embeddedArrowPipeline.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:uniform}},{binding:1,resource:{buffer:shared.particles}},{binding:2,resource:{buffer:shared.embeddedArrows!}}]});
   const overlayModule=device.createShaderModule({code:`
 struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group(0) @binding(0) var<uniform> camera:Camera;
 struct I { @location(0) pos:vec2<f32>, @location(1) color:vec4<f32> }; struct O { @builtin(position) pos:vec4<f32>, @location(0) color:vec4<f32> };
@@ -632,6 +652,7 @@ struct Camera { viewport: vec4<f32>, world: vec4<f32>, time: vec4<f32> }; @group
       pass=encoder.beginRenderPass({colorAttachments:[{view:target,loadOp:'load',storeOp:'store'}]});
       if(scene.aftermathVisible!==false)blood?.spray(pass);
       pass.setPipeline(overlay);pass.setBindGroup(0,cameraOverlay);pass.setVertexBuffer(0,foreground);pass.draw(fx.length/6);
+      pass.setPipeline(embeddedArrowPipeline);pass.setBindGroup(0,embeddedArrowBindings);pass.draw(12,Math.min(scene.count,shared.capacity));
       if(shared.shotState){pass.setPipeline(cues);pass.setBindGroup(0,cameraCues);pass.draw(72,Math.min(MAX_TOWERS,scene.towers.length));}tesla?.draw(pass,scene.count,scene.towers.length);fire.draw(pass,scene.count,scene.towers.length);enemySelection.draw(pass,scene.count);pass.end();
     },
     selectEnemies(point){

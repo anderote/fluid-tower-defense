@@ -3,6 +3,8 @@ import {infantryCombatKind,infantryStats,type Soldier,type Threat,type RifleShot
 import {MAX_TOWERS,MAX_INFANTRY_KILL_SLOTS} from '../contracts/index.ts';
 
 export async function createInfantryGPU(device:GPUDevice,shared:SharedGPU){
+  const embeddedArrows=device.createBuffer({size:shared.capacity*16,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
+  shared.embeddedArrows=embeddedArrows;
   const params=device.createBuffer({size:32,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST});
   let capacity=128;
   let units=device.createBuffer({size:capacity*48,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
@@ -24,6 +26,7 @@ struct Result {aim:vec4f,contact:vec4f};
 @group(0) @binding(5) var<storage,read_write> owners:array<atomic<u32>>;
 @group(0) @binding(6) var<storage,read_write> heads:array<atomic<u32>>;
 @group(0) @binding(7) var<storage,read_write> links:array<u32>;
+@group(0) @binding(8) var<storage,read_write> embeddedArrows:array<vec4f>;
 fn cell(p:vec2f)->vec2i{return clamp(vec2i(floor(p/8.)),vec2i(0),vec2i(params.grid.xy)-1);}
 fn index(p:vec2i)->u32{return u32(p.y)*u32(params.grid.x)+u32(p.x);}
 @compute @workgroup_size(128) fn bucket(@builtin(global_invocation_id) gid:vec3u){
@@ -86,17 +89,17 @@ fn visible(a:vec2f,b:vec2f)->bool {
   if(kind==1.||kind==7.){hit=distance(p.pos.xy,unit.impact.xy)<=3.5&&visible(unit.impact.xy,p.pos.xy);}
   if(kind==2.||kind==3.){let alignment=dot(delta/max(d,.001),vec2f(cos(unit.impact.z),sin(unit.impact.z)));hit=d<=unit.position.z&&alignment>=select(.65,.35,kind==3.);}
   if(kind==6.){hit=results[u].aim.x==f32(i)&&results[u].aim.y==p.status.w;}
-  if(hit&&visible(unit.position.xy,p.pos.xy)){if(kind==6.){results[u].contact.x=1.;}p.body.z-=unit.shot.z;atomicStore(&owners[i],u32(unit.shot.w));}
+  if(hit&&visible(unit.position.xy,p.pos.xy)){if(kind==6.){results[u].contact.x=1.;embeddedArrows[i]=vec4f(p.status.w,unit.impact.z,1.,0.);}p.body.z-=unit.shot.z;atomicStore(&owners[i],u32(unit.shot.w));}
  }}}particles[i]=p;
 }`});
   const errors=(await shader.getCompilationInfo()).messages.filter(m=>m.type==='error');if(errors.length)throw Error(errors.map(m=>m.message).join('\n'));
-  const layout=device.createBindGroupLayout({entries:[{binding:0,visibility:GPUShaderStage.COMPUTE,buffer:{type:'uniform'}},...[1,2,3,4,5,6,7].map(binding=>({binding,visibility:GPUShaderStage.COMPUTE,buffer:{type:([2,4].includes(binding)?'read-only-storage':'storage') as GPUBufferBindingType}}))]});
+  const layout=device.createBindGroupLayout({entries:[{binding:0,visibility:GPUShaderStage.COMPUTE,buffer:{type:'uniform'}},...[1,2,3,4,5,6,7,8].map(binding=>({binding,visibility:GPUShaderStage.COMPUTE,buffer:{type:([2,4].includes(binding)?'read-only-storage':'storage') as GPUBufferBindingType}}))]});
   const pipelineLayout=device.createPipelineLayout({bindGroupLayouts:[layout]});
   const sense=device.createComputePipeline({layout:pipelineLayout,compute:{module:shader,entryPoint:'sense'}}),damage=device.createComputePipeline({layout:pipelineLayout,compute:{module:shader,entryPoint:'damage'}});
   const impactTargets=device.createComputePipeline({layout:pipelineLayout,compute:{module:shader,entryPoint:'impactTargets'}});
   const bucket=device.createComputePipeline({layout:pipelineLayout,compute:{module:shader,entryPoint:'bucket'}});
   let liveIds:number[]=[];
-  return {threats,get liveIds(){return liveIds;},reset(){version++;threats.clear();liveIds=[];},encode(encoder:GPUCommandEncoder,soldiers:Soldier[],shots:RifleShot[],map:WorldMap,count:number,sample:boolean,research:readonly string[]=[],dt=1/60,lineOfSightMap:WorldMap=map,impacts:readonly InfantryProjectile[]=[],onImpact?:(projectile:InfantryProjectile,hit:boolean)=>void){
+  return {threats,get liveIds(){return liveIds;},reset(){version++;threats.clear();liveIds=[];device.queue.writeBuffer(embeddedArrows,0,new Float32Array(shared.capacity*4));},encode(encoder:GPUCommandEncoder,soldiers:Soldier[],shots:RifleShot[],map:WorldMap,count:number,sample:boolean,research:readonly string[]=[],dt=1/60,lineOfSightMap:WorldMap=map,impacts:readonly InfantryProjectile[]=[],onImpact?:(projectile:InfantryProjectile,hit:boolean)=>void){
     const live=soldiers.filter(s=>s.health>0),unitCount=live.length+impacts.length;if(!unitCount){liveIds=[];threats.clear();return;}
     if(unitCount>capacity){
       capacity=2**Math.ceil(Math.log2(unitCount));units.destroy();results.destroy();if(!busy)read.destroy();links.destroy();
@@ -112,10 +115,10 @@ fn visible(a:vec2f,b:vec2f)->bool {
     device.queue.writeBuffer(params,0,new Uint32Array([count,unitCount,lineOfSightMap.obstacles.length,cells]));
     liveIds=[];const shotMap=new Map(shots.map(s=>[s.soldier,s]));let maxRange=4;const data=new Float32Array(unitCount*12);
     live.forEach((s,i)=>{const shot=shotMap.get(s.id),stats=infantryStats(s.kind,s.quality,s.defense,s.veterancy,research),slot=s.id-1,owner=slot<MAX_INFANTRY_KILL_SLOTS?MAX_TOWERS+slot+1:0;if(owner)liveIds[slot]=s.id;maxRange=Math.max(maxRange,stats.range+3.5);data.set([s.x,s.y,stats.range,infantryCombatKind(s.kind),shot?.target??-1,shot?.generation??0,shot?.damage??0,owner,shot?.x??0,shot?.y??0,s.angle,s.brace??0],i*12);});
-    impacts.forEach((p,i)=>{const slot=p.soldier-1,owner=slot<MAX_INFANTRY_KILL_SLOTS?MAX_TOWERS+slot+1:0;if(owner)liveIds[slot]=p.soldier;data.set([p.target.x,p.target.y,4,p.kind==='arrow'?6:7,-1,0,p.damage,owner,p.target.x,p.target.y,0,0],(live.length+i)*12);});
+    impacts.forEach((p,i)=>{const slot=p.soldier-1,owner=slot<MAX_INFANTRY_KILL_SLOTS?MAX_TOWERS+slot+1:0;if(owner)liveIds[slot]=p.soldier;data.set([p.target.x,p.target.y,4,p.kind==='arrow'?6:7,-1,0,p.damage,owner,p.target.x,p.target.y,Math.atan2(p.target.y-p.y,p.target.x-p.x),0],(live.length+i)*12);});
     device.queue.writeBuffer(units,0,data);
     device.queue.writeBuffer(params,16,new Float32Array([width,height,dt,maxRange]));encoder.clearBuffer(heads);encoder.clearBuffer(results);
-    const group=device.createBindGroup({layout,entries:[params,shared.particles,units,results,walls,shared.damageOwners!,heads,links].map((buffer,binding)=>({binding,resource:{buffer}}))});
+    const group=device.createBindGroup({layout,entries:[params,shared.particles,units,results,walls,shared.damageOwners!,heads,links,embeddedArrows].map((buffer,binding)=>({binding,resource:{buffer}}))});
     {const pass=encoder.beginComputePass();pass.setPipeline(bucket);pass.setBindGroup(0,group);pass.dispatchWorkgroups(Math.ceil(Math.max(count,unitCount)/128));pass.end();}
     if(impacts.length){const pass=encoder.beginComputePass();pass.setPipeline(impactTargets);pass.setBindGroup(0,group);pass.dispatchWorkgroups(Math.ceil(unitCount/64));pass.end();}
     if(count){const pass=encoder.beginComputePass();pass.setPipeline(damage);pass.setBindGroup(0,group);pass.dispatchWorkgroups(Math.ceil(count/128));pass.end();}
@@ -129,5 +132,5 @@ fn visible(a:vec2f,b:vec2f)->bool {
     const pass=encoder.beginComputePass();pass.setPipeline(sense);pass.setBindGroup(0,group);pass.dispatchWorkgroups(Math.ceil(live.length/64));pass.end();
     encoder.copyBufferToBuffer(results,0,read,0,live.length*32);busy=true;const current=version,ids=live.map(s=>s.id),pending=read;
     return ()=>{finishImpacts?.();return pending.mapAsync(GPUMapMode.READ).then(()=>{const data=new Float32Array(pending.getMappedRange());if(current===version){threats.clear();ids.forEach((id,i)=>threats.set(id,{target:data[i*8],generation:data[i*8+1],x:data[i*8+2],y:data[i*8+3],contact:data[i*8+4],pushX:data[i*8+5],pushY:data[i*8+6],pressure:data[i*8+7],age:0}));}pending.unmap();}).catch(error=>console.warn('Infantry sensing unavailable',error)).finally(()=>{busy=false;if(pending!==read)pending.destroy();});};
-  },destroy(){version++;params.destroy();units.destroy();results.destroy();read.destroy();walls.destroy();heads.destroy();links.destroy();}};
+  },destroy(){version++;embeddedArrows.destroy();params.destroy();units.destroy();results.destroy();read.destroy();walls.destroy();heads.destroy();links.destroy();}};
 }
