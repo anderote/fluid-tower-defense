@@ -1,0 +1,2064 @@
+{
+  "date": "2026-10-01T21:41:39.791823-07:00",
+  "authority": "Owner explicitly requested removing Fluid Tower Defense worktrees",
+  "branches_before": "refs/heads/balance/explosion-barrier-damage 174c563ba3c7b9036feba993c02127b1155b4972\nrefs/heads/balance/faster-late-spawns ebbad65712ca38cfe59fc502e5799d431a82a778\nrefs/heads/balance/freeform-barrier-cost 8a4d4f861d7c477c841b29f97b7c3950714660ef\nrefs/heads/balance/metal-payout-six 94ca91f86bfbd7bf30c6e401997e4dfdfa9273dd\nrefs/heads/balance/rifle-capacity-40 6798c1d8f8942c145038ad56a2fa2db5ea4df1e0\nrefs/heads/balance/rifle-five-second-interval be79c6596772e99eafa31aea8712dc1026cbdbf7\nrefs/heads/balance/structure-durability-death-equivalents 5c033ba9276e1e025ffa2934bc113bcf62a05f5a\nrefs/heads/balance/tone-down-firepower 4228d0d8595a48647adb0f3993e6e6c06b4d4467\nrefs/heads/balance/turret-price-curve 1bd1dae4a2aac4c995432376007af4dd2fc6026e\nrefs/heads/dev 98bbe8ac834074773e5f01eb7d92557bf7fc0d0e\nrefs/heads/feature/aggressive-samurai-hunting a746afc5cc425e8407afbd41b8e27291b615e596\nrefs/heads/feature/all-turrets-unlocked acb7a46f3311623ca130c45ab74c0bf3cbd8b15b\nrefs/heads/feature/animated-shambler 310b46cace712c275a9d8f0c7e8a0c6ed798b84a\nrefs/heads/feature/arcade-fire c760c223d95a7f8c55d2f74d9e63cb3108b58b69\nrefs/heads/feature/audio-settings d710e0c59fb1d3e8722fcbce65f35b005ad0a730\nrefs/heads/feature/autosave-new-game 29183709d1e8f77c9208be5f14a50941e676f515\nrefs/heads/feature/barbed-wire-graphics bb867949c7771b6ba4d119059c281c4e00884f42\nrefs/heads/feature/barrier-connection-build 6c0b9a5f51945ef841909578e0d7c04688fd4878\nrefs/heads/feature/battlefield-aftermath 15f40e0748604c5c11d0b9ab5c90dece442d3208\nrefs/heads/feature/battlefield-roster 4f0b1d26cef00ed87c2c186bba77e50488526e75\nrefs/heads/feature/better-friendly-infantry-pathing 042b089e464891304e425aca7cb30bce5ff86fa2\nrefs/heads/feature/better-infantry-pathing 49957a07b66bdf5ffeffb5e20e7d40b85abf1902\nrefs/heads/feature/building-selection 80a604aa74763f05e3ec17bea7478357734fad36\nrefs/heads/feature/camera-shake-falloff bac4f56504f4e8afd8ca14d4b28316edfad26a13\nrefs/heads/feature/combat-audio-clarity e1f45249815841d43cfd416b24eeda3c24e60baa\nrefs/heads/feature/common-tower-50-levels 46a960b51ce093af574639ccf49863dbff5d33c2\nrefs/heads/feature/compact-header-controls c122047b5efe029c17d9f1fa52e75f2d27fa1872\nrefs/heads/feature/compact-topbar f12c29a77cc84d67753e355d615583a564db7f75\nrefs/heads/feature/compact-turret-upgrade-mode ef6999db579563eb85f89be5a618cbc115264f9f\nrefs/heads/feature/compact-unit-popup a1eb8a8e35c9fff0ae439ff3bc55e5825c33120f\nrefs/heads/feature/complete-zombie-roster 9d1ffd92b7952d485eeb84c2052fcd06863a28bf\nrefs/heads/feature/connected-wall-turret-mounts 3d4e9c7a476aa1de4e583bcd4727a83e6391b7c1\nrefs/heads/feature/continuous-flame-streams 7fe94d963cf8ede8e74c0cb2eb7b796f84bc6f19\nrefs/heads/feature/continuous-wave-streams 673ed315755c81ff12abc0ca32686018268a04d6\nrefs/heads/feature/coop-overflow-menu b718e1d83c5983e48429de9a9205e1bc57bcf415\nrefs/heads/feature/corpse-pressure-barriers 012dff412735c0bc2e01633c36438716b6c64c49\nrefs/heads/feature/damage-state-visuals fc3274660b5467ab4f4d0d3660fd0d4385a7c4b6\nrefs/heads/feature/default-pressure-view a6dd89a5203112a10639c2382faa1f5770b4ea3e\nrefs/heads/feature/defense-placement-preview 0fe8b0ecfda43dd6b2fa15be49706cbe4c81c094\nrefs/heads/feature/depth-sorted-scenery aa004de411e416a17f61a1b0350988ffb3afaa7d\nrefs/heads/feature/detailed-128px-turrets da6b49367621778ad26aced376b52741b7569ad1\nrefs/heads/feature/distinct-turret-fire 9fa8b3f0a4300dd2d20a7678b8621a61851080f5\nrefs/heads/feature/drag-barrier-lines 724deb9ac27fc3bf004449c19db7f855c627497f\nrefs/heads/feature/drag-infantry-formations 55d1708a2138a32271e68852d668d1e7d2284358\nrefs/heads/feature/dtw-terminal-aesthetic a3836f2bfbbeb964776c687c1ed22f773a507b26\nrefs/heads/feature/dynamic-zombie-tiers 1ae98d05dbc30836b01844d7ef860208e6949886\nrefs/heads/feature/edge-camera-pan 63196907735a9eeedf300801e15e43044cd97ce3\nrefs/heads/feature/endless-wave-quota 68f354f54680b0806a04e58958868ee62e658bd6\nrefs/heads/feature/enemy-route-variety-edge-walls 0cb727f3f6ea02c0b580aaa41c4862e2bf38e0a1\nrefs/heads/feature/enemy-type-selection 415d4b0f5ca0313137d11d2263395869cf354638\nrefs/heads/feature/faster-less-crushy-zombies f60a83391180f4297a17e5fba2137844644ff09e\nrefs/heads/feature/faster-shift-pan df8ee39f224e3d56718571afb3ff17cc458c3f95\nrefs/heads/feature/fixed-tower-scale-repulsors a48d89e247925b9bc58c49e36f1874454e2d0db2\nrefs/heads/feature/floating-build-ui 923110bf13112e79cc2cba87533f8f7eb91c13a4\nrefs/heads/feature/formation-block-size 01d169303c947855eb1d2cd383c0c268d117a476\nrefs/heads/feature/freeform-barrier-paths e5326f4f0b181a7f176794597afd88a6a6600e95\nrefs/heads/feature/gpu-blood-walls 454302a7afaad7d4f6ae68ac407584b04c92ec9e\nrefs/heads/feature/half-tile-fences b9f00f43b4033508b58b4dfceef9c913d711efea\nrefs/heads/feature/header-kill-counts 3d64e516bc2ae9f3231b499ab55c81d9142ac420\nrefs/heads/feature/header-music-menu df4ab667a43aa6a54ad222051494663e40853541\nrefs/heads/feature/hover-upgrade-card bd21d88ce720aec9e875342be4a65dafd8fd50a7\nrefs/heads/feature/increase-max-zoom 12786be2a6d470d3eb910b92fd6c9987f5d98b4b\nrefs/heads/feature/increase-metal-wall-resistance a4719c1ef6267d2775ad32b2a1a1ee8e0fffb86b\nrefs/heads/feature/infantry-barracks cfe83d1c20b11b144f32cb2dc4ebade082e1922c\nrefs/heads/feature/infantry-building-art 640ee0aabb6ea7a0292c92e3e480b52092c3f27a\nrefs/heads/feature/infantry-eras 438cb216d487eef0ed779c4cba730d6bca8fcba2\nrefs/heads/feature/infantry-rally-xp-research da42c5d2990d89758828e9405d3a78bbc9f78723\nrefs/heads/feature/infantry-roster-tabs 1c17c46697fa5800667bbb7c6a5f7b7a87c3f5ec\nrefs/heads/feature/infantry-settling-shells ae9eccadb07ea0cf2aff0109b39acae621d7be08\nrefs/heads/feature/infantry-veterancy-waypoint-selection f5c47bbb9d6ba16fd22f50db08b934aa21ad9db4\nrefs/heads/feature/infinite-survival a5cb6f3f45fc560151bc2562d090d4c7c09eb3e7\nrefs/heads/feature/intra-wave-zombie-stats 98de9ef9983a24ae84edd0a98e79fe29b4dfe318\nrefs/heads/feature/inverse-radius-blast-pressure 979c28c3a25c79e33f20a75967bf06c952a8f766\nrefs/heads/feature/larger-mixed-streams 4d574fd58f1bc3b0fa1c61f5ce944d241feb70cc\nrefs/heads/feature/larger-start-wave d6c2418da6295a0c58499be4594d1254a1d45d47\nrefs/heads/feature/larger-zombie-footprints bde2011a8cf685f111f1c316636b0b8c6299e5c4\nrefs/heads/feature/local-soundtrack-folder f3ff725b7a76176afc27d9922b1230dd3f6a8f3e\nrefs/heads/feature/long-narrow-starting-field 5efa197258621e8e87a5381d7e16f54aedb01f34\nrefs/heads/feature/long-wave-streams 7b96f4fd07e77ceeb6c7c33fb79929bf474e4786\nrefs/heads/feature/longer-phalanx-spears 9b2db83b28945f1f9b39ba4b3287bd8b8b43bc76\nrefs/heads/feature/map-one-transition-tiles 5e5b321518e56167fb878957ded23483752a2b4e\nrefs/heads/feature/mass-infantry-dogs fc2a399b157a7f139e91dc3218548ef44b3a7f69\nrefs/heads/feature/menu-new-game 14a0231d314120277f44a0f8ffe8771df11b27be\nrefs/heads/feature/metal-economy-repulsor 463ed7cc746d3de6890dfc591f9f54a030f93602\nrefs/heads/feature/minimal-glass-overlay e98c7a174b72875ca37281b76cf5131d7dc1708f\nrefs/heads/feature/more-transparent-pressure-heatmap 06c6c01baac6a7785918ad5c81c590b684617516\nrefs/heads/feature/movable-game-panels cccad347d9265d1e64fb0aa9bf6cc113f8e603e6\nrefs/heads/feature/movable-towers ebdbf2670e297e6273ef92985814dcc1d59e5de0\nrefs/heads/feature/offscreen-horde-flow 65b06be9dc1414b0a9210db343cd9170bd6e8934\nrefs/heads/feature/offscreen-zombie-columns e2f0f57646706c151502a2ebd952a867028b702c\nrefs/heads/feature/opening-wave-10000 c352dc0bef12ee90726c3b385e274b4162af603e\nrefs/heads/feature/openra-chainlink-assets 2f548d5cad87e5659dd1e4e9d9b02ff017909f06\nrefs/heads/feature/openra-combat-sounds 64d988ba069590a7fa29da37017e27046b765f1e\nrefs/heads/feature/passable-barbed-wire 9927cadbe2ddacb2fd88ae94abf6c3c2b8801749\nrefs/heads/feature/per-map-progress d9ff2e564f5734e79f6c0d4a9bdf31276b11c04e\nrefs/heads/feature/performance-program 3e15bf9faffca41e34e422d00ca5f1039554e705\nrefs/heads/feature/phalanx-trooper 5b1e6f1b1af0acbfb97175983fcc5f9dbce8299e\nrefs/heads/feature/physical-pressure-readouts d9789b1e759e5a102fe7f05a94be5cb76c5d6b92\nrefs/heads/feature/pixel-art-turrets-muzzle ce8985da7f6cffb6fece5405c2f6f74c95a89df4\nrefs/heads/feature/post-panel-defenses 0df728b46caf472a8a1914e62d1a03853e1fdc1c\nrefs/heads/feature/pressure-damage-ramp 3a650a01f75f83859c4ff42aa53ed219d40c5f8a\nrefs/heads/feature/pressure-surge 92483c289d50ef7b2c7a61f9d35a2e054bebbe3b\nrefs/heads/feature/projectile-flight 5cae7f7ada981eb9016469dee83f09907083e324\nrefs/heads/feature/ra-barrier-facing-atlas 528eb52c23ad3281b486ec2f773c4347ad258088\nrefs/heads/feature/ra-freeform-barriers cf65ec6f454b5b590cecce9c24d7b50e01343184\nrefs/heads/feature/readable-ui-typography 1c653ddc6cccd5d0fa9d3ce1e09179cf81ad16fa\nrefs/heads/feature/recycle-hover-outline 88b4f29200b9489e6ce029388c6847bdb0e013be\nrefs/heads/feature/red-alert-burning-enemies 8aa1f23a9c4ece0e28b3265b18b172f2b9c64c93\nrefs/heads/feature/red-alert-defense-effects 6d0b46d7bb50fca6333d71059d7e0043d1aa48b8\nrefs/heads/feature/red-alert-flame-tesla 0d89a46bd6d2d4bf3855bc36c826c75bf22e5c5c\nrefs/heads/feature/red-alert-infantry 91f9af4beceb2ce46c6e8e411e078fbf0f5b4594\nrefs/heads/feature/red-alert-interiors 47eec0a83a95c8b6c2c0903d5561d55e066f80c5\nrefs/heads/feature/red-alert-music 431f554605a97a79a44ddb821aa63c862fe9495c\nrefs/heads/feature/red-alert-selection-icons b30b405a7777335f8e5b8ab4f3554edd0a71ce6c\nrefs/heads/feature/red-alert-tesla 45c39b0e4bc5b545cf2936b62f2ac05b8daae932\nrefs/heads/feature/red-alert-unit-brackets d14ecaff7f81ae5135d281db86d37c0eaba81761\nrefs/heads/feature/red-alert-wire afa0cea0087ac189adfc6555987b8dcc44204578\nrefs/heads/feature/redoubt-map-variety f85e6ee3e9f6adade528b315c15619d07e07f680\nrefs/heads/feature/reduce-bounty-100x 4488fd9218b5ea0471bec3b0e9ed7487fb6c458a\nrefs/heads/feature/reduce-zombie-size-25 0d89586b102a1a5dddfda91b52b33b35a92a4dad\nrefs/heads/feature/reliable-structure-removal 4d110c194edd792d73be61ff17d04e808b989395\nrefs/heads/feature/reload-jitter e81ac8ed4773ead5bb6fdb876fa0e47188178aaf\nrefs/heads/feature/remote-main-integration 4e9837373c7079d0eaf3329a16df854fe2fce49d\nrefs/heads/feature/research-anytime 5b9490e776443f7efbdafa6dd21262d0e6e30a38\nrefs/heads/feature/research-panel-cleanup ee26be41589024d15d1e20d049775f7d2c9b3119\nrefs/heads/feature/reset-confirmation a5f521223aac4be2eac527e63a0c9fc4075284f2\nrefs/heads/feature/restore-navbar-controls b6f22123a419e14a2c1be52b2c4732e7a8b42464\nrefs/heads/feature/rifle-rate-popup-stability 5c198db4198c44c73ba012aabfaf09263b8e6865\nrefs/heads/feature/samurai-balance-art 2a004165cc506bb5e13871dc724a4a91d0c3ccf1\nrefs/heads/feature/soldat-gun-effects 6a7a173e26ad57106a9b58ef5bf8c953d62037ac\nrefs/heads/feature/soldat-heavy-weapon-effects 11738eb61b987eaa16c3a27f9d03f3b1267e8967\nrefs/heads/feature/soldat-turret-art cfe75f59f4c52cdd90cde7d976883dac295b144c\nrefs/heads/feature/stable-local-game eefc67c7ab90c71a9eab561e4e92be54f6c2b3c9\nrefs/heads/feature/staged-opening-wave fb88b0a96d04aad22a6a2c1cc495ed7a95b9d8bd\nrefs/heads/feature/starting-map-walls 9d6d9efb2db5ae5e9739d623ed1ba146ed9e1669\nrefs/heads/feature/starting-metal-3000 f6ee927957c02998ce12508f8bd71677a62bec6c\nrefs/heads/feature/starting-wall-mounted-turrets 97d6bd7a02af43d815ef9238c23f8d4a58e7c433\nrefs/heads/feature/steel-grating-preview ccdd9099ae9cc324d0f51256022f45eba3747558\nrefs/heads/feature/stronger-walls-wire 708f9dccc4ec74b52a11b5f07a583bd0c4fbd3ce\nrefs/heads/feature/tapered-explosion-shake c8d37314de5e976506b8c11dce5da154acd0a23f\nrefs/heads/feature/tech-tree 6ff869fa12d104ec85531e866deb7cfbdf90dc3e\nrefs/heads/feature/tech-tree-ranks db50d30d2bf0a03d466ceb4780def464a13065bf\nrefs/heads/feature/tesla-chain-growth 0f7baec1240a57f97f8c37fda780296274d810b5\nrefs/heads/feature/three-biome-levels 9e92cddf81d0c262a77998b5fcc28ff34c6ac0c1\nrefs/heads/feature/top-bottom-edge-placement 612ddadc49d4081efdf9020fcd351ca3af1732f4\nrefs/heads/feature/topbar-time-controls c62dcbcd7f0b3121b2ee435e89926669cf3d74ce\nrefs/heads/feature/tower-inspector 3f05c879b6a07d24be381a8bedb6f8a81497494f\nrefs/heads/feature/tower-unlocks-economy 23e1264a287dc2e5f866214a2bb2c06693761d6a\nrefs/heads/feature/transparent-pressure-heatmap 70a1e065a90fdd72f73c8c3ce440c487e898777a\nrefs/heads/feature/triple-metal-wall-durability 0e21ea71da7c991d47493ad08c66dd6e233db459\nrefs/heads/feature/turret-color-upgrades 040098439a6bcece6ac41ed631e17b22352ac831\nrefs/heads/feature/turret-firing-alignment eb14c2f3f9215166386cdcb24d7b19d0995e5c27\nrefs/heads/feature/turret-ground-targets 1e2b643f1d99968ee701a866453d07ee2c469f7b\nrefs/heads/feature/turret-los-overlay 1a331a68b319d7c14f05e443a3f1c426cb26ac83\nrefs/heads/feature/turret-path-obstacles 8f7253c3c269cb5db4004c49efcb4c9628496072\nrefs/heads/feature/unbounded-map-walls 8da49f147547f803ac63ebdb054bad6f621234b7\nrefs/heads/feature/unit-veterancy 4be5941dbb2be45dae8cac08007194b72655a73b\nrefs/heads/feature/upgrade-stat-hover 011c1caf50bad9328f6d4d844270bb6b109776b7\nrefs/heads/feature/veterancy-2-5x-cap 0653264b17a1e8f09ed23dd53994b84fea7d683a\nrefs/heads/feature/veterancy-buff 85673fb658ecd88e19ab63f136fdc5708ce01649\nrefs/heads/feature/veterancy-performance-stacking 843ce81ac9c126d94c25b9a41273f3e20caf3dec\nrefs/heads/feature/visible-unit-selection af30f52b71265f12e1da5314b3576c1966794d02\nrefs/heads/feature/wall-damage-chainlink 4daec7452d96640cea48b7ef1e8a421ab1a4049d\nrefs/heads/feature/wall-mounted-turrets 6a9d90aa7191a3d9df4734dbc6020cdacf5bf897\nrefs/heads/feature/wave-95-skip dd1564a6459079662efd1d9eb9d59e7da22c61ee\nrefs/heads/feature/wave-controls-window 46c3b9508f3521b3ad7943f99c2e4f9a79eae35b\nrefs/heads/feature/wave-minimize dea12f7efa1a5b69248953c92fbe53296128d6d8\nrefs/heads/feature/wave-pressure-arcs 83a39375a24b65c1abb33f6e62674c33e969bbdd\nrefs/heads/feature/weaken-barriers 0c3c1b2b1f8072f3bf0136c03d4cd220444fa21a\nrefs/heads/feature/zombie-roster 1e19029ff4de7037d0b240613ab6dfc779c1708e\nrefs/heads/feature/zombie-wave-director 7445d44ce1ba80e7b6807424b1e739eb367bec44\nrefs/heads/fix/autogun-muzzle-alignment 497ffe47c4720371ddac2971a236c52917f8271a\nrefs/heads/fix/barbed-wire-drag-openra-chainlink cd8b4cb7eb78930a09ff267c172d2bce7c1195c5\nrefs/heads/fix/building-rally 7b6604bce03fa097a5a3977198f24a4623d18e0b\nrefs/heads/fix/chainlink-permanent-blocker e4e04edc6cc81876f31accff6a5b1269f98de07d\nrefs/heads/fix/chainlink-placement 5cd57866cee65d11dfed3550aec4088b7198e018\nrefs/heads/fix/chrome-translation-prompt 44e6de940affdc1bf23e9ee4c603a5970adc5aa4\nrefs/heads/fix/continuous-wall-turret-mounts 5f1cc2cdc6e8d0e11f06931a91b78db474b15eb7\nrefs/heads/fix/current-default-map 8b27785cc611b3939905fbfd24da2ae311486a40\nrefs/heads/fix/debris-behind-defenses 6f8e626ef43f7df99a6315cbb53e974d53c62d8c\nrefs/heads/fix/disable-context-menu-selection f03a53a9b6339899910066bdd9546c3339950ca1\nrefs/heads/fix/duplicate-snap-to-mount 67a3a80f65ebe711c5a99f2e0af8aafe8944e82e\nrefs/heads/fix/e2e-validation afa37c3b3c01060f86546f3688f3e131665a8157\nrefs/heads/fix/edge-build-cancel ffe0e0363eb07dfecaa61c1f3a9087ac6864ac09\nrefs/heads/fix/fence-firing-sight ba94e5c5b626f0949b154f7690dc64bf1e99f1f1\nrefs/heads/fix/fence-orientation a8c4ee2ddced8fe37a6d6e1de13126656a9a460f\nrefs/heads/fix/fence-snap-preview 8457beb770aa0e25dea23eb5165bae137ddc91f5\nrefs/heads/fix/fence-upper-clearance 43d369e3568bdfeae98b12b02bb45d86a9d48b15\nrefs/heads/fix/infantry-movement-hysteresis fa30d816288ecb1bd4060cf9f479ba3b8a2c5425\nrefs/heads/fix/infantry-transparent-los bf430eee2f0e2e7fa9f3691d6157ccf944f562b3\nrefs/heads/fix/kill-rewards db93ec437c5dc34cb545c83808fbae44656cf46a\nrefs/heads/fix/local-black-screen c718624532ab223e0b965534d10968596c553620\nrefs/heads/fix/lost-wave-dock-action a43c46b97407c735abbb73599cb502f3ba655133\nrefs/heads/fix/multi-building-rally-validation b438df18c3cd06dae8fb34176c00fe2aceabc53d\nrefs/heads/fix/narrow-turret-hit-detection 4117e98e441ddb7bfa4d12282b01aef392aa3f05\nrefs/heads/fix/permissive-chainlink a56782587c0bc3903c9e2b86652ff812c6c3f761\nrefs/heads/fix/physics-pipeline-layout 8f86c4d128a9c7497e9ee306e41c408cbfb2d6c7\nrefs/heads/fix/preserve-wave-survivors cc3d1a6f1416f075dc4fb6cb6bcc4d5718fbf20b\nrefs/heads/fix/promotion-reward-test 77a11a4fc1c841306a80fef0a9a34d999ab192f5\nrefs/heads/fix/railgun-price-2500 66196f7fe4d9d0f00191974833635ee9ef6783c7\nrefs/heads/fix/rally-spawn-movement 915ac511be39e3c0471ec75709043252c1e67072\nrefs/heads/fix/rally-target-lifetime 77d57278fb5e4f95d8955985e85dc69e2adde481\nrefs/heads/fix/readable-chainlink-fence 641574bc871da6b15a5a6b14d6e08bab4bb03a80\nrefs/heads/fix/recycle-barrier-panels 1a03c5ac4e3d5c1a176f15b8d3053c485c1c334b\nrefs/heads/fix/red-alert-atlas-device-limit a029de51719357fd718c8e770ae369838d3af4b4\nrefs/heads/fix/red-alert-wgsl 97ac74d98abd30db198314d13ec81f0f72eced16\nrefs/heads/fix/reset-player-walls ed112facad0928cab8819d8a58ede8e9e8655d1b\nrefs/heads/fix/road-continuity d190fcc30612a0695e33411b9cf960097dede990\nrefs/heads/fix/rocket-impact-sync e7d31bb7b74f16ea1fb404bcfe4cd1e765c8e260\nrefs/heads/fix/slower-trackpad-zoom dd377abc1f1bf2763098a7d02167ec94c834975f\nrefs/heads/fix/start-wave 4eb8391550e8857e48074c2f55033bc37d4acf71\nrefs/heads/fix/startup-blank-screen 00fd6cf944e8280c3fe3f5e8eb761be0d78101d5\nrefs/heads/fix/tighter-infantry-formations bdc8c4a4c343ccb6129867e4d04350c5ceb52ae4\nrefs/heads/fix/tower-inspector-upgrade-stats 5740b8fc3c682159738e157aff1cde1519a0bd3a\nrefs/heads/fix/turret-shot-origin 2aa47f397b487178aa0ff8081db50d7d80ed15e3\nrefs/heads/fix/visible-boon-choice a61cb0a271f237e32931900c88ef8df58ad07e83\nrefs/heads/fix/visible-chainlink-fence 1b23e656a900293c046c58edb87fef0cc047f0bb\nrefs/heads/fix/wall-top-turret-placement f1670734cf94d906a48a3b1c2e44e852d8b67e3a\nrefs/heads/fix/zombie-obstacle-progress 072126a968c795388553cff044b87250c5ed1229\nrefs/heads/gameplay-camera-effects 0eac563f32d1a756a70e1a036c03f74108e2ef44\nrefs/heads/integration/release-remote-sync 98bbe8ac834074773e5f01eb7d92557bf7fc0d0e\nrefs/heads/main 4401aab7d5be1215010473bf79af1e75df4a1cc6\nrefs/heads/particle-aesthetic-review db0a74e7e260ef668c9e423f462ec85824c8bc84\nrefs/heads/pressure-walls 76148be924165c02979b3f831da405b4da5b527d\nrefs/heads/ui/readable-menu-type 55bd493fdfb46e09922c8a1ac50ca9bb30ef0942\nrefs/heads/work/gameplay 7ff8795f4f276209527237f2f6219865c86e6ef2\nrefs/heads/work/presentation 23d92107a223245f157739a4a3f48f8c1e146de8\nrefs/heads/work/simulation 822e7633fb29918335974d06215aed0c5eaae4a1\n",
+  "worktree_audit": [
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense",
+      "branch": "refs/heads/main",
+      "head": "4401aab7d5be1215010473bf79af1e75df4a1cc6",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/aggressive-samurai-hunting",
+      "branch": "refs/heads/feature/aggressive-samurai-hunting",
+      "head": "a746afc5cc425e8407afbd41b8e27291b615e596",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/all-turrets-unlocked",
+      "branch": "refs/heads/feature/all-turrets-unlocked",
+      "head": "acb7a46f3311623ca130c45ab74c0bf3cbd8b15b",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/animated-shambler",
+      "branch": "refs/heads/feature/animated-shambler",
+      "head": "310b46cace712c275a9d8f0c7e8a0c6ed798b84a",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/arcade-fire",
+      "branch": "refs/heads/feature/arcade-fire",
+      "head": "c760c223d95a7f8c55d2f74d9e63cb3108b58b69",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/audio-settings",
+      "branch": "refs/heads/feature/audio-settings",
+      "head": "d710e0c59fb1d3e8722fcbce65f35b005ad0a730",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/autogun-muzzle-alignment",
+      "branch": "refs/heads/fix/autogun-muzzle-alignment",
+      "head": "497ffe47c4720371ddac2971a236c52917f8271a",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/autosave-new-game",
+      "branch": "refs/heads/feature/autosave-new-game",
+      "head": "29183709d1e8f77c9208be5f14a50941e676f515",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/barbed-wire-drag-openra-chainlink",
+      "branch": "refs/heads/fix/barbed-wire-drag-openra-chainlink",
+      "head": "cd8b4cb7eb78930a09ff267c172d2bce7c1195c5",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/barbed-wire-graphics",
+      "branch": "refs/heads/feature/barbed-wire-graphics",
+      "head": "bb867949c7771b6ba4d119059c281c4e00884f42",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/barrier-connection-build",
+      "branch": "refs/heads/feature/barrier-connection-build",
+      "head": "6c0b9a5f51945ef841909578e0d7c04688fd4878",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/battlefield-aftermath",
+      "branch": "refs/heads/feature/battlefield-aftermath",
+      "head": "15f40e0748604c5c11d0b9ab5c90dece442d3208",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/battlefield-roster",
+      "branch": "refs/heads/feature/battlefield-roster",
+      "head": "4f0b1d26cef00ed87c2c186bba77e50488526e75",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/better-friendly-infantry-pathing",
+      "branch": "refs/heads/feature/better-friendly-infantry-pathing",
+      "head": "042b089e464891304e425aca7cb30bce5ff86fa2",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/better-infantry-pathing",
+      "branch": "refs/heads/feature/better-infantry-pathing",
+      "head": "49957a07b66bdf5ffeffb5e20e7d40b85abf1902",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/building-selection",
+      "branch": "refs/heads/feature/building-selection",
+      "head": "80a604aa74763f05e3ec17bea7478357734fad36",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/camera-shake-falloff",
+      "branch": "refs/heads/feature/camera-shake-falloff",
+      "head": "bac4f56504f4e8afd8ca14d4b28316edfad26a13",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/chainlink-permanent-blocker",
+      "branch": "refs/heads/fix/chainlink-permanent-blocker",
+      "head": "e4e04edc6cc81876f31accff6a5b1269f98de07d",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/chrome-translation-prompt",
+      "branch": "refs/heads/fix/chrome-translation-prompt",
+      "head": "44e6de940affdc1bf23e9ee4c603a5970adc5aa4",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/combat-audio-clarity",
+      "branch": "refs/heads/feature/combat-audio-clarity",
+      "head": "e1f45249815841d43cfd416b24eeda3c24e60baa",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/common-tower-50-levels",
+      "branch": "refs/heads/feature/common-tower-50-levels",
+      "head": "46a960b51ce093af574639ccf49863dbff5d33c2",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/compact-header-controls",
+      "branch": "refs/heads/feature/compact-header-controls",
+      "head": "c122047b5efe029c17d9f1fa52e75f2d27fa1872",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/compact-topbar",
+      "branch": "refs/heads/feature/compact-topbar",
+      "head": "f12c29a77cc84d67753e355d615583a564db7f75",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/compact-turret-upgrade-mode",
+      "branch": "refs/heads/feature/compact-turret-upgrade-mode",
+      "head": "ef6999db579563eb85f89be5a618cbc115264f9f",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/compact-unit-popup",
+      "branch": "refs/heads/feature/compact-unit-popup",
+      "head": "a1eb8a8e35c9fff0ae439ff3bc55e5825c33120f",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/complete-zombie-roster",
+      "branch": "refs/heads/feature/complete-zombie-roster",
+      "head": "9d1ffd92b7952d485eeb84c2052fcd06863a28bf",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/connected-wall-turret-mounts",
+      "branch": "refs/heads/feature/connected-wall-turret-mounts",
+      "head": "3d4e9c7a476aa1de4e583bcd4727a83e6391b7c1",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/continuous-flame-streams",
+      "branch": "refs/heads/feature/continuous-flame-streams",
+      "head": "7fe94d963cf8ede8e74c0cb2eb7b796f84bc6f19",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/continuous-wall-turret-mounts",
+      "branch": "refs/heads/fix/continuous-wall-turret-mounts",
+      "head": "5f1cc2cdc6e8d0e11f06931a91b78db474b15eb7",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/continuous-wave-streams",
+      "branch": "refs/heads/feature/continuous-wave-streams",
+      "head": "673ed315755c81ff12abc0ca32686018268a04d6",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/coop-overflow-menu",
+      "branch": "refs/heads/feature/coop-overflow-menu",
+      "head": "b718e1d83c5983e48429de9a9205e1bc57bcf415",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/corpse-pressure-barriers",
+      "branch": "refs/heads/feature/corpse-pressure-barriers",
+      "head": "012dff412735c0bc2e01633c36438716b6c64c49",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/current-default-map",
+      "branch": "refs/heads/fix/current-default-map",
+      "head": "8b27785cc611b3939905fbfd24da2ae311486a40",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/damage-state-visuals",
+      "branch": "refs/heads/feature/damage-state-visuals",
+      "head": "fc3274660b5467ab4f4d0d3660fd0d4385a7c4b6",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/debris-behind-defenses",
+      "branch": "refs/heads/fix/debris-behind-defenses",
+      "head": "6f8e626ef43f7df99a6315cbb53e974d53c62d8c",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/default-pressure-view",
+      "branch": "refs/heads/feature/default-pressure-view",
+      "head": "a6dd89a5203112a10639c2382faa1f5770b4ea3e",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/defense-placement-preview",
+      "branch": "refs/heads/feature/defense-placement-preview",
+      "head": "0fe8b0ecfda43dd6b2fa15be49706cbe4c81c094",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/depth-sorted-scenery",
+      "branch": "refs/heads/feature/depth-sorted-scenery",
+      "head": "aa004de411e416a17f61a1b0350988ffb3afaa7d",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/detailed-128px-turrets",
+      "branch": "refs/heads/feature/detailed-128px-turrets",
+      "head": "da6b49367621778ad26aced376b52741b7569ad1",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/dev-integration",
+      "branch": "refs/heads/dev",
+      "head": "98bbe8ac834074773e5f01eb7d92557bf7fc0d0e",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/dev-integration/.worktrees/fix-rally-target-lifetime",
+      "branch": "refs/heads/fix/rally-target-lifetime",
+      "head": "77d57278fb5e4f95d8955985e85dc69e2adde481",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/dev-integration/.worktrees/rifle-five-second-interval",
+      "branch": "refs/heads/balance/rifle-five-second-interval",
+      "head": "be79c6596772e99eafa31aea8712dc1026cbdbf7",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/disable-context-menu-selection",
+      "branch": "refs/heads/fix/disable-context-menu-selection",
+      "head": "f03a53a9b6339899910066bdd9546c3339950ca1",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/distinct-turret-fire",
+      "branch": "refs/heads/feature/distinct-turret-fire",
+      "head": "9fa8b3f0a4300dd2d20a7678b8621a61851080f5",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/drag-barrier-lines",
+      "branch": "refs/heads/feature/drag-barrier-lines",
+      "head": "724deb9ac27fc3bf004449c19db7f855c627497f",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/drag-infantry-formations",
+      "branch": "refs/heads/feature/drag-infantry-formations",
+      "head": "55d1708a2138a32271e68852d668d1e7d2284358",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/dtw-terminal-aesthetic",
+      "branch": "refs/heads/feature/dtw-terminal-aesthetic",
+      "head": "a3836f2bfbbeb964776c687c1ed22f773a507b26",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/dynamic-zombie-tiers",
+      "branch": "refs/heads/feature/dynamic-zombie-tiers",
+      "head": "1ae98d05dbc30836b01844d7ef860208e6949886",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/edge-build-cancel",
+      "branch": "refs/heads/fix/edge-build-cancel",
+      "head": "ffe0e0363eb07dfecaa61c1f3a9087ac6864ac09",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/edge-camera-pan",
+      "branch": "refs/heads/feature/edge-camera-pan",
+      "head": "63196907735a9eeedf300801e15e43044cd97ce3",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/endless-wave-quota",
+      "branch": "refs/heads/feature/endless-wave-quota",
+      "head": "68f354f54680b0806a04e58958868ee62e658bd6",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/enemy-route-variety-edge-walls",
+      "branch": "refs/heads/feature/enemy-route-variety-edge-walls",
+      "head": "0cb727f3f6ea02c0b580aaa41c4862e2bf38e0a1",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/enemy-type-selection",
+      "branch": "refs/heads/feature/enemy-type-selection",
+      "head": "415d4b0f5ca0313137d11d2263395869cf354638",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/explosion-barrier-damage",
+      "branch": "refs/heads/balance/explosion-barrier-damage",
+      "head": "174c563ba3c7b9036feba993c02127b1155b4972",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/faster-late-spawns",
+      "branch": "refs/heads/balance/faster-late-spawns",
+      "head": "ebbad65712ca38cfe59fc502e5799d431a82a778",
+      "status": "?? node_modules",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/faster-less-crushy-zombies",
+      "branch": "refs/heads/feature/faster-less-crushy-zombies",
+      "head": "f60a83391180f4297a17e5fba2137844644ff09e",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/faster-shift-pan",
+      "branch": "refs/heads/feature/faster-shift-pan",
+      "head": "df8ee39f224e3d56718571afb3ff17cc458c3f95",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/fence-firing-sight",
+      "branch": "refs/heads/fix/fence-firing-sight",
+      "head": "ba94e5c5b626f0949b154f7690dc64bf1e99f1f1",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/fence-orientation",
+      "branch": "refs/heads/fix/fence-orientation",
+      "head": "a8c4ee2ddced8fe37a6d6e1de13126656a9a460f",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/fence-snap-preview",
+      "branch": "refs/heads/fix/fence-snap-preview",
+      "head": "8457beb770aa0e25dea23eb5165bae137ddc91f5",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/fence-upper-clearance",
+      "branch": "refs/heads/fix/fence-upper-clearance",
+      "head": "43d369e3568bdfeae98b12b02bb45d86a9d48b15",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/fix-building-rally",
+      "branch": "refs/heads/fix/building-rally",
+      "head": "7b6604bce03fa097a5a3977198f24a4623d18e0b",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/fix-chainlink-placement",
+      "branch": "refs/heads/fix/chainlink-placement",
+      "head": "5cd57866cee65d11dfed3550aec4088b7198e018",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/fix-duplicate-snap-to-mount",
+      "branch": "refs/heads/fix/duplicate-snap-to-mount",
+      "head": "67a3a80f65ebe711c5a99f2e0af8aafe8944e82e",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/fix-e2e-validation",
+      "branch": "refs/heads/fix/e2e-validation",
+      "head": "afa37c3b3c01060f86546f3688f3e131665a8157",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/fix-local-black-screen",
+      "branch": "refs/heads/fix/local-black-screen",
+      "head": "c718624532ab223e0b965534d10968596c553620",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/fix-physics-pipeline-layout",
+      "branch": "refs/heads/fix/physics-pipeline-layout",
+      "head": "8f86c4d128a9c7497e9ee306e41c408cbfb2d6c7",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/fix-red-alert-wgsl",
+      "branch": "refs/heads/fix/red-alert-wgsl",
+      "head": "97ac74d98abd30db198314d13ec81f0f72eced16",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/fix-start-wave",
+      "branch": "refs/heads/fix/start-wave",
+      "head": "4eb8391550e8857e48074c2f55033bc37d4acf71",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/fix-turret-shot-origin",
+      "branch": "refs/heads/fix/turret-shot-origin",
+      "head": "2aa47f397b487178aa0ff8081db50d7d80ed15e3",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/fixed-tower-scale-repulsors",
+      "branch": "refs/heads/feature/fixed-tower-scale-repulsors",
+      "head": "a48d89e247925b9bc58c49e36f1874454e2d0db2",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/floating-build-ui",
+      "branch": "refs/heads/feature/floating-build-ui",
+      "head": "923110bf13112e79cc2cba87533f8f7eb91c13a4",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/formation-block-size",
+      "branch": "refs/heads/feature/formation-block-size",
+      "head": "01d169303c947855eb1d2cd383c0c268d117a476",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/freeform-barrier-cost",
+      "branch": "refs/heads/balance/freeform-barrier-cost",
+      "head": "8a4d4f861d7c477c841b29f97b7c3950714660ef",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/freeform-barrier-paths",
+      "branch": "refs/heads/feature/freeform-barrier-paths",
+      "head": "e5326f4f0b181a7f176794597afd88a6a6600e95",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/gameplay",
+      "branch": "refs/heads/work/gameplay",
+      "head": "7ff8795f4f276209527237f2f6219865c86e6ef2",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/gameplay-camera-effects",
+      "branch": "refs/heads/gameplay-camera-effects",
+      "head": "0eac563f32d1a756a70e1a036c03f74108e2ef44",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/gpu-blood-walls",
+      "branch": "refs/heads/feature/gpu-blood-walls",
+      "head": "454302a7afaad7d4f6ae68ac407584b04c92ec9e",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/half-tile-fences",
+      "branch": "refs/heads/feature/half-tile-fences",
+      "head": "b9f00f43b4033508b58b4dfceef9c913d711efea",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/header-kill-counts",
+      "branch": "refs/heads/feature/header-kill-counts",
+      "head": "3d64e516bc2ae9f3231b499ab55c81d9142ac420",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/header-music-menu",
+      "branch": "refs/heads/feature/header-music-menu",
+      "head": "df4ab667a43aa6a54ad222051494663e40853541",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/hover-upgrade-card",
+      "branch": "refs/heads/feature/hover-upgrade-card",
+      "head": "bd21d88ce720aec9e875342be4a65dafd8fd50a7",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/increase-max-zoom",
+      "branch": "refs/heads/feature/increase-max-zoom",
+      "head": "12786be2a6d470d3eb910b92fd6c9987f5d98b4b",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/increase-metal-wall-resistance",
+      "branch": "refs/heads/feature/increase-metal-wall-resistance",
+      "head": "a4719c1ef6267d2775ad32b2a1a1ee8e0fffb86b",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/infantry-barracks",
+      "branch": "refs/heads/feature/infantry-barracks",
+      "head": "cfe83d1c20b11b144f32cb2dc4ebade082e1922c",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/infantry-building-art",
+      "branch": "refs/heads/feature/infantry-building-art",
+      "head": "640ee0aabb6ea7a0292c92e3e480b52092c3f27a",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/infantry-eras",
+      "branch": "refs/heads/feature/infantry-eras",
+      "head": "438cb216d487eef0ed779c4cba730d6bca8fcba2",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/infantry-movement-hysteresis",
+      "branch": "refs/heads/fix/infantry-movement-hysteresis",
+      "head": "fa30d816288ecb1bd4060cf9f479ba3b8a2c5425",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/infantry-rally-xp-research",
+      "branch": "refs/heads/feature/infantry-rally-xp-research",
+      "head": "da42c5d2990d89758828e9405d3a78bbc9f78723",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/infantry-roster-tabs",
+      "branch": "refs/heads/feature/infantry-roster-tabs",
+      "head": "1c17c46697fa5800667bbb7c6a5f7b7a87c3f5ec",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/infantry-settling-shells",
+      "branch": "refs/heads/feature/infantry-settling-shells",
+      "head": "ae9eccadb07ea0cf2aff0109b39acae621d7be08",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/infantry-transparent-los",
+      "branch": "refs/heads/fix/infantry-transparent-los",
+      "head": "bf430eee2f0e2e7fa9f3691d6157ccf944f562b3",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/infantry-veterancy-waypoint-selection",
+      "branch": "refs/heads/feature/infantry-veterancy-waypoint-selection",
+      "head": "f5c47bbb9d6ba16fd22f50db08b934aa21ad9db4",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/infinite-survival",
+      "branch": "refs/heads/feature/infinite-survival",
+      "head": "a5cb6f3f45fc560151bc2562d090d4c7c09eb3e7",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/intra-wave-zombie-stats",
+      "branch": "refs/heads/feature/intra-wave-zombie-stats",
+      "head": "98de9ef9983a24ae84edd0a98e79fe29b4dfe318",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/inverse-radius-blast-pressure",
+      "branch": "refs/heads/feature/inverse-radius-blast-pressure",
+      "head": "979c28c3a25c79e33f20a75967bf06c952a8f766",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/kill-rewards",
+      "branch": "refs/heads/fix/kill-rewards",
+      "head": "db93ec437c5dc34cb545c83808fbae44656cf46a",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/larger-mixed-streams",
+      "branch": "refs/heads/feature/larger-mixed-streams",
+      "head": "4d574fd58f1bc3b0fa1c61f5ce944d241feb70cc",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/larger-start-wave",
+      "branch": "refs/heads/feature/larger-start-wave",
+      "head": "d6c2418da6295a0c58499be4594d1254a1d45d47",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/larger-zombie-footprints",
+      "branch": "refs/heads/feature/larger-zombie-footprints",
+      "head": "bde2011a8cf685f111f1c316636b0b8c6299e5c4",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/local-soundtrack-folder",
+      "branch": "refs/heads/feature/local-soundtrack-folder",
+      "head": "f3ff725b7a76176afc27d9922b1230dd3f6a8f3e",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/long-narrow-starting-field",
+      "branch": "refs/heads/feature/long-narrow-starting-field",
+      "head": "5efa197258621e8e87a5381d7e16f54aedb01f34",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/long-wave-streams",
+      "branch": "refs/heads/feature/long-wave-streams",
+      "head": "7b96f4fd07e77ceeb6c7c33fb79929bf474e4786",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/longer-phalanx-spears",
+      "branch": "refs/heads/feature/longer-phalanx-spears",
+      "head": "9b2db83b28945f1f9b39ba4b3287bd8b8b43bc76",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/lost-wave-dock-action",
+      "branch": "refs/heads/fix/lost-wave-dock-action",
+      "head": "a43c46b97407c735abbb73599cb502f3ba655133",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/map-one-transition-tiles",
+      "branch": "refs/heads/feature/map-one-transition-tiles",
+      "head": "5e5b321518e56167fb878957ded23483752a2b4e",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/mass-infantry-dogs",
+      "branch": "refs/heads/feature/mass-infantry-dogs",
+      "head": "fc2a399b157a7f139e91dc3218548ef44b3a7f69",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/menu-new-game",
+      "branch": "refs/heads/feature/menu-new-game",
+      "head": "14a0231d314120277f44a0f8ffe8771df11b27be",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/metal-economy-repulsor",
+      "branch": "refs/heads/feature/metal-economy-repulsor",
+      "head": "463ed7cc746d3de6890dfc591f9f54a030f93602",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/metal-payout-six",
+      "branch": "refs/heads/balance/metal-payout-six",
+      "head": "94ca91f86bfbd7bf30c6e401997e4dfdfa9273dd",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/minimal-glass-overlay",
+      "branch": "refs/heads/feature/minimal-glass-overlay",
+      "head": "e98c7a174b72875ca37281b76cf5131d7dc1708f",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/more-transparent-pressure-heatmap",
+      "branch": "refs/heads/feature/more-transparent-pressure-heatmap",
+      "head": "06c6c01baac6a7785918ad5c81c590b684617516",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/movable-game-panels",
+      "branch": "refs/heads/feature/movable-game-panels",
+      "head": "cccad347d9265d1e64fb0aa9bf6cc113f8e603e6",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/movable-towers",
+      "branch": "refs/heads/feature/movable-towers",
+      "head": "ebdbf2670e297e6273ef92985814dcc1d59e5de0",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/multi-building-rally-validation",
+      "branch": "refs/heads/fix/multi-building-rally-validation",
+      "head": "b438df18c3cd06dae8fb34176c00fe2aceabc53d",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/narrow-turret-hit-detection",
+      "branch": "refs/heads/fix/narrow-turret-hit-detection",
+      "head": "4117e98e441ddb7bfa4d12282b01aef392aa3f05",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/offscreen-horde-flow",
+      "branch": "refs/heads/feature/offscreen-horde-flow",
+      "head": "65b06be9dc1414b0a9210db343cd9170bd6e8934",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/offscreen-zombie-columns",
+      "branch": "refs/heads/feature/offscreen-zombie-columns",
+      "head": "e2f0f57646706c151502a2ebd952a867028b702c",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/opening-wave-10000",
+      "branch": "refs/heads/feature/opening-wave-10000",
+      "head": "c352dc0bef12ee90726c3b385e274b4162af603e",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/openra-chainlink-assets",
+      "branch": "refs/heads/feature/openra-chainlink-assets",
+      "head": "2f548d5cad87e5659dd1e4e9d9b02ff017909f06",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/openra-combat-sounds",
+      "branch": "refs/heads/feature/openra-combat-sounds",
+      "head": "64d988ba069590a7fa29da37017e27046b765f1e",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/particle-aesthetic-review",
+      "branch": "refs/heads/particle-aesthetic-review",
+      "head": "db0a74e7e260ef668c9e423f462ec85824c8bc84",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/passable-barbed-wire",
+      "branch": "refs/heads/feature/passable-barbed-wire",
+      "head": "9927cadbe2ddacb2fd88ae94abf6c3c2b8801749",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/per-map-progress",
+      "branch": "refs/heads/feature/per-map-progress",
+      "head": "d9ff2e564f5734e79f6c0d4a9bdf31276b11c04e",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/performance-program",
+      "branch": "refs/heads/feature/performance-program",
+      "head": "3e15bf9faffca41e34e422d00ca5f1039554e705",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/permissive-chainlink",
+      "branch": "refs/heads/fix/permissive-chainlink",
+      "head": "a56782587c0bc3903c9e2b86652ff812c6c3f761",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/phalanx-trooper",
+      "branch": "refs/heads/feature/phalanx-trooper",
+      "head": "5b1e6f1b1af0acbfb97175983fcc5f9dbce8299e",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/physical-pressure-readouts",
+      "branch": "refs/heads/feature/physical-pressure-readouts",
+      "head": "d9789b1e759e5a102fe7f05a94be5cb76c5d6b92",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/pixel-art-turrets-muzzle",
+      "branch": "refs/heads/feature/pixel-art-turrets-muzzle",
+      "head": "ce8985da7f6cffb6fece5405c2f6f74c95a89df4",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/post-panel-defenses",
+      "branch": "refs/heads/feature/post-panel-defenses",
+      "head": "0df728b46caf472a8a1914e62d1a03853e1fdc1c",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/presentation",
+      "branch": "refs/heads/work/presentation",
+      "head": "23d92107a223245f157739a4a3f48f8c1e146de8",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/preserve-wave-survivors",
+      "branch": "refs/heads/fix/preserve-wave-survivors",
+      "head": "cc3d1a6f1416f075dc4fb6cb6bcc4d5718fbf20b",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/pressure-damage-ramp",
+      "branch": "refs/heads/feature/pressure-damage-ramp",
+      "head": "3a650a01f75f83859c4ff42aa53ed219d40c5f8a",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/pressure-surge",
+      "branch": "refs/heads/feature/pressure-surge",
+      "head": "92483c289d50ef7b2c7a61f9d35a2e054bebbe3b",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/pressure-walls",
+      "branch": "refs/heads/pressure-walls",
+      "head": "76148be924165c02979b3f831da405b4da5b527d",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/projectile-flight",
+      "branch": "refs/heads/feature/projectile-flight",
+      "head": "5cae7f7ada981eb9016469dee83f09907083e324",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/promotion-reward-test",
+      "branch": "refs/heads/fix/promotion-reward-test",
+      "head": "77a11a4fc1c841306a80fef0a9a34d999ab192f5",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/ra-barrier-facing-atlas",
+      "branch": "refs/heads/feature/ra-barrier-facing-atlas",
+      "head": "528eb52c23ad3281b486ec2f773c4347ad258088",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/ra-freeform-barriers",
+      "branch": "refs/heads/feature/ra-freeform-barriers",
+      "head": "cf65ec6f454b5b590cecce9c24d7b50e01343184",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/railgun-price-2500",
+      "branch": "refs/heads/fix/railgun-price-2500",
+      "head": "66196f7fe4d9d0f00191974833635ee9ef6783c7",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/rally-spawn-movement",
+      "branch": "refs/heads/fix/rally-spawn-movement",
+      "head": "915ac511be39e3c0471ec75709043252c1e67072",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/readable-chainlink-fence",
+      "branch": "refs/heads/fix/readable-chainlink-fence",
+      "head": "641574bc871da6b15a5a6b14d6e08bab4bb03a80",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/readable-menu-type",
+      "branch": "refs/heads/ui/readable-menu-type",
+      "head": "55bd493fdfb46e09922c8a1ac50ca9bb30ef0942",
+      "status": "?? node_modules",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/readable-ui-typography",
+      "branch": "refs/heads/feature/readable-ui-typography",
+      "head": "1c653ddc6cccd5d0fa9d3ce1e09179cf81ad16fa",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/recycle-barrier-panels",
+      "branch": "refs/heads/fix/recycle-barrier-panels",
+      "head": "1a03c5ac4e3d5c1a176f15b8d3053c485c1c334b",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/recycle-hover-outline",
+      "branch": "refs/heads/feature/recycle-hover-outline",
+      "head": "88b4f29200b9489e6ce029388c6847bdb0e013be",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/red-alert-atlas-device-limit",
+      "branch": "refs/heads/fix/red-alert-atlas-device-limit",
+      "head": "a029de51719357fd718c8e770ae369838d3af4b4",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/red-alert-burning-enemies",
+      "branch": "refs/heads/feature/red-alert-burning-enemies",
+      "head": "8aa1f23a9c4ece0e28b3265b18b172f2b9c64c93",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/red-alert-defense-effects",
+      "branch": "refs/heads/feature/red-alert-defense-effects",
+      "head": "6d0b46d7bb50fca6333d71059d7e0043d1aa48b8",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/red-alert-flame-tesla",
+      "branch": "refs/heads/feature/red-alert-flame-tesla",
+      "head": "0d89a46bd6d2d4bf3855bc36c826c75bf22e5c5c",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/red-alert-infantry",
+      "branch": "refs/heads/feature/red-alert-infantry",
+      "head": "91f9af4beceb2ce46c6e8e411e078fbf0f5b4594",
+      "status": "?? node_modules",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/red-alert-interiors",
+      "branch": "refs/heads/feature/red-alert-interiors",
+      "head": "47eec0a83a95c8b6c2c0903d5561d55e066f80c5",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/red-alert-music",
+      "branch": "refs/heads/feature/red-alert-music",
+      "head": "431f554605a97a79a44ddb821aa63c862fe9495c",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/red-alert-selection-icons",
+      "branch": "refs/heads/feature/red-alert-selection-icons",
+      "head": "b30b405a7777335f8e5b8ab4f3554edd0a71ce6c",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/red-alert-tesla",
+      "branch": "refs/heads/feature/red-alert-tesla",
+      "head": "45c39b0e4bc5b545cf2936b62f2ac05b8daae932",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/red-alert-unit-brackets",
+      "branch": "refs/heads/feature/red-alert-unit-brackets",
+      "head": "d14ecaff7f81ae5135d281db86d37c0eaba81761",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/red-alert-wire",
+      "branch": "refs/heads/feature/red-alert-wire",
+      "head": "afa0cea0087ac189adfc6555987b8dcc44204578",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/redoubt-map-variety",
+      "branch": "refs/heads/feature/redoubt-map-variety",
+      "head": "f85e6ee3e9f6adade528b315c15619d07e07f680",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/reduce-bounty-100x",
+      "branch": "refs/heads/feature/reduce-bounty-100x",
+      "head": "4488fd9218b5ea0471bec3b0e9ed7487fb6c458a",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/reduce-zombie-size-25",
+      "branch": "refs/heads/feature/reduce-zombie-size-25",
+      "head": "0d89586b102a1a5dddfda91b52b33b35a92a4dad",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/release-remote-sync",
+      "branch": "refs/heads/integration/release-remote-sync",
+      "head": "98bbe8ac834074773e5f01eb7d92557bf7fc0d0e",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/reliable-structure-removal",
+      "branch": "refs/heads/feature/reliable-structure-removal",
+      "head": "4d110c194edd792d73be61ff17d04e808b989395",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/reload-jitter",
+      "branch": "refs/heads/feature/reload-jitter",
+      "head": "e81ac8ed4773ead5bb6fdb876fa0e47188178aaf",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/remote-main-integration",
+      "branch": "refs/heads/feature/remote-main-integration",
+      "head": "4e9837373c7079d0eaf3329a16df854fe2fce49d",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/research-anytime",
+      "branch": "refs/heads/feature/research-anytime",
+      "head": "5b9490e776443f7efbdafa6dd21262d0e6e30a38",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/research-panel-cleanup",
+      "branch": "refs/heads/feature/research-panel-cleanup",
+      "head": "ee26be41589024d15d1e20d049775f7d2c9b3119",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/reset-confirmation",
+      "branch": "refs/heads/feature/reset-confirmation",
+      "head": "a5f521223aac4be2eac527e63a0c9fc4075284f2",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/reset-player-walls",
+      "branch": "refs/heads/fix/reset-player-walls",
+      "head": "ed112facad0928cab8819d8a58ede8e9e8655d1b",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/restore-navbar-controls",
+      "branch": "refs/heads/feature/restore-navbar-controls",
+      "head": "b6f22123a419e14a2c1be52b2c4732e7a8b42464",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/rifle-capacity-40",
+      "branch": "refs/heads/balance/rifle-capacity-40",
+      "head": "6798c1d8f8942c145038ad56a2fa2db5ea4df1e0",
+      "status": "?? node_modules",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/rifle-rate-popup-stability",
+      "branch": "refs/heads/feature/rifle-rate-popup-stability",
+      "head": "5c198db4198c44c73ba012aabfaf09263b8e6865",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/road-continuity",
+      "branch": "refs/heads/fix/road-continuity",
+      "head": "d190fcc30612a0695e33411b9cf960097dede990",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/rocket-impact-sync",
+      "branch": "refs/heads/fix/rocket-impact-sync",
+      "head": "e7d31bb7b74f16ea1fb404bcfe4cd1e765c8e260",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/samurai-balance-art",
+      "branch": "refs/heads/feature/samurai-balance-art",
+      "head": "2a004165cc506bb5e13871dc724a4a91d0c3ccf1",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/simulation",
+      "branch": "refs/heads/work/simulation",
+      "head": "822e7633fb29918335974d06215aed0c5eaae4a1",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/slower-trackpad-zoom",
+      "branch": "refs/heads/fix/slower-trackpad-zoom",
+      "head": "dd377abc1f1bf2763098a7d02167ec94c834975f",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/soldat-gun-effects",
+      "branch": "refs/heads/feature/soldat-gun-effects",
+      "head": "6a7a173e26ad57106a9b58ef5bf8c953d62037ac",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/soldat-heavy-weapon-effects",
+      "branch": "refs/heads/feature/soldat-heavy-weapon-effects",
+      "head": "11738eb61b987eaa16c3a27f9d03f3b1267e8967",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/soldat-turret-art",
+      "branch": "refs/heads/feature/soldat-turret-art",
+      "head": "cfe75f59f4c52cdd90cde7d976883dac295b144c",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/stable-local-game",
+      "branch": "refs/heads/feature/stable-local-game",
+      "head": "eefc67c7ab90c71a9eab561e4e92be54f6c2b3c9",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/staged-opening-wave",
+      "branch": "refs/heads/feature/staged-opening-wave",
+      "head": "fb88b0a96d04aad22a6a2c1cc495ed7a95b9d8bd",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/starting-map-walls",
+      "branch": "refs/heads/feature/starting-map-walls",
+      "head": "9d6d9efb2db5ae5e9739d623ed1ba146ed9e1669",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/starting-metal-3000",
+      "branch": "refs/heads/feature/starting-metal-3000",
+      "head": "f6ee927957c02998ce12508f8bd71677a62bec6c",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/starting-wall-mounted-turrets",
+      "branch": "refs/heads/feature/starting-wall-mounted-turrets",
+      "head": "97d6bd7a02af43d815ef9238c23f8d4a58e7c433",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/startup-blank-screen",
+      "branch": "refs/heads/fix/startup-blank-screen",
+      "head": "00fd6cf944e8280c3fe3f5e8eb761be0d78101d5",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/steel-grating-preview",
+      "branch": "refs/heads/feature/steel-grating-preview",
+      "head": "ccdd9099ae9cc324d0f51256022f45eba3747558",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/stronger-walls-wire",
+      "branch": "refs/heads/feature/stronger-walls-wire",
+      "head": "708f9dccc4ec74b52a11b5f07a583bd0c4fbd3ce",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/structure-durability-death-equivalents",
+      "branch": "refs/heads/balance/structure-durability-death-equivalents",
+      "head": "5c033ba9276e1e025ffa2934bc113bcf62a05f5a",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/tapered-explosion-shake",
+      "branch": "refs/heads/feature/tapered-explosion-shake",
+      "head": "c8d37314de5e976506b8c11dce5da154acd0a23f",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/tech-tree",
+      "branch": "refs/heads/feature/tech-tree",
+      "head": "6ff869fa12d104ec85531e866deb7cfbdf90dc3e",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/tech-tree-ranks",
+      "branch": "refs/heads/feature/tech-tree-ranks",
+      "head": "db50d30d2bf0a03d466ceb4780def464a13065bf",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/tesla-chain-growth",
+      "branch": "refs/heads/feature/tesla-chain-growth",
+      "head": "0f7baec1240a57f97f8c37fda780296274d810b5",
+      "status": "?? node_modules",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/three-biome-levels",
+      "branch": "refs/heads/feature/three-biome-levels",
+      "head": "9e92cddf81d0c262a77998b5fcc28ff34c6ac0c1",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/tighter-infantry-formations",
+      "branch": "refs/heads/fix/tighter-infantry-formations",
+      "head": "bdc8c4a4c343ccb6129867e4d04350c5ceb52ae4",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/tone-down-firepower",
+      "branch": "refs/heads/balance/tone-down-firepower",
+      "head": "4228d0d8595a48647adb0f3993e6e6c06b4d4467",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/top-bottom-edge-placement",
+      "branch": "refs/heads/feature/top-bottom-edge-placement",
+      "head": "612ddadc49d4081efdf9020fcd351ca3af1732f4",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/topbar-time-controls",
+      "branch": "refs/heads/feature/topbar-time-controls",
+      "head": "c62dcbcd7f0b3121b2ee435e89926669cf3d74ce",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/tower-inspector",
+      "branch": "refs/heads/feature/tower-inspector",
+      "head": "3f05c879b6a07d24be381a8bedb6f8a81497494f",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/tower-inspector-upgrade-stats",
+      "branch": "refs/heads/fix/tower-inspector-upgrade-stats",
+      "head": "5740b8fc3c682159738e157aff1cde1519a0bd3a",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/tower-unlocks-economy",
+      "branch": "refs/heads/feature/tower-unlocks-economy",
+      "head": "23e1264a287dc2e5f866214a2bb2c06693761d6a",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/transparent-pressure-heatmap",
+      "branch": "refs/heads/feature/transparent-pressure-heatmap",
+      "head": "70a1e065a90fdd72f73c8c3ce440c487e898777a",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/triple-metal-wall-durability",
+      "branch": "refs/heads/feature/triple-metal-wall-durability",
+      "head": "0e21ea71da7c991d47493ad08c66dd6e233db459",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/turret-color-upgrades",
+      "branch": "refs/heads/feature/turret-color-upgrades",
+      "head": "040098439a6bcece6ac41ed631e17b22352ac831",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/turret-firing-alignment",
+      "branch": "refs/heads/feature/turret-firing-alignment",
+      "head": "eb14c2f3f9215166386cdcb24d7b19d0995e5c27",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/turret-ground-targets",
+      "branch": "refs/heads/feature/turret-ground-targets",
+      "head": "1e2b643f1d99968ee701a866453d07ee2c469f7b",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/turret-los-overlay",
+      "branch": "refs/heads/feature/turret-los-overlay",
+      "head": "1a331a68b319d7c14f05e443a3f1c426cb26ac83",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/turret-path-obstacles",
+      "branch": "refs/heads/feature/turret-path-obstacles",
+      "head": "8f7253c3c269cb5db4004c49efcb4c9628496072",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/turret-price-curve",
+      "branch": "refs/heads/balance/turret-price-curve",
+      "head": "1bd1dae4a2aac4c995432376007af4dd2fc6026e",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/unbounded-map-walls",
+      "branch": "refs/heads/feature/unbounded-map-walls",
+      "head": "8da49f147547f803ac63ebdb054bad6f621234b7",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/unit-veterancy",
+      "branch": "refs/heads/feature/unit-veterancy",
+      "head": "4be5941dbb2be45dae8cac08007194b72655a73b",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/upgrade-stat-hover",
+      "branch": "refs/heads/feature/upgrade-stat-hover",
+      "head": "011c1caf50bad9328f6d4d844270bb6b109776b7",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/veterancy-2-5x-cap",
+      "branch": "refs/heads/feature/veterancy-2-5x-cap",
+      "head": "0653264b17a1e8f09ed23dd53994b84fea7d683a",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/veterancy-buff",
+      "branch": "refs/heads/feature/veterancy-buff",
+      "head": "85673fb658ecd88e19ab63f136fdc5708ce01649",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/veterancy-performance-stacking",
+      "branch": "refs/heads/feature/veterancy-performance-stacking",
+      "head": "843ce81ac9c126d94c25b9a41273f3e20caf3dec",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/visible-boon-choice",
+      "branch": "refs/heads/fix/visible-boon-choice",
+      "head": "a61cb0a271f237e32931900c88ef8df58ad07e83",
+      "status": "?? node_modules",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/visible-chainlink-fence",
+      "branch": "refs/heads/fix/visible-chainlink-fence",
+      "head": "1b23e656a900293c046c58edb87fef0cc047f0bb",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/visible-unit-selection",
+      "branch": "refs/heads/feature/visible-unit-selection",
+      "head": "af30f52b71265f12e1da5314b3576c1966794d02",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/wall-damage-chainlink",
+      "branch": "refs/heads/feature/wall-damage-chainlink",
+      "head": "4daec7452d96640cea48b7ef1e8a421ab1a4049d",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/wall-mounted-turrets",
+      "branch": "refs/heads/feature/wall-mounted-turrets",
+      "head": "6a9d90aa7191a3d9df4734dbc6020cdacf5bf897",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/wall-top-turret-placement",
+      "branch": "refs/heads/fix/wall-top-turret-placement",
+      "head": "f1670734cf94d906a48a3b1c2e44e852d8b67e3a",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/wave-95-skip",
+      "branch": "refs/heads/feature/wave-95-skip",
+      "head": "dd1564a6459079662efd1d9eb9d59e7da22c61ee",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/wave-controls-window",
+      "branch": "refs/heads/feature/wave-controls-window",
+      "head": "46c3b9508f3521b3ad7943f99c2e4f9a79eae35b",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/wave-minimize",
+      "branch": "refs/heads/feature/wave-minimize",
+      "head": "dea12f7efa1a5b69248953c92fbe53296128d6d8",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/wave-pressure-arcs",
+      "branch": "refs/heads/feature/wave-pressure-arcs",
+      "head": "83a39375a24b65c1abb33f6e62674c33e969bbdd",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/weaken-barriers",
+      "branch": "refs/heads/feature/weaken-barriers",
+      "head": "0c3c1b2b1f8072f3bf0136c03d4cd220444fa21a",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/zombie-obstacle-progress",
+      "branch": "refs/heads/fix/zombie-obstacle-progress",
+      "head": "072126a968c795388553cff044b87250c5ed1229",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/zombie-roster",
+      "branch": "refs/heads/feature/zombie-roster",
+      "head": "1e19029ff4de7037d0b240613ab6dfc779c1708e",
+      "status": "",
+      "error": "",
+      "locked": false
+    },
+    {
+      "path": "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/zombie-wave-director",
+      "branch": "refs/heads/feature/zombie-wave-director",
+      "head": "7445d44ce1ba80e7b6807424b1e739eb367bec44",
+      "status": "",
+      "error": "",
+      "locked": false
+    }
+  ],
+  "removed": [
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/dev-integration/.worktrees/rifle-five-second-interval",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/dev-integration/.worktrees/fix-rally-target-lifetime",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/zombie-wave-director",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/zombie-roster",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/zombie-obstacle-progress",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/weaken-barriers",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/wave-pressure-arcs",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/wave-minimize",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/wave-controls-window",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/wave-95-skip",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/wall-top-turret-placement",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/wall-mounted-turrets",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/wall-damage-chainlink",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/visible-unit-selection",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/visible-chainlink-fence",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/visible-boon-choice",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/veterancy-performance-stacking",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/veterancy-buff",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/veterancy-2-5x-cap",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/upgrade-stat-hover",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/unit-veterancy",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/unbounded-map-walls",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/turret-price-curve",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/turret-path-obstacles",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/turret-los-overlay",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/turret-ground-targets",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/turret-firing-alignment",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/turret-color-upgrades",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/triple-metal-wall-durability",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/transparent-pressure-heatmap",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/tower-unlocks-economy",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/tower-inspector-upgrade-stats",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/tower-inspector",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/topbar-time-controls",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/top-bottom-edge-placement",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/tone-down-firepower",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/tighter-infantry-formations",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/three-biome-levels",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/tesla-chain-growth",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/tech-tree-ranks",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/tech-tree",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/tapered-explosion-shake",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/structure-durability-death-equivalents",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/stronger-walls-wire",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/steel-grating-preview",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/startup-blank-screen",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/starting-wall-mounted-turrets",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/starting-metal-3000",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/starting-map-walls",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/staged-opening-wave",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/stable-local-game",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/soldat-turret-art",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/soldat-heavy-weapon-effects",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/soldat-gun-effects",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/slower-trackpad-zoom",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/simulation",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/samurai-balance-art",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/rocket-impact-sync",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/road-continuity",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/rifle-rate-popup-stability",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/rifle-capacity-40",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/restore-navbar-controls",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/reset-player-walls",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/reset-confirmation",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/research-panel-cleanup",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/research-anytime",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/remote-main-integration",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/reload-jitter",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/reliable-structure-removal",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/release-remote-sync",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/reduce-zombie-size-25",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/reduce-bounty-100x",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/redoubt-map-variety",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/red-alert-wire",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/red-alert-unit-brackets",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/red-alert-tesla",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/red-alert-selection-icons",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/red-alert-music",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/red-alert-interiors",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/red-alert-infantry",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/red-alert-flame-tesla",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/red-alert-defense-effects",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/red-alert-burning-enemies",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/red-alert-atlas-device-limit",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/recycle-hover-outline",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/recycle-barrier-panels",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/readable-ui-typography",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/readable-menu-type",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/readable-chainlink-fence",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/rally-spawn-movement",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/railgun-price-2500",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/ra-freeform-barriers",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/ra-barrier-facing-atlas",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/promotion-reward-test",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/projectile-flight",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/pressure-walls",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/pressure-surge",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/pressure-damage-ramp",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/preserve-wave-survivors",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/presentation",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/post-panel-defenses",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/pixel-art-turrets-muzzle",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/physical-pressure-readouts",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/phalanx-trooper",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/permissive-chainlink",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/performance-program",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/per-map-progress",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/passable-barbed-wire",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/particle-aesthetic-review",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/openra-combat-sounds",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/openra-chainlink-assets",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/opening-wave-10000",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/offscreen-zombie-columns",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/offscreen-horde-flow",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/narrow-turret-hit-detection",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/multi-building-rally-validation",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/movable-towers",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/movable-game-panels",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/more-transparent-pressure-heatmap",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/minimal-glass-overlay",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/metal-payout-six",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/metal-economy-repulsor",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/menu-new-game",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/mass-infantry-dogs",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/map-one-transition-tiles",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/lost-wave-dock-action",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/longer-phalanx-spears",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/long-wave-streams",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/long-narrow-starting-field",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/local-soundtrack-folder",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/larger-zombie-footprints",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/larger-start-wave",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/larger-mixed-streams",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/kill-rewards",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/inverse-radius-blast-pressure",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/intra-wave-zombie-stats",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/infinite-survival",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/infantry-veterancy-waypoint-selection",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/infantry-transparent-los",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/infantry-settling-shells",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/infantry-roster-tabs",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/infantry-rally-xp-research",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/infantry-movement-hysteresis",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/infantry-eras",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/infantry-building-art",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/infantry-barracks",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/increase-metal-wall-resistance",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/increase-max-zoom",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/hover-upgrade-card",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/header-music-menu",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/header-kill-counts",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/half-tile-fences",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/gpu-blood-walls",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/gameplay-camera-effects",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/gameplay",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/freeform-barrier-paths",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/freeform-barrier-cost",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/formation-block-size",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/floating-build-ui",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/fixed-tower-scale-repulsors",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/fix-turret-shot-origin",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/fix-start-wave",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/fix-red-alert-wgsl",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/fix-physics-pipeline-layout",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/fix-local-black-screen",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/fix-e2e-validation",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/fix-duplicate-snap-to-mount",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/fix-chainlink-placement",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/fix-building-rally",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/fence-upper-clearance",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/fence-snap-preview",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/fence-orientation",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/fence-firing-sight",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/faster-shift-pan",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/faster-less-crushy-zombies",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/faster-late-spawns",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/explosion-barrier-damage",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/enemy-type-selection",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/enemy-route-variety-edge-walls",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/endless-wave-quota",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/edge-camera-pan",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/edge-build-cancel",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/dynamic-zombie-tiers",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/dtw-terminal-aesthetic",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/drag-infantry-formations",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/drag-barrier-lines",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/distinct-turret-fire",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/disable-context-menu-selection",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/dev-integration",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/detailed-128px-turrets",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/depth-sorted-scenery",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/defense-placement-preview",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/default-pressure-view",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/debris-behind-defenses",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/damage-state-visuals",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/current-default-map",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/corpse-pressure-barriers",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/coop-overflow-menu",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/continuous-wave-streams",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/continuous-wall-turret-mounts",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/continuous-flame-streams",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/connected-wall-turret-mounts",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/complete-zombie-roster",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/compact-unit-popup",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/compact-turret-upgrade-mode",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/compact-topbar",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/compact-header-controls",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/common-tower-50-levels",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/combat-audio-clarity",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/chrome-translation-prompt",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/chainlink-permanent-blocker",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/camera-shake-falloff",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/building-selection",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/better-infantry-pathing",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/better-friendly-infantry-pathing",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/battlefield-roster",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/battlefield-aftermath",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/barrier-connection-build",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/barbed-wire-graphics",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/barbed-wire-drag-openra-chainlink",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/autosave-new-game",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/autogun-muzzle-alignment",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/audio-settings",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/arcade-fire",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/animated-shambler",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/all-turrets-unlocked",
+    "/Users/andrewcote/Documents/software/fluid-tower-defense/.worktrees/aggressive-samurai-hunting"
+  ],
+  "free_bytes_before": 766128128,
+  "branches_verified_unchanged": true,
+  "free_bytes_after": 32604164096,
+  "remaining_worktrees": "worktree /Users/andrewcote/Documents/software/fluid-tower-defense\nHEAD 4401aab7d5be1215010473bf79af1e75df4a1cc6\nbranch refs/heads/main\n\n"
+}

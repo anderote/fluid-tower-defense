@@ -1,5 +1,12 @@
 # Development and Release Workflow
 
+## Project Memory: Disk Cleanup
+
+- Owner authorized removing accumulated worktrees on October 1, 2026. Preserve Git branches and committed history; worktree directories and installed dependencies are disposable once source changes are committed or separately preserved.
+- After integrating completed feature work into local dev, remove its clean worktree with `git worktree remove <path>`. Do not accumulate completed worktrees or their `node_modules` directories. Never force-remove uncommitted source changes or an actively used worktree.
+- Keep only worktrees needed for current development. The October 1 cleanup also removes the idle dev integration worktree; recreate it from the existing local dev branch when development resumes: `git worktree add .worktrees/dev-integration dev`. Root remains on main.
+- Worktree cleanup does not restart or publish the stable game. Leave the application-support releases, saves, service and branches intact.
+
 ## Project Memory: Visual Assets
 
 - For pixel-art assets, prefer appropriate original assets available through OpenRA's verified game-content packages. When an exact asset is unavailable or unsuitable, create original work that deliberately matches the OpenRA/Red Alert visual language rather than introducing an unrelated style. Keep provenance, licensing, and a repeatable import path documented for every imported asset.
