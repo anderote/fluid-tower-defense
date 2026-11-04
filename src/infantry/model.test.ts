@@ -28,8 +28,8 @@ test('barracks population caps are type-specific and rise with production',()=>{
 });
 test('rocket and flame infantry trade area damage for restrained sustained power',()=>{
  const rocket=infantryStats('rocket'),flame=infantryStats('flame'),rifle=infantryStats('rifle');
- assert.deepEqual({damage:rocket.damage,range:rocket.range,cooldown:rocket.cooldown},{damage:22,range:16,cooldown:3.1});
- assert.deepEqual({damage:flame.damage,range:flame.range,cooldown:flame.cooldown},{damage:6,range:6,cooldown:.45});
+ assert.deepEqual({damage:rocket.damage,range:rocket.range,cooldown:rocket.cooldown},{damage:18.7,range:16,cooldown:3.1});
+ assert.deepEqual({damage:flame.damage,range:flame.range,cooldown:flame.cooldown},{damage:5.1,range:6,cooldown:.45});
  assert.ok(rocket.damage/rocket.cooldown<rifle.damage/rifle.cooldown,'splash troops should not dominate single-target rifle damage');
 });
 test('armor reduces zombie damage but even fully armored samurai can be killed',()=>{
@@ -42,7 +42,7 @@ test('armor reduces zombie damage but even fully armored samurai can be killed',
 test('samurai trade reach and sustained damage for a focused melee sweep',()=>{
   const samurai=infantryStats('samurai'),rifle=infantryStats('rifle');
   assert.deepEqual({health:samurai.health,damage:samurai.damage,range:samurai.range,cooldown:samurai.cooldown,armor:samurai.armor,speed:samurai.speed},
-    {health:95,damage:18,range:2.6,cooldown:.9,armor:.2,speed:4.8});
+    {health:95,damage:15.3,range:2.6,cooldown:.9,armor:.2,speed:4.8});
   assert.ok(samurai.damage/samurai.cooldown<rifle.damage/rifle.cooldown*1.8);
   assert.equal(INFANTRY.samurai.interval,6);
 });
@@ -241,4 +241,8 @@ test('capacity upgrades add one slot for 15 metal and preserve legacy production
 });
 test('new production upgrades increase recruitment speed without adding free capacity',()=>{
  const f=setup('samurai');f.state.upgrades={samurai:{production:2,training:0,defense:0,capacity:0}};const upgrades=infantryTypeUpgrades(f.state,'samurai');assert.equal(infantryCapacity('samurai',upgrades.capacity),6);assert.ok(recruitInterval(upgrades.production,'samurai')<recruitInterval(0,'samurai'));
+});
+
+test('rebalanced infantry remains upgradable and accepts earlier building prices',()=>{
+ const f=setup('samurai');assert.equal(INFANTRY.samurai.cost,180);assert.equal(infantryStats('samurai',1).damage,15.3*1.45);f.state.buildings[0].spent=240;assert.ok(validInfantry(f.state,map));f.state.buildings[0].spent=950;assert.ok(validInfantry(f.state,map));f.state.buildings[0].spent=999;assert.equal(validInfantry(f.state,map),false);
 });
